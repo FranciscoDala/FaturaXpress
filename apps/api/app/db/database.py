@@ -3,22 +3,22 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.orm import declarative_base
 from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
 from pathlib import Path
-from dotenv import load_dotenv # 1. Importa aqui
+from dotenv import load_dotenv
 import os
 
-# 2. Força carregar o .env da raiz aqui também
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+# Carrega .env da raiz do projeto
+ROOT_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(dotenv_path=ROOT_DIR / '.env')
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL não está definida nas variáveis de ambiente")
 
-# 3. Garante que é asyncpg
+# 1. Garante que é asyncpg
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-# 4. Limpa ssl/sslmode da URL
+# 2. Limpa ssl/sslmode da URL porque vamos passar no connect_args
 parsed = urlparse(DATABASE_URL)
 query = parse_qs(parsed.query)
 query.pop("sslmode", None)
@@ -28,11 +28,16 @@ clean_url = urlunparse((
     parsed.params, urlencode(query, doseq=True), parsed.fragment
 ))
 
+# 3. Config de SSL: só ativa em produção/Render
+connect_args = {}
+if os.getenv("ENV") == "prod" or "render.com" in os.getenv("DATABASE_URL", ""):
+    connect_args["ssl"] = "require" 
+
 engine = create_async_engine(
     clean_url,
     echo=False,
     pool_pre_ping=True,
-    connect_args={"ssl": True} # Neon precisa disso
+    connect_args=connect_args
 )
 
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.cloudinaryUploads import cloudinary # <- importa pra já configurar no boot
+from app.cloudinaryUploads import cloudinary
 from app.db.database import Base, engine
 
 from app.api.v1 import (

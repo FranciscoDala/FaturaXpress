@@ -23,14 +23,14 @@ export default function Register() {
         setLoading(false)
     }
 
+    // CLASSE UNICA COM BORDA PRA TODOS
     const inputClass = "w-full h-11 pl-10 pr-3 border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white"
-    const inputClassNoIcon = "w-full h-11 px-3 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white"
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-[#F8FAFC]">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(37,99,235,0.15),rgba(255,255,255,0))]"/>
 
-            <div className="relative w-full max-w-[440px] bg-white rounded-2xl p-8 shadow-xl border border-gray-200 max-h-[90vh] overflow-y-auto hide-scrollbar">
+            <div className="relative w-full max-w-[440px] bg-white rounded-2xl p-8 shadow-xl border-gray-200 max-h-[90vh] overflow-y-auto hide-scrollbar">
                 <div className="text-center mb-6">
                     <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4 shadow-md">
                         <Building2 className="w-7 h-7 text-white" />
@@ -50,20 +50,20 @@ export default function Register() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">NIF</label>
-                            <div className="relative">
-                                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={inputClass} placeholder="123456789" />
-                            </div>
+                    {/* TIREI O GRID. AGORA É COLUNA */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">NIF</label>
+                        <div className="relative">
+                            <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={inputClass} placeholder="123456789" />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Telefone</label>
-                            <div className="relative">
-                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required className={inputClass} placeholder="+244" />
-                            </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Telefone</label>
+                        <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required className={inputClass} placeholder="+244" />
                         </div>
                     </div>
 
@@ -83,18 +83,24 @@ export default function Register() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Cidade</label>
-                            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} required className={inputClassNoIcon} placeholder="Luanda" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Província</label>
-                            <input type="text" value={province} onChange={(e) => setProvince(e.target.value)} required className={inputClassNoIcon} placeholder="Luanda" />
+                    {/* TIREI O GRID. AGORA É COLUNA */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Cidade</label>
+                        <div className="relative">
+                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} required className={inputClass} placeholder="Luanda" />
                         </div>
                     </div>
 
-                    <div className="border-t pt-4 space-y-3">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Província</label>
+                        <div className="relative">
+                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input type="text" value={province} onChange={(e) => setProvince(e.target.value)} required className={inputClass} placeholder="Luanda" />
+                        </div>
+                    </div>
+
+                    <div className="border-t pt-4 space-y-4">
                         <h2 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Administrador</h2>
 
                         <div>
@@ -132,8 +138,8 @@ export default function Register() {
                 </p>
 
                 <style>{`
-                 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-                 .hide-scrollbar::-webkit-scrollbar { display: none; }
+                .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                .hide-scrollbar::-webkit-scrollbar { display: none; }
                 `}</style>
             </div>
         </div>

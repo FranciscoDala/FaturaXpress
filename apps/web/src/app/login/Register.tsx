@@ -26,7 +26,7 @@ export default function Register() {
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-white"> {/* FUNDO BRANCO */}
 
-            <div className="relative w-full max-w-[440px] bg-white rounded-2xl p-8 border-gray-200 max-h-[90vh] overflow-y-auto hide-scrollbar"> {/* SÓ BORDA, SEM SHADOW E SEM GRADIENTE */}
+            <div className="relative w-full max-w-[440px] bg-white rounded-2xl p-8 border border-gray-200 max-h-[90vh] overflow-y-auto hide-scrollbar"> {/* SÓ BORDA, SEM SHADOW E SEM GRADIENTE */}
                 <div className="text-center mb-6">
                     <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4"> {/* TIREI SHADOW */}
                         <Building2 className="w-7 h-7 text-white" />

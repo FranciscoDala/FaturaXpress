@@ -2,8 +2,8 @@ services:
     - type: web
     name: faturaxpress-api
     runtime: docker
-    dockerfilePath: ./apps/api/Dockerfile
-    rootDir: .  # <- importante: raiz do projeto
+    dockerfilePath: ./Dockerfile  # <- agora na raiz
+    rootDir: .
     envVars:
             - key: DATABASE_URL
         sync: false

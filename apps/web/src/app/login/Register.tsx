@@ -111,7 +111,7 @@ export default function Register() {
                         <div>
                             <div className="relative">
                                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className={inputClass} placeholder="Mínimo 6 caracteres" />
+                                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className={inputClass} placeholder="Palavra-passe" />
                             </div>
                         </div>
                     </div>

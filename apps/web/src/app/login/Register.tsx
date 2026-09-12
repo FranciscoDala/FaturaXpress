@@ -23,8 +23,8 @@ export default function Register() {
         setLoading(false)
     }
 
-    // CORRIGIDO: border-gray-300
-    const inputClass = "w-full h-11 pl-10 pr-3 border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white"
+    // ADICIONEI "border" AQUI
+    const inputClass = "w-full h-11 pl-10 pr-3 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white"
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-[#F8FAFC]">
@@ -39,7 +39,7 @@ export default function Register() {
                     <p className="text-gray-500 text-sm mt-1">Comece a emitir faturas hoje</p>
                 </div>
 
-                <form onSubmit={handleRegister} className="space-y-0.5">
+                <form onSubmit={handleRegister} className="space-y-4">
 
                     <div>
                         <div className="relative">
@@ -90,8 +90,8 @@ export default function Register() {
                         </div>
                     </div>
 
-                    <div className="border-t border-gray-200 pt-3 mt-2 space-y-0.5">
-                        <h2 className="text-xs font-semibold text-gray-900 uppercase tracking-wider pb-1">Administrador</h2>
+                    <div className="border-t pt-4 space-y-4">
+                        <h2 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Administrador</h2>
 
                         <div>
                             <div className="relative">
@@ -115,7 +115,7 @@ export default function Register() {
                         </div>
                     </div>
 
-                    <button type="submit" disabled={loading} className="w-full h-11 rounded-lg bg-blue-600 text-white font-semibold text-sm transition hover:bg-blue-700 disabled:opacity-60 shadow-sm hover:shadow mt-3">
+                    <button type="submit" disabled={loading} className="w-full h-11 rounded-lg bg-blue-600 text-white font-semibold text-sm transition hover:bg-blue-700 disabled:opacity-60 shadow-sm hover:shadow">
                         {loading? 'Registrando...' : 'Registrar Empresa'}
                     </button>
                 </form>
@@ -125,8 +125,8 @@ export default function Register() {
                 </p>
 
                 <style>{`
-             .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-             .hide-scrollbar::-webkit-scrollbar { display: none; }
+               .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+               .hide-scrollbar::-webkit-scrollbar { display: none; }
                 `}</style>
             </div>
         </div>

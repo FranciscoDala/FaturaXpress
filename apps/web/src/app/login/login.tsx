@@ -15,14 +15,14 @@ export default function LoginPage() {
         setLoading(false)
     }
 
-    const inputClass = "w-full h-11 pl-10 pr-3 border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white mb-[5px]"
+    const inputClass = "w-full h-11 pl-10 pr-3 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white mb-[5px]"
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-white"> {/* MUDEI AQUI */}
+        <div className="min-h-screen flex items-center justify-center p-4 bg-white">
 
-            <div className="relative w-full max-w-[400px] bg-white rounded-2xl p-8 shadow-xl border-gray-200">
+            <div className="relative w-full max-w-[400px] bg-white rounded-2xl p-8 border border-gray-200"> {/* SÓ BORDA, SEM SHADOW */}
                 <div className="text-center mb-6">
-                    <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4 shadow-md">
+                    <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4">
                         <Building2 className="w-7 h-7 text-white" />
                     </div>
                     <h1 className="text-2xl font-bold text-gray-900">FaturaXpress</h1>
@@ -64,7 +64,7 @@ export default function LoginPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full h-11 rounded-lg bg-blue-600 text-white font-semibold text-sm transition hover:bg-blue-700 disabled:opacity-60 shadow-sm hover:shadow mt-3"
+                        className="w-full h-11 rounded-lg bg-blue-600 text-white font-semibold text-sm transition hover:bg-blue-700 disabled:opacity-60 mt-3"
                     >
                         {loading? 'Entrando...' : 'Entrar'}
                     </button>

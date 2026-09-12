@@ -1,134 +1,82 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Building2, Mail, Lock, User, Phone, MapPin, FileText } from 'lucide-react'
+import { Building2, FileText, Lock } from 'lucide-react'
 
-export default function Register() {
+export default function LoginPage() {
+    const [nif, setNif] = useState('')
+    const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
     const navigate = useNavigate()
-    const [companyName, setCompanyName] = useState('')
-    const [nif, setNif] = useState('')
-    const [emailCompany, setEmailCompany] = useState('')
-    const [phone, setPhone] = useState('')
-    const [address, setAddress] = useState('')
-    const [city, setCity] = useState('')
-    const [province, setProvince] = useState('')
-    const [adminName, setAdminName] = useState('')
-    const [adminEmail, setAdminEmail] = useState('')
-    const [password, setPassword] = useState('')
 
-    const handleRegister = async (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
-        setTimeout(() => navigate('/login'), 1500)
+        // aqui tu vai chamar tua API com nif + password
+        setTimeout(() => navigate('/dashboard'), 1000)
         setLoading(false)
     }
-
-    // ADICIONEI "border" AQUI
 
     const inputClass = "w-full h-11 pl-10 pr-3 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white mb-[5px]"
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-[#F8FAFC]">
+            {/* FUNDO CLARO COM GRADIENTE SUTIL */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(37,99,235,0.15),rgba(255,255,255,0))]"/>
 
-            <div className="relative w-full max-w-[440px] bg-white rounded-2xl p-8 shadow-xl border-gray-200 max-h-[90vh] overflow-y-auto hide-scrollbar">
+            <div className="relative w-full max-w-[400px] bg-white rounded-2xl p-8 shadow-xl border-gray-200">
                 <div className="text-center mb-6">
                     <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4 shadow-md">
                         <Building2 className="w-7 h-7 text-white" />
                     </div>
-                    <h1 className="text-2xl font-bold text-gray-900">Registre sua empresa</h1>
-                    <p className="text-gray-500 text-sm mt-1">Comece a emitir faturas hoje</p>
+                    <h1 className="text-2xl font-bold text-gray-900">FaturaXpress</h1>
+                    <p className="text-gray-500 text-sm mt-1">Acesse com seu NIF</p>
                 </div>
 
-                <form onSubmit={handleRegister} className="space-y-0">
-
-                    <div>
-                        <div className="relative">
-                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required className={inputClass} placeholder="Nome da Empresa Lda" />
-                        </div>
-                    </div>
-
+                <form onSubmit={handleLogin} className="space-y-0">
+                    {/* NIF */}
                     <div>
                         <div className="relative">
                             <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={inputClass} placeholder="NIF" />
+                            <input
+                                type="text"
+                                value={nif}
+                                onChange={(e) => setNif(e.target.value)}
+                                required
+                                className={inputClass}
+                                placeholder="NIF da Empresa"
+                                disabled={loading}
+                            />
                         </div>
                     </div>
 
+                    {/* SENHA */}
                     <div>
                         <div className="relative">
-                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required className={inputClass} placeholder="+244-Telefone" />
+                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                className={inputClass}
+                                placeholder="Palavra-passe"
+                                disabled={loading}
+                            />
                         </div>
                     </div>
 
-                    <div>
-                        <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input type="email" value={emailCompany} onChange={(e) => setEmailCompany(e.target.value)} required className={inputClass} placeholder="email@empresa.com" />
-                        </div>
-                    </div>
-
-                    <div>
-                        <div className="relative">
-                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} required className={inputClass} placeholder="Rua, Bairro" />
-                        </div>
-                    </div>
-
-                    <div>
-                        <div className="relative">
-                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} required className={inputClass} placeholder="Cidade" />
-                        </div>
-                    </div>
-
-                    <div>
-                        <div className="relative">
-                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input type="text" value={province} onChange={(e) => setProvince(e.target.value)} required className={inputClass} placeholder="Província" />
-                        </div>
-                    </div>
-
-                    <div className="border-t pt-4 space-y-0">
-                        <h2 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Administrador</h2>
-
-                        <div>
-                            <div className="relative">
-                                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <input type="text" value={adminName} onChange={(e) => setAdminName(e.target.value)} required className={inputClass} placeholder="Nome Completo" />
-                            </div>
-                        </div>
-
-                        <div>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} required className={inputClass} placeholder="email@empresa.com" />
-                            </div>
-                        </div>
-
-                        <div>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className={inputClass} placeholder="Palavra-passe" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <button type="submit" disabled={loading} className="w-full h-11 rounded-lg bg-blue-600 text-white font-semibold text-sm transition hover:bg-blue-700 disabled:opacity-60 shadow-sm hover:shadow">
-                        {loading? 'Registrando...' : 'Registrar Empresa'}
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full h-11 rounded-lg bg-blue-600 text-white font-semibold text-sm transition hover:bg-blue-700 disabled:opacity-60 shadow-sm hover:shadow mt-3"
+                    >
+                        {loading? 'Entrando...' : 'Entrar'}
                     </button>
                 </form>
 
                 <p className="text-center text-sm text-gray-600 mt-6">
-                    Já tem conta? <Link to="/login" className="text-blue-600 font-semibold hover:underline">Fazer login</Link>
+                    Não tem conta? <Link to="/register" className="text-blue-600 font-semibold hover:underline">Criar conta</Link>
                 </p>
-
-                <style>{`
-               .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-               .hide-scrollbar::-webkit-scrollbar { display: none; }
-                `}</style>
             </div>
         </div>
     )

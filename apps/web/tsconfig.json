@@ -16,10 +16,12 @@
         "resolveJsonModule": true,
         "isolatedModules": true,
         "noEmit": true,
-        "strict": true
+        "strict": true,
+        "forceConsistentCasingInFileNames": true  // <- ADICIONA ESSA
     },
     "include": [
         "src",
         "vite.config.ts"
-    ],
+    ]
+    // <- TIRA ESSA VIRGULA AQUI
 }

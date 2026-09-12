@@ -91,8 +91,8 @@ export default function Register() {
                         </div>
                     </div>
 
-                    <div className="border-t pt-4 space-y-0">
-                        <h2 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Administrador</h2>
+                    <div className="pt-4 space-y-0">
+                        <h2 className="text-xs font-semibold text-gray-900 capitalize tracking-wider">Administrador</h2>
 
                         <div>
                             <div className="relative">

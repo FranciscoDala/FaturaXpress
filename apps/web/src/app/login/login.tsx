@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Mail, Lock } from 'lucide-react' // <- importa os ícones
 
 export default function LoginPage() {
     const [email, setEmail] = useState('')
@@ -12,13 +13,7 @@ export default function LoginPage() {
         setLoading(true)
 
         try {
-            // Aqui depois tu conecta com tua API
-            // const res = await axios.post('/api/auth/login', { email, password })
-            // localStorage.setItem('token', res.data.token)
-
             console.log('Login:', { email, password })
-
-            // Simulação: vai pro dashboard
             setTimeout(() => {
                 navigate('/dashboard')
             }, 1000)
@@ -39,35 +34,43 @@ export default function LoginPage() {
                     <p className="mt-2 text-gray-600">Entre na sua conta</p>
                 </div>
 
-                <form onSubmit={handleLogin} className="space-y-4">
-                    <div>
+                <form onSubmit={handleLogin} className="space-y-4 flex-col items-center">
+                    {/* INPUT EMAIL */}
+                    <div className="w-[250px]">
                         <label className="block text-sm font-medium text-gray-700">Email</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            className="mt-1 w-full px-3 py-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                            placeholder="voce@empresa.com"
-                        />
+                        <div className="relative mt-1"> {/* <- wrapper relative */}
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /> {/* <- ícone */}
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                className="w-[250px] pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" // <- pl-9 pra dar espaço pro ícone
+                                placeholder="voce@empresa.com"
+                            />
+                        </div>
                     </div>
 
-                    <div>
+                    {/* INPUT SENHA */}
+                    <div className="w-[250px]">
                         <label className="block text-sm font-medium text-gray-700">Senha</label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            className="mt-1 w-full px-3 py-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                            placeholder="••••••••"
-                        />
+                        <div className="relative mt-1">
+                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /> {/* <- ícone */}
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                className="w-[250px] pl-9 pr-3 py-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" // <- pl-9
+                                placeholder="••••"
+                            />
+                        </div>
                     </div>
 
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-2 px-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                        className="w-[250px] py-2 px-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                     >
                         {loading ? 'Entrando...' : 'Entrar'}
                     </button>

@@ -1,14 +1,11 @@
 {
-    "name": "faturaxpress",
+    "name": "faturaxpress-root",
     "private": true,
-    "version": "1.0.0",
-    "type": "module",
     "scripts": {
-        "dev": "npm run dev --workspace=apps/web",
-        "build": "npm run build --workspace=apps/web",
-        "preview": "npm run preview --workspace=apps/web"
+        "install": "echo 'skip root install'",
+        "build": "echo 'skip root build'"
     },
-    "workspaces": [
-        "apps/*"
-    ]
+    "engines": {
+        "node": "20.x"
+    }
 }

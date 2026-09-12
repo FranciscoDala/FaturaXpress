@@ -27,7 +27,7 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-            {/* CARD PRINCIPAL COM WIDTH FIXA */}
+            {/* CARD COM 300px */}
             <div className="w-[300px] p-6 space-y-5 bg-white rounded-2xl shadow-lg">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-gray-900">FaturaXpress</h1>
@@ -45,7 +45,7 @@ export default function LoginPage() {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
-                                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" // <- border adicionado
                                 placeholder="voce@empresa.com"
                             />
                         </div>
@@ -61,7 +61,7 @@ export default function LoginPage() {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
-                                className="w-full pl-9 pr-3 py-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                                className="w-full pl-9 pr-3 py-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" // <- border adicionado
                                 placeholder="••••"
                             />
                         </div>

@@ -2,10 +2,12 @@ services:
     - type: web
     name: faturaxpress-api
     runtime: docker
-    dockerfilePath: ./Dockerfile  # <- agora na raiz
-    rootDir: .
+    dockerfilePath: ./Dockerfile
+    # rootDir: .  <- APAGA ESSA LINHA
     envVars:
             - key: DATABASE_URL
         sync: false
             - key: SECRET_KEY
         generateValue: true
+            - key: PYTHON_VERSION
+        value: 3.11.9

@@ -28,13 +28,11 @@ export default function LoginPage() {
                         <Building2 className="w-7 h-7 text-white" />
                     </div>
                     <h1 className="text-2xl font-bold text-gray-900">FaturaXpress</h1>
-                    <p className="text-gray-500 text-sm mt-1">Entre na sua conta</p>
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-4">
                     {/* EMAIL COM BORDA */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
                         <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <input
@@ -43,7 +41,7 @@ export default function LoginPage() {
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
                                 className={inputClass}
-                                placeholder="voce@empresa.com"
+                                placeholder="email@empresa.com"
                                 disabled={loading}
                             />
                         </div>
@@ -51,7 +49,6 @@ export default function LoginPage() {
 
                     {/* SENHA COM BORDA */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Senha</label>
                         <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <input

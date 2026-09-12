@@ -23,8 +23,8 @@ export default function Register() {
         setLoading(false)
     }
 
-    // CLASSE UNICA COM BORDA PRA TODOS
-    const inputClass = "w-full h-11 pl-10 pr-3 border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white"
+    // ADICIONEI "border" AQUI
+    const inputClass = "w-full h-11 pl-10 pr-3 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white"
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-[#F8FAFC]">
@@ -50,7 +50,6 @@ export default function Register() {
                         </div>
                     </div>
 
-                    {/* TIREI O GRID. AGORA É COLUNA */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">NIF</label>
                         <div className="relative">
@@ -83,7 +82,6 @@ export default function Register() {
                         </div>
                     </div>
 
-                    {/* TIREI O GRID. AGORA É COLUNA */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Cidade</label>
                         <div className="relative">
@@ -138,8 +136,8 @@ export default function Register() {
                 </p>
 
                 <style>{`
-                .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-                .hide-scrollbar::-webkit-scrollbar { display: none; }
+               .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+               .hide-scrollbar::-webkit-scrollbar { display: none; }
                 `}</style>
             </div>
         </div>

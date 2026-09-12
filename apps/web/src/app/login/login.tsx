@@ -11,23 +11,12 @@ export default function LoginPage() {
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
-
-        try {
-            console.log('Login:', { email, password })
-            setTimeout(() => {
-                navigate('/dashboard')
-            }, 1000)
-        } catch (error) {
-            console.error(error)
-            alert('Email ou senha inválidos')
-        } finally {
-            setLoading(false)
-        }
+        setTimeout(() => navigate('/dashboard'), 1000)
+        setLoading(false)
     }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-            {/* CARD COM 300px */}
             <div className="w-[300px] p-6 space-y-5 bg-white rounded-2xl shadow-lg">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-gray-900">FaturaXpress</h1>
@@ -35,7 +24,7 @@ export default function LoginPage() {
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-4">
-                    {/* INPUT EMAIL */}
+                    {/* EMAIL */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                         <div className="relative">
@@ -45,13 +34,13 @@ export default function LoginPage() {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
-                                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" // <- border adicionado
+                                className="w-full pl-9 pr-3 py-2 border-2 border-blue-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
                                 placeholder="voce@empresa.com"
                             />
                         </div>
                     </div>
 
-                    {/* INPUT SENHA */}
+                    {/* SENHA */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
                         <div className="relative">
@@ -61,26 +50,18 @@ export default function LoginPage() {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
-                                className="w-full pl-9 pr-3 py-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" // <- border adicionado
+                                className="w-full pl-9 pr-3 py-2 border-2 border-blue-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
                                 placeholder="••••"
                             />
                         </div>
                     </div>
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full py-2 px-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm"
-                    >
+                    <button type="submit" disabled={loading} className="w-full py-2 px-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm">
                         {loading? 'Entrando...' : 'Entrar'}
                     </button>
                 </form>
 
-                {/* LINKS */}
                 <div className="text-center space-y-2 pt-2">
-                    <p className="text-xs text-gray-500">
-                        Esqueceu a senha? <a href="#" className="text-blue-600 hover:underline">Recuperar</a>
-                    </p>
                     <p className="text-xs text-gray-600">
                         Não tem conta? <Link to="/register" className="text-blue-600 font-semibold hover:underline">Criar conta</Link>
                     </p>

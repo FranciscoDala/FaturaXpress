@@ -40,42 +40,36 @@ export default function Register() {
                 </div>
 
                 <form onSubmit={handleRegister} className="space-y-4">
-                    <h2 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Dados da Empresa</h2>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Nome da Empresa</label>
                         <div className="relative">
                             <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required className={inputClass} placeholder="FaturaXpress Lda" />
+                            <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required className={inputClass} placeholder="Nome da Empresa Lda" />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">NIF</label>
                         <div className="relative">
                             <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={inputClass} placeholder="123456789" />
+                            <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={inputClass} placeholder="NIF" />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Telefone</label>
                         <div className="relative">
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required className={inputClass} placeholder="+244" />
+                            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required className={inputClass} placeholder="+244-Telefone" />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Email da Empresa</label>
                         <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input type="email" value={emailCompany} onChange={(e) => setEmailCompany(e.target.value)} required className={inputClass} placeholder="contacto@empresa.co.ao" />
+                            <input type="email" value={emailCompany} onChange={(e) => setEmailCompany(e.target.value)} required className={inputClass} placeholder="email@empresa.com" />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Endereço</label>
                         <div className="relative">
                             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} required className={inputClass} placeholder="Rua, Bairro" />
@@ -83,18 +77,16 @@ export default function Register() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Cidade</label>
                         <div className="relative">
                             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} required className={inputClass} placeholder="Luanda" />
+                            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} required className={inputClass} placeholder="Cidade" />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Província</label>
                         <div className="relative">
                             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input type="text" value={province} onChange={(e) => setProvince(e.target.value)} required className={inputClass} placeholder="Luanda" />
+                            <input type="text" value={province} onChange={(e) => setProvince(e.target.value)} required className={inputClass} placeholder="Província" />
                         </div>
                     </div>
 
@@ -102,23 +94,20 @@ export default function Register() {
                         <h2 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Administrador</h2>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Nome Completo</label>
                             <div className="relative">
                                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <input type="text" value={adminName} onChange={(e) => setAdminName(e.target.value)} required className={inputClass} placeholder="Seu nome" />
+                                <input type="text" value={adminName} onChange={(e) => setAdminName(e.target.value)} required className={inputClass} placeholder="Nome Completo" />
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Email de Acesso</label>
                             <div className="relative">
                                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} required className={inputClass} placeholder="voce@empresa.co.ao" />
+                                <input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} required className={inputClass} placeholder="email@empresa.com" />
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Senha</label>
                             <div className="relative">
                                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className={inputClass} placeholder="Mínimo 6 caracteres" />

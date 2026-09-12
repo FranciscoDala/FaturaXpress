@@ -22,7 +22,7 @@ export default function LoginPage() {
             {/* FUNDO CLARO COM GRADIENTE SUTIL */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(37,99,235,0.15),rgba(255,255,255,0))]"/>
 
-            <div className="relative w-full max-w-[400px] bg-white rounded-2xl p-8 shadow-xl border-gray-200">
+            <div className="relative w-full max-w-[400px] bg-white rounded-2xl p-8">
                 <div className="text-center mb-6">
                     <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4 shadow-md">
                         <Building2 className="w-7 h-7 text-white" />

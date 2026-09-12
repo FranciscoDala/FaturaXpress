@@ -30,7 +30,7 @@ export default function LoginPage() {
                     <h1 className="text-2xl font-bold text-gray-900">FaturaXpress</h1>
                 </div>
 
-                <form onSubmit={handleLogin} className="space-y-4">
+                <form onSubmit={handleLogin} className="space-y-0">
                     {/* EMAIL COM BORDA */}
                     <div>
                         <div className="relative">

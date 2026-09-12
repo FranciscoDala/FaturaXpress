@@ -4,11 +4,14 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y libpq-dev && rm -rf /var/lib/apt/lists/*
 
-COPY . .
+# Copia só o requirements da raiz primeiro pra cache
+COPY requirements.txt .
 
-# INSTALA USANDO CAMINHO ABSOLUTO. Não depende de WORKDIR
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r /app/apps/api/requirements.txt
+# Instala
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements.txt
+
+# Agora copia o código todo
+COPY . .
 
 EXPOSE 10000
 

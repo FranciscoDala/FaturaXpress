@@ -20,8 +20,8 @@ export default function Register() {
         setTimeout(() => navigate('/login'), 1500)
         setLoading(false)
     }
-
-    const inputClass = "w-full h-11 pl-10 pr-3 border-gray-300 rounded-lg text-base text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white mb-[5px]"
+    
+    const inputClass = "w-full h-11 pl-10 pr-3 border border-gray-300 rounded-lg text-base text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white mb-[5px]"
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-white"> {/* FUNDO BRANCO */}

@@ -1,13 +1,14 @@
 services:
-    - type: web
-    name: faturaxpress-api
-    runtime: docker
-    dockerfilePath: ./Dockerfile
-    # rootDir: .  <- APAGA ESSA LINHA
-    envVars:
-            - key: DATABASE_URL
-        sync: false
-            - key: SECRET_KEY
-        generateValue: true
-            - key: PYTHON_VERSION
-        value: 3.11.9
+    - type: static
+    name: sige-frontend
+    rootDir: apps/web
+    buildCommand: npm install --include=dev && npm run build
+    staticPublishPath: dist
+    headers:
+            - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+            - type: rewrite
+        source: /*
+        destination: /index.html

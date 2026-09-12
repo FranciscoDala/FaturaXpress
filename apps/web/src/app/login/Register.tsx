@@ -24,7 +24,8 @@ export default function Register() {
     }
 
     // ADICIONEI "border" AQUI
-    const inputClass = "w-full h-11 pl-10 pr-3 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white"
+
+    const inputClass = "w-full h-11 pl-10 pr-3 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white mb-[5px]"
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-[#F8FAFC]">
@@ -39,7 +40,7 @@ export default function Register() {
                     <p className="text-gray-500 text-sm mt-1">Comece a emitir faturas hoje</p>
                 </div>
 
-                <form onSubmit={handleRegister} className="space-y-4">
+                <form onSubmit={handleRegister} className="space-y-0">
 
                     <div>
                         <div className="relative">

@@ -1,0 +1,166 @@
+@import url('https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    --cor-primaria: #3b82f6;
+    --cor-secundaria: #8b5cf6;
+    --cor-fundo: #ffffff;
+    --cor-fundo-escuro: #0f172a;
+    --cor-texto-escuro: #1e293b;
+    --cor-texto-claro: #e5e7eb;
+
+    --fonte-principal: 'Zalando Sans Expanded';
+    --fonte-titulo: 'Zalando Sans Expanded';
+    --fonte-corpo: 'Zalando Sans Expanded';
+}
+
+html {
+    font-size: 90%;
+    scroll-behavior: smooth;
+}
+
+* {
+    font-family: var(--fonte-principal), sans-serif;
+    font-optical-sizing: auto;
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100vh;
+    background-color: var(--cor-fundo-escuro);
+    color: var(--cor-texto-claro);
+    transition: background-color 0.25s ease, color 0.25s ease;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: var(--fonte-titulo), sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+p,
+span,
+div,
+label,
+input,
+button,
+textarea,
+select {
+    font-family: var(--fonte-corpo), sans-serif;
+}
+
+/* Tema claro */
+html[data-tema='claro'] body {
+    background-color: var(--cor-fundo);
+    color: var(--cor-texto-escuro);
+}
+
+/* Tema escuro */
+html[data-tema='escuro'] body {
+    background-color: var(--cor-fundo-escuro);
+    color: var(--cor-texto-claro);
+}
+
+/* Card style global */
+html[data-card-style='quadrado'] .rounded-2xl {
+    border-radius: 0.25rem !important;
+}
+
+html[data-card-style='minimalista'] .rounded-2xl {
+    border-radius: 0.5rem !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: none !important;
+}
+
+html[data-card-style='arredondado'] .rounded-2xl {
+    border-radius: 1rem !important;
+}
+
+html[data-card-style='elevado'] .rounded-2xl {
+    border-radius: 1rem !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2) !important;
+}
+
+html[data-card-style='borda_colorida'] .rounded-2xl {
+    border-radius: 1rem !important;
+    border: 2px solid var(--cor-primaria) !important;
+}
+
+html[data-card-style='glass'] .rounded-2xl {
+    border-radius: 1rem !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(150%) !important; /* Safari */
+    backdrop-filter: blur(20px) saturate(150%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+html[data-tema='claro'][data-card-style='glass'] .rounded-2xl {
+    background: rgba(0, 0, 0, 0.03) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+html[data-tema='claro'][data-card-style='borda_colorida'] .rounded-2xl {
+    border: 2px solid var(--cor-primaria) !important;
+}
+
+/* Ajustes do tema claro para classes do Tailwind */
+html[data-tema='claro'] .bg-white\/5 {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+html[data-tema='claro'] .border-white\/10 {
+    border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+html[data-tema='claro'] .text-gray-400 {
+    color: #64748b !important;
+}
+
+html[data-tema='claro'] .text-gray-300 {
+    color: #334155 !important;
+}
+
+html[data-tema='claro'] .text-gray-500 {
+    color: #64748b !important;
+}
+
+html[data-tema='claro'] .backdrop-blur-xl {
+    -webkit-backdrop-filter: blur(20px) saturate(150%); /* Safari */
+    backdrop-filter: blur(20px) saturate(150%);
+}
+
+/* Botões com gradiente no tema claro */
+html[data-tema='claro'] button[style*='linear-gradient'] {
+    color: white !important;
+}
+
+html[data-tema='claro'] button[style*='linear-gradient'] svg {
+    color: white !important;
+}
+
+/* Correção para evitar zoom em inputs no mobile */
+input,
+textarea,
+select {
+    font-size: 16px !important; /* iOS só respeita com !important */
+}
+
+button {
+    font-size: 14px; /* botão pode ser menor, sem !important */
+}
+
+@media (max-width: 768px) {
+    html {
+        font-size: 88%;
+    }
+}

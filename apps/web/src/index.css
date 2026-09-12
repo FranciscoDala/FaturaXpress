@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+    font-family: "Zalando Sans Expanded", sans-serif; /* <- NOME CORRETO */
+    font-optical-sizing: auto;
+    font-weight: 400; /* <- default */
+    font-style: normal;
+}
+
+body {
+    background-color: #0F172A;
+    color: #E5E7EB;
+    min-height: 100vh;
+}

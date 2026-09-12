@@ -23,8 +23,7 @@ export default function Register() {
         setLoading(false)
     }
 
-    // ADICIONEI "border" AQUI
-    const inputClass = "w-full h-11 pl-10 pr-3 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white"
+    const inputClass = "w-full h-11 pl-10 pr-3 border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white"
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-[#F8FAFC]">
@@ -35,11 +34,11 @@ export default function Register() {
                     <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4 shadow-md">
                         <Building2 className="w-7 h-7 text-white" />
                     </div>
-                    <h1 className="text-2xl font-bold text-gray-900">Criar Conta</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">Registre sua empresa</h1>
                     <p className="text-gray-500 text-sm mt-1">Comece a emitir faturas hoje</p>
                 </div>
 
-                <form onSubmit={handleRegister} className="space-y-4">
+                <form onSubmit={handleRegister} className="space-y-0.5"> {/* AQUI: 2px */}
 
                     <div>
                         <div className="relative">
@@ -90,8 +89,8 @@ export default function Register() {
                         </div>
                     </div>
 
-                    <div className="border-t pt-4 space-y-4">
-                        <h2 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Administrador</h2>
+                    <div className="border-t pt-2 mt-3 space-y-0.5"> {/* AQUI TAMBÉM: 2px */}
+                        <h2 className="text-xs font-semibold text-gray-900 uppercase tracking-wider pb-1">Administrador</h2>
 
                         <div>
                             <div className="relative">
@@ -115,18 +114,18 @@ export default function Register() {
                         </div>
                     </div>
 
-                    <button type="submit" disabled={loading} className="w-full h-11 rounded-lg bg-blue-600 text-white font-semibold text-sm transition hover:bg-blue-700 disabled:opacity-60 shadow-sm hover:shadow">
-                        {loading? 'Criando...' : 'Criar Empresa'}
+                    <button type="submit" disabled={loading} className="w-full h-11 rounded-lg bg-blue-600 text-white font-semibold text-sm transition hover:bg-blue-700 disabled:opacity-60 shadow-sm hover:shadow mt-3">
+                        {loading? 'Registrando...' : 'Registrar Empresa'}
                     </button>
                 </form>
 
-                <p className="text-center text-sm text-gray-600 mt-6">
+                <p className="text-center text-sm text-gray-600 mt-4">
                     Já tem conta? <Link to="/login" className="text-blue-600 font-semibold hover:underline">Fazer login</Link>
                 </p>
 
                 <style>{`
-               .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-               .hide-scrollbar::-webkit-scrollbar { display: none; }
+              .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+              .hide-scrollbar::-webkit-scrollbar { display: none; }
                 `}</style>
             </div>
         </div>

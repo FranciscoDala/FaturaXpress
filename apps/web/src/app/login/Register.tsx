@@ -1,18 +1,23 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Building2, FileText, Lock } from 'lucide-react'
+import { Building2, Mail, Lock, Phone, MapPin, FileText } from 'lucide-react'
 
-export default function LoginPage() {
-    const [nif, setNif] = useState('')
-    const [password, setPassword] = useState('')
+export default function Register() {
     const [loading, setLoading] = useState(false)
     const navigate = useNavigate()
+    const [companyName, setCompanyName] = useState('')
+    const [nif, setNif] = useState('')
+    const [emailCompany, setEmailCompany] = useState('')
+    const [phone, setPhone] = useState('')
+    const [address, setAddress] = useState('')
+    const [city, setCity] = useState('')
+    const [province, setProvince] = useState('')
+    const [password, setPassword] = useState('') // senha da empresa
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
-        // aqui tu vai chamar tua API com nif + password
-        setTimeout(() => navigate('/dashboard'), 1000)
+        setTimeout(() => navigate('/login'), 1500)
         setLoading(false)
     }
 
@@ -20,63 +25,89 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-[#F8FAFC]">
-            {/* FUNDO CLARO COM GRADIENTE SUTIL */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(37,99,235,0.15),rgba(255,255,255,0))]"/>
 
-            <div className="relative w-full max-w-[400px] bg-white rounded-2xl p-8 shadow-xl border-gray-200">
+            <div className="relative w-full max-w-[440px] bg-white rounded-2xl p-8 shadow-xl border-gray-200 max-h-[90vh] overflow-y-auto hide-scrollbar">
                 <div className="text-center mb-6">
                     <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4 shadow-md">
                         <Building2 className="w-7 h-7 text-white" />
                     </div>
-                    <h1 className="text-2xl font-bold text-gray-900">FaturaXpress</h1>
-                    <p className="text-gray-500 text-sm mt-1">Acesse com seu NIF</p>
+                    <h1 className="text-2xl font-bold text-gray-900">Registre sua empresa</h1>
+                    <p className="text-gray-500 text-sm mt-1">Comece a emitir faturas hoje</p>
                 </div>
 
-                <form onSubmit={handleLogin} className="space-y-0">
-                    {/* NIF */}
+                <form onSubmit={handleRegister} className="space-y-0">
+
+                    <div>
+                        <div className="relative">
+                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required className={inputClass} placeholder="Nome da Empresa Lda" />
+                        </div>
+                    </div>
+
                     <div>
                         <div className="relative">
                             <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input
-                                type="text"
-                                value={nif}
-                                onChange={(e) => setNif(e.target.value)}
-                                required
-                                className={inputClass}
-                                placeholder="NIF da Empresa"
-                                disabled={loading}
-                            />
+                            <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={inputClass} placeholder="NIF" />
                         </div>
                     </div>
 
-                    {/* SENHA */}
+                    <div>
+                        <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required className={inputClass} placeholder="+244-Telefone" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input type="email" value={emailCompany} onChange={(e) => setEmailCompany(e.target.value)} required className={inputClass} placeholder="email@empresa.com" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <div className="relative">
+                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} required className={inputClass} placeholder="Rua, Bairro" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <div className="relative">
+                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} required className={inputClass} placeholder="Cidade" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <div className="relative">
+                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input type="text" value={province} onChange={(e) => setProvince(e.target.value)} required className={inputClass} placeholder="Província" />
+                        </div>
+                    </div>
+
+                    {/* SENHA DA EMPRESA - AGORA AQUI EMBAIXO */}
                     <div>
                         <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                className={inputClass}
-                                placeholder="Palavra-passe"
-                                disabled={loading}
-                            />
+                            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className={inputClass} placeholder="Palavra-passe" />
                         </div>
                     </div>
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full h-11 rounded-lg bg-blue-600 text-white font-semibold text-sm transition hover:bg-blue-700 disabled:opacity-60 shadow-sm hover:shadow mt-3"
-                    >
-                        {loading? 'Entrando...' : 'Entrar'}
+                    <button type="submit" disabled={loading} className="w-full h-11 rounded-lg bg-blue-600 text-white font-semibold text-sm transition hover:bg-blue-700 disabled:opacity-60 shadow-sm hover:shadow mt-3">
+                        {loading? 'Registrando...' : 'Registrar Empresa'}
                     </button>
                 </form>
 
                 <p className="text-center text-sm text-gray-600 mt-6">
-                    Não tem conta? <Link to="/register" className="text-blue-600 font-semibold hover:underline">Criar conta</Link>
+                    Já tem conta? <Link to="/login" className="text-blue-600 font-semibold hover:underline">Fazer login</Link>
                 </p>
+
+                <style>{`
+              .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+              .hide-scrollbar::-webkit-scrollbar { display: none; }
+                `}</style>
             </div>
         </div>
     )

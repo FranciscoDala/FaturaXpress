@@ -71,7 +71,7 @@ export default function LoginPage() {
                 </form>
 
                 <p className="text-center text-sm text-gray-600 mt-6">
-                    Não tem conta? <Link to="/register" className="text-blue-600 font-semibold hover:underline">Criar conta</Link>
+                    Não tem conta? <Link to="/register" className="text-blue-600 font-semibold hover:underline">Registra-se</Link>
                 </p>
             </div>
         </div>

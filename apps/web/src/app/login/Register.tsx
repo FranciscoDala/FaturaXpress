@@ -23,6 +23,7 @@ export default function Register() {
         setLoading(false)
     }
 
+    // CORRIGIDO: border-gray-300
     const inputClass = "w-full h-11 pl-10 pr-3 border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white"
 
     return (
@@ -89,7 +90,7 @@ export default function Register() {
                         </div>
                     </div>
 
-                    <div className="border-t pt-3 mt-2 space-y-0.5">
+                    <div className="border-t border-gray-200 pt-3 mt-2 space-y-0.5">
                         <h2 className="text-xs font-semibold text-gray-900 uppercase tracking-wider pb-1">Administrador</h2>
 
                         <div>
@@ -124,8 +125,8 @@ export default function Register() {
                 </p>
 
                 <style>{`
-              .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-              .hide-scrollbar::-webkit-scrollbar { display: none; }
+             .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+             .hide-scrollbar::-webkit-scrollbar { display: none; }
                 `}</style>
             </div>
         </div>

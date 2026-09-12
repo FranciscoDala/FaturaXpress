@@ -15,13 +15,14 @@ export default function LoginPage() {
         setLoading(false)
     }
 
+    // CORRIGIDO: border-gray-300
     const inputClass = "w-full h-11 pl-10 pr-3 border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white"
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-[#F8FAFC]">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(37,99,235,0.15),rgba(255,255,255,0))]"/>
 
-            <div className="relative w-full max-w-[400px] bg-white rounded-2xl p-8 shadow-xl border border-gray-200">
+            <div className="relative w-full max-w-[400px] bg-white rounded-2xl p-8 shadow-xl border-gray-200">
                 <div className="text-center mb-6">
                     <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4 shadow-md">
                         <Building2 className="w-7 h-7 text-white" />

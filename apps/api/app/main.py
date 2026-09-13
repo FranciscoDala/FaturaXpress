@@ -9,11 +9,12 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.cloudinary_service import upload_to_cloudinary # <- CORRETO
+from app.cloudinary_service import upload_to_cloudinary
 from app.db.database import Base, engine
 
-# IMPORTA O ROUTER CORRETO DA NOVA ESTRUTURA
+# IMPORTA OS ROUTERS
 from app.modules.auth.router import router as auth_router
+from app.modules.clients.router import router as cliente_router # <- ADICIONA ISSO
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 def import_all_models():
     logger.info("Forçando import de todos os models...")
     from app.modules.auth import models
+    from app.modules.clients import models # <- ADICIONA ISSO pra mapear a tabela clientes
     tabelas = sorted(list(Base.metadata.tables.keys()))
     logger.info(f"Models registrados: {', '.join(tabelas)}")
     logger.info(f"Total: {len(tabelas)} tabelas mapeadas.")
@@ -53,7 +55,9 @@ allowed_origins = list(dict.fromkeys(allowed_origins))
 app.add_middleware(CORSMiddleware, allow_origins=allowed_origins, allow_origin_regex=r"https://.*\.onrender\.com", allow_credentials=True, allow_methods=["*"], allow_headers=["*"], expose_headers=["*"])
 logger.info(f"CORS liberado para: {allowed_origins}")
 
+# INCLUI OS ROUTERS
 app.include_router(auth_router, prefix="/api")
+app.include_router(cliente_router, prefix="/api")
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):

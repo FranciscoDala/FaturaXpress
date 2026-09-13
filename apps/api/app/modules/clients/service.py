@@ -14,7 +14,6 @@ def get_clientes(db: Session, company_id: uuid.UUID, skip: int = 0, limit: int =
     return db.query(Cliente).filter(Cliente.company_id == company_id).offset(skip).limit(limit).all()
 
 def create_cliente(db: Session, cliente: ClienteCreateRequest, company_id: uuid.UUID):
-    # Verifica se NIF já existe pra essa empresa
     db_cliente = db.query(Cliente).filter(Cliente.nif == cliente.nif, Cliente.company_id == company_id).first()
     if db_cliente:
         raise HTTPException(status_code=400, detail="Já existe um cliente com este NIF")
@@ -27,11 +26,9 @@ def create_cliente(db: Session, cliente: ClienteCreateRequest, company_id: uuid.
 
 def update_cliente(db: Session, cliente_id: uuid.UUID, cliente_update: ClienteUpdateRequest, company_id: uuid.UUID):
     db_cliente = get_cliente_by_id(db, cliente_id, company_id)
-
     update_data = cliente_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_cliente, key, value)
-
     db.commit()
     db.refresh(db_cliente)
     return db_cliente

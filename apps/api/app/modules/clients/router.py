@@ -8,9 +8,9 @@ from app.modules.clients.schemas import ClienteCreateRequest, ClienteResponse, C
 from app.modules.clients import service as cliente_service
 from app.core.security import get_current_company_id
 
-router = APIRouter(prefix="/api/clientes", tags=["Clientes"]) # <- AJUSTADO: /api/clientes
+router = APIRouter(prefix="/api/clientes", tags=["Clientes"])
 
-@router.post("/", response_model=ClienteResponse)
+@router.post("/", response_model=ClienteResponse, status_code=201)
 def create_cliente(
     cliente: ClienteCreateRequest,
     db: Session = Depends(get_db),

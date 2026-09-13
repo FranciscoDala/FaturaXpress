@@ -23,18 +23,15 @@ export default function ClienteModal({ open, onClose, onSuccess }: Props) {
 
     if (!open) return null
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { // <- AJUSTADO
-        setForm({ ...form, [e.target.name]: e.target.value })
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        setForm({...form, [e.target.name]: e.target.value })
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
         try {
-            const company_id = localStorage.getItem("company_id") // <- PEGA DA SESSAO
-            if (!company_id) throw new Error("Empresa não encontrada")
-
-            await api.post('/api/clientes/', { ...form, company_id }) // <- ENVIA
+            await api.post('/api/clientes/', form) // <- TIREI O company_id
             toast.success('Cliente criado com sucesso', { position: 'top-center' })
             setForm({ nome: '', nif: '', email: '', telefone: '', endereco: '', cidade: '', provincia: '' })
             onSuccess()
@@ -49,7 +46,6 @@ export default function ClienteModal({ open, onClose, onSuccess }: Props) {
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl w-full max-w-lg">
-                {/* HEADER */}
                 <div className="flex justify-between items-center p-6 border-b border-gray-200">
                     <h2 className="text-xl font-bold text-gray-900">Novo Cliente</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -57,7 +53,6 @@ export default function ClienteModal({ open, onClose, onSuccess }: Props) {
                     </button>
                 </div>
 
-                {/* FORM */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -68,7 +63,7 @@ export default function ClienteModal({ open, onClose, onSuccess }: Props) {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">NIF *</label>
                             <input name="nif" value={form.nif} onChange={handleChange} required
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                                className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
                         </div>
                     </div>
 
@@ -82,36 +77,35 @@ export default function ClienteModal({ open, onClose, onSuccess }: Props) {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
                             <input name="telefone" value={form.telefone} onChange={handleChange}
-                                className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
                             <input name="cidade" value={form.cidade} onChange={handleChange}
-                                className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
                         </div>
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Endereço</label>
                         <input name="endereco" value={form.endereco} onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                            className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Província</label>
                         <input name="provincia" value={form.provincia} onChange={handleChange}
-                            className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
                     </div>
 
-                    {/* FOOTER */}
                     <div className="flex justify-end gap-3 pt-4">
                         <button type="button" onClick={onClose}
-                            className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"> {/* <- CORRIGIDO border */}
+                            className="px-4 py-2 rounded-lg border-gray-300 text-gray-700 hover:bg-gray-50">
                             Cancelar
                         </button>
                         <button type="submit" disabled={loading}
                             className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
-                            {loading ? 'Salvando...' : 'Salvar'}
+                            {loading? 'Salvando...' : 'Salvar'}
                         </button>
                     </div>
                 </form>

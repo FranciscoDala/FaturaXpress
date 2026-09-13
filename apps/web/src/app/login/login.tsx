@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { FileText, Lock, Building2 } from 'lucide-react' // <- troquei Mail por FileText
+import { FileText, Lock, Building2, Loader2 } from 'lucide-react' // <- add Loader2
 import { toast } from 'sonner'
 
 const API_URL = "https://faturaxpress-backend.onrender.com/api"
 
 export default function LoginPage() {
-    const [nif, setNif] = useState('') // <- MUDOU
+    const [nif, setNif] = useState('')
     const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
     const navigate = useNavigate()
@@ -18,7 +18,7 @@ export default function LoginPage() {
             const res = await fetch(`${API_URL}/auth/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ nif, password }) // <- MUDOU: manda nif
+                body: JSON.stringify({ nif, password })
             })
 
             const data = await res.json()
@@ -27,11 +27,11 @@ export default function LoginPage() {
 
             localStorage.setItem("access_token", data.access_token)
             localStorage.setItem("company_id", data.company_id)
-            localStorage.setItem("company_name", data.company_name) // <- salvei o nome
+            localStorage.setItem("company_name", data.company_name)
 
             toast.success("Login realizado com sucesso!", { position: 'top-center' })
 
-            setTimeout(() => navigate('/dashboard'), 500)
+            setTimeout(() => navigate('/app/dashboard'), 500) // <- REDIRECIONA PRA /app/dashboard
 
         } catch (err: any) {
             toast.error(err.message, { position: 'top-center' })
@@ -78,8 +78,17 @@ export default function LoginPage() {
                         />
                     </div>
 
-                    <button type="submit" disabled={loading} className="w-full h-11 rounded-lg bg-blue-600 text-white font-semibold text-sm transition hover:bg-blue-700 disabled:opacity-60 mt-3">
-                        {loading? 'Entrando...' : 'Entrar'}
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full h-11 rounded-lg bg-blue-600 text-white font-semibold text-sm transition hover:bg-blue-700 disabled:opacity-60 mt-3 flex items-center justify-center gap-2"
+                    >
+                        {loading? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Entrando...
+                            </>
+                        ) : 'Entrar'}
                     </button>
                 </form>
 

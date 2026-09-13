@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Building2, Mail, Lock, Phone, MapPin, FileText } from 'lucide-react'
-import { toast } from 'sonner' // <- TIREI O Toaster daqui
+import { Building2, Mail, Lock, Phone, MapPin, FileText, Loader2 } from 'lucide-react' // <- add Loader2
+import { toast } from 'sonner'
 
 const API_URL = "https://faturaxpress-backend.onrender.com/api"
 
@@ -42,16 +42,15 @@ export default function Register() {
 
             if (!res.ok) throw new Error(data.detail || "Erro ao registrar")
 
-            toast.success(data.message, { position: 'top-center' }) // <- FORÇA CENTRO
+            toast.success(data.message, { position: 'top-center' })
 
-            // Limpa o form
             setCompanyName(''); setNif(''); setEmailCompany(''); setPhone('');
             setAddress(''); setCity(''); setProvince(''); setPassword('');
 
             setTimeout(() => navigate('/login'), 1500)
 
         } catch (err: any) {
-            toast.error(err.message, { position: 'top-center' }) // <- FORÇA CENTRO
+            toast.error(err.message, { position: 'top-center' })
             console.error("Erro no register:", err)
         } finally {
             setLoading(false)
@@ -62,7 +61,6 @@ export default function Register() {
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-white">
-            {/* <Toaster /> REMOVIDO DAQUI */}
             <div className="relative w-full max-w-[440px] bg-white rounded-2xl p-8 border border-gray-200 max-h-[90vh] overflow-y-auto hide-scrollbar">
                 <div className="text-center mb-6">
                     <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4">
@@ -82,8 +80,17 @@ export default function Register() {
                     <div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><input type="text" value={province} onChange={(e) => setProvince(e.target.value)} required className={inputClass} placeholder="Província" disabled={loading} /></div>
                     <div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className={inputClass} placeholder="Palavra-passe" disabled={loading} /></div>
 
-                    <button type="submit" disabled={loading} className="w-full h-11 rounded-lg bg-blue-600 text-white font-semibold text-sm transition hover:bg-blue-700 disabled:opacity-60 mt-3">
-                        {loading? 'Registrando...' : 'Registrar Empresa'}
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full h-11 rounded-lg bg-blue-600 text-white font-semibold text-sm transition hover:bg-blue-700 disabled:opacity-60 mt-3 flex items-center justify-center gap-2"
+                    >
+                        {loading? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Registrando...
+                            </>
+                        ) : 'Registrar Empresa'}
                     </button>
                 </form>
 

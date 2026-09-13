@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Building2, Mail, Lock, Phone, MapPin, FileText, AlertCircle, CheckCircle2 } from 'lucide-react'
 
-const API_URL = "http://localhost:10000/api" // IMPORTANTE: /api pq o backend usa prefix
+const API_URL = "https://faturaxpress-backend.onrender.com/api" // IMPORTANTE: /api pq o backend usa prefix
 
 export default function Register() {
     const [loading, setLoading] = useState(false)

@@ -31,7 +31,10 @@ export default function ClienteModal({ open, onClose, onSuccess }: Props) {
         e.preventDefault()
         setLoading(true)
         try {
-            await api.post('/api/clientes/', form)
+            const company_id = localStorage.getItem("company_id") // <- PEGA DA SESSAO
+            if (!company_id) throw new Error("Empresa não encontrada")
+
+            await api.post('/api/clientes/', { ...form, company_id }) // <- ENVIA
             toast.success('Cliente criado com sucesso', { position: 'top-center' })
             setForm({ nome: '', nif: '', email: '', telefone: '', endereco: '', cidade: '', provincia: '' })
             onSuccess()

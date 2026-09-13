@@ -14,7 +14,7 @@ from app.db.database import Base, engine
 
 # IMPORTA OS ROUTERS
 from app.modules.auth.router import router as auth_router
-from app.modules.clients.router import router as cliente_router # <- ADICIONA ISSO
+from app.modules.clients.router import router as cliente_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 def import_all_models():
     logger.info("Forçando import de todos os models...")
     from app.modules.auth import models
-    from app.modules.clients import models # <- ADICIONA ISSO pra mapear a tabela clientes
+    from app.modules.clients import models
     tabelas = sorted(list(Base.metadata.tables.keys()))
     logger.info(f"Models registrados: {', '.join(tabelas)}")
     logger.info(f"Total: {len(tabelas)} tabelas mapeadas.")
@@ -52,12 +52,20 @@ extra_origins = getattr(settings, "ALLOWED_ORIGINS_LIST", [])
 if isinstance(extra_origins, list): allowed_origins.extend(extra_origins)
 allowed_origins = list(dict.fromkeys(allowed_origins))
 
-app.add_middleware(CORSMiddleware, allow_origins=allowed_origins, allow_origin_regex=r"https://.*\.onrender\.com", allow_credentials=True, allow_methods=["*"], allow_headers=["*"], expose_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"https://.*\.onrender\.com",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"]
+)
 logger.info(f"CORS liberado para: {allowed_origins}")
 
-# INCLUI OS ROUTERS
+# INCLUI OS ROUTERS - CORRIGIDO: cliente_router sem prefix
 app.include_router(auth_router, prefix="/api")
-app.include_router(cliente_router, prefix="/api")
+app.include_router(cliente_router) # <- AQUI ERA O ERRO. TIREI O PREFIX="/api"
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):

@@ -12,4 +12,5 @@ COPY . .
 
 EXPOSE 10000
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000} --workers 1"]
+# RODA A MIGRATION E DEPOIS SOBE A API
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000} --workers 1"]

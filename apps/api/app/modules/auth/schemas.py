@@ -15,9 +15,9 @@ class RegisterResponse(BaseModel):
     message: str
 
 class CompanyResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True) # <- pra converter SQLAlchemy -> Pydantic
+    model_config = ConfigDict(from_attributes=True)
 
-    id: str
+    id: int # <- era str, agora int
     companyName: str
     nif: str
     email: str
@@ -27,7 +27,7 @@ class CompanyResponse(BaseModel):
     province: Optional[str] = None
 
 class LoginRequest(BaseModel):
-    email: str # pode ser email ou nif
+    email: str
     password: str
 
 class TokenResponse(BaseModel):

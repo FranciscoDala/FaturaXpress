@@ -13,20 +13,20 @@ def parse_cors(v: str) -> List[str]:
 class Settings(BaseSettings):
     # SERVER
     PORT: int = 10000
-    BASE_URL: str = "https://faturaxpress-backend.onrender.com" # <- tirei o https:// duplicado
-    ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://faturaxpress.onrender.com" # <- tirei o https:// duplicado
+    BASE_URL: str = "https://faturaxpress-backend.onrender.com"
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://faturaxpress.onrender.com"
 
     @property
     def ALLOWED_ORIGINS_LIST(self) -> List[str]:
         return parse_cors(self.ALLOWED_ORIGINS)
 
     # DATABASE - Neon FATURAEXPRESS
-    DATABASE_URL: str = "" # <- agora vem do.env
+    DATABASE_URL: str = ""
 
-    # AUTH - bate com teu.env
-    SECRET_KEY: str = "" # <- era JWT_SECRET
+    # AUTH - NOME PADRONIZADO
+    SECRET_KEY: str = "troca-essa-chave-super-secreta-em-prod"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080 # 7 dias
 
     # CLOUDINARY
     CLOUDINARY_CLOUD_NAME: str = ""
@@ -41,8 +41,3 @@ class Settings(BaseSettings):
     )
 
 settings = Settings()
-
-print(f"DEBUG CONFIG LOADED: DB={settings.DATABASE_URL[:40]}...")
-print(f"DEBUG CORS: {settings.ALLOWED_ORIGINS_LIST}")
-print(f"DEBUG BASE_URL: {settings.BASE_URL}")
-print(f"DEBUG CLOUDINARY: {settings.CLOUDINARY_CLOUD_NAME}")

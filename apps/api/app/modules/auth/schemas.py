@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import Optional
+import uuid
 
 class RegisterRequest(BaseModel):
     companyName: str
@@ -16,8 +17,7 @@ class RegisterResponse(BaseModel):
 
 class CompanyResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
-    id: int # <- era str, agora int
+    id: uuid.UUID
     companyName: str
     nif: str
     email: str
@@ -34,4 +34,5 @@ class TokenResponse(BaseModel):
     message: str
     access_token: str
     token_type: str = "bearer"
-    company: CompanyResponse
+    company_id: uuid.UUID
+    user_id: uuid.UUID

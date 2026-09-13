@@ -2,26 +2,30 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
+from datetime import timedelta
 
 from app.db.database import get_db
-from app.modules.auth import models, schemas, utils
+from app.modules.auth.models import Company, User
+from. import schemas
+from.jwt import create_access_token
+from app.core.security import hash_password, verify_password # vamos usar só aqui
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 @router.post("/register", status_code=201, response_model=schemas.RegisterResponse)
 async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
-        select(models.Company).where(
-            or_(models.Company.nif == data.nif, models.Company.email == data.emailCompany)
+        select(Company).where(
+            or_(Company.nif == data.nif, Company.email == data.emailCompany)
         )
     )
     exists = result.scalar_one_or_none()
     if exists:
         raise HTTPException(status_code=400, detail="NIF ou Email já cadastrado")
 
-    password_hash = utils.get_password_hash(data.password)
+    password_hash = hash_password(data.password)
 
-    company = models.Company(
+    company = Company(
         companyName=data.companyName,
         nif=data.nif,
         email=data.emailCompany,
@@ -34,8 +38,8 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
     db.add(company)
     await db.flush()
 
-    admin_user = models.User(
-        company_id=company.id, # agora é int
+    admin_user = User(
+        company_id=company.id, # UUID
         name=data.companyName,
         email=data.emailCompany,
         password_hash=password_hash,
@@ -43,41 +47,28 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
     )
     db.add(admin_user)
     await db.commit()
-    await db.refresh(company)
 
     return {"message": "Empresa e usuário admin cadastrados com sucesso"}
 
 @router.post("/login", response_model=schemas.TokenResponse)
 async def login(data: schemas.LoginRequest, db: AsyncSession = Depends(get_db)):
-    target_id: int = 0 # <- era str
-    target_nif: str = ""
-    company_response = None
-
     result = await db.execute(
-        select(models.User).options(selectinload(models.User.company)).where(models.User.email == data.email)
+        select(User).options(selectinload(User.company)).where(User.email == data.email)
     )
     user = result.scalar_one_or_none()
 
-    if user and utils.verify_password(data.password, user.password_hash):
-        target_id = user.id # <- sem str()
-        company_response = user.company
-        target_nif = company_response.nif if company_response else ""
-    else:
-        result = await db.execute(
-            select(models.Company).where(or_(models.Company.email == data.email, models.Company.nif == data.email))
+    if user and verify_password(data.password, user.password_hash):
+        if not user.is_active:
+            raise HTTPException(status_code=400, detail="Usuário inativo")
+        company = user.company
+        token = create_access_token(
+            data={"sub": str(user.id), "company_id": str(user.company_id)}
         )
-        company = result.scalar_one_or_none()
-        if not company or not utils.verify_password(data.password, company.password_hash):
-            raise HTTPException(status_code=401, detail="Credenciais inválidas")
-        target_id = company.id # <- sem str()
-        target_nif = company.nif
-        company_response = company
+        return {
+            "message": "Login realizado",
+            "access_token": token,
+            "company_id": user.company_id,
+            "user_id": user.id
+        }
 
-    token = utils.create_access_token({"sub": str(target_id), "nif": target_nif}) # sub tem que ser str no JWT
-
-    return {
-        "message": "Login realizado",
-        "access_token": token,
-        "token_type": "bearer",
-        "company": company_response
-    }
+    raise HTTPException(status_code=401, detail="Credenciais inválidas")

@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Building2, Mail, Lock, Phone, MapPin, FileText, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Building2, Mail, Lock, Phone, MapPin, FileText } from 'lucide-react'
+import { toast, Toaster } from 'sonner' // <- SONNER
 
-const API_URL = "https://faturaxpress-backend.onrender.com/api" // IMPORTANTE: /api pq o backend usa prefix
+const API_URL = "https://faturaxpress-backend.onrender.com/api"
 
 export default function Register() {
     const [loading, setLoading] = useState(false)
-    const [error, setError] = useState<string | null>(null)
-    const [success, setSuccess] = useState<string | null>(null)
     const navigate = useNavigate()
 
     const [companyName, setCompanyName] = useState('')
@@ -22,8 +21,6 @@ export default function Register() {
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
-        setError(null)
-        setSuccess(null)
 
         try {
             const res = await fetch(`${API_URL}/auth/register`, {
@@ -45,27 +42,27 @@ export default function Register() {
 
             if (!res.ok) throw new Error(data.detail || "Erro ao registrar")
 
-            setSuccess(data.message)
+            toast.success(data.message) // <- TOAST
 
             // Limpa o form
             setCompanyName(''); setNif(''); setEmailCompany(''); setPhone('');
             setAddress(''); setCity(''); setProvince(''); setPassword('');
 
-            // Só navega depois de 2s pra pessoa ler a msg
-            setTimeout(() => navigate('/login'), 2000)
+            setTimeout(() => navigate('/login'), 1500)
 
         } catch (err: any) {
-            setError(err.message)
+            toast.error(err.message) // <- TOAST
             console.error("Erro no register:", err)
         } finally {
             setLoading(false)
         }
     }
 
-    const inputClass = "w-full h-11 pl-10 pr-3 border border-gray-300 rounded-lg text-base text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white mb-[5px]"
+    const inputClass = "w-full h-11 pl-10 pr-3 border border-gray-300 rounded-lg text-base text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition bg-white"
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-white">
+            <Toaster position="top-right" richColors /> {/* <- TOASTER GLOBAL */}
             <div className="relative w-full max-w-[440px] bg-white rounded-2xl p-8 border border-gray-200 max-h-[90vh] overflow-y-auto hide-scrollbar">
                 <div className="text-center mb-6">
                     <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4">
@@ -75,19 +72,7 @@ export default function Register() {
                     <p className="text-gray-500 text-sm mt-1">Comece a emitir faturas hoje</p>
                 </div>
 
-                {/* ALERTS */}
-                {error && (
-                    <div className="mb-4 p-3 bg-red-50 border-red-200 text-red-700 rounded-lg text-sm flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4" /> {error}
-                    </div>
-                )}
-                {success && (
-                    <div className="mb-4 p-3 bg-green-50 border-green-200 text-green-700 rounded-lg text-sm flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4" /> {success}
-                    </div>
-                )}
-
-                <form onSubmit={handleRegister} className="space-y-0">
+                <form onSubmit={handleRegister} className="space-y-3"> {/* space-y corrigido */}
                     <div className="relative"><Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required className={inputClass} placeholder="Nome da Empresa Lda" disabled={loading} /></div>
                     <div className="relative"><FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={inputClass} placeholder="NIF" disabled={loading} /></div>
                     <div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required className={inputClass} placeholder="+244-Telefone" disabled={loading} /></div>

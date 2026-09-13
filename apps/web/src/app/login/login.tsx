@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Mail, Lock, Building2 } from 'lucide-react'
-import { toast, Toaster } from 'sonner' // <- SONNER
+import { toast } from 'sonner' // <- TIREI O Toaster daqui
 
 const API_URL = "https://faturaxpress-backend.onrender.com/api"
 
@@ -25,17 +25,16 @@ export default function LoginPage() {
 
             if (!res.ok) throw new Error(data.detail || "Credenciais inválidas")
 
-            // Salva o token e IDs - bate com backend novo
             localStorage.setItem("access_token", data.access_token)
             localStorage.setItem("company_id", data.company_id)
             localStorage.setItem("user_id", data.user_id)
 
-            toast.success("Login realizado com sucesso!") // <- TOAST
+            toast.success("Login realizado com sucesso!", { position: 'top-center' }) // <- FORÇA CENTRO
 
             setTimeout(() => navigate('/dashboard'), 500)
 
         } catch (err: any) {
-            toast.error(err.message) // <- TOAST
+            toast.error(err.message, { position: 'top-center' }) // <- FORÇA CENTRO
         } finally {
             setLoading(false)
         }
@@ -45,7 +44,7 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-white">
-            <Toaster position="top-right" richColors /> {/* <- TOASTER GLOBAL */}
+            {/* <Toaster /> REMOVIDO DAQUI */}
             <div className="relative w-full max-w-[400px] bg-white rounded-2xl p-8 border-gray-200">
                 <div className="text-center mb-6">
                     <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4">

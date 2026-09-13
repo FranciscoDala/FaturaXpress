@@ -9,13 +9,11 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.cloudinaryUploads import cloudinary
-from app.db.database import Base, engine
+from app.cloudinaryUploads import cloudinary # <- mantém teu cloudinary
+from app.db.database import Base, engine # <- usa o engine async
 
-from app.api.v1 import (
-    routers_auth,
-    routers_usuario,
-)
+# IMPORTA O ROUTER CORRETO DA NOVA ESTRUTURA
+from app.modules.auth.router import router as auth_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 def import_all_models():
     logger.info("Forçando import de todos os models...")
+    from app.modules.auth import models # <- importa pra registrar Company e User
     tabelas = sorted(list(Base.metadata.tables.keys()))
     logger.info(f"Models registrados: {', '.join(tabelas)}")
     logger.info(f"Total: {len(tabelas)} tabelas mapeadas.")
@@ -32,11 +31,13 @@ def import_all_models():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("FATURAEXPRESS API a iniciar...")
-    logger.info(f"Cloudinary configurado: {settings.CLOUDINARY_CLOUD_NAME}") # <- log pra testar
+    logger.info(f"Cloudinary configurado: {settings.CLOUDINARY_CLOUD_NAME}")
     import_all_models()
 
+    # CRIA AS TABELAS NO NEON
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(Base.metadata.create_all) # cria companies e users
+        logger.info("Tabelas verificadas/criadas no Neon ✅")
         await conn.execute(text("SELECT 1"))
 
     yield
@@ -77,6 +78,9 @@ app.add_middleware(
 
 logger.info(f"CORS liberado para: {allowed_origins}")
 
+# REGISTRAR O ROUTER
+app.include_router(auth_router, prefix="/api") # <- rotas ficam /api/auth/...
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.error(
@@ -86,7 +90,6 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": "Erro interno do servidor"},
     )
-
 
 @app.get("/health")
 async def health():

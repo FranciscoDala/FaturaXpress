@@ -1,18 +1,67 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, LogOut, FileText, Users, Receipt, Settings, Plus } from 'lucide-react'
+import { Building2, LogOut, FileText, Users, Receipt, Settings, Plus, Search, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import ClienteModal from './components/modals/modal_Cliente'
+import { api } from '../../lib/api' // <- axios configurado com token
+
+interface Cliente {
+  id: string
+  nome: string
+  nif: string
+  email: string | null
+  telefone: string | null
+  cidade: string | null
+}
 
 export default function DashboardPage() {
     const navigate = useNavigate()
     const [companyName, setCompanyName] = useState('')
     const [modalOpen, setModalOpen] = useState(false)
+    const [clientes, setClientes] = useState<Cliente[]>([])
+    const [loading, setLoading] = useState(true)
+    const [search, setSearch] = useState('')
+    const [page, setPage] = useState(1)
+    const [total, setTotal] = useState(0)
+    const limit = 10
+
+    const fetchClientes = async () => {
+        try {
+            setLoading(true)
+            const skip = (page - 1) * limit
+            const res = await api.get('/api/clientes', {
+                params: { skip, limit, search }
+            })
+            setClientes(res.data.items)
+            setTotal(res.data.total)
+        } catch (err) {
+            toast.error('Erro ao carregar clientes')
+        } finally {
+            setLoading(false)
+        }
+    }
 
     useEffect(() => {
         const name = localStorage.getItem("company_name")
         if (name) setCompanyName(name)
     }, [])
+
+    useEffect(() => {
+        fetchClientes()
+    }, [page, search])
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('Tem certeza que deseja apagar este cliente?')) return
+        try {
+            await api.delete(`/api/clientes/${id}`)
+            toast.success('Cliente apagado')
+            // Se apagou o último da página, volta 1 página
+            if (clientes.length === 1 && page > 1) setPage(p => p - 1)
+            else fetchClientes()
+        } catch {
+            toast.error('Erro ao apagar cliente')
+        }
+    }
 
     const handleLogout = () => {
         localStorage.removeItem("access_token")
@@ -24,11 +73,14 @@ export default function DashboardPage() {
 
     const handleCardClick = (title: string) => {
         if (title === 'Clientes') {
-            setModalOpen(true)
+            // rola até a tabela
+            document.getElementById('tabela-clientes')?.scrollIntoView({ behavior: 'smooth' })
         } else {
             toast.info('Em breve', { position: 'top-center' })
         }
     }
+
+    const totalPages = Math.ceil(total / limit)
 
     const cards = [
         { title: 'Emitir Fatura', icon: FileText, desc: 'Criar nova fatura para cliente', color: 'bg-blue-600' },
@@ -42,7 +94,7 @@ export default function DashboardPage() {
             <ClienteModal
                 open={modalOpen}
                 onClose={() => setModalOpen(false)}
-                onSuccess={() => toast.success('Lista atualizada')}
+                onSuccess={() => { toast.success('Cliente criado'); setPage(1); fetchClientes() }}
             />
 
             {/* HEADER */}
@@ -92,7 +144,7 @@ export default function DashboardPage() {
                         <div
                             key={card.title}
                             onClick={() => handleCardClick(card.title)}
-                            className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-md transition cursor-pointer relative group" // <- CORRIGIDO border
+                            className="bg-white rounded-xl p-6 border-gray-200 hover:shadow-md transition cursor-pointer relative group"
                         >
                             <div className={`w-12 h-12 ${card.color} rounded-lg flex items-center justify-center mb-4`}>
                                 <card.icon className="w-6 h-6 text-white" />
@@ -104,6 +156,87 @@ export default function DashboardPage() {
                             )}
                         </div>
                     ))}
+                </div>
+
+                {/* TABELA DE CLIENTES */}
+                <div id="tabela-clientes" className="mt-8 bg-white rounded-xl p-6 border border-gray-200">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                        <h3 className="font-semibold text-gray-900">Clientes</h3>
+                        <div className="relative w-full sm:w-64">
+                            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <input
+                                value={search}
+                                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+                                placeholder="Buscar por nome ou NIF"
+                                className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-600"
+                            />
+                        </div>
+                    </div>
+
+                    {loading ? (
+                        <p className="text-center text-gray-500 py-8">Carregando...</p>
+                    ) : clientes.length === 0 ? (
+                        <p className="text-center text-gray-500 py-8">Nenhum cliente cadastrado</p>
+                    ) : (
+                        <>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="text-left text-gray-500 border-b">
+                                        <tr>
+                                            <th className="pb-3 font-medium">Nome</th>
+                                            <th className="pb-3 font-medium">NIF</th>
+                                            <th className="pb-3 font-medium">Email</th>
+                                            <th className="pb-3 font-medium">Telefone</th>
+                                            <th className="pb-3 font-medium">Cidade</th>
+                                            <th className="pb-3 font-medium w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {clientes.map(cli => (
+                                            <tr key={cli.id} className="border-b last:border-0 hover:bg-gray-50">
+                                                <td className="py-3 font-medium text-gray-900">{cli.nome}</td>
+                                                <td className="py-3 text-gray-600">{cli.nif}</td>
+                                                <td className="py-3 text-gray-600">{cli.email || '-'}</td>
+                                                <td className="py-3 text-gray-600">{cli.telefone || '-'}</td>
+                                                <td className="py-3 text-gray-600">{cli.cidade || '-'}</td>
+                                                <td className="py-3">
+                                                    <button onClick={() => handleDelete(cli.id)} className="text-red-600 hover:text-red-800">
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* PAGINAÇÃO */}
+                            {totalPages > 1 && (
+                                <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-3">
+                                    <p className="text-sm text-gray-500">
+                                        Mostrando {((page - 1) * limit) + 1} a {Math.min(page * limit, total)} de {total}
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <button
+                                            disabled={page === 1}
+                                            onClick={() => setPage(p => p - 1)}
+                                            className="p-2 border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50"
+                                        >
+                                            <ChevronLeft className="w-4 h-4" />
+                                        </button>
+                                        <span className="px-3 py-2 text-sm">Página {page} de {totalPages}</span>
+                                        <button
+                                            disabled={page === totalPages}
+                                            onClick={() => setPage(p => p + 1)}
+                                            className="p-2 border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50"
+                                        >
+                                            <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
 
                 {/* RESUMO */}
@@ -120,7 +253,7 @@ export default function DashboardPage() {
                         </div>
                         <div>
                             <p className="text-sm text-gray-500">Clientes Ativos</p>
-                            <p className="text-2xl font-bold text-gray-900 mt-1">0</p>
+                            <p className="text-2xl font-bold text-gray-900 mt-1">{total}</p> {/* <- agora dinâmico */}
                         </div>
                     </div>
                 </div>

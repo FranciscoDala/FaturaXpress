@@ -1,13 +1,12 @@
 import axios from 'axios'
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000', // <- muda pro teu backend
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
     headers: {
         'Content-Type': 'application/json',
     },
 })
 
-// Interceptor: pega o token do localStorage e joga no header
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('access_token')
@@ -21,7 +20,6 @@ api.interceptors.request.use(
     }
 )
 
-// Interceptor: se der 401 desloga
 api.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -33,4 +31,4 @@ api.interceptors.response.use(
     }
 )
 
-export default api
+export { api } // <- MUDOU AQUI

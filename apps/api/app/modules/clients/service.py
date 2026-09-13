@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from app.modules.clients.models import Cliente
 from app.modules.clients.schemas import ClienteCreateRequest, ClienteUpdateRequest
 from fastapi import HTTPException
@@ -10,8 +11,20 @@ def get_cliente_by_id(db: Session, cliente_id: uuid.UUID, company_id: uuid.UUID)
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
     return cliente
 
-def get_clientes(db: Session, company_id: uuid.UUID, skip: int = 0, limit: int = 100):
-    return db.query(Cliente).filter(Cliente.company_id == company_id).offset(skip).limit(limit).all()
+def get_clientes(db: Session, company_id: uuid.UUID, skip: int = 0, limit: int = 10, search: str = ""):
+    query = db.query(Cliente).filter(Cliente.company_id == company_id)
+
+    if search:
+        query = query.filter(
+            or_(
+                Cliente.nome.ilike(f"%{search}%"),
+                Cliente.nif.ilike(f"%{search}%")
+            )
+        )
+
+    total = query.count()
+    items = query.offset(skip).limit(limit).all()
+    return items, total # <- retorna tupla
 
 def create_cliente(db: Session, cliente: ClienteCreateRequest, company_id: uuid.UUID):
     db_cliente = db.query(Cliente).filter(Cliente.nif == cliente.nif, Cliente.company_id == company_id).first()
@@ -37,4 +50,4 @@ def delete_cliente(db: Session, cliente_id: uuid.UUID, company_id: uuid.UUID):
     db_cliente = get_cliente_by_id(db, cliente_id, company_id)
     db.delete(db_cliente)
     db.commit()
-    return {"message": "Cliente deletado com sucesso"}
+    return {"message": "Cliente apagado com sucesso"}

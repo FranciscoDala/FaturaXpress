@@ -18,14 +18,16 @@ def create_cliente(
 ):
     return cliente_service.create_cliente(db=db, cliente=cliente, company_id=company_id)
 
-@router.get("/", response_model=List[ClienteResponse])
+@router.get("/")
 def read_clientes(
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(10, ge=1, le=100), # <- default 10
+    search: str = Query("", description="Buscar por nome ou NIF"),
     db: Session = Depends(get_db),
     company_id: uuid.UUID = Depends(get_current_company_id)
 ):
-    return cliente_service.get_clientes(db, company_id=company_id, skip=skip, limit=limit)
+    items, total = cliente_service.get_clientes(db, company_id=company_id, skip=skip, limit=limit, search=search)
+    return {"items": items, "total": total} # <- novo formato
 
 @router.get("/{cliente_id}", response_model=ClienteResponse)
 def read_cliente(

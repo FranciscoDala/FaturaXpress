@@ -22,7 +22,7 @@ class ClienteUpdateRequest(BaseModel):
     cidade: Optional[str] = None
     provincia: Optional[str] = None
 
-# RESPONSE
+# RESPONSE - Bate com a tabela do frontend
 class ClienteResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

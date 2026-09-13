@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.core.config import settings
-from apps.api.app.cloudinary_service import cloudinary
+from app.cloudinary_service import upload_to_cloudinary # <- CORRIGIDO AQUI
 from app.db.database import Base, engine
 
 # IMPORTA O ROUTER CORRETO DA NOVA ESTRUTURA

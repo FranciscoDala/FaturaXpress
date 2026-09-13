@@ -47,7 +47,7 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
     )
     db.add(admin_user)
     await db.commit()
-    await db.refresh(company, attribute_names=["users"]) # <- refresh com relationship
+    await db.refresh(company)
 
     return {"message": "Empresa e usuário admin cadastrados com sucesso"}
 
@@ -60,8 +60,8 @@ async def login(data: schemas.LoginRequest, db: AsyncSession = Depends(get_db)):
     # 1. Tenta login como User e já carrega a company
     result = await db.execute(
         select(models.User)
-        .options(selectinload(models.User.company)) # <- evita query extra
-        .where(models.User.email == data.email)
+       .options(selectinload(models.User.company)) # <- evita query extra
+       .where(models.User.email == data.email)
     )
     user = result.scalar_one_or_none()
 
@@ -92,5 +92,5 @@ async def login(data: schemas.LoginRequest, db: AsyncSession = Depends(get_db)):
         "message": "Login realizado",
         "access_token": token,
         "token_type": "bearer",
-        "company": company_response # <- Pydantic vai converter com from_attributes=True
+        "company": company_response
     }

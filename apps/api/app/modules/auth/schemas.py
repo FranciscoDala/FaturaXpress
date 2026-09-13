@@ -27,7 +27,7 @@ class CompanyResponse(BaseModel):
     province: Optional[str] = None
 
 class LoginRequest(BaseModel):
-    email: str
+    nif: str
     password: str
 
 class TokenResponse(BaseModel):
@@ -35,4 +35,5 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     company_id: uuid.UUID
-    user_id: uuid.UUID
+    company_name: str # <- ADICIONEI. Bate com o router
+    # user_id: uuid.UUID <- REMOVI pq login não usa mais user

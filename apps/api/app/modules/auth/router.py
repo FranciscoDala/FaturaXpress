@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 from app.db.database import get_db
 from app.modules.auth.models import Company, User  # CORRIGIDO: era app.modules.auth.models
 from . import schemas
-from .jwt import create_access_token  # CORRIGIDO: faltava o .
+from .jwt import create_access_token
 from app.core.security import hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -41,7 +41,7 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
         await db.commit() # commit pra gerar o UUID
         await db.refresh(company) # pega o id gerado
 
-        # 3. Cria user admin
+        # 3. Cria user admin - opcional. Pode remover se só vai logar pela empresa
         admin_user = User(
             company_id=company.id,
             name=data.companyName,
@@ -62,23 +62,27 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
 
 @router.post("/login", response_model=schemas.TokenResponse)
 async def login(data: schemas.LoginRequest, db: AsyncSession = Depends(get_db)):
+    # LOGIN AGORA É POR NIF DA EMPRESA
     result = await db.execute(
-        select(User).options(selectinload(User.company)).where(User.email == data.email)
+        select(Company).where(Company.nif == data.nif)
     )
-    user = result.scalar_one_or_none()
+    company = result.scalar_one_or_none()
 
-    if user and verify_password(data.password, user.password_hash):
-        if not user.is_active:
-            raise HTTPException(status_code=400, detail="Usuário inativo")
+    if not company:
+        raise HTTPException(status_code=401, detail="NIF ou Senha inválidos")
 
-        token = create_access_token(
-            data={"sub": str(user.id), "company_id": str(user.company_id)}
-        )
-        return {
-            "message": "Login realizado",
-            "access_token": token,
-            "company_id": user.company_id,
-            "user_id": user.id
-        }
+    if not verify_password(data.password, company.password_hash):
+        raise HTTPException(status_code=401, detail="NIF ou Senha inválidos")
 
-    raise HTTPException(status_code=401, detail="Credenciais inválidas")
+    if not company.is_active:
+        raise HTTPException(status_code=400, detail="Empresa inativa")
+
+    token = create_access_token(
+        data={"sub": str(company.id), "company_id": str(company.id)} # sub = company.id
+    )
+    return {
+        "message": "Login realizado",
+        "access_token": token,
+        "company_id": company.id,
+        "company_name": company.companyName
+    }

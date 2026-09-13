@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Mail, Lock, Building2 } from 'lucide-react'
-import { toast } from 'sonner' // <- TIREI O Toaster daqui
+import { FileText, Lock, Building2 } from 'lucide-react' // <- troquei Mail por FileText
+import { toast } from 'sonner'
 
 const API_URL = "https://faturaxpress-backend.onrender.com/api"
 
 export default function LoginPage() {
-    const [email, setEmail] = useState('')
+    const [nif, setNif] = useState('') // <- MUDOU
     const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
     const navigate = useNavigate()
@@ -18,7 +18,7 @@ export default function LoginPage() {
             const res = await fetch(`${API_URL}/auth/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({ nif, password }) // <- MUDOU: manda nif
             })
 
             const data = await res.json()
@@ -27,14 +27,14 @@ export default function LoginPage() {
 
             localStorage.setItem("access_token", data.access_token)
             localStorage.setItem("company_id", data.company_id)
-            localStorage.setItem("user_id", data.user_id)
+            localStorage.setItem("company_name", data.company_name) // <- salvei o nome
 
-            toast.success("Login realizado com sucesso!", { position: 'top-center' }) // <- FORÇA CENTRO
+            toast.success("Login realizado com sucesso!", { position: 'top-center' })
 
             setTimeout(() => navigate('/dashboard'), 500)
 
         } catch (err: any) {
-            toast.error(err.message, { position: 'top-center' }) // <- FORÇA CENTRO
+            toast.error(err.message, { position: 'top-center' })
         } finally {
             setLoading(false)
         }
@@ -44,7 +44,6 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-white">
-            {/* <Toaster /> REMOVIDO DAQUI */}
             <div className="relative w-full max-w-[400px] bg-white rounded-2xl p-8 border-gray-200">
                 <div className="text-center mb-6">
                     <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4">
@@ -54,8 +53,30 @@ export default function LoginPage() {
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-3">
-                    <div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className={inputClass} placeholder="email@empresa.com ou NIF" disabled={loading} /></div>
-                    <div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className={inputClass} placeholder="••••" disabled={loading} /></div>
+                    <div className="relative">
+                        <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input
+                            type="text"
+                            value={nif}
+                            onChange={(e) => setNif(e.target.value)}
+                            required
+                            className={inputClass}
+                            placeholder="Digite o NIF da empresa"
+                            disabled={loading}
+                        />
+                    </div>
+                    <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            className={inputClass}
+                            placeholder="Palavra-passe da empresa"
+                            disabled={loading}
+                        />
+                    </div>
 
                     <button type="submit" disabled={loading} className="w-full h-11 rounded-lg bg-blue-600 text-white font-semibold text-sm transition hover:bg-blue-700 disabled:opacity-60 mt-3">
                         {loading? 'Entrando...' : 'Entrar'}

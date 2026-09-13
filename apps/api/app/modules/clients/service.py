@@ -40,11 +40,25 @@ def create_cliente(db: Session, cliente: ClienteCreateRequest, company_id: uuid.
 def update_cliente(db: Session, cliente_id: uuid.UUID, cliente_update: ClienteUpdateRequest, company_id: uuid.UUID):
     db_cliente = get_cliente_by_id(db, cliente_id, company_id)
     update_data = cliente_update.model_dump(exclude_unset=True)
+
+    # 1. Se estiver trocando o NIF, valida se já não existe
+    if "nif" in update_data:
+        cliente_com_mesmo_nif = db.query(Cliente).filter(
+            Cliente.nif == update_data["nif"],
+            Cliente.company_id == company_id,
+            Cliente.id != cliente_id # <- ignora ele mesmo
+        ).first()
+        if cliente_com_mesmo_nif:
+            raise HTTPException(status_code=400, detail="Já existe um cliente com este NIF")
+
+    # 2. Atualiza os campos
     for key, value in update_data.items():
         setattr(db_cliente, key, value)
+
     db.commit()
     db.refresh(db_cliente)
     return db_cliente
+
 
 def delete_cliente(db: Session, cliente_id: uuid.UUID, company_id: uuid.UUID):
     db_cliente = get_cliente_by_id(db, cliente_id, company_id)

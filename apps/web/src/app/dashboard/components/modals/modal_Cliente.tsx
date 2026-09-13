@@ -1,15 +1,27 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../../../../lib/api'
 
+interface Cliente {
+  id: string
+  nome: string
+  nif: string
+  email: string | null
+  telefone: string | null
+  endereco: string | null
+  cidade: string | null
+  provincia: string | null
+}
+
 interface Props {
     open: boolean
+    cliente: Cliente | null // <- RECEBE CLIENTE
     onClose: () => void
     onSuccess: () => void
 }
 
-export default function ClienteModal({ open, onClose, onSuccess }: Props) {
+export default function ClienteModal({ open, cliente, onClose, onSuccess }: Props) {
     const [loading, setLoading] = useState(false)
     const [form, setForm] = useState({
         nome: '',
@@ -21,6 +33,24 @@ export default function ClienteModal({ open, onClose, onSuccess }: Props) {
         provincia: ''
     })
 
+    const isEditMode = !!cliente // <- SE TEM CLIENTE É EDIÇÃO
+
+    useEffect(() => {
+        if (cliente) {
+            setForm({
+                nome: cliente.nome || '',
+                nif: cliente.nif || '',
+                email: cliente.email || '',
+                telefone: cliente.telefone || '',
+                endereco: cliente.endereco || '',
+                cidade: cliente.cidade || '',
+                provincia: cliente.provincia || ''
+            })
+        } else {
+            setForm({ nome: '', nif: '', email: '', telefone: '', endereco: '', cidade: '', provincia: '' })
+        }
+    }, [cliente, open])
+
     if (!open) return null
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -31,13 +61,17 @@ export default function ClienteModal({ open, onClose, onSuccess }: Props) {
         e.preventDefault()
         setLoading(true)
         try {
-            await api.post('/api/clientes/', form) // <- TIREI O company_id
-            toast.success('Cliente criado com sucesso', { position: 'top-center' })
-            setForm({ nome: '', nif: '', email: '', telefone: '', endereco: '', cidade: '', provincia: '' })
+            if (isEditMode && cliente) {
+                await api.put(`/api/clientes/${cliente.id}`, form) // <- PUT
+                toast.success('Cliente atualizado com sucesso', { position: 'top-center' })
+            } else {
+                await api.post('/api/clientes/', form) // <- POST
+                toast.success('Cliente criado com sucesso', { position: 'top-center' })
+            }
             onSuccess()
             onClose()
         } catch (err: any) {
-            toast.error(err.response?.data?.detail || 'Erro ao criar cliente', { position: 'top-center' })
+            toast.error(err.response?.data?.detail || 'Erro ao salvar cliente', { position: 'top-center' })
         } finally {
             setLoading(false)
         }
@@ -47,7 +81,9 @@ export default function ClienteModal({ open, onClose, onSuccess }: Props) {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl w-full max-w-lg">
                 <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                    <h2 className="text-xl font-bold text-gray-900">Novo Cliente</h2>
+                    <h2 className="text-xl font-bold text-gray-900">
+                        {isEditMode ? 'Editar Cliente' : 'Novo Cliente'} {/* <- TÍTULO DINAMICO */}
+                    </h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
                         <X className="w-5 h-5" />
                     </button>
@@ -58,7 +94,7 @@ export default function ClienteModal({ open, onClose, onSuccess }: Props) {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
                             <input name="nome" value={form.nome} onChange={handleChange} required
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                                className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">NIF *</label>
@@ -77,12 +113,12 @@ export default function ClienteModal({ open, onClose, onSuccess }: Props) {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
                             <input name="telefone" value={form.telefone} onChange={handleChange}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                                className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
                             <input name="cidade" value={form.cidade} onChange={handleChange}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                                className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
                         </div>
                     </div>
 
@@ -95,7 +131,7 @@ export default function ClienteModal({ open, onClose, onSuccess }: Props) {
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Província</label>
                         <input name="provincia" value={form.provincia} onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                            className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
                     </div>
 
                     <div className="flex justify-end gap-3 pt-4">
@@ -105,7 +141,7 @@ export default function ClienteModal({ open, onClose, onSuccess }: Props) {
                         </button>
                         <button type="submit" disabled={loading}
                             className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
-                            {loading? 'Salvando...' : 'Salvar'}
+                            {loading? 'Salvando...' : isEditMode ? 'Atualizar' : 'Salvar'} {/* <- BTN DINAMICO */}
                         </button>
                     </div>
                 </form>

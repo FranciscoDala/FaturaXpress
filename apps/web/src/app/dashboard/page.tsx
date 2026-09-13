@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, LogOut, FileText, Users, Receipt, Settings, Plus, Search, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Building2, LogOut, FileText, Users, Receipt, Settings, Plus, Search, Trash2, ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import ClienteModal from './components/modals/modal_Cliente'
-import { api } from '../../lib/api' // <- axios configurado com token
+import { api } from '../../lib/api'
 
 interface Cliente {
   id: string
@@ -11,13 +11,16 @@ interface Cliente {
   nif: string
   email: string | null
   telefone: string | null
+  endereco: string | null
   cidade: string | null
+  provincia: string | null
 }
 
 export default function DashboardPage() {
     const navigate = useNavigate()
     const [companyName, setCompanyName] = useState('')
     const [modalOpen, setModalOpen] = useState(false)
+    const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null) // <- NOVO
     const [clientes, setClientes] = useState<Cliente[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
@@ -50,12 +53,21 @@ export default function DashboardPage() {
         fetchClientes()
     }, [page, search])
 
+    const handleOpenCreate = () => {
+        setClienteSelecionado(null) // limpa pra criar novo
+        setModalOpen(true)
+    }
+
+    const handleOpenEdit = (cliente: Cliente) => {
+        setClienteSelecionado(cliente) // passa o cliente pra editar
+        setModalOpen(true)
+    }
+
     const handleDelete = async (id: string) => {
         if (!confirm('Tem certeza que deseja apagar este cliente?')) return
         try {
             await api.delete(`/api/clientes/${id}`)
             toast.success('Cliente apagado')
-            // Se apagou o último da página, volta 1 página
             if (clientes.length === 1 && page > 1) setPage(p => p - 1)
             else fetchClientes()
         } catch {
@@ -73,7 +85,6 @@ export default function DashboardPage() {
 
     const handleCardClick = (title: string) => {
         if (title === 'Clientes') {
-            // rola até a tabela
             document.getElementById('tabela-clientes')?.scrollIntoView({ behavior: 'smooth' })
         } else {
             toast.info('Em breve', { position: 'top-center' })
@@ -93,8 +104,13 @@ export default function DashboardPage() {
         <div className="min-h-screen bg-gray-50">
             <ClienteModal
                 open={modalOpen}
+                cliente={clienteSelecionado} // <- PASSA O CLIENTE
                 onClose={() => setModalOpen(false)}
-                onSuccess={() => { toast.success('Cliente criado'); setPage(1); fetchClientes() }}
+                onSuccess={() => {
+                    toast.success(clienteSelecionado ? 'Cliente atualizado' : 'Cliente criado');
+                    setPage(1);
+                    fetchClientes()
+                }}
             />
 
             {/* HEADER */}
@@ -113,7 +129,7 @@ export default function DashboardPage() {
 
                         <div className="flex items-center gap-3">
                             <button
-                                onClick={() => setModalOpen(true)}
+                                onClick={handleOpenCreate} // <- MUDOU
                                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
                             >
                                 <Plus className="w-4 h-4" />
@@ -188,7 +204,7 @@ export default function DashboardPage() {
                                             <th className="pb-3 font-medium">Email</th>
                                             <th className="pb-3 font-medium">Telefone</th>
                                             <th className="pb-3 font-medium">Cidade</th>
-                                            <th className="pb-3 font-medium w-10"></th>
+                                            <th className="pb-3 font-medium w-20 text-right">Ações</th> {/* <- MUDOU */}
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -200,9 +216,14 @@ export default function DashboardPage() {
                                                 <td className="py-3 text-gray-600">{cli.telefone || '-'}</td>
                                                 <td className="py-3 text-gray-600">{cli.cidade || '-'}</td>
                                                 <td className="py-3">
-                                                    <button onClick={() => handleDelete(cli.id)} className="text-red-600 hover:text-red-800">
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
+                                                    <div className="flex gap-2 justify-end">
+                                                        <button onClick={() => handleOpenEdit(cli)} className="text-blue-600 hover:text-blue-800"> {/* <- NOVO BTN */}
+                                                            <Pencil className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => handleDelete(cli.id)} className="text-red-600 hover:text-red-800">
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -253,7 +274,7 @@ export default function DashboardPage() {
                         </div>
                         <div>
                             <p className="text-sm text-gray-500">Clientes Ativos</p>
-                            <p className="text-2xl font-bold text-gray-900 mt-1">{total}</p> {/* <- agora dinâmico */}
+                            <p className="text-2xl font-bold text-gray-900 mt-1">{total}</p>
                         </div>
                     </div>
                 </div>

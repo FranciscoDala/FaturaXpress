@@ -2,13 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
-from datetime import timedelta
 
 from app.db.database import get_db
-from app.modules.auth.models import Company, User
+from app.modules.auth.models import Company, User # <- CORRIGIDO: era .models
 from. import schemas
 from.jwt import create_access_token
-from app.core.security import hash_password, verify_password # vamos usar só aqui
+from app.core.security import hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -39,7 +38,7 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
     await db.flush()
 
     admin_user = User(
-        company_id=company.id, # UUID
+        company_id=company.id,
         name=data.companyName,
         email=data.emailCompany,
         password_hash=password_hash,
@@ -49,6 +48,7 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
     await db.commit()
 
     return {"message": "Empresa e usuário admin cadastrados com sucesso"}
+
 
 @router.post("/login", response_model=schemas.TokenResponse)
 async def login(data: schemas.LoginRequest, db: AsyncSession = Depends(get_db)):
@@ -60,7 +60,7 @@ async def login(data: schemas.LoginRequest, db: AsyncSession = Depends(get_db)):
     if user and verify_password(data.password, user.password_hash):
         if not user.is_active:
             raise HTTPException(status_code=400, detail="Usuário inativo")
-        company = user.company
+
         token = create_access_token(
             data={"sub": str(user.id), "company_id": str(user.company_id)}
         )

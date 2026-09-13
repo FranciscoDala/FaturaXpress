@@ -11,7 +11,6 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 
-# revision identifiers, used by Alembic.
 revision: str = '5b90c43561a3'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
@@ -22,9 +21,9 @@ def upgrade() -> None:
     # 1. Ativa extensão uuid
     op.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
 
-    # 2. Dropar tabelas se existirem - pq estamos trocando int por uuid
-    op.drop_table('users')
-    op.drop_table('companies')
+    # 2. Dropar só se existir - pra não quebrar no banco vazio
+    op.drop_table('users', if_exists=True)
+    op.drop_table('companies', if_exists=True)
 
     # 3. Recriar com UUID
     op.create_table('companies',
@@ -54,5 +53,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.drop_table('users')
-    op.drop_table('companies')
+    op.drop_table('users', if_exists=True)
+    op.drop_table('companies', if_exists=True)

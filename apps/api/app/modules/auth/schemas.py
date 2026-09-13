@@ -1,36 +1,39 @@
 from pydantic import BaseModel, EmailStr
-from datetime import datetime
+from typing import Optional
 
+# 1. Para /register
 class RegisterRequest(BaseModel):
     companyName: str
     nif: str
     emailCompany: EmailStr
-    phone: str
-    address: str
-    city: str
-    province: str
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    province: Optional[str] = None
     password: str
 
+# 2. Resposta do /register - era essa que faltava
+class RegisterResponse(BaseModel):
+    message: str
+
+# 3. Para /login
 class LoginRequest(BaseModel):
     email: str # pode ser email ou nif
     password: str
 
-class CompanyResponse(BaseModel):
-    id: str
+# 4. Para resposta do /login
+class CompanyOut(BaseModel):
+    id: int
     companyName: str
     nif: str
-    email: str
-    phone: str
-    address: str
-    city: str
-    province: str
-    is_active: bool
-    createdAt: datetime
+    email: EmailStr
+    phone: Optional[str] = None
 
     class Config:
-        from_attributes = True
+        from_attributes = True # <- pra converter do SQLAlchemy
 
 class TokenResponse(BaseModel):
     message: str
-    token: str
-    company: CompanyResponse
+    access_token: str
+    token_type: str = "bearer"
+    company: CompanyOut

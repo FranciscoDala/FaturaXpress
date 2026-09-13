@@ -9,8 +9,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.cloudinaryUploads import cloudinary # <- mantém teu cloudinary
-from app.db.database import Base, engine # <- usa o engine async
+from apps.api.app.cloudinary_service import cloudinary
+from app.db.database import Base, engine
 
 # IMPORTA O ROUTER CORRETO DA NOVA ESTRUTURA
 from app.modules.auth.router import router as auth_router
@@ -30,15 +30,14 @@ def import_all_models():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("FATURAEXPRESS API a iniciar...")
+    logger.info("SIGE API a iniciar...")
     logger.info(f"Cloudinary configurado: {settings.CLOUDINARY_CLOUD_NAME}")
-    import_all_models()
+    import_all_models() # <- só registra os models no Base.metadata
 
-    # CRIA AS TABELAS NO NEON
+    # TESTE DE CONEXÃO COM NEON. ALEMBIC QUE CRIA AS TABELAS
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all) # cria companies e users
-        logger.info("Tabelas verificadas/criadas no Neon ✅")
         await conn.execute(text("SELECT 1"))
+        logger.info("Conexão com Neon OK ✅. Use 'alembic upgrade head' para criar as tabelas.")
 
     yield
 
@@ -46,7 +45,7 @@ async def lifespan(app: FastAPI):
     logger.info("API a desligar...")
 
 app = FastAPI(
-    title="FaturaXpress API",
+    title="SIGE API",
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/docs",
@@ -55,7 +54,7 @@ app = FastAPI(
 
 # CORS
 allowed_origins = [
-    "https://faturaxpress-web.onrender.com",
+    "https://sige-ao.onrender.com",
     "http://localhost:5173",
     "http://localhost:3000",
 ]
@@ -79,7 +78,7 @@ app.add_middleware(
 logger.info(f"CORS liberado para: {allowed_origins}")
 
 # REGISTRAR O ROUTER
-app.include_router(auth_router, prefix="/api") # <- rotas ficam /api/auth/...
+app.include_router(auth_router, prefix="/api")
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):

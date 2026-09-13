@@ -13,22 +13,22 @@ def parse_cors(v: str) -> List[str]:
 class Settings(BaseSettings):
     # SERVER
     PORT: int = 10000
-    BASE_URL: str = "https://https://faturaxpress-backend.onrender.com"
-    ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://https://faturaxpress.onrender.com"
+    BASE_URL: str = "https://faturaxpress-backend.onrender.com" # <- tirei o https:// duplicado
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://faturaxpress.onrender.com" # <- tirei o https:// duplicado
 
     @property
     def ALLOWED_ORIGINS_LIST(self) -> List[str]:
         return parse_cors(self.ALLOWED_ORIGINS)
 
-    # DATABASE - Neon SIGE
-    DATABASE_URL: str = "postgresql+asyncpg://neondb_owner:npg_Oky0paVe1RuJ@ep-raspy-field-awxovdt0-pooler.c-12.us-east-1.aws.neon.tech/faturaxpress-db?ssl=true"
+    # DATABASE - Neon FATURAEXPRESS
+    DATABASE_URL: str = "" # <- agora vem do.env
 
-    # AUTH
-    JWT_SECRET: str = "faturaexpress-super-secreto-2026"
+    # AUTH - bate com teu.env
+    SECRET_KEY: str = "" # <- era JWT_SECRET
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
 
-    # CLOUDINARY - MESMAS DO STOCKBOT
+    # CLOUDINARY
     CLOUDINARY_CLOUD_NAME: str = ""
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""

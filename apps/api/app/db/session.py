@@ -2,8 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.core.config import settings
 
-# Se sua DATABASE_URL tiver +asyncpg, tira. Ex: postgresql://user:pass@host/db
-DATABASE_URL = settings.DATABASE_URL.replace("+asyncpg", "")
+DATABASE_URL = settings.DATABASE_URL.replace("+asyncpg", "") # tira asyncpg da url
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 

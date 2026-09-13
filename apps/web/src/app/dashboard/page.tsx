@@ -20,7 +20,7 @@ export default function DashboardPage() {
     const navigate = useNavigate()
     const [companyName, setCompanyName] = useState('')
     const [modalOpen, setModalOpen] = useState(false)
-    const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null) // <- NOVO
+    const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null)
     const [clientes, setClientes] = useState<Cliente[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
@@ -54,13 +54,18 @@ export default function DashboardPage() {
     }, [page, search])
 
     const handleOpenCreate = () => {
-        setClienteSelecionado(null) // limpa pra criar novo
+        setClienteSelecionado(null)
         setModalOpen(true)
     }
 
     const handleOpenEdit = (cliente: Cliente) => {
-        setClienteSelecionado(cliente) // passa o cliente pra editar
+        setClienteSelecionado(cliente)
         setModalOpen(true)
+    }
+
+    const handleEmitirFatura = (cliente: Cliente) => {
+        // Manda pra tela de emitir fatura com o id do cliente na URL
+        navigate(`/faturas/nova?cliente_id=${cliente.id}`)
     }
 
     const handleDelete = async (id: string) => {
@@ -86,6 +91,8 @@ export default function DashboardPage() {
     const handleCardClick = (title: string) => {
         if (title === 'Clientes') {
             document.getElementById('tabela-clientes')?.scrollIntoView({ behavior: 'smooth' })
+        } else if (title === 'Emitir Fatura') {
+            toast.info('Selecione um cliente na tabela abaixo para emitir fatura', { position: 'top-center' })
         } else {
             toast.info('Em breve', { position: 'top-center' })
         }
@@ -104,10 +111,10 @@ export default function DashboardPage() {
         <div className="min-h-screen bg-gray-50">
             <ClienteModal
                 open={modalOpen}
-                cliente={clienteSelecionado} // <- PASSA O CLIENTE
+                cliente={clienteSelecionado}
                 onClose={() => setModalOpen(false)}
                 onSuccess={() => {
-                    toast.success(clienteSelecionado ? 'Cliente atualizado' : 'Cliente criado');
+                    toast.success(clienteSelecionado? 'Cliente atualizado' : 'Cliente criado');
                     setPage(1);
                     fetchClientes()
                 }}
@@ -129,7 +136,7 @@ export default function DashboardPage() {
 
                         <div className="flex items-center gap-3">
                             <button
-                                onClick={handleOpenCreate} // <- MUDOU
+                                onClick={handleOpenCreate}
                                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
                             >
                                 <Plus className="w-4 h-4" />
@@ -175,7 +182,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* TABELA DE CLIENTES */}
-                <div id="tabela-clientes" className="mt-8 bg-white rounded-xl p-6 border border-gray-200">
+                <div id="tabela-clientes" className="mt-8 bg-white rounded-xl p-6 border-gray-200">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
                         <h3 className="font-semibold text-gray-900">Clientes</h3>
                         <div className="relative w-full sm:w-64">
@@ -184,14 +191,14 @@ export default function DashboardPage() {
                                 value={search}
                                 onChange={(e) => { setSearch(e.target.value); setPage(1) }}
                                 placeholder="Buscar por nome ou NIF"
-                                className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                className="pl-9 pr-4 py-2 border-gray-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-600"
                             />
                         </div>
                     </div>
 
-                    {loading ? (
+                    {loading? (
                         <p className="text-center text-gray-500 py-8">Carregando...</p>
-                    ) : clientes.length === 0 ? (
+                    ) : clientes.length === 0? (
                         <p className="text-center text-gray-500 py-8">Nenhum cliente cadastrado</p>
                     ) : (
                         <>
@@ -204,7 +211,7 @@ export default function DashboardPage() {
                                             <th className="pb-3 font-medium">Email</th>
                                             <th className="pb-3 font-medium">Telefone</th>
                                             <th className="pb-3 font-medium">Cidade</th>
-                                            <th className="pb-3 font-medium w-20 text-right">Ações</th> {/* <- MUDOU */}
+                                            <th className="pb-3 font-medium w-28 text-right">Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -217,10 +224,17 @@ export default function DashboardPage() {
                                                 <td className="py-3 text-gray-600">{cli.cidade || '-'}</td>
                                                 <td className="py-3">
                                                     <div className="flex gap-2 justify-end">
-                                                        <button onClick={() => handleOpenEdit(cli)} className="text-blue-600 hover:text-blue-800"> {/* <- NOVO BTN */}
+                                                        <button
+                                                            onClick={() => handleEmitirFatura(cli)}
+                                                            className="text-green-600 hover:text-green-800" // <- NOVO BTN
+                                                            title="Emitir Fatura"
+                                                        >
+                                                            <FileText className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => handleOpenEdit(cli)} className="text-blue-600 hover:text-blue-800" title="Editar">
                                                             <Pencil className="w-4 h-4" />
                                                         </button>
-                                                        <button onClick={() => handleDelete(cli.id)} className="text-red-600 hover:text-red-800">
+                                                        <button onClick={() => handleDelete(cli.id)} className="text-red-600 hover:text-red-800" title="Apagar">
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </div>

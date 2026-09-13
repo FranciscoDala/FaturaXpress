@@ -5,9 +5,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import './index.css'
 
-import LoginPage from './app/login/login' // <- minusculo
-import Register from './app/login/Register' // <- minusculo
+import LoginPage from './app/login/login'
+import Register from './app/login/Register'
 import DashboardPage from './app/dashboard/page'
+import EmitirFaturaPage from './app/faturas/EmitirFaturaPage' // <- NOVA IMPORT
 
 const queryClient = new QueryClient()
 
@@ -26,6 +27,7 @@ function App() {
                 <Route path="/" element={<Navigate to="/login" replace />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<Register />} />
+
                 <Route
                     path="/app/dashboard"
                     element={
@@ -34,6 +36,17 @@ function App() {
                         </ProtectedRoute>
                     }
                 />
+
+                {/* NOVA ROTA */}
+                <Route
+                    path="/faturas/nova"
+                    element={
+                        <ProtectedRoute>
+                            <EmitirFaturaPage />
+                        </ProtectedRoute>
+                    }
+                />
+
                 <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
         </HashRouter>

@@ -30,7 +30,7 @@ def import_all_models():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("SIGE API a iniciar...")
+    logger.info("FaturaXpress API a iniciar...")
     logger.info(f"Cloudinary configurado: {settings.CLOUDINARY_CLOUD_NAME}")
     import_all_models()
 
@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
     await engine.dispose()
     logger.info("API a desligar...")
 
-app = FastAPI(title="SIGE API", version="1.0.0", lifespan=lifespan, docs_url="/docs", redoc_url="/redoc")
+app = FastAPI(title="FaturaXpress API", version="1.0.0", lifespan=lifespan, docs_url="/docs", redoc_url="/redoc")
 
 # CORS
 allowed_origins = ["https://faturaxpress.onrender.com", "http://localhost:5173", "http://localhost:3000"]

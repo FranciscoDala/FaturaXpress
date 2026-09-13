@@ -4,7 +4,7 @@ from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
 
 from app.db.database import get_db
-from app.models import Company, User  # CORRIGIDO: era app.modules.auth.models
+from app.modules.auth.models import Company, User  # CORRIGIDO: era app.modules.auth.models
 from . import schemas
 from .jwt import create_access_token  # CORRIGIDO: faltava o .
 from app.core.security import hash_password, verify_password

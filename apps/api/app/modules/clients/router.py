@@ -8,7 +8,7 @@ from app.modules.clients.schemas import ClienteCreateRequest, ClienteResponse, C
 from app.modules.clients import service as cliente_service
 from app.core.security import get_current_company_id
 
-router = APIRouter(prefix="/api/clientes", tags=["Clientes"])
+router = APIRouter(prefix="/clientes", tags=["Clientes"]) # <- MUDEI AQUI: tirei /api
 
 @router.post("/", response_model=ClienteResponse, status_code=201)
 def create_cliente(
@@ -21,13 +21,13 @@ def create_cliente(
 @router.get("/")
 def read_clientes(
     skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100), # <- default 10
+    limit: int = Query(10, ge=1, le=100),
     search: str = Query("", description="Buscar por nome ou NIF"),
     db: Session = Depends(get_db),
     company_id: uuid.UUID = Depends(get_current_company_id)
 ):
     items, total = cliente_service.get_clientes(db, company_id=company_id, skip=skip, limit=limit, search=search)
-    return {"items": items, "total": total} # <- novo formato
+    return {"items": items, "total": total}
 
 @router.get("/{cliente_id}", response_model=ClienteResponse)
 def read_cliente(

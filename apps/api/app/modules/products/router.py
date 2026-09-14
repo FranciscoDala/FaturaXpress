@@ -1,20 +1,21 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, Path, Form, File, UploadFile
+from fastapi import APIRouter, Depends, Query, HTTPException, Path, Form, File, UploadFile, Request
 from sqlalchemy.orm import Session
 import uuid
 from typing import List, Optional
-import logging # <- ADD
+import logging
 from app.db.session import get_db
 from app.modules.products.schemas import ProdutoCreateRequest, ProdutoResponse, ProdutoUpdateRequest, BaixaStockRequest, TipoProdutoEnum
 from app.modules.products import service as produto_service
 from app.core.security import get_current_company_id
 from app.core.upload_Imagem import upload_image
 
-logger = logging.getLogger(__name__) # <- ADD
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/produtos", tags=["Produtos"])
 
 @router.get("", response_model=dict)
 def listar_produtos(
+    request: Request,
     search: str = Query("", description="Busca por nome, codigo ou categoria"),
     categoria: Optional[str] = Query(None),
     tipo: Optional[TipoProdutoEnum] = Query(None, description="produto, servico, kit"),
@@ -24,25 +25,45 @@ def listar_produtos(
     db: Session = Depends(get_db),
     company_id: uuid.UUID = Depends(get_current_company_id)
 ):
-    try: # <- ADD TRY
-        logger.info(f"[ROUTER] GET /api/produtos | company_id={company_id} | skip={skip} | limit={limit} | search='{search}' | tipo={tipo} | ativo={ativo}") # <- ADD
+    try:
+        auth_header = request.headers.get("Authorization")
+        logger.info(f"[ROUTER] Auth Header: {'Presente' if auth_header else 'VAZIO'}")
+        logger.info(f"[ROUTER] GET /api/produtos | company_id={company_id} | skip={skip} | limit={limit} | search='{search}' | tipo={tipo} | ativo={ativo}")
+
+        if not company_id:
+            logger.error("[ROUTER] company_id é None. Token inválido ou usuário sem empresa")
+            raise HTTPException(status_code=401, detail="Empresa não identificada. Faça login novamente")
+
         tipo_str = tipo.value if tipo else ""
         items = produto_service.get_produtos(db, company_id, search, categoria or "", tipo_str, ativo, skip, limit)
         total = produto_service.count_produtos(db, company_id, search, categoria or "", tipo_str, ativo)
-        logger.info(f"[ROUTER] OK | Retornando {len(items)} items de {total}") # <- ADD
+        logger.info(f"[ROUTER] OK | Retornando {len(items)} items de {total}")
         return {"items": items, "total": total, "page": (skip // limit) + 1, "limit": limit}
-    except Exception as e: # <- ADD
-        logger.exception(f"[ROUTER] ERRO 500 em listar_produtos: {e}") # <- ADD
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"[ROUTER] ERRO 500 em listar_produtos: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{produto_id}", response_model=ProdutoResponse)
-def buscar_por_id(produto_id: uuid.UUID = Path(...), db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+def buscar_por_id(
+    produto_id: uuid.UUID = Path(...),
+    db: Session = Depends(get_db),
+    company_id: uuid.UUID = Depends(get_current_company_id)
+):
+    logger.info(f"[ROUTER] GET /api/produtos/{produto_id} | company_id={company_id}")
     db_produto = produto_service.get_produto_by_id(db, produto_id, company_id)
     if not db_produto: raise HTTPException(status_code=404, detail="Produto não encontrado")
     return db_produto
 
 @router.get("/codigo/{codigo}", response_model=ProdutoResponse)
-def buscar_por_codigo(codigo: str = Path(...), db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+def buscar_por_codigo(
+    codigo: str = Path(...),
+    db: Session = Depends(get_db),
+    company_id: uuid.UUID = Depends(get_current_company_id)
+):
+    logger.info(f"[ROUTER] GET /api/produtos/codigo/{codigo} | company_id={company_id}")
     db_produto = produto_service.get_produto_by_codigo(db, codigo, company_id)
     if not db_produto: raise HTTPException(status_code=404, detail="Produto não encontrado")
     return db_produto
@@ -57,6 +78,7 @@ async def criar_produto(
     iva: float = Form(14.0), tem_iva: bool = Form(True), imagem: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)
 ):
+    logger.info(f"[ROUTER] POST /api/produtos | company_id={company_id} | nome={nome}")
     imagem_url = None
     if imagem:
         imagem_url = await upload_image(imagem, folder=f"produtos/{company_id}")
@@ -76,6 +98,7 @@ async def atualizar_produto(
     preco_venda: Optional[float] = Form(None), imagem: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)
 ):
+    logger.info(f"[ROUTER] PUT /api/produtos/{produto_id} | company_id={company_id}")
     update_data = {}
     for k, v in locals().items():
         if k not in ['produto_id', 'imagem', 'db', 'company_id'] and v is not None:

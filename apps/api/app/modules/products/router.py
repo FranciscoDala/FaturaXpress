@@ -2,11 +2,14 @@ from fastapi import APIRouter, Depends, Query, HTTPException, Path, Form, File, 
 from sqlalchemy.orm import Session
 import uuid
 from typing import List, Optional
+import logging # <- ADD
 from app.db.session import get_db
 from app.modules.products.schemas import ProdutoCreateRequest, ProdutoResponse, ProdutoUpdateRequest, BaixaStockRequest, TipoProdutoEnum
 from app.modules.products import service as produto_service
 from app.core.security import get_current_company_id
 from app.core.upload_Imagem import upload_image
+
+logger = logging.getLogger(__name__) # <- ADD
 
 router = APIRouter(prefix="/produtos", tags=["Produtos"])
 
@@ -21,10 +24,16 @@ def listar_produtos(
     db: Session = Depends(get_db),
     company_id: uuid.UUID = Depends(get_current_company_id)
 ):
-    tipo_str = tipo.value if tipo else ""
-    items = produto_service.get_produtos(db, company_id, search, categoria or "", tipo_str, ativo, skip, limit)
-    total = produto_service.count_produtos(db, company_id, search, categoria or "", tipo_str, ativo)
-    return {"items": items, "total": total, "page": (skip // limit) + 1, "limit": limit}
+    try: # <- ADD TRY
+        logger.info(f"[ROUTER] GET /api/produtos | company_id={company_id} | skip={skip} | limit={limit} | search='{search}' | tipo={tipo} | ativo={ativo}") # <- ADD
+        tipo_str = tipo.value if tipo else ""
+        items = produto_service.get_produtos(db, company_id, search, categoria or "", tipo_str, ativo, skip, limit)
+        total = produto_service.count_produtos(db, company_id, search, categoria or "", tipo_str, ativo)
+        logger.info(f"[ROUTER] OK | Retornando {len(items)} items de {total}") # <- ADD
+        return {"items": items, "total": total, "page": (skip // limit) + 1, "limit": limit}
+    except Exception as e: # <- ADD
+        logger.exception(f"[ROUTER] ERRO 500 em listar_produtos: {e}") # <- ADD
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{produto_id}", response_model=ProdutoResponse)
 def buscar_por_id(produto_id: uuid.UUID = Path(...), db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):

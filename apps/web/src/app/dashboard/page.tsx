@@ -13,7 +13,7 @@ interface Cliente {
   id: string; nome: string; nif: string; email: string | null; telefone: string | null; endereco: string | null; cidade: string | null; provincia: string | null
 }
 
-interface Produto { // <- PADRONIZADO
+interface Produto {
   id: string;
   nome: string;
   codigo: string;
@@ -48,22 +48,36 @@ export default function DashboardPage() {
         try {
             setLoading(true);
             const skip = (page - 1) * limit
+            console.log("[FRONT] Chamando GET /api/clientes", { skip, limit, search }) // <- ADD
             const res = await api.get('/api/clientes', { params: { skip, limit, search } });
+            console.log("[FRONT] Resposta clientes:", res.data) // <- ADD
             setClientes(res.data.items);
             setTotal(res.data.total)
         }
-        catch { toast.error('Erro ao carregar clientes') } finally { setLoading(false) }
+        catch (err: any) { // <- ADD err
+            console.error("[FRONT] Erro clientes:", err.response?.data || err.message) // <- ADD
+            toast.error('Erro ao carregar clientes')
+        } finally {
+            setLoading(false)
+        }
     }
 
     const fetchProdutos = async () => {
         try {
             setLoading(true);
             const skip = (page - 1) * limit
+            console.log("[FRONT] Chamando GET /api/produtos", { skip, limit, search }) // <- ADD
             const res = await api.get('/api/produtos', { params: { skip, limit, search } });
+            console.log("[FRONT] Resposta produtos:", res.data) // <- ADD
             setProdutos(res.data.items);
             setTotal(res.data.total)
         }
-        catch { toast.error('Erro ao carregar produtos') } finally { setLoading(false) }
+        catch (err: any) { // <- ADD err
+            console.error("[FRONT] Erro produtos:", err.response?.data || err.message) // <- ADD
+            toast.error('Erro ao carregar produtos')
+        } finally {
+            setLoading(false)
+        }
     }
 
     useEffect(() => { const name = localStorage.getItem("company_name"); if (name) setCompanyName(name) }, [])

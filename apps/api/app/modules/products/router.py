@@ -8,23 +8,23 @@ from app.modules.products import service as produto_service
 from app.core.security import get_current_company_id
 from app.core.upload_Imagem import upload_image
 
-router = APIRouter(prefix="/produtos", tags=["Produtos"]) # <- CORRIGIDO: tirei /api
+router = APIRouter(prefix="/produtos", tags=["Produtos"])
 
 @router.get("", response_model=dict)
 def listar_produtos(
     search: str = Query("", description="Busca por nome, codigo ou categoria"),
     categoria: Optional[str] = Query(None),
-    tipo: Optional[str] = Query(None, description="produto, servico, kit"),
+    tipo: Optional[TipoProdutoEnum] = Query(None, description="produto, servico, kit"),
     ativo: bool = Query(True),
-    page: int = Query(1, ge=1),
+    skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
     company_id: uuid.UUID = Depends(get_current_company_id)
 ):
-    skip = (page - 1) * limit
-    items = produto_service.get_produtos(db, company_id, search, categoria or "", tipo or "", ativo, skip, limit)
-    total = produto_service.count_produtos(db, company_id, search, categoria or "", tipo or "", ativo)
-    return {"items": items, "total": total, "page": page, "limit": limit}
+    tipo_str = tipo.value if tipo else ""
+    items = produto_service.get_produtos(db, company_id, search, categoria or "", tipo_str, ativo, skip, limit)
+    total = produto_service.count_produtos(db, company_id, search, categoria or "", tipo_str, ativo)
+    return {"items": items, "total": total, "page": (skip // limit) + 1, "limit": limit}
 
 @router.get("/{produto_id}", response_model=ProdutoResponse)
 def buscar_por_id(produto_id: uuid.UUID = Path(...), db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):

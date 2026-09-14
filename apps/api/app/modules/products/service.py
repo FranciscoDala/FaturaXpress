@@ -8,7 +8,7 @@ import uuid
 def get_produtos(db: Session, company_id: uuid.UUID, search: str, categoria: str, tipo: str, ativo: bool, skip: int, limit: int):
     query = db.query(Produto).filter(Produto.company_id == company_id)
     if ativo is not None:
-        query = query.filter(Produto.ativo == ativo) # <- mudei de.is_() para ==
+        query = query.filter(Produto.ativo == ativo)
 
     if search:
         query = query.filter(or_(
@@ -20,14 +20,14 @@ def get_produtos(db: Session, company_id: uuid.UUID, search: str, categoria: str
         ))
     if categoria:
         query = query.filter(Produto.categoria == categoria)
-    if tipo:
+    if tipo: # <- blindagem pra não quebrar com ""
         query = query.filter(Produto.tipo == tipo)
     return query.offset(skip).limit(limit).all()
 
 def count_produtos(db: Session, company_id: uuid.UUID, search: str, categoria: str, tipo: str, ativo: bool):
     query = db.query(func.count(Produto.id)).filter(Produto.company_id == company_id)
     if ativo is not None:
-        query = query.filter(Produto.ativo == ativo) # <- mudei de.is_() para ==
+        query = query.filter(Produto.ativo == ativo)
 
     if search:
         query = query.filter(or_(
@@ -39,7 +39,7 @@ def count_produtos(db: Session, company_id: uuid.UUID, search: str, categoria: s
         ))
     if categoria:
         query = query.filter(Produto.categoria == categoria)
-    if tipo:
+    if tipo: # <- blindagem
         query = query.filter(Produto.tipo == tipo)
     return query.scalar() or 0
 
@@ -75,7 +75,7 @@ def update_produto(db: Session, produto_id: uuid.UUID, produto: ProdutoUpdateReq
 def set_status_produto(db: Session, produto_id: uuid.UUID, company_id: uuid.UUID, status: bool) -> Produto:
     db_produto = get_produto_by_id(db, produto_id, company_id)
     if not db_produto: raise HTTPException(status_code=404, detail="Produto não encontrado")
-    db_produto.ativo = status # type: ignore <- CORRIGIDO
+    db_produto.ativo = status # type: ignore
     db.commit()
     db.refresh(db_produto)
     return db_produto
@@ -87,7 +87,7 @@ def baixar_stock(db: Session, produto_id: uuid.UUID, quantidade: float, company_
     if db_produto.controlar_stock and db_produto.stock_atual < quantidade:
         raise ValueError(f"Stock insuficiente. Disponível: {db_produto.stock_atual}")
     if db_produto.controlar_stock:
-        db_produto.stock_atual = db_produto.stock_atual - quantidade # type: ignore <- CORRIGIDO
+        db_produto.stock_atual = db_produto.stock_atual - quantidade # type: ignore
         db.commit()
     return db_produto
 
@@ -98,7 +98,7 @@ def get_categorias(db: Session, company_id: uuid.UUID) -> list[str]:
 def get_produtos_stock_baixo(db: Session, company_id: uuid.UUID) -> list[Produto]:
     return db.query(Produto).filter(
         Produto.company_id == company_id,
-        Produto.ativo == True, # <- mudei de.is_() para ==
-        Produto.controlar_stock == True, # <- mudei de.is_() para ==
+        Produto.ativo == True,
+        Produto.controlar_stock == True,
         Produto.stock_atual <= Produto.stock_minimo
     ).all()

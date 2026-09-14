@@ -1,4 +1,4 @@
-import { useState, useRef, ChangeEvent } from 'react' // <- Add ChangeEvent
+import { useState, useRef, ChangeEvent, useEffect } from 'react' // <- Add useEffect
 import { X, Package, Settings, Info, Upload } from 'lucide-react'
 import { api } from '../../../../lib/api'
 import { toast } from 'sonner'
@@ -16,7 +16,7 @@ const TIPOS = [
     { value: 'kit', label: 'Kit' }
 ]
 
-type Tab = 'obrigatorio' | 'opcional' | 'estoque' // <- Tipagem da aba
+type Tab = 'obrigatorio' | 'opcional' | 'estoque'
 
 export default function ProdutoModal({ open, onClose, onSuccess }: Props) {
     const [tab, setTab] = useState<Tab>('obrigatorio')
@@ -35,11 +35,22 @@ export default function ProdutoModal({ open, onClose, onSuccess }: Props) {
         controlar_stock: true, stock_minimo: '0'
     })
 
-    const handleImagemChange = (e: ChangeEvent<HTMLInputElement>) => { // <- TIPADO
+    // Limpa a URL do preview quando fecha o modal pra não vazar memória
+    useEffect(() => {
+        return () => {
+            if (form.imagem_preview) URL.revokeObjectURL(form.imagem_preview)
+        }
+    }, [form.imagem_preview])
+
+    const handleImagemChange = (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
+
+        // Limpa preview anterior
+        if (form.imagem_preview) URL.revokeObjectURL(form.imagem_preview)
+
         setForm({
-          ...form,
+         ...form,
             imagem_file: file,
             imagem_preview: URL.createObjectURL(file)
         })
@@ -79,20 +90,30 @@ export default function ProdutoModal({ open, onClose, onSuccess }: Props) {
                 formData.append('imagem', form.imagem_file)
             }
 
-            // IMPORTANTE: Não setar Content-Type. O axios/busca seta sozinho com boundary
             await api.post('/api/produtos', formData)
 
+            toast.success('Produto criado com sucesso!')
             onSuccess()
             onClose()
             resetForm()
         } catch (err: any) {
-            toast.error(err.response?.data?.detail || 'Erro ao criar produto')
+            const detail = err.response?.data?.detail
+            let message = 'Erro ao criar produto'
+
+            // <- CORREÇÃO DO ERRO #31: detail pode ser array de objetos
+            if (Array.isArray(detail)) {
+                message = detail.map((e: any) => e.msg || e).join(', ')
+            } else if (typeof detail === 'string') {
+                message = detail
+            }
+            toast.error(message)
         } finally {
             setLoading(false)
         }
     }
 
     const resetForm = () => {
+        if (form.imagem_preview) URL.revokeObjectURL(form.imagem_preview) // <- Limpa memória
         setForm({
             nome: '', codigo: '', preco_venda: '', tipo: 'produto',
             useImagem: false, imagem_file: null, imagem_preview: '',
@@ -109,7 +130,7 @@ export default function ProdutoModal({ open, onClose, onSuccess }: Props) {
 
     if (!open) return null
 
-    const TabButton = ({ id, label, icon: Icon }: {id: Tab, label: string, icon: any}) => ( // <- TIPADO
+    const TabButton = ({ id, label, icon: Icon }: {id: Tab, label: string, icon: any}) => (
         <button
             type="button"
             onClick={() => setTab(id)}
@@ -129,7 +150,7 @@ export default function ProdutoModal({ open, onClose, onSuccess }: Props) {
     }: {
         label: string,
         checked: boolean,
-        onChange: (e: ChangeEvent<HTMLInputElement>) => void, // <- TIPADO
+        onChange: (e: ChangeEvent<HTMLInputElement>) => void,
         children: React.ReactNode
     }) => (
         <div className="space-y-2">
@@ -161,7 +182,7 @@ export default function ProdutoModal({ open, onClose, onSuccess }: Props) {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-sm font-medium text-gray-700">Nome *</label>
-                                    <input required value={form.nome} onChange={(e: ChangeEvent<HTMLInputElement>) => setForm({...form, nome: e.target.value})} className="mt-1 border rounded-lg px-3 py-2 w-full" /> {/* <- TIPADO */}
+                                    <input required value={form.nome} onChange={(e: ChangeEvent<HTMLInputElement>) => setForm({...form, nome: e.target.value})} className="mt-1 border rounded-lg px-3 py-2 w-full" />
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium text-gray-700">Código *</label>
@@ -173,7 +194,7 @@ export default function ProdutoModal({ open, onClose, onSuccess }: Props) {
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium text-gray-700">Tipo</label>
-                                    <select value={form.tipo} onChange={(e: ChangeEvent<HTMLSelectElement>) => setForm({...form, tipo: e.target.value})} className="mt-1 border rounded-lg px-3 py-2 w-full"> {/* <- TIPADO */}
+                                    <select value={form.tipo} onChange={(e: ChangeEvent<HTMLSelectElement>) => setForm({...form, tipo: e.target.value})} className="mt-1 border rounded-lg px-3 py-2 w-full">
                                         {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                                     </select>
                                 </div>
@@ -190,7 +211,7 @@ export default function ProdutoModal({ open, onClose, onSuccess }: Props) {
                             </div>
 
                             <ToggleField label="Adicionar Imagem do Produto" checked={form.useImagem} onChange={(e: ChangeEvent<HTMLInputElement>) => setForm({...form, useImagem: e.target.checked})}>
-                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4"> {/* <- CORRIGIDO: era border-gray-300 */}
+                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                                     <input
                                         type="file"
                                         ref={fileInputRef}
@@ -207,7 +228,7 @@ export default function ProdutoModal({ open, onClose, onSuccess }: Props) {
                                             </div>
                                         </div>
                                     ) : (
-                                        <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full flex-col items-center gap-2 text-gray-500 hover:text-orange-600">
+                                        <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full flex flex-col items-center gap-2 text-gray-500 hover:text-orange-600">
                                             <Upload className="w-8 h-8" />
                                             <span className="text-sm">Clique para selecionar imagem</span>
                                         </button>

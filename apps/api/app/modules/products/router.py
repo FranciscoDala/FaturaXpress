@@ -8,9 +8,9 @@ from app.modules.products import service as produto_service
 from app.core.security import get_current_company_id
 from app.core.upload_Imagem import upload_image
 
-router = APIRouter(prefix="/api/produtos", tags=["Produtos"])
+router = APIRouter(prefix="/api/produtos", tags=["Produtos"]) # SEM / no final
 
-@router.get("/", response_model=dict)
+@router.get("", response_model=dict) # <- TIREI A / AQUI
 def listar_produtos(
     search: str = Query("", description="Busca por nome, codigo ou categoria"),
     categoria: Optional[str] = Query(None),
@@ -38,7 +38,7 @@ def buscar_por_codigo(codigo: str = Path(...), db: Session = Depends(get_db), co
     if not db_produto: raise HTTPException(status_code=404, detail="Produto não encontrado")
     return db_produto
 
-@router.post("/", response_model=ProdutoResponse, status_code=201)
+@router.post("", response_model=ProdutoResponse, status_code=201) # <- TIREI A / AQUI
 async def criar_produto(
     nome: str = Form(...),
     codigo: str = Form(...),
@@ -58,13 +58,13 @@ async def criar_produto(
     peso: Optional[float] = Form(None),
     iva: float = Form(14.0),
     tem_iva: bool = Form(True),
-    imagem: Optional[UploadFile] = File(None), # <- ARQUIVO
+    imagem: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     company_id: uuid.UUID = Depends(get_current_company_id)
 ):
     imagem_url = None
     if imagem:
-        imagem_url = await upload_image(imagem, folder=f"produtos/{company_id}") # <- Faz upload
+        imagem_url = await upload_image(imagem, folder=f"produtos/{company_id}")
 
     produto_data = ProdutoCreateRequest(
         nome=nome, codigo=codigo, preco_venda=preco_venda, tipo=tipo, unidade=unidade,
@@ -81,13 +81,11 @@ async def atualizar_produto(
     nome: Optional[str] = Form(None),
     codigo: Optional[str] = Form(None),
     preco_venda: Optional[float] = Form(None),
-    imagem: Optional[UploadFile] = File(None), # <- ARQUIVO
-    #... repete os outros campos como Optional[Form(None)]
+    imagem: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     company_id: uuid.UUID = Depends(get_current_company_id)
 ):
     update_data = {}
-    # Pega só os campos enviados
     for k, v in locals().items():
         if k not in ['produto_id', 'imagem', 'db', 'company_id'] and v is not None:
             update_data[k] = v

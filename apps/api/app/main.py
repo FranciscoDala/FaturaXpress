@@ -67,8 +67,8 @@ logger.info(f"CORS liberado para: {allowed_origins}")
 
 # INCLUI OS ROUTERS
 app.include_router(auth_router, prefix="/api")
-app.include_router(cliente_router, prefix="/api") # <- Padronizei com /api
-app.include_router(produto_router, prefix="/api") # <- NOVO
+app.include_router(cliente_router) # <- Padronizei com /api
+app.include_router(produto_router) # <- NOVO
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):

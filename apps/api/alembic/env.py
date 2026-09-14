@@ -10,6 +10,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from app.core.config import settings
 from app.db.database import Base # <- usa o teu Base de database.py
 
+# IMPORTA TODOS OS MODELS AQUI PRA O BASE ENXERGAR
+from app.modules.auth.models import User
+from app.modules.clients.models import Cliente
+from app.modules.products.models import Produto
+
 config = context.config
 
 if config.config_file_name is not None:
@@ -17,8 +22,11 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-# Força URL sync e tira asyncpg
+# Força URL sync e tira asyncpg. Adiciona SSL pro Neon
 DATABASE_URL = settings.DATABASE_URL.replace("+asyncpg", "")
+if "sslmode=" not in DATABASE_URL:
+    DATABASE_URL += "&sslmode=require" if "?" in DATABASE_URL else "?sslmode=require"
+
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 def run_migrations_offline() -> None:

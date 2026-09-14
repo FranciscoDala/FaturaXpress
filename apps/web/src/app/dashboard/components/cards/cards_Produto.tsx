@@ -1,10 +1,11 @@
-import { Search, ChevronLeft, ChevronRight, Package } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, Package, Tag } from 'lucide-react'
 
 interface Produto {
   id: string
   nome: string
   codigo: string
-  preco_venda: number
+  categoria: string | null
+  preco_venda: number | string
   stock_atual: number
   unidade: string
   imagem_url: string | null
@@ -25,6 +26,11 @@ interface Props {
 export default function CardsProdutos({ produtos, loading, search, setSearch, page, setPage, total, limit }: Props) {
   const totalPages = Math.ceil(total / limit)
 
+  const formatPrice = (val: number | string) => {
+    const num = typeof val === 'string'? parseFloat(val) : val
+    return isNaN(num)? '0.00' : num.toFixed(2)
+  }
+
   return (
     <div className="bg-white rounded-xl border border-gray-200">
       <div className="p-6 border-b">
@@ -44,13 +50,19 @@ export default function CardsProdutos({ produtos, loading, search, setSearch, pa
             {produtos.map(p => (
               <div key={p.id} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-lg transition">
                 {p.imagem_url? <img src={p.imagem_url} alt={p.nome} className="w-full h-32 rounded-lg object-cover mb-3" /> : <div className="w-full h-32 rounded-lg bg-gray-100 flex items-center justify-center mb-3"><Package className="w-10 h-10 text-gray-400" /></div>}
+
                 <div className="flex justify-between items-start mb-1">
                   <h3 className="font-semibold text-gray-900 truncate">{p.nome}</h3>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${p.ativo? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{p.ativo? 'Ativo' : 'Inativo'}</span>
                 </div>
-                <p className="text-xs text-gray-500 mb-2">Cód: {p.codigo}</p>
+
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-xs text-gray-500">Cód: {p.codigo}</p>
+                  {p.categoria && <span className="flex items-center gap-1 text-xs text-gray-500"><Tag className="w-3 h-3"/> {p.categoria}</span>}
+                </div>
+
                 <div className="flex justify-between items-center">
-                  <p className="text-xl font-bold text-orange-600">{p.preco_venda.toFixed(2)} KZ</p>
+                  <p className="text-xl font-bold text-orange-600">{formatPrice(p.preco_venda)} KZ</p>
                   <p className="text-sm text-gray-600">Stock: {p.stock_atual} {p.unidade}</p>
                 </div>
               </div>

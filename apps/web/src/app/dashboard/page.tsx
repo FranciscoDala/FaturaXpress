@@ -5,15 +5,24 @@ import { toast } from 'sonner'
 import ClienteModal from './components/modals/modal_Cliente'
 import ProdutoModal from './components/modals/modal_Produto'
 import TabelaClientes from './components/tables/tabela_Cliente'
-import CardsProdutos from './components/cards/cards_Produto' // <- CORRIGIDO
-import DashboardCards from './components/cards/cards_Dashboard' // <- NOVO
+import CardsProdutos from './components/cards/cards_Produto'
+import DashboardCards from './components/cards/cards_Dashboard'
 import { api } from '../../lib/api'
 
 interface Cliente {
   id: string; nome: string; nif: string; email: string | null; telefone: string | null; endereco: string | null; cidade: string | null; provincia: string | null
 }
-interface Produto {
-  id: string; nome: string; codigo: string; preco_venda: number; stock_atual: number; unidade: string; imagem_url: string | null; ativo: boolean
+
+interface Produto { // <- PADRONIZADO
+  id: string;
+  nome: string;
+  codigo: string;
+  categoria: string | null;
+  preco_venda: number | string;
+  stock_atual: number;
+  unidade: string;
+  imagem_url: string | null;
+  ativo: boolean
 }
 
 type TabView = 'clientes' | 'produtos'
@@ -36,12 +45,24 @@ export default function DashboardPage() {
     const limit = 10
 
     const fetchClientes = async () => {
-        try { setLoading(true); const res = await api.get('/api/clientes', { params: { page, limit, search } }); setClientes(res.data.items); setTotal(res.data.total) }
+        try {
+            setLoading(true);
+            const skip = (page - 1) * limit
+            const res = await api.get('/api/clientes', { params: { skip, limit, search } });
+            setClientes(res.data.items);
+            setTotal(res.data.total)
+        }
         catch { toast.error('Erro ao carregar clientes') } finally { setLoading(false) }
     }
 
     const fetchProdutos = async () => {
-        try { setLoading(true); const res = await api.get('/api/produtos', { params: { page, limit, search } }); setProdutos(res.data.items); setTotal(res.data.total) }
+        try {
+            setLoading(true);
+            const skip = (page - 1) * limit
+            const res = await api.get('/api/produtos', { params: { skip, limit, search } });
+            setProdutos(res.data.items);
+            setTotal(res.data.total)
+        }
         catch { toast.error('Erro ao carregar produtos') } finally { setLoading(false) }
     }
 
@@ -96,7 +117,7 @@ export default function DashboardPage() {
 
                 <DashboardCards onCardClick={handleCardClick} />
 
-                <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex items-center justify-between">
+                <div className="bg-white rounded-xl border-gray-200 p-4 mb-4 flex items-center justify-between">
                     <h3 className="font-semibold text-gray-900">Listagem</h3>
                     <select value={view} onChange={(e) => setView(e.target.value as TabView)} className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                         <option value="clientes">Clientes</option>

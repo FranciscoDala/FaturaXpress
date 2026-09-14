@@ -9,13 +9,13 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.cloudinary_service import upload_to_cloudinary
+from app.core.upload_Imagem import cloudinary
 from app.db.database import Base, engine
 
 # IMPORTA OS ROUTERS
 from app.modules.auth.router import router as auth_router
 from app.modules.clients.router import router as cliente_router
-from app.modules.products.router import router as produto_router # <- NOVO
+from app.modules.products.router import router as produto_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,7 +27,7 @@ def import_all_models():
     logger.info("Forçando import de todos os models...")
     from app.modules.auth import models
     from app.modules.clients import models
-    from app.modules.products import models # <- NOVO: registrar tabela produtos
+    from app.modules.products import models
     tabelas = sorted(list(Base.metadata.tables.keys()))
     logger.info(f"Models registrados: {', '.join(tabelas)}")
     logger.info(f"Total: {len(tabelas)} tabelas mapeadas.")
@@ -65,10 +65,10 @@ app.add_middleware(
 )
 logger.info(f"CORS liberado para: {allowed_origins}")
 
-# INCLUI OS ROUTERS
+# INCLUI OS ROUTERS - PADRONIZADO COM /api
 app.include_router(auth_router, prefix="/api")
-app.include_router(cliente_router) # <- Padronizei com /api
-app.include_router(produto_router) # <- NOVO
+app.include_router(cliente_router, prefix="/api") # <- CORRIGIDO
+app.include_router(produto_router, prefix="/api") # <- CORRIGIDO
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):

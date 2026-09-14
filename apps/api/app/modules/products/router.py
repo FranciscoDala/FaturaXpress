@@ -8,9 +8,9 @@ from app.modules.products import service as produto_service
 from app.core.security import get_current_company_id
 from app.core.upload_Imagem import upload_image
 
-router = APIRouter(prefix="/api/produtos", tags=["Produtos"]) # SEM / no final
+router = APIRouter(prefix="/produtos", tags=["Produtos"]) # <- CORRIGIDO: tirei /api
 
-@router.get("", response_model=dict) # <- TIREI A / AQUI
+@router.get("", response_model=dict)
 def listar_produtos(
     search: str = Query("", description="Busca por nome, codigo ou categoria"),
     categoria: Optional[str] = Query(None),
@@ -38,29 +38,15 @@ def buscar_por_codigo(codigo: str = Path(...), db: Session = Depends(get_db), co
     if not db_produto: raise HTTPException(status_code=404, detail="Produto não encontrado")
     return db_produto
 
-@router.post("", response_model=ProdutoResponse, status_code=201) # <- TIREI A / AQUI
+@router.post("", response_model=ProdutoResponse, status_code=201)
 async def criar_produto(
-    nome: str = Form(...),
-    codigo: str = Form(...),
-    preco_venda: float = Form(...),
-    tipo: TipoProdutoEnum = Form(TipoProdutoEnum.produto),
-    unidade: str = Form("UN"),
-    ativo: bool = Form(True),
-    controlar_stock: bool = Form(True),
-    stock_atual: float = Form(0.0),
-    stock_minimo: float = Form(0.0),
-    preco_custo: float = Form(0.0),
-    # Opcionais
-    codigo_barras: Optional[str] = Form(None),
-    codigo_qr: Optional[str] = Form(None),
-    descricao: Optional[str] = Form(None),
-    categoria: Optional[str] = Form(None),
-    peso: Optional[float] = Form(None),
-    iva: float = Form(14.0),
-    tem_iva: bool = Form(True),
-    imagem: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_db),
-    company_id: uuid.UUID = Depends(get_current_company_id)
+    nome: str = Form(...), codigo: str = Form(...), preco_venda: float = Form(...),
+    tipo: TipoProdutoEnum = Form(TipoProdutoEnum.produto), unidade: str = Form("UN"), ativo: bool = Form(True),
+    controlar_stock: bool = Form(True), stock_atual: float = Form(0.0), stock_minimo: float = Form(0.0),
+    preco_custo: float = Form(0.0), codigo_barras: Optional[str] = Form(None), codigo_qr: Optional[str] = Form(None),
+    descricao: Optional[str] = Form(None), categoria: Optional[str] = Form(None), peso: Optional[float] = Form(None),
+    iva: float = Form(14.0), tem_iva: bool = Form(True), imagem: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)
 ):
     imagem_url = None
     if imagem:
@@ -77,22 +63,16 @@ async def criar_produto(
 
 @router.put("/{produto_id}", response_model=ProdutoResponse)
 async def atualizar_produto(
-    produto_id: uuid.UUID,
-    nome: Optional[str] = Form(None),
-    codigo: Optional[str] = Form(None),
-    preco_venda: Optional[float] = Form(None),
-    imagem: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_db),
-    company_id: uuid.UUID = Depends(get_current_company_id)
+    produto_id: uuid.UUID, nome: Optional[str] = Form(None), codigo: Optional[str] = Form(None),
+    preco_venda: Optional[float] = Form(None), imagem: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)
 ):
     update_data = {}
     for k, v in locals().items():
         if k not in ['produto_id', 'imagem', 'db', 'company_id'] and v is not None:
             update_data[k] = v
-
     if imagem:
         update_data['imagem_url'] = await upload_image(imagem, folder=f"produtos/{company_id}")
-
     produto_update = ProdutoUpdateRequest(**update_data)
     db_produto = produto_service.update_produto(db, produto_id, produto_update, company_id)
     if not db_produto: raise HTTPException(status_code=404, detail="Produto não encontrado")

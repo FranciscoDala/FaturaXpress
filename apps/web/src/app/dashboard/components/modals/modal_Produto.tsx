@@ -302,7 +302,7 @@ export default function ProdutoModal({ open, onClose, onSuccess }: Props) {
                         <div className="flex gap-2">
                             <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">Cancelar</button>
                             <button type="submit" disabled={loading} className="px-4 py-2 bg-orange-600 text-white rounded-lg disabled:opacity-50">
-                                {loading? 'Salvando...' : 'Salvar Produto'}
+                                {loading? 'Salvando...' : 'Salvar Produtos'}
                             </button>
                         </div>
                     </div>

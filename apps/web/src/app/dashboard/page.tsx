@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, LogOut, FileText, Users, Receipt, Settings, Plus, Search, Trash2, ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
+import { Building2, LogOut, FileText, Users, Receipt, Settings, Plus, Package, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import ClienteModal from './components/modals/modal_Cliente'
+import ProdutoModal from './components/modals/modal_Produto'
+import TabelaClientes from './components/tables/tabela_Cliente'
 import { api } from '../../lib/api'
 
 interface Cliente {
@@ -19,8 +21,12 @@ interface Cliente {
 export default function DashboardPage() {
     const navigate = useNavigate()
     const [companyName, setCompanyName] = useState('')
-    const [modalOpen, setModalOpen] = useState(false)
+
+    const [modalClienteOpen, setModalClienteOpen] = useState(false)
+    const [modalProdutoOpen, setModalProdutoOpen] = useState(false)
     const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null)
+    const [menuNovoOpen, setMenuNovoOpen] = useState(false) // <- NOVO para mobile
+
     const [clientes, setClientes] = useState<Cliente[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
@@ -53,18 +59,23 @@ export default function DashboardPage() {
         fetchClientes()
     }, [page, search])
 
-    const handleOpenCreate = () => {
+    const handleOpenCreateCliente = () => {
         setClienteSelecionado(null)
-        setModalOpen(true)
+        setModalClienteOpen(true)
+        setMenuNovoOpen(false)
     }
 
     const handleOpenEdit = (cliente: Cliente) => {
         setClienteSelecionado(cliente)
-        setModalOpen(true)
+        setModalClienteOpen(true)
+    }
+
+    const handleOpenCreateProduto = () => {
+        setModalProdutoOpen(true)
+        setMenuNovoOpen(false)
     }
 
     const handleEmitirFatura = (cliente: Cliente) => {
-        // Manda pra tela de emitir fatura com o id do cliente na URL
         navigate(`/faturas/nova?cliente_id=${cliente.id}`)
     }
 
@@ -91,6 +102,8 @@ export default function DashboardPage() {
     const handleCardClick = (title: string) => {
         if (title === 'Clientes') {
             document.getElementById('tabela-clientes')?.scrollIntoView({ behavior: 'smooth' })
+        } else if (title === 'Produtos') {
+            handleOpenCreateProduto() // <- AGORA ABRE A MODAL
         } else if (title === 'Emitir Fatura') {
             toast.info('Selecione um cliente na tabela abaixo para emitir fatura', { position: 'top-center' })
         } else {
@@ -98,11 +111,10 @@ export default function DashboardPage() {
         }
     }
 
-    const totalPages = Math.ceil(total / limit)
-
     const cards = [
         { title: 'Emitir Fatura', icon: FileText, desc: 'Criar nova fatura para cliente', color: 'bg-blue-600' },
         { title: 'Clientes', icon: Users, desc: 'Gerir base de clientes', color: 'bg-green-600', action: true },
+        { title: 'Produtos', icon: Package, desc: 'Cadastrar produtos e serviços', color: 'bg-orange-600' }, // <- CLICÁVEL AGORA
         { title: 'Faturas', icon: Receipt, desc: 'Histórico de faturas', color: 'bg-purple-600' },
         { title: 'Definições', icon: Settings, desc: 'Dados da empresa', color: 'bg-gray-600' },
     ]
@@ -110,9 +122,9 @@ export default function DashboardPage() {
     return (
         <div className="min-h-screen bg-gray-50">
             <ClienteModal
-                open={modalOpen}
+                open={modalClienteOpen}
                 cliente={clienteSelecionado}
-                onClose={() => setModalOpen(false)}
+                onClose={() => setModalClienteOpen(false)}
                 onSuccess={() => {
                     toast.success(clienteSelecionado? 'Cliente atualizado' : 'Cliente criado');
                     setPage(1);
@@ -120,8 +132,16 @@ export default function DashboardPage() {
                 }}
             />
 
+            <ProdutoModal
+                open={modalProdutoOpen}
+                onClose={() => setModalProdutoOpen(false)}
+                onSuccess={() => {
+                    toast.success('Produto criado');
+                }}
+            />
+
             {/* HEADER */}
-            <header className="bg-white border-b border-gray-200">
+            <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center h-16">
                         <div className="flex items-center gap-3">
@@ -134,20 +154,51 @@ export default function DashboardPage() {
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                            {/* DESKTOP: 2 botões separados */}
                             <button
-                                onClick={handleOpenCreate}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
+                                onClick={handleOpenCreateProduto}
+                                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 transition"
+                            >
+                                <Package className="w-4 h-4" />
+                                Novo Produto
+                            </button>
+                            <button
+                                onClick={handleOpenCreateCliente}
+                                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
                             >
                                 <Plus className="w-4 h-4" />
                                 Novo Cliente
                             </button>
+
+                            {/* MOBILE: 1 botão com menu */}
+                            <div className="relative sm:hidden">
+                                <button
+                                    onClick={() => setMenuNovoOpen(!menuNovoOpen)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Novo
+                                    <ChevronDown className="w-4 h-4" />
+                                </button>
+                                {menuNovoOpen && (
+                                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-30">
+                                        <button onClick={handleOpenCreateCliente} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2">
+                                            <Users className="w-4 h-4" /> Novo Cliente
+                                        </button>
+                                        <button onClick={handleOpenCreateProduto} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2">
+                                            <Package className="w-4 h-4" /> Novo Produto
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
                             <button
                                 onClick={handleLogout}
                                 className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-red-600 transition"
                             >
                                 <LogOut className="w-4 h-4" />
-                                Sair
+                                <span className="hidden sm:inline">Sair</span>
                             </button>
                         </div>
                     </div>
@@ -162,12 +213,12 @@ export default function DashboardPage() {
                 </div>
 
                 {/* CARDS */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     {cards.map((card) => (
                         <div
                             key={card.title}
                             onClick={() => handleCardClick(card.title)}
-                            className="bg-white rounded-xl p-6 border-gray-200 hover:shadow-md transition cursor-pointer relative group"
+                            className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-md transition cursor-pointer relative group"
                         >
                             <div className={`w-12 h-12 ${card.color} rounded-lg flex items-center justify-center mb-4`}>
                                 <card.icon className="w-6 h-6 text-white" />
@@ -181,101 +232,25 @@ export default function DashboardPage() {
                     ))}
                 </div>
 
-                {/* TABELA DE CLIENTES */}
-                <div id="tabela-clientes" className="mt-8 bg-white rounded-xl p-6 border-gray-200">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-                        <h3 className="font-semibold text-gray-900">Clientes</h3>
-                        <div className="relative w-full sm:w-64">
-                            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                            <input
-                                value={search}
-                                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                                placeholder="Buscar por nome ou NIF"
-                                className="pl-9 pr-4 py-2 border-gray-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-600"
-                            />
-                        </div>
-                    </div>
-
-                    {loading? (
-                        <p className="text-center text-gray-500 py-8">Carregando...</p>
-                    ) : clientes.length === 0? (
-                        <p className="text-center text-gray-500 py-8">Nenhum cliente cadastrado</p>
-                    ) : (
-                        <>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead className="text-left text-gray-500 border-b">
-                                        <tr>
-                                            <th className="pb-3 font-medium">Nome</th>
-                                            <th className="pb-3 font-medium">NIF</th>
-                                            <th className="pb-3 font-medium">Email</th>
-                                            <th className="pb-3 font-medium">Telefone</th>
-                                            <th className="pb-3 font-medium">Cidade</th>
-                                            <th className="pb-3 font-medium w-28 text-right">Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {clientes.map(cli => (
-                                            <tr key={cli.id} className="border-b last:border-0 hover:bg-gray-50">
-                                                <td className="py-3 font-medium text-gray-900">{cli.nome}</td>
-                                                <td className="py-3 text-gray-600">{cli.nif}</td>
-                                                <td className="py-3 text-gray-600">{cli.email || '-'}</td>
-                                                <td className="py-3 text-gray-600">{cli.telefone || '-'}</td>
-                                                <td className="py-3 text-gray-600">{cli.cidade || '-'}</td>
-                                                <td className="py-3">
-                                                    <div className="flex gap-2 justify-end">
-                                                        <button
-                                                            onClick={() => handleEmitirFatura(cli)}
-                                                            className="text-green-600 hover:text-green-800" // <- NOVO BTN
-                                                            title="Emitir Fatura"
-                                                        >
-                                                            <FileText className="w-4 h-4" />
-                                                        </button>
-                                                        <button onClick={() => handleOpenEdit(cli)} className="text-blue-600 hover:text-blue-800" title="Editar">
-                                                            <Pencil className="w-4 h-4" />
-                                                        </button>
-                                                        <button onClick={() => handleDelete(cli.id)} className="text-red-600 hover:text-red-800" title="Apagar">
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {/* PAGINAÇÃO */}
-                            {totalPages > 1 && (
-                                <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-3">
-                                    <p className="text-sm text-gray-500">
-                                        Mostrando {((page - 1) * limit) + 1} a {Math.min(page * limit, total)} de {total}
-                                    </p>
-                                    <div className="flex gap-2">
-                                        <button
-                                            disabled={page === 1}
-                                            onClick={() => setPage(p => p - 1)}
-                                            className="p-2 border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50"
-                                        >
-                                            <ChevronLeft className="w-4 h-4" />
-                                        </button>
-                                        <span className="px-3 py-2 text-sm">Página {page} de {totalPages}</span>
-                                        <button
-                                            disabled={page === totalPages}
-                                            onClick={() => setPage(p => p + 1)}
-                                            className="p-2 border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50"
-                                        >
-                                            <ChevronRight className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </>
-                    )}
+                {/* TABELA SEPARADA */}
+                <div id="tabela-clientes">
+                    <TabelaClientes
+                        clientes={clientes}
+                        loading={loading}
+                        search={search}
+                        setSearch={setSearch}
+                        page={page}
+                        setPage={setPage}
+                        total={total}
+                        limit={limit}
+                        onEdit={handleOpenEdit}
+                        onDelete={handleDelete}
+                        onEmitirFatura={handleEmitirFatura}
+                    />
                 </div>
 
                 {/* RESUMO */}
-                <div className="mt-8 bg-white rounded-xl p-6 border-gray-200">
+                <div className="mt-8 bg-white rounded-xl p-6 border border-gray-200">
                     <h3 className="font-semibold text-gray-900 mb-4">Resumo do mês</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>

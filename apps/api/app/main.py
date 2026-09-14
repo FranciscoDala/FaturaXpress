@@ -72,7 +72,7 @@ app.include_router(produto_router) # <- NOVO
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Erro 500 não tratado na rotas {request.url}: {exc}\n{traceback.format_exc()}")
+    logger.error(f"Erro 500 não tratado na rota {request.url}: {exc}\n{traceback.format_exc()}")
     return JSONResponse(status_code=500, content={"detail": "Erro interno do servidor"})
 
 @app.get("/health")

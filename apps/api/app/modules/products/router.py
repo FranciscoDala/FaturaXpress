@@ -13,12 +13,24 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/produtos", tags=["Produtos"])
 
+# 1. ROTAS FIXAS PRIMEIRO
+@router.get("/categorias/lista", response_model=List[str])
+def listar_categorias(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    logger.info(f"[ROUTER] GET /categorias/lista | company_id={company_id}")
+    return produto_service.get_categorias(db, company_id)
+
+@router.get("/alerta/stock-baixo", response_model=List[ProdutoResponse])
+def produtos_stock_baixo(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    logger.info(f"[ROUTER] GET /alerta/stock-baixo | company_id={company_id}")
+    return produto_service.get_produtos_stock_baixo(db, company_id)
+
+# 2. ROTA LISTAR
 @router.get("", response_model=dict)
 def listar_produtos(
     request: Request,
     search: str = Query("", description="Busca por nome, codigo ou categoria"),
     categoria: Optional[str] = Query(None),
-    tipo: Optional[TipoProdutoEnum] = Query(None, description="produto, servico, kit"),
+    tipo: Optional[str] = Query(None), # <- MUDEI: era Enum. Agora é str pra não quebrar
     ativo: bool = Query(True),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
@@ -27,44 +39,30 @@ def listar_produtos(
 ):
     try:
         auth_header = request.headers.get("Authorization")
-        logger.info(f"[ROUTER] Auth Header: {'Presente' if auth_header else 'VAZIO'}")
-        logger.info(f"[ROUTER] GET /api/produtos | company_id={company_id} | skip={skip} | limit={limit} | search='{search}' | tipo={tipo} | ativo={ativo}")
-
+        logger.info(f"[ROUTER] Auth: {'OK' if auth_header else 'VAZIO'} | company_id={company_id} | skip={skip} | tipo={tipo}")
         if not company_id:
-            logger.error("[ROUTER] company_id é None. Token inválido ou usuário sem empresa")
-            raise HTTPException(status_code=401, detail="Empresa não identificada. Faça login novamente")
+            raise HTTPException(status_code=401, detail="Empresa não identificada")
 
-        tipo_str = tipo.value if tipo else ""
-        items = produto_service.get_produtos(db, company_id, search, categoria or "", tipo_str, ativo, skip, limit)
-        total = produto_service.count_produtos(db, company_id, search, categoria or "", tipo_str, ativo)
-        logger.info(f"[ROUTER] OK | Retornando {len(items)} items de {total}")
+        tipo_validado = tipo if tipo in ["produto", "servico", "kit"] else "" # <- BLINDAGEM
+
+        items = produto_service.get_produtos(db, company_id, search, categoria or "", tipo_validado, ativo, skip, limit)
+        total = produto_service.count_produtos(db, company_id, search, categoria or "", tipo_validado, ativo)
+        logger.info(f"[ROUTER] OK | {len(items)}/{total}")
         return {"items": items, "total": total, "page": (skip // limit) + 1, "limit": limit}
-
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.exception(f"[ROUTER] ERRO 500 em listar_produtos: {e}")
+        logger.exception(f"[ROUTER] ERRO 500: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/{produto_id}", response_model=ProdutoResponse)
-def buscar_por_id(
-    produto_id: uuid.UUID = Path(...),
-    db: Session = Depends(get_db),
-    company_id: uuid.UUID = Depends(get_current_company_id)
-):
-    logger.info(f"[ROUTER] GET /api/produtos/{produto_id} | company_id={company_id}")
-    db_produto = produto_service.get_produto_by_id(db, produto_id, company_id)
+# 3. ROTAS DINAMICAS POR ULTIMO
+@router.get("/codigo/{codigo}", response_model=ProdutoResponse)
+def buscar_por_codigo(codigo: str = Path(...), db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    db_produto = produto_service.get_produto_by_codigo(db, codigo, company_id)
     if not db_produto: raise HTTPException(status_code=404, detail="Produto não encontrado")
     return db_produto
 
-@router.get("/codigo/{codigo}", response_model=ProdutoResponse)
-def buscar_por_codigo(
-    codigo: str = Path(...),
-    db: Session = Depends(get_db),
-    company_id: uuid.UUID = Depends(get_current_company_id)
-):
-    logger.info(f"[ROUTER] GET /api/produtos/codigo/{codigo} | company_id={company_id}")
-    db_produto = produto_service.get_produto_by_codigo(db, codigo, company_id)
+@router.get("/{produto_id}", response_model=ProdutoResponse)
+def buscar_por_id(produto_id: uuid.UUID = Path(...), db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    db_produto = produto_service.get_produto_by_id(db, produto_id, company_id)
     if not db_produto: raise HTTPException(status_code=404, detail="Produto não encontrado")
     return db_produto
 
@@ -78,11 +76,9 @@ async def criar_produto(
     iva: float = Form(14.0), tem_iva: bool = Form(True), imagem: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)
 ):
-    logger.info(f"[ROUTER] POST /api/produtos | company_id={company_id} | nome={nome}")
     imagem_url = None
     if imagem:
         imagem_url = await upload_image(imagem, folder=f"produtos/{company_id}")
-
     produto_data = ProdutoCreateRequest(
         nome=nome, codigo=codigo, preco_venda=preco_venda, tipo=tipo, unidade=unidade,
         ativo=ativo, controlar_stock=controlar_stock, stock_atual=stock_atual,
@@ -98,7 +94,6 @@ async def atualizar_produto(
     preco_venda: Optional[float] = Form(None), imagem: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)
 ):
-    logger.info(f"[ROUTER] PUT /api/produtos/{produto_id} | company_id={company_id}")
     update_data = {}
     for k, v in locals().items():
         if k not in ['produto_id', 'imagem', 'db', 'company_id'] and v is not None:
@@ -125,11 +120,3 @@ def dar_baixa_stock(produto_id: uuid.UUID, dados: BaixaStockRequest, db: Session
         return {"detail": "Stock atualizado com sucesso"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-@router.get("/categorias/lista", response_model=List[str])
-def listar_categorias(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    return produto_service.get_categorias(db, company_id)
-
-@router.get("/alerta/stock-baixo", response_model=List[ProdutoResponse])
-def produtos_stock_baixo(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    return produto_service.get_produtos_stock_baixo(db, company_id)

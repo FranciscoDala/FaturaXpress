@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { FileText } from 'lucide-react'
+import { FileText, Eye } from 'lucide-react'
 import { getNumero, getTotal } from '../../EmitirFaturaPage'
+import FaturaPDFModal from '../../components/pdf/pdf_FaturaModal'
 
-export default function TabEmitidas({ faturas }: { faturas: any[] }) {
+export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: any[]; cliente: any; empresa: any }) {
     const [filtro, setFiltro] = useState('todos')
+    const [viewFatura, setViewFatura] = useState<any>(null)
     const filtradas = filtro === 'todos'? faturas : faturas.filter(f => f.status === filtro)
 
     return (
@@ -18,11 +20,15 @@ export default function TabEmitidas({ faturas }: { faturas: any[] }) {
                 {filtradas.length === 0? <p className="text-[12px] text-gray-400 text-center py-8">Nenhuma fatura</p> :
                     filtradas.map(f => (
                         <div key={f.id} className="flex justify-between items-center border rounded px-3 py-2.5">
-                            <div className="flex gap-2 items-center"><FileText className="w-4 h-4 text-gray-400" /><div><p className="text-[13px] font-medium">{getNumero(f)} - {getTotal(f).toFixed(2)} KZ</p><p className="text-[11px] text-gray-500 capitalize">{f.status}</p></div></div>
-                            <span className={`text-[10px] px-2 py-0.5 rounded ${f.status === 'cancelada'? 'bg-red-100 text-red-600' : f.status === 'concluida'? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'}`}>{f.status}</span>
+                            <div className="flex gap-2 items-center"><FileText className="w-4 h-4 text-gray-400" /><div><p className="text-[13px] font-medium">{getNumero(f)} - {getTotal(f).toFixed(2)} KZ</p><p className="text-[11px] text-gray-500 capitalize">{f.status} • {f.tipo_documento}</p></div></div>
+                            <div className="flex items-center gap-2">
+                                <span className={`text-[10px] px-2 py-0.5 rounded ${f.status === 'cancelada'? 'bg-red-100 text-red-600' : f.status === 'concluida'? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'}`}>{f.status}</span>
+                                <button onClick={() => setViewFatura(f)} className="w-8 h-8 bg-black text-white rounded flex items-center justify-center hover:bg-gray-800"><Eye className="w-4 h-4" /></button>
+                            </div>
                         </div>
                     ))}
             </div>
+            {viewFatura && <FaturaPDFModal open={!!viewFatura} fatura={viewFatura} cliente={cliente} empresa={empresa} onClose={() => setViewFatura(null)} />}
         </div>
     )
 }

@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { Trash2, XCircle } from 'lucide-react'
+import { Trash2, XCircle, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../../../../lib/api'
 import { getNumero, getTotal } from '../../EmitirFaturaPage'
 import ModalConfirmDelete from '../../../dashboard/components/modals/modal_ConfirmDelete'
+import FaturaPDFModal from '../../components/pdf/pdf_FaturaModal'
 
-export default function TabCurso({ faturas, onRefresh }: { faturas: any[]; onRefresh: () => void }) {
+export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { faturas: any[]; cliente: any; empresa: any; onRefresh: () => void }) {
     const [deleteTarget, setDeleteTarget] = useState<any>(null)
+    const [viewFatura, setViewFatura] = useState<any>(null)
 
     const handleCancelar = async (id: string) => {
         try { await api.post(`/api/faturas/${id}/cancelar`); toast.success('Cancelada'); onRefresh() } catch { toast.error('Erro') }
@@ -23,7 +25,8 @@ export default function TabCurso({ faturas, onRefresh }: { faturas: any[]; onRef
                     faturas.map(f => (
                         <div key={f.id} className="flex justify-between items-center border rounded px-3 py-2.5">
                             <div><p className="text-[13px] font-medium">{getNumero(f)} - {getTotal(f).toFixed(2)} KZ</p><p className="text-[11px] text-gray-500">{f.status} • {f.created_at? new Date(f.created_at).toLocaleDateString() : ''}</p></div>
-                            <div className="flex gap-2">
+                            <div className="flex gap-1.5">
+                                <button onClick={() => setViewFatura(f)} className="w-8 h-8 border rounded flex items-center justify-center hover:bg-black hover:text-white" title="Ver PDF"><Eye className="w-4 h-4" /></button>
                                 <button onClick={() => handleCancelar(f.id)} className="text-[11px] px-3 py-1 border rounded flex items-center gap-1"><XCircle className="w-3 h-3" /> Cancelar</button>
                                 <button onClick={() => setDeleteTarget(f)} className="text-[11px] px-3 py-1 bg-[#FF3B30] text-white rounded flex items-center gap-1"><Trash2 className="w-3 h-3" /> Apagar</button>
                             </div>
@@ -31,6 +34,7 @@ export default function TabCurso({ faturas, onRefresh }: { faturas: any[]; onRef
                     ))}
             </div>
             <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget? getNumero(deleteTarget) : ''} onClose={() => setDeleteTarget(null)} onConfirm={handleApagar} title="Apagar?" description="Removida permanentemente." />
+            {viewFatura && <FaturaPDFModal open={!!viewFatura} fatura={viewFatura} cliente={cliente} empresa={empresa} onClose={() => setViewFatura(null)} />}
         </div>
     )
 }

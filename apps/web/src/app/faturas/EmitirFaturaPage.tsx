@@ -15,6 +15,7 @@ export default function EmitirFaturaPage() {
     const [searchParams] = useSearchParams()
     const clienteId = searchParams.get('cliente_id')
     const [cliente, setCliente] = useState<Cliente | null>(null)
+    const [empresa, setEmpresa] = useState<any>(null)
     const [activeTab, setActiveTab] = useState<Tab>('emitir')
     const [faturasCurso, setFaturasCurso] = useState<any[]>([])
     const [faturasEmitidas, setFaturasEmitidas] = useState<any[]>([])
@@ -22,6 +23,7 @@ export default function EmitirFaturaPage() {
     useEffect(() => {
         if (!clienteId) { navigate('/app/dashboard'); return }
         api.get(`/api/clientes/${clienteId}`).then(r => setCliente(r.data)).catch(() => navigate('/app/dashboard'))
+        api.get('/api/companies/me').then(r => setEmpresa(r.data)).catch(() => api.get('/api/auth/me').then(r => setEmpresa(r.data.company || r.data)))
     }, [clienteId])
 
     const fetchFaturas = async () => {
@@ -38,7 +40,6 @@ export default function EmitirFaturaPage() {
     return (
         <div className="min-h-screen bg-white">
             <div className="max-w-[1100px] mx-auto">
-                {/* HEADER - mantém igual */}
                 <div className="bg-[#eef7fb] px-4 sm:px-8 lg:px-12 pt-8 pb-6">
                     <div className="flex flex-col md:flex-row gap-6">
                         <div className="w-[132px] h-[132px] rounded-full overflow-hidden bg-gray-200 border-[6px] border-white shadow-sm shrink-0 mx-auto md:mx-0">
@@ -69,8 +70,8 @@ export default function EmitirFaturaPage() {
                 </div>
 
                 {activeTab === 'emitir' && <TabEmitir clienteId={clienteId!} onEmitida={() => { setActiveTab('curso'); fetchFaturas() }} />}
-                {activeTab === 'curso' && <TabCurso faturas={faturasCurso} onRefresh={fetchFaturas} />}
-                {activeTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} />}
+                {activeTab === 'curso' && <TabCurso faturas={faturasCurso} cliente={cliente} empresa={empresa} onRefresh={fetchFaturas} />}
+                {activeTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} cliente={cliente} empresa={empresa} />}
             </div>
         </div>
     )

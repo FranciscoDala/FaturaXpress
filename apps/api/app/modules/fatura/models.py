@@ -3,21 +3,20 @@ from datetime import datetime
 from sqlalchemy import String, Numeric, Boolean, ForeignKey, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.db.base import Base # se teu Base estiver em app.db.session, troca aqui
+from app.db.base import Base
 
 class Fatura(Base):
     __tablename__ = "faturas"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), index=True)
-    cliente_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id"), index=True)
+    cliente_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clientes.id"), index=True)
 
-    # REGRA DA TUA IDEIA: separa proforma da oficial
-    tipo_documento: Mapped[str] = mapped_column(String(20), default='proforma') # proforma, fatura, fatura_recibo
-    status: Mapped[str] = mapped_column(String(20), default='rascunho') # rascunho, em_curso, emitida, concluida, cancelada, apagada
+    tipo_documento: Mapped[str] = mapped_column(String(20), default='proforma')
+    status: Mapped[str] = mapped_column(String(20), default='rascunho')
 
     numero_proforma: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    numero_fatura: Mapped[str | None] = mapped_column(String(50), nullable=True, unique=True)
+    numero_fatura: Mapped[str | None] = mapped_column(String(50), nullable=True)
     proforma_origem_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("faturas.id"), nullable=True)
 
     data_emissao: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)

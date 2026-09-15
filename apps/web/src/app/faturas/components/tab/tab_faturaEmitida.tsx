@@ -37,9 +37,9 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
 
     return (
         <div className="w-full px-4 sm:px-8 lg:px-12 mt-0">
-            {/* FILTROS COM PADDING PADRÃO */}
-            <div className="flex flex-col sm:flex-row gap-3 pb-3 mb-4">
-                <div ref={wrapperRef} className="relative w-full sm:w-[180px] shrink-0 z-50">
+            {/* FILTROS TIPO CARDS - ARRASTÁVEL NO MOBILE */}
+            <div className={`flex gap-3 pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${openSelect? 'overflow-visible' : 'overflow-x-auto snap-x snap-mandatory snap-always'}`}>
+                <div ref={wrapperRef} className="relative min-w-full sm:min-w-[180px] snap-center flex-shrink-0 z-50">
                     <button onClick={() => setOpenSelect(!openSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
                         <span className="text-gray-900">{OPTIONS.find(o => o.value === filtro)?.label}</span>
                         <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openSelect? 'rotate-180' : ''}`} />
@@ -55,7 +55,7 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
                         </div>
                     )}
                 </div>
-                <div className="relative w-full sm:w-[280px] shrink-0 z-0">
+                <div className="relative min-w-full sm:min-w-[280px] snap-center flex-shrink-0 z-0">
                     <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
                     <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar nº" className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
                 </div>

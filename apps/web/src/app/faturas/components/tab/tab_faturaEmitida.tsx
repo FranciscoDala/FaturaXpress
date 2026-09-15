@@ -36,7 +36,7 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
     }
 
     return (
-        <div className="w-full px-4 sm:px-8 lg:px-12 mt-0">
+        <div className="w-full mt-0">
             <div className={`flex gap-3 pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${openSelect? 'overflow-visible' : 'overflow-x-auto snap-x snap-mandatory'}`}>
                 <div ref={wrapperRef} className="relative min-w-[100%] md:min-w-[180px] snap-start flex-shrink-0 z-50">
                     <button onClick={() => setOpenSelect(!openSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">

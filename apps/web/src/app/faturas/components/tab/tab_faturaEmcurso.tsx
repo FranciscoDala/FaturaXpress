@@ -4,13 +4,19 @@ import { toast } from 'sonner'
 import { api } from '../../../../lib/api'
 import { getNumero, getTotal } from '../../EmitirFaturaPage'
 import ModalConfirmDelete from '../../../dashboard/components/modals/modal_ConfirmDelete'
-import FaturaPDFModal from '../pdf/pdf_FaturaModal' // <- CORRIGIDO
+import FaturaFolhaView from '../../components/pdf/FaturaFolhaView'
 
 export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { faturas: any[]; cliente: any; empresa: any; onRefresh: () => void }) {
     const [deleteTarget, setDeleteTarget] = useState<any>(null)
     const [viewFatura, setViewFatura] = useState<any>(null)
+
     const handleCancelar = async (id: string) => { try { await api.post(`/api/faturas/${id}/cancelar`); toast.success('Cancelada'); onRefresh() } catch { toast.error('Erro') } }
     const handleApagar = async () => { try { await api.delete(`/api/faturas/${deleteTarget.id}`); toast.success('Apagada'); setDeleteTarget(null); onRefresh() } catch { toast.error('Erro') } }
+
+    if (viewFatura) {
+        return <FaturaFolhaView fatura={viewFatura} cliente={cliente} empresa={empresa} onVoltar={() => setViewFatura(null)} />
+    }
+
     return (
         <div className="mx-4 sm:mx-8 lg:mx-12 mt-4 bg-white border p-5">
             <h3 className="text-[12px] font-bold mb-4">Faturas em Curso</h3>
@@ -28,7 +34,6 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
                     ))}
             </div>
             <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget? getNumero(deleteTarget) : ''} onClose={() => setDeleteTarget(null)} onConfirm={handleApagar} title="Apagar?" description="Removida permanentemente." />
-            {viewFatura && <FaturaPDFModal open={!!viewFatura} fatura={viewFatura} cliente={cliente} empresa={empresa} onClose={() => setViewFatura(null)} />}
         </div>
     )
 }

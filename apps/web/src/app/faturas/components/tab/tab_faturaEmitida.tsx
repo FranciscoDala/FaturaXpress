@@ -1,12 +1,17 @@
 import { useState } from 'react'
 import { FileText, Eye } from 'lucide-react'
 import { getNumero, getTotal } from '../../EmitirFaturaPage'
-import FaturaPDFModal from '../pdf/pdf_FaturaModal' // <- CORRIGIDO
+import FaturaFolhaView from '../../components/pdf/FaturaFolhaView'
 
 export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: any[]; cliente: any; empresa: any }) {
     const [filtro, setFiltro] = useState('todos')
     const [viewFatura, setViewFatura] = useState<any>(null)
     const filtradas = filtro === 'todos'? faturas : faturas.filter(f => f.status === filtro)
+
+    if (viewFatura) {
+        return <FaturaFolhaView fatura={viewFatura} cliente={cliente} empresa={empresa} onVoltar={() => setViewFatura(null)} />
+    }
+
     return (
         <div className="mx-4 sm:mx-8 lg:mx-12 mt-4 bg-white border p-5">
             <div className="flex justify-between items-center mb-4">
@@ -21,7 +26,6 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
                     </div>
                 ))}
             </div>
-            {viewFatura && <FaturaPDFModal open={!!viewFatura} fatura={viewFatura} cliente={cliente} empresa={empresa} onClose={() => setViewFatura(null)} />}
         </div>
     )
 }

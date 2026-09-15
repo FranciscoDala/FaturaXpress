@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import { api } from '../../lib/api'
 import TabEmitir from './components/tab/tab_faturaEmitir'
 import TabCurso from './components/tab/tab_faturaEmcurso'
@@ -40,12 +41,17 @@ export default function EmitirFaturaPage() {
         } catch {}
     }
     useEffect(() => { if (activeTab!== 'emitir') fetchFaturas() }, [activeTab])
-    if (!cliente) return <div className="p-8 text-[12px]">Carregando...</div>
+
+    if (!cliente) return (
+        <div className="min-h-screen bg-white flex items-center justify-center">
+            <div className="w-8 h-8 border-[3px] border-gray-200 border-t-[#0095ff] rounded-full animate-spin"></div>
+        </div>
+    )
 
     return (
         <div className="min-h-screen bg-white">
             <div className="max-w-[1100px] mx-auto">
-                <div className="bg-[#eef7fb] px-4 sm:px-8 lg:px-12 pt-8 pb-6">
+                <div className="bg-white px-4 sm:px-8 lg:px-12 pt-8 pb-6 border-b border-gray-100">
                     {/* SEMPRE LEFT - MOBILE E DESKTOP */}
                     <div className="flex flex-col md:flex-row gap-5 items-start text-left">
                         {/* IMG SEMPRE À ESQUERDA */}
@@ -66,7 +72,10 @@ export default function EmitirFaturaPage() {
                                         <p>{cliente.cidade? `${cliente.endereco} - ${cliente.cidade}` : cliente.endereco}</p>
                                     </div>
                                 </div>
-                                <button onClick={() => navigate('/app/dashboard')} className="bg-[#FF3B30] text-white text-[12px] font-semibold px-4 py-1.5 rounded-full shrink-0">Voltar</button>
+                                <button onClick={() => navigate('/app/dashboard')} className="bg-[#FF3B30] text-white text-[12px] font-semibold px-4 py-1.5 rounded-full shrink-0 flex items-center gap-1.5 hover:bg-[#e6362c] transition">
+                                    <ArrowLeft className="w-4 h-4" />
+                                    Voltar
+                                </button>
                             </div>
                             <div className="mt-6 flex bg-white border rounded-[3px] overflow-hidden max-w-[520px] w-full">
                                 <button onClick={() => setActiveTab('curso')} className={`flex-1 py-2 ${activeTab==='curso'?'bg-gray-50 text-[#0095ff]':'text-gray-800'}`}><p className="text-[13px] font-bold">{faturasCurso.length}</p><p className="text-[11px] text-gray-500">Em Curso</p></button>

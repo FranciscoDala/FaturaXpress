@@ -36,9 +36,7 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
     }
 
     return (
-        <div className="w-full mt-0">
-            {/* <h3 className="text-[17px] font-bold text-gray-900 mb-4">Todas as Faturas</h3> */}
-
+        <div className="w-full px-4 sm:px-8 lg:px-12 mt-0">
             <div className={`flex gap-3 pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${openSelect? 'overflow-visible' : 'overflow-x-auto snap-x snap-mandatory'}`}>
                 <div ref={wrapperRef} className="relative min-w-[100%] md:min-w-[180px] snap-start flex-shrink-0 z-50">
                     <button onClick={() => setOpenSelect(!openSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
@@ -79,7 +77,7 @@ function FaturaCard({ fatura, onView }: { fatura: any; onView: (f:any)=>void }) 
     const statusColor = fatura.status === 'cancelada'? 'bg-red-100 text-red-600' : fatura.status === 'concluida'? 'bg-green-100 text-green-600' : 'bg-[#FFF7CC] text-[#8A6D00]'
     const initials = getNumero(fatura)?.slice(0,2).toUpperCase() || 'PR'
     return (
-        <div className="min-w-[100%] md:min-w-[300px] md:max-w-[300px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
+        <div className="min-w-[85%] sm:min-w-[300px] md:max-w-[300px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
             <div className="relative h-[90px] bg-[#E6F0FF]">
                 <div className={`absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[11px] font-medium shadow-sm border ${statusColor}`}>{fatura.status}</div>
                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white">

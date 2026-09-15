@@ -44,31 +44,55 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
     }
 
     return (
-        <div className="w-full mt-0">
-            <div className="bg-white border shadow-sm px-4 py-3 flex flex-wrap gap-3 mb-4 w-full">
-                <span className="text-[11px] font-bold">Itens:</span>
+        <div className="w-full px-4 sm:px-8 lg:px-12 mt-0">
+            {/* ITENS - MESMO ESTILO DOS CARDS */}
+            <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 px-5 py-4 flex flex-wrap gap-3 mb-4 w-full">
+                <span className="text-[11px] font-bold text-gray-900">Itens:</span>
                 {itens.length === 0? <span className="text-[11px] text-gray-400">Nenhum</span> : itens.map(it => (
-                    <span key={it.produto_id} className="bg-[#ff7a00] text-white text-[10px] font-bold px-2.5 py-1 rounded flex items-center gap-1">{it.nome.toUpperCase()} x{it.quantidade} <Star className="w-3 h-3 fill-white" /></span>
+                    <span key={it.produto_id} className="bg-[#ff7a00] text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1 shadow-sm">{it.nome.toUpperCase()} x{it.quantidade} <Star className="w-3 h-3 fill-white" /></span>
                 ))}
             </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_1fr] gap-4 w-full">
-                <div className="bg-white border p-5">
-                    <div className="relative mb-3"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar produto..." className="w-full pl-9 pr-3 py-2 border rounded text-[13px]" /></div>
-                    <div className="max-h-[320px] overflow-auto divide-y">
+                {/* LISTA PRODUTOS */}
+                <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 p-6">
+                    <div className="relative mb-4">
+                        <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar produto..." className="w-full pl-11 pr-4 h-[46px] bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
+                    </div>
+                    <div className="max-h-[360px] overflow-auto divide-y divide-gray-100 pr-1">
                         {produtos.map(p => (
-                            <div key={p.id} className="flex justify-between items-center py-2.5">
-                                <div><p className="text-[13px] font-medium">{p.nome}</p><p className="text-[11px] text-gray-500">{p.preco.toFixed(2)} KZ - IVA {p.iva}%</p></div>
-                                <button onClick={() => addItem(p)} className="w-7 h-7 border rounded flex items-center justify-center hover:bg-[#0095ff] hover:text-white"><Plus className="w-4 h-4" /></button>
+                            <div key={p.id} className="flex justify-between items-center py-3.5">
+                                <div><p className="text-[13.5px] font-medium text-gray-900">{p.nome}</p><p className="text-[11.5px] text-gray-500 mt-0.5">{p.preco.toFixed(2)} KZ - IVA {p.iva}%</p></div>
+                                <button onClick={() => addItem(p)} className="w-8 h-8 border border-gray-200 rounded-full flex items-center justify-center hover:bg-[#0095ff] hover:text-white hover:border-[#0095ff] transition"><Plus className="w-4 h-4" /></button>
                             </div>
                         ))}
                     </div>
                 </div>
-                <div className="bg-white border p-5 h-fit">
-                    <h3 className="text-[12px] font-bold mb-4">Resumo</h3>
-                    {itens.map(it => (
-                        <div key={it.produto_id} className="flex gap-2 items-center text-[11px] py-1"><input type="number" min={1} value={it.quantidade} onChange={e => { const q = Number(e.target.value); setItens(prev => prev.map(x => x.produto_id === it.produto_id? {...x, quantidade: q, subtotal: q * x.preco_unit } : x)) }} className="w-10 border rounded px-1 py-0.5" /><span className="flex-1 truncate">{it.nome}</span><span className="font-bold">{it.subtotal.toFixed(2)}</span><button onClick={() => setItens(prev => prev.filter(x => x.produto_id!== it.produto_id))}><Trash2 className="w-3 h-3 text-red-500" /></button></div>
-                    ))}
-                    <div className="border-t pt-3 mt-3 text-[12px] space-y-1"><div className="flex justify-between"><span>Subtotal</span><span>{subtotal.toFixed(2)} KZ</span></div><div className="flex justify-between"><span>IVA</span><span>{totalIva.toFixed(2)} KZ</span></div><div className="flex justify-between font-bold text-[14px] border-t pt-2"><span>Total</span><span>{(subtotal + totalIva).toFixed(2)} KZ</span></div><button onClick={emitir} className="w-full mt-4 bg-[#0095ff] text-white py-2.5 rounded font-semibold">Emitir Agora</button></div>
+
+                {/* RESUMO */}
+                <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 p-6 h-fit">
+                    <h3 className="text-[13px] font-bold text-gray-900 mb-4">Resumo</h3>
+                    {itens.length === 0? (
+                        <p className="text-[12px] text-gray-400 py-4 text-center">Nenhum item adicionado</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {itens.map(it => (
+                                <div key={it.produto_id} className="flex gap-2 items-center text-[12px] py-1.5">
+                                    <input type="number" min={1} value={it.quantidade} onChange={e => { const q = Number(e.target.value); setItens(prev => prev.map(x => x.produto_id === it.produto_id? {...x, quantidade: q, subtotal: q * x.preco_unit } : x)) }} className="w-12 h-7 border border-gray-200 rounded-full px-2 py-0.5 text-center text-[12px]" />
+                                    <span className="flex-1 truncate text-gray-700">{it.nome}</span>
+                                    <span className="font-bold text-gray-900">{it.subtotal.toFixed(2)}</span>
+                                    <button onClick={() => setItens(prev => prev.filter(x => x.produto_id!== it.produto_id))} className="w-6 h-6 rounded-full hover:bg-red-50 flex items-center justify-center transition"><Trash2 className="w-3.5 h-3.5 text-red-500" /></button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <div className="border-t border-gray-100 pt-4 mt-4 text-[12.5px] space-y-2">
+                        <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>{subtotal.toFixed(2)} KZ</span></div>
+                        <div className="flex justify-between text-gray-600"><span>IVA</span><span>{totalIva.toFixed(2)} KZ</span></div>
+                        <div className="flex justify-between font-bold text-[15px] text-gray-900 border-t border-gray-100 pt-3"><span>Total</span><span>{(subtotal + totalIva).toFixed(2)} KZ</span></div>
+                        <button onClick={emitir} className="w-full mt-5 bg-[#0095ff] text-white h-[46px] rounded-full font-semibold text-[13px] shadow-[0_4px_12px_rgba(0,149,255,0.25)] hover:bg-[#0085e6] transition">Emitir Agora</button>
+                    </div>
                 </div>
             </div>
         </div>

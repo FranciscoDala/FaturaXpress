@@ -51,10 +51,10 @@ export default function EmitirFaturaPage() {
     return (
         <div className="min-h-screen bg-white">
             <div className="max-w-[1100px] mx-auto">
-                {/* HEADER COM BOLHAS ANIMADAS */}
+                {/* HEADER COM BOLHAS SUAVES */}
                 <div className="relative px-4 sm:px-8 lg:px-12 pt-8 pb-6 border-b border-gray-100 overflow-hidden bg-gradient-to-br from-[#E8F2FF] via-[#F0F7FF] to-white">
 
-                    {/* BOLHAS */}
+                    {/* BOLHAS - VISIBILIDADE BAIXA */}
                     <div className="absolute inset-0 pointer-events-none overflow-hidden">
                         <div className="bubble bubble-1"></div>
                         <div className="bubble bubble-2"></div>
@@ -96,25 +96,26 @@ export default function EmitirFaturaPage() {
                         </div>
                     </div>
 
-                    {/* CSS BOLHAS */}
+                    {/* CSS BOLHAS - OPACIDADE REDUZIDA */}
                     <style>{`
-                       .bubble {
+                      .bubble {
                             position: absolute;
                             border-radius: 50%;
-                            background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.25), rgba(0,149,255,0.05));
+                            background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.08), rgba(0,149,255,0.01));
                             animation: floatBubble 8s infinite ease-in-out;
+                            filter: blur(0.5px);
                         }
-                       .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
-                       .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
-                       .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
-                       .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
-                       .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
-                       .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
+                      .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
+                      .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
+                      .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
+                      .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
+                      .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
+                      .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
                         @keyframes floatBubble {
-                            0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.6; }
-                            25% { transform: translateY(-15px) translateX(10px) scale(1.05); opacity: 0.8; }
-                            50% { transform: translateY(-25px) translateX(-5px) scale(0.95); opacity: 0.5; }
-                            75% { transform: translateY(-10px) translateX(-10px) scale(1.02); opacity: 0.7; }
+                            0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.18; }
+                            25% { transform: translateY(-15px) translateX(10px) scale(1.05); opacity: 0.28; }
+                            50% { transform: translateY(-25px) translateX(-5px) scale(0.95); opacity: 0.12; }
+                            75% { transform: translateY(-10px) translateX(-10px) scale(1.02); opacity: 0.22; }
                         }
                     `}</style>
                 </div>

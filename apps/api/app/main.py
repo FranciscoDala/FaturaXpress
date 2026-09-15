@@ -8,14 +8,14 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.db.base import Base  # <--- CORRIGIDO: Base vem do base.py
+from app.db.base import Base
 from app.db.database import engine
 
 # IMPORTA OS ROUTERS
 from app.modules.auth.router import router as auth_router
 from app.modules.clients.router import router as cliente_router
 from app.modules.products.router import router as produto_router
-from apps.api.app.modules.fatura.router import router as fatura_router  # <--- NOVO
+from apps.api.app.modules.fatura.router import router as fatura_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)

@@ -14,6 +14,7 @@ from app.db.database import Base # <- usa o teu Base de database.py
 from app.modules.auth.models import User
 from app.modules.clients.models import Cliente
 from app.modules.products.models import Produto
+from app.modules.fatura.models import Fatura, FaturaItem
 
 config = context.config
 

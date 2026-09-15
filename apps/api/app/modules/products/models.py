@@ -3,7 +3,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column # <- NOVO
 import uuid
 import enum
-from app.db.database import Base
+from app.db.base import Base # Gaveta A
 
 class TipoProdutoEnum(str, enum.Enum):
     produto = "produto"

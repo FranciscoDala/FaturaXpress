@@ -2,7 +2,7 @@ from sqlalchemy import Column, String, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
-from app.db.database import Base
+from app.db.base import Base # Gaveta A
 
 class Cliente(Base):
     __tablename__ = "clientes"

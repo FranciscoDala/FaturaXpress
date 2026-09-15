@@ -10,7 +10,6 @@ interface Props {
   setIsFullscreen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-
 const LogoDefault = ({ nome, size = 'small' }: { nome?: string; size?: 'small' | 'large' }) => {
     const inicial = (nome || 'T').charAt(0).toUpperCase()
     if (size === 'large') {
@@ -28,9 +27,7 @@ const LogoDefault = ({ nome, size = 'small' }: { nome?: string; size?: 'small' |
     )
 }
 
-export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
-    const [isFullscreen, setIsFullscreen] = useState(false)
-
+export const FaturaPDF = ({ fatura, empresa, cliente, onClose, isFullscreen, setIsFullscreen }: Props) => {
     const itensRaw = fatura?.itens || fatura?.items || []
 
     const { itens, totais } = useMemo(() => {
@@ -119,7 +116,24 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
       </div>
     `).join('')
 
+        // AQUI ESTAVA O ERRO: faltava o @import e o :root no documento de impressão
         return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>${getNumero(fatura) || 'PROFORMA'}</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+        <style>
+          @page{size:A4;margin:0}
+          :root{ --fonte-principal: 'Zalando Sans Expanded'; }
+          *{ font-family: 'Zalando Sans Expanded', sans-serif!important; -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
+          body{margin:0;padding:0;background:white;}
+        </style>
+      </head>
+      <body>
       <div style="width:210mm;min-height:297mm;padding:10mm;font-family:'Zalando Sans Expanded',sans-serif;font-size:12px;color:black;background:white;position:relative;box-sizing:border-box;overflow:hidden">
         ${watermarkHTML}
         <div style="position:relative;z-index:1;display:flex;flex-direction:column;min-height:277mm">
@@ -145,7 +159,18 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
           </div>
         </div>
       </div>
+      </body></html>
     `
+    }
+
+    // expõe a função pro FaturaFolhaView usar
+    ;(window as any).imprimirFatura = () => {
+        const html = buildPrintHTML()
+        const w = window.open('', '_blank')
+        if (!w) return
+        w.document.write(html)
+        w.document.close()
+        w.onload = () => setTimeout(() => { w.focus(); w.print() }, 800)
     }
 
     const FolhaTela = () => (
@@ -208,18 +233,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
     return (
         <>
             <style>{`@import url('https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap');#fatura-pdf-wrapper{display:flex;justify-content:center;background:white;width:100%;overflow:hidden;font-family:var(--fonte-principal)}#fatura-pdf{transform-origin:top center;font-family:var(--fonte-principal)}@media (max-width:768px){#fatura-pdf{transform:scale(0.46);margin-bottom:-620px;width:210mm!important;min-width:210mm!important}}`}</style>
-            {/* BARRA REMOVIDA - só a folha */}
             <div id="fatura-pdf-wrapper" className="bg-white p-0 md:p-6"><FolhaTela /></div>
-            {isFullscreen && (
-                <div className="fixed inset-0 bg-white z-[100] overflow-auto">
-                    <div className="bg-white border-b px-4 py-2 flex justify-between items-center sticky top-0">
-                        <button onClick={()=>setIsFullscreen(false)} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 text-[20px] font-bold">✕</button>
-                        <span className="text-[13px] font-bold">{getNumero(fatura)}</span>
-                        <div className="w-9" />
-                    </div>
-                    <div className="bg-[#f8f9fa] min-h-screen flex justify-center p-4"><FolhaTela /></div>
-                </div>
-            )}
         </>
     )
 }

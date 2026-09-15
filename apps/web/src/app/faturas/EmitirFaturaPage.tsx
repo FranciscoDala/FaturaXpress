@@ -51,9 +51,21 @@ export default function EmitirFaturaPage() {
     return (
         <div className="min-h-screen bg-white">
             <div className="max-w-[1100px] mx-auto">
-                {/* HEADER */}
-                <div className="bg-white px-4 sm:px-8 lg:px-12 pt-8 pb-6 border-b border-gray-100">
-                    <div className="flex flex-col md:flex-row gap-5 items-start text-left">
+                {/* HEADER COM BOLHAS ANIMADAS */}
+                <div className="relative px-4 sm:px-8 lg:px-12 pt-8 pb-6 border-b border-gray-100 overflow-hidden bg-gradient-to-br from-[#E8F2FF] via-[#F0F7FF] to-white">
+
+                    {/* BOLHAS */}
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                        <div className="bubble bubble-1"></div>
+                        <div className="bubble bubble-2"></div>
+                        <div className="bubble bubble-3"></div>
+                        <div className="bubble bubble-4"></div>
+                        <div className="bubble bubble-5"></div>
+                        <div className="bubble bubble-6"></div>
+                    </div>
+
+                    {/* CONTEÚDO HEADER */}
+                    <div className="relative z-10 flex flex-col md:flex-row gap-5 items-start text-left">
                         <div className="w-[96px] h-[96px] sm:w-[132px] sm:h-[132px] rounded-full overflow-hidden bg-gray-200 border-[6px] border-white shadow-sm shrink-0 self-start">
                             <img src={`https://ui-avatars.com/api/?name=${cliente.nome}&background=E5E7EB&color=374151&size=132`} className="w-full h-full object-cover" alt={cliente.nome} />
                         </div>
@@ -76,16 +88,38 @@ export default function EmitirFaturaPage() {
                                     Voltar
                                 </button>
                             </div>
-                            <div className="mt-6 flex bg-white border rounded-[3px] overflow-hidden max-w-[520px] w-full">
+                            <div className="mt-6 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
                                 <button onClick={() => setActiveTab('curso')} className={`flex-1 py-2 ${activeTab==='curso'?'bg-gray-50 text-[#0095ff]':'text-gray-800'}`}><p className="text-[13px] font-bold">{faturasCurso.length}</p><p className="text-[11px] text-gray-500">Em Curso</p></button>
                                 <button onClick={() => setActiveTab('emitidas')} className={`flex-1 py-2 border-l ${activeTab==='emitidas'?'bg-gray-50 text-[#0095ff]':'text-gray-800'}`}><p className="text-[13px] font-bold">{faturasEmitidas.length}</p><p className="text-[11px] text-gray-500">Emitidas</p></button>
                                 <button onClick={() => setActiveTab('emitir')} className={`flex-[1.2] border-l text-[13px] font-semibold ${activeTab==='emitir'?'bg-[#0095ff] text-white':'bg-[#8ecfff] text-white'}`}>+ Emitir Fatura</button>
                             </div>
                         </div>
                     </div>
+
+                    {/* CSS BOLHAS */}
+                    <style>{`
+                       .bubble {
+                            position: absolute;
+                            border-radius: 50%;
+                            background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.25), rgba(0,149,255,0.05));
+                            animation: floatBubble 8s infinite ease-in-out;
+                        }
+                       .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
+                       .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
+                       .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
+                       .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
+                       .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
+                       .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
+                        @keyframes floatBubble {
+                            0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.6; }
+                            25% { transform: translateY(-15px) translateX(10px) scale(1.05); opacity: 0.8; }
+                            50% { transform: translateY(-25px) translateX(-5px) scale(0.95); opacity: 0.5; }
+                            75% { transform: translateY(-10px) translateX(-10px) scale(1.02); opacity: 0.7; }
+                        }
+                    `}</style>
                 </div>
 
-                {/* CONTEÚDO DAS ABAS - MESMO WIDTH DO HEADER */}
+                {/* CONTEÚDO DAS ABAS */}
                 <div className="w-full py-6">
                     {activeTab === 'emitir' && <TabEmitir clienteId={clienteId!} onEmitida={() => { setActiveTab('curso'); fetchFaturas() }} />}
                     {activeTab === 'curso' && <TabCurso faturas={faturasCurso} cliente={cliente} empresa={empresa} onRefresh={fetchFaturas} />}

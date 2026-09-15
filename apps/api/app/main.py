@@ -1,6 +1,5 @@
 import logging
 import traceback
-import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -9,12 +8,14 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.db.database import Base, engine
+from app.db.base import Base  # <--- CORRIGIDO: Base vem do base.py
+from app.db.database import engine
 
 # IMPORTA OS ROUTERS
 from app.modules.auth.router import router as auth_router
 from app.modules.clients.router import router as cliente_router
 from app.modules.products.router import router as produto_router
+from apps.api.app.modules.fatura.router import router as fatura_router  # <--- NOVO
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ def import_all_models():
     import app.modules.auth.models
     import app.modules.clients.models
     import app.modules.products.models
+    import app.modules.fatura.models  # <--- NOVO: importante pro Base.metadata
     tabelas = sorted(list(Base.metadata.tables.keys()))
     logger.info(f"Models registrados: {', '.join(tabelas)}")
 
@@ -53,6 +55,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api")
 app.include_router(cliente_router, prefix="/api")
 app.include_router(produto_router, prefix="/api")
+app.include_router(fatura_router, prefix="/api")  # <--- NOVO
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):

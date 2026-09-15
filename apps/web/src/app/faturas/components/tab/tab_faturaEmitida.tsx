@@ -4,10 +4,10 @@ import { getNumero, getTotal } from '../../EmitirFaturaPage'
 import FaturaFolhaView from '../../components/pdf/FaturaFolhaView'
 
 const OPTIONS = [
-  { value: 'todos', label: 'Todos' },
+  { value: 'todos', label: 'Todas FT' },
+  { value: 'emitida', label: 'Emitidas' },
   { value: 'concluida', label: 'Concluídas' },
   { value: 'cancelada', label: 'Canceladas' },
-  { value: 'em_curso', label: 'Em Curso' },
 ]
 
 export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: any[]; cliente: any; empresa: any }) {
@@ -19,7 +19,7 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
 
     const filtradas = faturas.filter(f => {
         const matchFiltro = filtro === 'todos'? true : f.status === filtro
-        const matchSearch = search === ''? true : getNumero(f).toLowerCase().includes(search.toLowerCase())
+        const matchSearch = search === ''? true : getNumero(f).toLowerCase().includes(search.toLowerCase()) || (f.hash_agt||'').toLowerCase().includes(search.toLowerCase())
         return matchFiltro && matchSearch
     })
 
@@ -37,7 +37,6 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
 
     return (
         <div className="-full px-4 sm:px-0 lg:px-0 mt-0">
-            {/* FILTROS TIPO CARDS - ARRASTÁVEL NO MOBILE */}
             <div className={`flex gap-3 pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${openSelect? 'overflow-visible' : 'overflow-x-auto snap-x snap-mandatory snap-always'}`}>
                 <div ref={wrapperRef} className="relative min-w-full sm:min-w-[180px] snap-center flex-shrink-0 z-50">
                     <button onClick={() => setOpenSelect(!openSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
@@ -57,12 +56,12 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
                 </div>
                 <div className="relative min-w-full sm:min-w-[280px] snap-center flex-shrink-0 z-0">
                     <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar nº" className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
+                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar nº FT ou hash AGT" className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
                 </div>
             </div>
 
             {filtradas.length === 0? (
-                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma fatura</p>
+                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma fatura FT</p>
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] relative z-0">
                     {filtradas.map(f => (
@@ -75,32 +74,30 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
 }
 
 function FaturaCard({ fatura, onView }: { fatura: any; onView: (f:any)=>void }) {
-    const statusColor = fatura.status === 'cancelada'? 'bg-red-100 text-red-600' : fatura.status === 'concluida'? 'bg-green-100 text-green-600' : 'bg-[#FFF7CC] text-[#8A6D00]'
-    const initials = getNumero(fatura)?.slice(0,2).toUpperCase() || 'PR'
+    const isCancel = fatura.status === 'cancelada'
+    const initials = getNumero(fatura)?.slice(0,2).toUpperCase() || 'FT'
     return (
-        <div className="min-w-full md:min-w-[300px] md:max-w-[300px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
+        <div className="min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
             <div className="relative h-[90px] bg-[#E6F0FF]">
-                <div className={`absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[11px] font-medium shadow-sm border ${statusColor}`}>{fatura.status}</div>
+                <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[10px] font-bold shadow-sm border bg-white ${isCancel?'text-red-600 border-red-200':'text-green-700 border-green-200'}`}>{fatura.numero_fatura || getNumero(fatura)} • {fatura.status}</div>
                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white">
-                    <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-gray-700">{initials}</div>
+                    <div className="w-full h-full rounded-full bg-[#0095ff] flex items-center justify-center text-[18px] font-bold text-white">{initials}</div>
                 </div>
             </div>
             <div className="pt-14 px-5 pb-4">
-                <div className="flex items-center gap-1.5 mb-3">
-                    <span className="text-[11px] text-gray-400">exp.</span>
-                    <div className="flex gap-[2px]">{Array.from({ length: 10 }).map((_, i) => (<div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5? 'bg-yellow-400' : 'bg-gray-200'}`} />))}</div>
-                </div>
-                <h3 className="font-bold text-[15px] text-gray-900 leading-tight truncate">{getNumero(fatura)}</h3>
+                <h3 className="font-bold text-[14px] text-gray-900 leading-tight truncate">{fatura.numero_fatura}</h3>
+                <p className="text-[10px] text-gray-400 truncate">PP origem: {fatura.proforma_origem_id? fatura.proforma_origem_id.slice(0,8) : 'Direta'}</p>
                 <div className="mt-2 flex flex-col gap-0.5">
-                    <p className="text-[13px] text-gray-900 font-bold truncate">{getTotal(fatura).toFixed(2)} KZ</p>
-                    <p className="text-[12.5px] text-gray-500 truncate capitalize">{fatura.tipo_documento} · {fatura.status}</p>
-                    <p className="text-[12.5px] text-gray-500 truncate">{fatura.data? new Date(fatura.data).toLocaleDateString() : '15-09-2026'}</p>
+                    <p className="text-[13px] text-gray-900 font-bold truncate">{getTotal(fatura).toFixed(2)} KZ • {fatura.forma_pagamento}</p>
+                    <p className="text-[10px] text-gray-500 truncate">Data: {fatura.data_emissao? new Date(fatura.data_emissao).toLocaleDateString('pt-AO') : ''}</p>
+                    <p className="text-[9px] text-gray-400 break-all">Hash: {fatura.hash_agt? fatura.hash_agt.slice(0,24)+'...' : '---'}</p>
+                    {fatura.comunicado_agt && <span className="text-[9px] bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full w-fit mt-1">Comunicado AGT</span>}
                 </div>
             </div>
             <div className="grid grid-cols-3 border-t border-gray-100 mt-auto">
                 <button onClick={() => onView(fatura)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group"><Eye className="w-4 h-4 text-gray-600 group-hover:text-black" /></button>
                 <button onClick={() => onView(fatura)} className="py-3.5 flex justify-center border-x border-gray-100 hover:bg-gray-50 transition group"><FileText className="w-4 h-4 text-gray-600 group-hover:text-blue-600" /></button>
-                <button className="py-3.5 flex justify-center hover:bg-gray-50 transition group"><div className={`w-2.5 h-2.5 rounded-full ${fatura.status === 'cancelada'? 'bg-red-500' : 'bg-green-500'}`} /></button>
+                <button className="py-3.5 flex justify-center hover:bg-gray-50 transition group"><div className={`w-2.5 h-2.5 rounded-full ${isCancel? 'bg-red-500' : 'bg-green-500'}`} /></button>
             </div>
         </div>
     )

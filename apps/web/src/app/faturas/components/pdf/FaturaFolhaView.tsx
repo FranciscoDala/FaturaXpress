@@ -33,7 +33,6 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
 
     return (
         <div className="bg-[#525659] min-h-screen flex flex-col overflow-x-hidden">
-            {/* BARRA DE CIMA - COM PADDING PADRÃO */}
             <div className="bg-white border-b border-gray-200 py-2 px-4 sm:px-8 lg:px-12 flex items-center justify-between sticky top-0 z-20 w-full" style={{ fontFamily: "var(--fonte-principal)" }}>
                 <div className="flex items-center">
                     <button onClick={onVoltar} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 text-black" title="Fechar">
@@ -42,6 +41,7 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
                             <line x1="6" y1="6" x2="18" y2="18" />
                         </svg>
                     </button>
+                    <span className="ml-2 text-[12px] font-bold">{fatura?.numero_fatura || fatura?.numero_proforma} {fatura?.tipo_documento==='fatura'?'(FT - Oficial AGT)':'(PP - Proforma)'}</span>
                 </div>
                 <div className="flex items-center">
                     <button onClick={handleBaixar} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 text-black" title="Baixar PDF">
@@ -68,8 +68,6 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
                     </button>
                 </div>
             </div>
-
-            {/* Folha centralizada - DENTRO DO PADDING PADRÃO E SEM SCROLL-X BRANCO */}
             <div className="flex-1 w-full px-4 sm:px-8 lg:px-12 py-6 flex justify-center overflow-x-hidden overflow-y-auto">
                 <div className="shadow-2xl w-full max-w-[210mm] overflow-hidden">
                     <FaturaPDF fatura={fatura} cliente={cliente} empresa={empresa} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} />

@@ -9,6 +9,9 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
     const [produtos, setProdutos] = useState<Produto[]>([])
     const [itens, setItens] = useState<any[]>([])
     const [busca, setBusca] = useState('')
+    const [tipoDoc, setTipoDoc] = useState<'proforma'|'fatura'>('proforma')
+    const [formaPagamento, setFormaPagamento] = useState('dinheiro')
+    const [observacoes, setObservacoes] = useState('')
 
     useEffect(() => {
         api.get('/api/produtos', { params: { search: busca, limit: 40 } }).then(r => {
@@ -31,21 +34,22 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
     const emitir = async () => {
         if (!itens.length) return toast.error('Adicione produtos')
         try {
-            await api.post('/api/faturas', {
+            const { data } = await api.post('/api/faturas', {
                 cliente_id: clienteId,
-                tipo_documento: 'proforma',
-                forma_pagamento: 'dinheiro',
+                tipo_documento: tipoDoc,
+                forma_pagamento: formaPagamento,
                 desconto_percent: 0,
                 validade_dias: 15,
+                observacoes: observacoes || undefined,
                 itens: itens.map(i => ({ produto_id: i.produto_id, quantidade: i.quantidade, preco_unit: i.preco_unit }))
             })
-            toast.success('Proforma emitida'); setItens([]); onEmitida()
+            toast.success(tipoDoc==='fatura'? `FT ${data.numero_fatura} emitida com Hash AGT!` : `PP ${data.numero_proforma} emitida`)
+            setItens([]); setObservacoes(''); onEmitida()
         } catch (e: any) { toast.error(e.response?.data?.detail || 'Erro') }
     }
 
     return (
         <div className="-full px-4 sm:px-0 lg:px-0 mt-0">
-            {/* ITENS - MESMO ESTILO DOS CARDS */}
             <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 px-5 py-4 flex flex-wrap gap-3 mb-4 w-full">
                 <span className="text-[11px] font-bold text-gray-900">Itens:</span>
                 {itens.length === 0? <span className="text-[11px] text-gray-400">Nenhum</span> : itens.map(it => (
@@ -54,8 +58,13 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_1fr] gap-4 w-full">
-                {/* LISTA PRODUTOS */}
                 <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 p-6">
+                    <div className="flex gap-2 mb-4">
+                        <select value={tipoDoc} onChange={e=>setTipoDoc(e.target.value as any)} className="flex-1 h-[40px] border border-gray-200 rounded-full px-3 text-[12px] font-semibold">
+                            <option value="proforma">PP - Proforma (sem fiscal)</option>
+                            <option value="fatura">FT - Fatura Oficial (com hash AGT)</option>
+                        </select>
+                    </div>
                     <div className="relative mb-4">
                         <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar produto..." className="w-full pl-11 pr-4 h-[46px] bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
@@ -70,9 +79,12 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
                     </div>
                 </div>
 
-                {/* RESUMO */}
                 <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 p-6 h-fit">
-                    <h3 className="text-[13px] font-bold text-gray-900 mb-4">Resumo</h3>
+                    <h3 className="text-[13px] font-bold text-gray-900 mb-4">Resumo AGT</h3>
+                    <select value={formaPagamento} onChange={e=>setFormaPagamento(e.target.value)} className="w-full h-[40px] border border-gray-200 rounded-full px-3 text-[12px] mb-3">
+                        <option value="dinheiro">Dinheiro</option><option value="transferencia">Transferência</option><option value="multicaixa">Multicaixa</option><option value="credito">Crédito</option>
+                    </select>
+                    <textarea value={observacoes} onChange={e=>setObservacoes(e.target.value)} placeholder="Observações (opcional - vai na FT)" className="w-full h-[70px] border border-gray-200 rounded-[16px] p-3 text-[12px] mb-3" />
                     {itens.length === 0? (
                         <p className="text-[12px] text-gray-400 py-4 text-center">Nenhum item adicionado</p>
                     ) : (
@@ -91,7 +103,9 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
                         <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>{subtotal.toFixed(2)} KZ</span></div>
                         <div className="flex justify-between text-gray-600"><span>IVA</span><span>{totalIva.toFixed(2)} KZ</span></div>
                         <div className="flex justify-between font-bold text-[15px] text-gray-900 border-t border-gray-100 pt-3"><span>Total</span><span>{(subtotal + totalIva).toFixed(2)} KZ</span></div>
-                        <button onClick={emitir} className="w-full mt-5 bg-[#0095ff] text-white h-[46px] rounded-full font-semibold text-[13px] shadow-[0_4px_12px_rgba(0,149,255,0.25)] hover:bg-[#0085e6] transition">Emitir Agora</button>
+                        {tipoDoc==='fatura' && <p className="text-[10px] text-green-600 bg-green-50 border border-green-200 rounded-full px-3 py-1 text-center mt-2">FT vai gerar Hash AGT + QR automático</p>}
+                        {tipoDoc==='proforma' && <p className="text-[10px] text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-3 py-1 text-center mt-2">PP sem valor fiscal - pode converter depois</p>}
+                        <button onClick={emitir} className="w-full mt-4 bg-[#0095ff] text-white h-[46px] rounded-full font-semibold text-[13px] shadow-[0_4px_12px_rgba(0,149,255,0.25)] hover:bg-[#0085e6] transition">{tipoDoc==='fatura'? 'Emitir FT Oficial' : 'Emitir Proforma PP'}</button>
                     </div>
                 </div>
             </div>

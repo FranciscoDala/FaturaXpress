@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Trash2, XCircle, Eye } from 'lucide-react'
+import { Trash2, XCircle, Eye, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../../../../lib/api'
 import { getNumero, getTotal } from '../../EmitirFaturaPage'
@@ -10,8 +10,20 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
     const [deleteTarget, setDeleteTarget] = useState<any>(null)
     const [viewFatura, setViewFatura] = useState<any>(null)
 
-    const handleCancelar = async (id: string) => { try { await api.post(`/api/faturas/${id}/cancelar`); toast.success('Cancelada'); onRefresh() } catch { toast.error('Erro') } }
-    const handleApagar = async () => { try { await api.delete(`/api/faturas/${deleteTarget.id}`); toast.success('Apagada'); setDeleteTarget(null); onRefresh() } catch { toast.error('Erro') } }
+    const handleConverter = async (id: string) => {
+        try {
+            const t = toast.loading('A gerar FT com hash AGT...')
+            const { data } = await api.post(`/api/faturas/${id}/converter`)
+            toast.dismiss(t)
+            toast.success(`FT ${data.numero_fatura} emitida! Hash: ${data.hash_agt?.slice(0,10)}...`)
+            onRefresh()
+        } catch (e: any) {
+            toast.dismiss()
+            toast.error(e.response?.data?.detail || 'Erro ao converter para FT')
+        }
+    }
+    const handleCancelar = async (id: string) => { try { await api.post(`/api/faturas/${id}/cancelar`); toast.success('Proforma cancelada'); onRefresh() } catch { toast.error('Erro') } }
+    const handleApagar = async () => { try { await api.delete(`/api/faturas/${deleteTarget.id}`); toast.success('Proforma apagada'); setDeleteTarget(null); onRefresh() } catch { toast.error('Erro') } }
 
     if (viewFatura) {
         return <FaturaFolhaView fatura={viewFatura} cliente={cliente} empresa={empresa} onVoltar={() => setViewFatura(null)} />
@@ -19,33 +31,28 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
 
     return (
         <div className="-full px-4 sm:px-0 lg:px-0 mt-0">
-            {/* <div className="w-full mt-0">
-                <span className="text-[12px] bg-white px-3 py-1 rounded-full border">{faturas.length}</span>
-            </div> */}
-
-            {faturas.length === 0 ? (
-                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma em curso</p>
+            {faturas.length === 0? (
+                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma proforma em curso</p>
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {faturas.map(f => (
-                        <div key={f.id} className="min-w-full md:min-w-[300px] md:max-w-[300px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
-                            <div className="relative h-[90px] bg-[#E6F0FF]">
-                                <div className="absolute top-3 right-3 bg-[#FFF7CC] px-3 py-1 rounded-full text-[11px] font-medium shadow-sm border text-[#8A6D00]">em_curso</div>
+                        <div key={f.id} className="min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
+                            <div className="relative h-[90px] bg-[#FFF7CC]">
+                                <div className="absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[11px] font-bold shadow-sm border text-[#8A6D00]">PP {f.status}</div>
                                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white">
                                     <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-gray-700">{getNumero(f).slice(0, 2).toUpperCase()}</div>
                                 </div>
                             </div>
                             <div className="pt-14 px-5 pb-4">
-                                <div className="flex items-center gap-1.5 mb-3">
-                                    <span className="text-[11px] text-gray-400">exp.</span>
-                                    <div className="flex gap-[2px]">{Array.from({ length: 10 }).map((_, i) => (<div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 7 ? 'bg-yellow-400' : 'bg-gray-200'}`} />))}</div>
-                                </div>
                                 <h3 className="font-bold text-[15px] text-gray-900 leading-tight truncate">{getNumero(f)}</h3>
                                 <div className="mt-2 flex flex-col gap-0.5">
                                     <p className="text-[13px] text-gray-900 font-bold truncate">{getTotal(f).toFixed(2)} KZ</p>
-                                    <p className="text-[12.5px] text-gray-500 truncate">{f.tipo_documento}</p>
-                                    <p className="text-[12.5px] text-gray-500 truncate">{f.data ? new Date(f.data).toLocaleDateString() : 'Hoje'}</p>
+                                    <p className="text-[11px] text-gray-500 truncate">{f.forma_pagamento} • Validade: {f.validade_proforma? new Date(f.validade_proforma).toLocaleDateString('pt-AO') : '15 dias'}</p>
+                                    <p className="text-[10px] text-gray-400 truncate">Sem valor fiscal - AGT</p>
                                 </div>
+                                <button onClick={() => handleConverter(f.id)} className="mt-3 w-full bg-[#0095ff] text-white h-[38px] rounded-full text-[12px] font-bold flex items-center justify-center gap-1 hover:bg-[#0080e0]">
+                                    Converter para FT <ArrowRight className="w-4 h-4" />
+                                </button>
                             </div>
                             <div className="grid grid-cols-3 border-t border-gray-100 mt-auto">
                                 <button onClick={() => setViewFatura(f)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group"><Eye className="w-4 h-4 text-gray-600 group-hover:text-black" /></button>
@@ -56,7 +63,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
                     ))}
                 </div>
             )}
-            <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget ? getNumero(deleteTarget) : ''} onClose={() => setDeleteTarget(null)} onConfirm={handleApagar} title="Apagar?" description="Removida permanentemente." />
+            <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget? getNumero(deleteTarget) : ''} onClose={() => setDeleteTarget(null)} onConfirm={handleApagar} title="Apagar proforma?" description="Proforma PP pode ser apagada. FT oficial só cancela - regra AGT." />
         </div>
     )
 }

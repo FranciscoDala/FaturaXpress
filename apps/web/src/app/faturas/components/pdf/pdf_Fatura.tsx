@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { getNumero } from '../../EmitirFaturaPage'
 
 interface Props { fatura: any; empresa: any; cliente: any; onClose?: () => void }
@@ -46,12 +46,16 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
 
   const buildPrintHTML = () => {
     const logoHTML = hasLogo
-     ? `<img src="${emp.logo}" style="width:110px;height:90px;object-fit:contain" />`
-      : `<div style="width:110px;height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="width:70px;height:70px;background:#1a5ca8;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:36px">${(emp.nome||'T').charAt(0)}</div></div>`
+     ? `<img src="${emp.logo}" style="width:110px;height:90px;object-fit:contain" crossorigin="anonymous" />`
+      : `<div style="width:70px;height:70px;background:#1a5ca8;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:36px">${(emp.nome||'T').charAt(0)}</div>`
 
-    const watermark = hasLogo
-     ? `<img src="${emp.logo}" style="width:550px;height:550px;object-fit:contain;opacity:0.07;filter:grayscale(1)" />`
-      : ''
+    const watermarkHTML = hasLogo
+     ? `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:650px;height:650px;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0">
+           <img src="${emp.logo}" style="width:100%;height:100%;object-fit:contain;opacity:0.15" crossorigin="anonymous" />
+         </div>`
+      : `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.12;pointer-events:none;z-index:0">
+           <div style="width:500px;height:500px;background:#1a5ca8;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:220px">${(emp.nome||'T').charAt(0)}</div>
+         </div>`
 
     const itensRows = itens.map((it:any) => `
       <tr style="height:22px;font-size:11px">
@@ -69,8 +73,8 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
     `).join('')
 
     return `
-      <div style="width:210mm;min-height:297mm;padding:10mm;font-family:Arial,sans-serif;font-size:12px;color:black;background:white;position:relative;box-sizing:border-box">
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0">${watermark}</div>
+      <div style="width:210mm;min-height:297mm;padding:10mm;font-family:Arial,sans-serif;font-size:12px;color:black;background:white;position:relative;box-sizing:border-box;overflow:hidden">
+        ${watermarkHTML}
         <div style="position:relative;z-index:1;display:flex;flex-direction:column;min-height:277mm">
           <div style="display:flex;gap:12px">
             ${logoHTML}
@@ -91,7 +95,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
                 <div style="color:#777;font-size:12px;margin-top:2px">Regime de Exclusão</div>
                 <div style="font-weight:bold;font-size:13px">Original</div>
               </div>
-              <img src="https://api.qrserver.com/v1/create-qr-code/?size=72x72&data=${fatura?.id || 'PROFORMA'}" style="width:72px;height:72px" />
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=72x72&data=${fatura?.id || 'PROFORMA'}" style="width:72px;height:72px" crossorigin="anonymous" />
             </div>
           </div>
           <div style="margin-top:24px;display:flex;justify-content:flex-end">
@@ -138,10 +142,27 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
     const html = buildPrintHTML()
     const win = window.open('', '_blank')
     if (!win) return
-    win.document.write(`<html><head><title>${getNumero(fatura)}</title><style>@page{size:A4;margin:0}body{margin:0;padding:0} *{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style></head><body>${html}</body></html>`)
+    win.document.write(`
+      <html>
+        <head>
+          <title>${getNumero(fatura)}</title>
+          <style>
+            @page{size:A4;margin:0}
+            body{margin:0;padding:0;background:white}
+            *{-webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; color-adjust:exact!important}
+            img{ -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important;}
+          </style>
+        </head>
+        <body>${html}</body>
+      </html>
+    `)
     win.document.close()
-    win.focus()
-    setTimeout(()=>{ win.print(); win.close() }, 400)
+    win.onload = () => {
+      setTimeout(()=>{
+        win.focus()
+        win.print()
+      }, 1000)
+    }
   }
 
   const handleBaixarPDF = () => { setShowBaixar(false); handlePrint() }
@@ -175,7 +196,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
   const FolhaTela = () => (
     <div id="fatura-pdf" className="relative bg-white text-black w-[210mm] min-w-[210mm] min-h-[297mm] p-[10mm] font-sans text-[12px] leading-[1.3] flex flex-col border border-gray-300 overflow-hidden mx-auto">
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-        {hasLogo? <img src={emp.logo} alt="marca" className="w-[550px] h-[550px] object-contain opacity-[0.12] grayscale" /> : <LogoDefault nome={emp.nome} size="large" />}
+        {hasLogo? <img src={emp.logo} alt="marca" className="w-[550px] h-[550px] object-contain opacity-[0.12]" /> : <LogoDefault nome={emp.nome} size="large" />}
       </div>
       <div className="relative z-10 flex flex-col flex-1">
         <div className="flex gap-3">

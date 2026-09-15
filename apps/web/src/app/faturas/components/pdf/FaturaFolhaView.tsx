@@ -33,8 +33,8 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
 
     return (
         <div className="bg-[#525659] min-h-screen flex flex-col overflow-x-hidden">
-            {/* BARRA FIXA NO TOPO */}
-            <div className="bg-white border-b border-gray-200 py-2 px-4 sm:px-8 lg:px-12 flex items-center justify-between fixed top-0 left-0 right-0 z-[100] w-full" style={{ fontFamily: "var(--fonte-principal)" }}>
+            {/* BARRA DE CIMA - COM PADDING PADRÃO */}
+            <div className="bg-white border-b border-gray-200 py-2 px-4 sm:px-8 lg:px-12 flex items-center justify-between sticky top-0 z-20 w-full" style={{ fontFamily: "var(--fonte-principal)" }}>
                 <div className="flex items-center">
                     <button onClick={onVoltar} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 text-black" title="Fechar">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round">
@@ -69,8 +69,8 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
                 </div>
             </div>
 
-            {/* Folha centralizada - COM ESPAÇO PRA BARRA FIXA */}
-            <div className="flex-1 w-full px-4 sm:px-8 lg:px-12 py-6 pt-[64px] flex justify-center overflow-x-hidden">
+            {/* Folha centralizada - DENTRO DO PADDING PADRÃO E SEM SCROLL-X BRANCO */}
+            <div className="flex-1 w-full px-4 sm:px-8 lg:px-12 py-6 flex justify-center overflow-x-hidden overflow-y-auto">
                 <div className="shadow-2xl w-full max-w-[210mm] overflow-hidden">
                     <FaturaPDF fatura={fatura} cliente={cliente} empresa={empresa} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} />
                 </div>

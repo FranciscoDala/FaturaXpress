@@ -18,7 +18,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
     }
 
     return (
-        <div className="w-full mt-0">
+        <div className="w-full px-4 sm:px-8 lg:px-12 mt-0">
             <div className="flex justify-between items-center mb-4">
                 <span className="text-[12px] bg-white px-3 py-1 rounded-full border">{faturas.length}</span>
             </div>
@@ -28,7 +28,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {faturas.map(f => (
-                        <div key={f.id} className="min-w-[100%] md:min-w-[300px] md:max-w-[300px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
+                        <div key={f.id} className="min-w-full md:min-w-[300px] md:max-w-[300px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
                             <div className="relative h-[90px] bg-[#E6F0FF]">
                                 <div className="absolute top-3 right-3 bg-[#FFF7CC] px-3 py-1 rounded-full text-[11px] font-medium shadow-sm border text-[#8A6D00]">em_curso</div>
                                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white">

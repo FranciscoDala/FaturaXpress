@@ -1,4 +1,4 @@
-import { Search, Package, Pencil, Trash2 } from 'lucide-react'
+import { Search, Package, FileText, Pencil, Trash2 } from 'lucide-react'
 
 interface Produto {
     id: string
@@ -6,17 +6,13 @@ interface Produto {
     codigo: string
     categoria: string | null
     preco_venda: number | string
-    preco_custo?: number | string
     stock_atual: number
-    stock_minimo?: number
     unidade: string
     imagem_url: string | null
     ativo: boolean
-    descricao?: string | null
     tipo?: 'produto' | 'servico' | 'kit'
     controlar_stock?: boolean
     iva?: number
-    tem_iva?: boolean
 }
 
 interface Props {
@@ -30,9 +26,10 @@ interface Props {
     limit: number
     onEdit?: (p: Produto) => void
     onDelete?: (p: Produto) => void
+    onView?: (p: Produto) => void
 }
 
-export default function CardsProdutos({ produtos, loading, search, setSearch, page, setPage, total, limit, onEdit, onDelete }: Props) {
+export default function CardsProdutos({ produtos, loading, search, setSearch, page, setPage, onEdit, onDelete, onView }: Props) {
     const formatPrice = (val: any) => {
         const n = typeof val === 'string'? parseFloat(val) : val
         return isNaN(n)? '0' : n.toFixed(0)
@@ -44,103 +41,85 @@ export default function CardsProdutos({ produtos, loading, search, setSearch, pa
                 <h3 className="text-lg font-semibold text-gray-900">Produtos Cadastrados</h3>
                 <div className="relative w-full sm:w-80">
                     <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                        value={search}
-                        onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                        placeholder="Buscar por nome, código..."
-                        className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
+                    <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="Buscar por nome, código..." className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
                 </div>
             </div>
 
-            {loading? (
-                <p className="text-center text-gray-500 py-16">Carregando...</p>
-            ) : produtos.length === 0? (
-                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px]">Nenhum produto encontrado</p>
-            ) : (
-                <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                    {produtos.map((p) => (
-                        <ProductCard key={p.id} produto={p} formatPrice={formatPrice} onEdit={onEdit} onDelete={onDelete} />
-                    ))}
-                </div>
-            )}
+            {loading? <p className="text-center text-gray-500 py-16">Carregando...</p> :
+             produtos.length === 0? <p className="text-center text-gray-500 py-16 bg-white rounded-[20px]">Nenhum produto encontrado</p> :
+             <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                {produtos.map(p => <ProductCard key={p.id} produto={p} formatPrice={formatPrice} onEdit={onEdit} onDelete={onDelete} onView={onView} />)}
+             </div>
+            }
         </div>
     )
 }
 
-function ProductCard({ produto, formatPrice, onEdit, onDelete }: { produto: Produto; formatPrice: any; onEdit?: any; onDelete?: any }) {
-    const tipo = (produto.tipo || 'produto').toLowerCase() as 'produto' | 'servico' | 'kit'
-    const controla = produto.controlar_stock?? true
+function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
+    const initials = produto.nome.split(' ').map((n:string)=>n[0]).slice(0,2).join('').toUpperCase()
+    const tipo = (produto.tipo || 'produto').toLowerCase()
+    const stockPercent = Math.min(100, Math.max(10, (produto.stock_atual / Math.max(1, produto.stock_minimo || 10)) * 100))
 
     return (
-        <div
-            onClick={() => onEdit?.(produto)}
-            className="min-w-[100%] md:min-w-[300px] md:max-w-[300px] snap-start flex-shrink-0 bg-white rounded-[20px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-white cursor-pointer flex flex-col"
-        >
-            <div className="relative bg-white w-full aspect-[1/1] overflow-hidden">
-                {produto.imagem_url? (
-                    <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover" />
-                ) : (
-                    <div className="w-full h-full bg-[#F3F3F5] flex items-center justify-center">
-                        <Package className="w-12 h-12 text-gray-300" />
-                    </div>
-                )}
-                <button
-                    onClick={(e) => { e.stopPropagation(); onEdit?.(produto) }}
-                    className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 hover:bg-orange-50"
-                >
-                    <Pencil className="w-4 h-4 text-gray-800" />
-                </button>
+        <div className="min-w-[100%] md:min-w-[300px] md:max-w-[300px] snap-start flex-shrink-0 bg-white rounded-[24px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
+            {/* TOP igual cliente - azul claro */}
+            <div className="relative h-[78px] bg-[#E6F0FF] bg-gradient-to-b from-[#DCEBFF] to-[#F0F6FF]">
+                <div className="absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[12px] font-medium shadow-sm border">
+                    {produto.ativo? 'Ativo' : 'Inativo'} +
+                </div>
+                {/* AVATAR circular sobreposto */}
+                <div className="absolute -bottom-7 left-4 w-[56px] h-[56px] rounded-full bg-[#E5E7EB] border-[4px] border-white flex items-center justify-center text-[16px] font-bold text-gray-600 shadow-sm overflow-hidden">
+                    {produto.imagem_url? <img src={produto.imagem_url} className="w-full h-full object-cover" /> : initials}
+                </div>
             </div>
 
-            <div className="pt-3 px-3 pb-3 flex flex-col flex-1">
-                <h3 className="font-semibold text-[15px] leading-tight text-gray-900 truncate">{produto.nome}</h3>
-
-                <div className="flex flex-wrap gap-1.5 mt-2.5">
-                    <span className="text-[11px] px-2.5 py-1 rounded-full border bg-[#FFF0E0] border-[#FF9A2E] text-[#B65A00] font-bold uppercase">
-                        {tipo}
-                    </span>
-                    <span className={`text-[11px] px-2.5 py-1 rounded-full border font-medium ${produto.ativo? 'bg-green-100 border-green-300 text-green-700' : 'bg-red-100 border-red-200 text-red-600'}`}>
-                        {produto.ativo? 'Disponível' : 'Inativo'}
-                    </span>
-                    <span className="text-[11px] px-2.5 py-1 rounded-full border bg-white border-gray-200 text-gray-500">
-                        {produto.unidade}
-                    </span>
+            {/* CONTEUDO */}
+            <div className="pt-10 px-4 pb-0">
+                <div className="flex items-center gap-2">
+                    <p className="text-[11px] text-gray-400">exp.</p>
+                    <div className="flex gap-[2px]">
+                        {Array.from({length:12}).map((_,i)=>(
+                            <div key={i} className={`w-[3px] h-[8px] rounded-full ${i < stockPercent/10? 'bg-orange-400' : i<8? 'bg-yellow-400' : 'bg-gray-200'}`} />
+                        ))}
+                    </div>
                 </div>
 
-                <div className="mt-2.5 space-y-0.5 min-h-[52px]">
-                    {tipo === 'servico'? (
-                        <>
-                            <p className="text-[12.5px] text-gray-500 truncate">Código {produto.codigo}</p>
-                            <p className="text-[12.5px] text-gray-500 truncate">IVA {produto.iva?? 14}% • {produto.categoria || 'Serviço'}</p>
-                        </>
-                    ) : tipo === 'kit'? (
-                        <>
-                            <p className="text-[12.5px] text-gray-500 truncate">Kit • {produto.categoria || 'Vários itens'}</p>
-                            {controla && <p className="text-[12.5px] text-gray-500 truncate">Stock {produto.stock_atual} {produto.unidade}</p>}
-                            <p className="text-[12.5px] text-gray-500 truncate">IVA {produto.iva?? 14}%</p>
-                        </>
-                    ) : (
-                        <>
-                            <p className="text-[12.5px] text-gray-500 truncate">{produto.categoria || 'Produto'} • {produto.unidade}</p>
-                            {controla? (
-                                <p className="text-[12.5px] text-gray-500 truncate">Stock {produto.stock_atual} {produto.unidade} {produto.stock_minimo? `• Min ${produto.stock_minimo}` : ''}</p>
-                            ) : (
-                                <p className="text-[12.5px] text-gray-500 truncate">IVA {produto.iva?? 14}% • Sem controlo de stock</p>
-                            )}
-                        </>
-                    )}
-                </div>
+                <h3 className="font-bold text-[15px] text-gray-900 mt-2 truncate">{produto.nome}</h3>
+                <p className="text-[12px] text-gray-500 truncate mt-0.5">
+                    {produto.categoria || 'Produto'} • {produto.unidade} • {tipo}
+                </p>
+                <p className="text-[12px] text-gray-500 truncate">
+                    {produto.codigo} • Kz {formatPrice(produto.preco_venda)}
+                </p>
+            </div>
 
-                <div className="flex items-center justify-between mt-3">
-                    <p className="text-[18px] font-bold text-gray-900">Kz {formatPrice(produto.preco_venda)}</p>
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onDelete?.(produto) }}
-                        className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-[13px] font-medium px-4 py-2.5 rounded-full transition"
-                    >
-                        <Trash2 className="w-3.5 h-3.5" /> Apagar
-                    </button>
+            {/* 3 COLUNAS igual NIF | Tel | Cidade */}
+            <div className="grid grid-cols-3 border-t border-gray-100 mt-4">
+                <div className="py-3 px-2 text-center border-r border-gray-100">
+                    <p className="font-bold text-[13px] text-gray-900 truncate">{produto.codigo.slice(0,6)}</p>
+                    <p className="text-[11px] text-gray-400">Cód</p>
                 </div>
+                <div className="py-3 px-2 text-center border-r border-gray-100">
+                    <p className="font-bold text-[13px] text-gray-900 truncate">{produto.stock_atual}</p>
+                    <p className="text-[11px] text-gray-400">Stock</p>
+                </div>
+                <div className="py-3 px-2 text-center">
+                    <p className="font-bold text-[13px] text-gray-900 truncate">{produto.unidade}</p>
+                    <p className="text-[11px] text-gray-400">Unid</p>
+                </div>
+            </div>
+
+            {/* 3 ICONS igual cliente */}
+            <div className="grid grid-cols-3 border-t border-gray-100">
+                <button onClick={()=>onView?.(produto)} className="py-3 flex items-center justify-center hover:bg-gray-50 border-r border-gray-100">
+                    <FileText className="w-4 h-4 text-gray-600" />
+                </button>
+                <button onClick={()=>onEdit?.(produto)} className="py-3 flex items-center justify-center hover:bg-gray-50 border-r border-gray-100">
+                    <Pencil className="w-4 h-4 text-gray-600" />
+                </button>
+                <button onClick={()=>onDelete?.(produto)} className="py-3 flex items-center justify-center hover:bg-red-50">
+                    <Trash2 className="w-4 h-4 text-gray-600" />
+                </button>
             </div>
         </div>
     )

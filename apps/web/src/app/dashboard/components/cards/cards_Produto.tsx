@@ -1,4 +1,4 @@
-import { Search, Package, Heart, ShoppingCart } from 'lucide-react'
+import { Search, Package, Heart, Pencil } from 'lucide-react'
 import { useState } from 'react'
 
 interface Produto {
@@ -7,12 +7,19 @@ interface Produto {
     codigo: string
     categoria: string | null
     preco_venda: number | string
+    preco_custo?: number | string
     stock_atual: number
+    stock_minimo?: number
     unidade: string
     imagem_url: string | null
     ativo: boolean
     descricao?: string | null
+    tipo?: 'produto' | 'servico' | 'kit'
+    controlar_stock?: boolean
+    iva?: number
+    tem_iva?: boolean
 }
+
 interface Props {
     produtos: Produto[]
     loading: boolean
@@ -23,10 +30,9 @@ interface Props {
     total: number
     limit: number
     onEdit?: (p: Produto) => void
-    onAdd?: (p: Produto) => void
 }
 
-export default function CardsProdutos({ produtos, loading, search, setSearch, page, setPage, total, limit, onEdit, onAdd }: Props) {
+export default function CardsProdutos({ produtos, loading, search, setSearch, page, setPage, total, limit, onEdit }: Props) {
     const formatPrice = (val: any) => {
         const n = typeof val === 'string'? parseFloat(val) : val
         return isNaN(n)? '0' : n.toFixed(0)
@@ -54,7 +60,7 @@ export default function CardsProdutos({ produtos, loading, search, setSearch, pa
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {produtos.map((p) => (
-                        <ProductCard key={p.id} produto={p} formatPrice={formatPrice} onEdit={onEdit} onAdd={onAdd} />
+                        <ProductCard key={p.id} produto={p} formatPrice={formatPrice} onEdit={onEdit} />
                     ))}
                 </div>
             )}
@@ -62,20 +68,23 @@ export default function CardsProdutos({ produtos, loading, search, setSearch, pa
     )
 }
 
-function ProductCard({ produto, formatPrice, onEdit, onAdd }: { produto: Produto; formatPrice: any; onEdit?: any; onAdd?: any }) {
+function ProductCard({ produto, formatPrice, onEdit }: { produto: Produto; formatPrice: any; onEdit?: any }) {
     const [fav, setFav] = useState(false)
+    const tipo = (produto.tipo || 'produto').toLowerCase() as 'produto' | 'servico' | 'kit'
+    const controla = produto.controlar_stock?? true
 
     return (
         <div
             onClick={() => onEdit?.(produto)}
-            className="min-w-[100%] md:min-w-[300px] md:max-w-[300px] snap-start flex-shrink-0 bg-white rounded-[20px] p-3 shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-white cursor-pointer"
+            className="min-w-[100%] md:min-w-[300px] md:max-w-[300px] snap-start flex-shrink-0 bg-white rounded-[20px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-white cursor-pointer flex flex-col"
         >
-            {/* Imagem */}
-            <div className="relative bg-[#F3F3F5] rounded-[16px] overflow-hidden aspect-[1/1] flex items-center justify-center">
+            <div className="relative bg-white w-full aspect-[1/1] overflow-hidden">
                 {produto.imagem_url? (
-                    <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-contain p-4" />
+                    <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover" />
                 ) : (
-                    <Package className="w-12 h-12 text-gray-300" />
+                    <div className="w-full h-full bg-[#F3F3F5] flex items-center justify-center">
+                        <Package className="w-12 h-12 text-gray-300" />
+                    </div>
                 )}
                 <button
                     onClick={(e) => { e.stopPropagation(); setFav(!fav) }}
@@ -85,32 +94,52 @@ function ProductCard({ produto, formatPrice, onEdit, onAdd }: { produto: Produto
                 </button>
             </div>
 
-            <div className="pt-4 px-1 pb-1">
+            <div className="pt-3 px-3 pb-3 flex flex-col flex-1">
                 <h3 className="font-semibold text-[15px] leading-tight text-gray-900 truncate">{produto.nome}</h3>
 
                 <div className="flex flex-wrap gap-1.5 mt-2.5">
-                    <span className="text-[11px] px-2.5 py-1 rounded-full border bg-[#FFF0E0] border-[#FF9A2E] text-[#B65A00] font-medium">
-                        {produto.codigo.slice(0, 6)}
+                    <span className="text-[11px] px-2.5 py-1 rounded-full border bg-[#FFF0E0] border-[#FF9A2E] text-[#B65A00] font-bold uppercase">
+                        {tipo}
+                    </span>
+                    <span className={`text-[11px] px-2.5 py-1 rounded-full border font-medium ${produto.ativo? 'bg-green-100 border-green-300 text-green-700' : 'bg-red-100 border-red-200 text-red-600'}`}>
+                        {produto.ativo? 'Disponível' : 'Inativo'}
                     </span>
                     <span className="text-[11px] px-2.5 py-1 rounded-full border bg-white border-gray-200 text-gray-500">
-                        {produto.categoria || '500 ml'}
-                    </span>
-                    <span className="text-[11px] px-2.5 py-1 rounded-full border bg-white border-gray-200 text-gray-500">
-                        {produto.stock_atual} {produto.unidade}
+                        {produto.unidade}
                     </span>
                 </div>
 
-                <p className="text-[12.5px] text-gray-500 mt-2.5 line-clamp-2 min-h-[32px]">
-                    {produto.descricao || `Stock ${produto.stock_atual} • ${produto.ativo? 'Disponível' : 'Inativo'}`}
-                </p>
+                <div className="mt-2.5 space-y-0.5 min-h-[52px]">
+                    {tipo === 'servico'? (
+                        <>
+                            <p className="text-[12.5px] text-gray-500 truncate">Código {produto.codigo}</p>
+                            <p className="text-[12.5px] text-gray-500 truncate">IVA {produto.iva?? 14}% • {produto.categoria || 'Serviço'}</p>
+                        </>
+                    ) : tipo === 'kit'? (
+                        <>
+                            <p className="text-[12.5px] text-gray-500 truncate">Kit • {produto.categoria || 'Vários itens'}</p>
+                            {controla && <p className="text-[12.5px] text-gray-500 truncate">Stock {produto.stock_atual} {produto.unidade}</p>}
+                            <p className="text-[12.5px] text-gray-500 truncate">IVA {produto.iva?? 14}%</p>
+                        </>
+                    ) : (
+                        <>
+                            <p className="text-[12.5px] text-gray-500 truncate">{produto.categoria || 'Produto'} • {produto.unidade}</p>
+                            {controla? (
+                                <p className="text-[12.5px] text-gray-500 truncate">Stock {produto.stock_atual} {produto.unidade} {produto.stock_minimo? `• Min ${produto.stock_minimo}` : ''}</p>
+                            ) : (
+                                <p className="text-[12.5px] text-gray-500 truncate">IVA {produto.iva?? 14}% • Sem controlo de stock</p>
+                            )}
+                        </>
+                    )}
+                </div>
 
-                <div className="flex items-center justify-between mt-4">
-                    <p className="text-[18px] font-bold text-gray-900">${formatPrice(produto.preco_venda)}</p>
+                <div className="flex items-center justify-between mt-3">
+                    <p className="text-[18px] font-bold text-gray-900">Kz {formatPrice(produto.preco_venda)}</p>
                     <button
-                        onClick={(e) => { e.stopPropagation(); onAdd?.(produto) }}
-                        className="flex items-center gap-2 bg-[#FF8A1A] hover:bg-[#FF7A00] text-black text-[13px] font-medium px-4 py-2.5 rounded-full transition"
+                        onClick={(e) => { e.stopPropagation(); onEdit?.(produto) }}
+                        className="flex items-center gap-1.5 bg-[#FF8A1A] hover:bg-[#FF7A00] text-black text-[13px] font-medium px-4 py-2.5 rounded-full transition"
                     >
-                        <ShoppingCart className="w-4 h-4" /> Add to Cart
+                        <Pencil className="w-3.5 h-3.5" /> Atualizar
                     </button>
                 </div>
             </div>

@@ -1,0 +1,76 @@
+import { useEffect, useState } from 'react'
+import { Plus, Trash2, Search, Star } from 'lucide-react'
+import { toast } from 'sonner'
+import { api } from '../../../../lib/api'
+
+interface Produto { id: string; nome: string; preco: number; iva: number }
+
+export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string; onEmitida: () => void }) {
+    const [produtos, setProdutos] = useState<Produto[]>([])
+    const [itens, setItens] = useState<any[]>([])
+    const [busca, setBusca] = useState('')
+
+    useEffect(() => {
+        api.get('/api/produtos', { params: { search: busca, limit: 40 } }).then(r => {
+            const raw = r.data.items || r.data || []
+            setProdutos(raw.map((p: any) => ({ id: p.id, nome: p.nome, preco: typeof p.preco_venda === 'string'? parseFloat(p.preco_venda) : p.preco_venda || 0, iva: p.iva?? 14 })))
+        })
+    }, [busca])
+
+    const addItem = (p: Produto) => {
+        setItens(prev => {
+            const ex = prev.find(i => i.produto_id === p.id)
+            if (ex) return prev.map(i => i.produto_id === p.id? {...i, quantidade: i.quantidade + 1, subtotal: (i.quantidade + 1) * i.preco_unit } : i)
+            return [...prev, { produto_id: p.id, nome: p.nome, quantidade: 1, preco_unit: p.preco, iva: p.iva, subtotal: p.preco }]
+        })
+    }
+
+    const subtotal = itens.reduce((a, b) => a + b.subtotal, 0)
+    const totalIva = itens.reduce((a, b) => a + (b.subtotal * b.iva / 100), 0)
+
+    const emitir = async () => {
+        if (!itens.length) return toast.error('Adicione produtos')
+        try {
+            await api.post('/api/faturas', {
+                cliente_id: clienteId,
+                tipo_documento: 'proforma',
+                forma_pagamento: 'dinheiro',
+                desconto_percent: 0,
+                validade_dias: 15,
+                itens: itens.map(i => ({ produto_id: i.produto_id, quantidade: i.quantidade, preco_unit: i.preco_unit }))
+            })
+            toast.success('Proforma emitida'); setItens([]); onEmitida()
+        } catch (e: any) { toast.error(e.response?.data?.detail || 'Erro') }
+    }
+
+    return (
+        <div className="mx-4 sm:mx-8 lg:mx-12 mt-4">
+            <div className="bg-white border shadow-sm px-4 py-3 flex flex-wrap gap-3 mb-4">
+                <span className="text-[11px] font-bold">Itens:</span>
+                {itens.length === 0? <span className="text-[11px] text-gray-400">Nenhum</span> : itens.map(it => (
+                    <span key={it.produto_id} className="bg-[#ff7a00] text-white text-[10px] font-bold px-2.5 py-1 rounded flex items-center gap-1">{it.nome.toUpperCase()} x{it.quantidade} <Star className="w-3 h-3 fill-white" /></span>
+                ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_1fr] gap-4">
+                <div className="bg-white border p-5">
+                    <div className="relative mb-3"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar produto..." className="w-full pl-9 pr-3 py-2 border rounded text-[13px]" /></div>
+                    <div className="max-h-[320px] overflow-auto divide-y">
+                        {produtos.map(p => (
+                            <div key={p.id} className="flex justify-between items-center py-2.5">
+                                <div><p className="text-[13px] font-medium">{p.nome}</p><p className="text-[11px] text-gray-500">{p.preco.toFixed(2)} KZ - IVA {p.iva}%</p></div>
+                                <button onClick={() => addItem(p)} className="w-7 h-7 border rounded flex items-center justify-center hover:bg-[#0095ff] hover:text-white"><Plus className="w-4 h-4" /></button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="bg-white border p-5">
+                    <h3 className="text-[12px] font-bold mb-4">Resumo</h3>
+                    {itens.map(it => (
+                        <div key={it.produto_id} className="flex gap-2 items-center text-[11px] py-1"><input type="number" min={1} value={it.quantidade} onChange={e => { const q = Number(e.target.value); setItens(prev => prev.map(x => x.produto_id === it.produto_id? {...x, quantidade: q, subtotal: q * x.preco_unit } : x)) }} className="w-10 border rounded px-1 py-0.5" /><span className="flex-1 truncate">{it.nome}</span><span className="font-bold">{it.subtotal.toFixed(2)}</span><button onClick={() => setItens(prev => prev.filter(x => x.produto_id!== it.produto_id))}><Trash2 className="w-3 h-3 text-red-500" /></button></div>
+                    ))}
+                    <div className="border-t pt-3 mt-3 text-[12px] space-y-1"><div className="flex justify-between"><span>Subtotal</span><span>{subtotal.toFixed(2)} KZ</span></div><div className="flex justify-between"><span>IVA</span><span>{totalIva.toFixed(2)} KZ</span></div><div className="flex justify-between font-bold text-[14px] border-t pt-2"><span>Total</span><span>{(subtotal + totalIva).toFixed(2)} KZ</span></div><button onClick={emitir} className="w-full mt-4 bg-[#0095ff] text-white py-2.5 rounded font-semibold">Emitir Agora</button></div>
+                </div>
+            </div>
+        </div>
+    )
+}

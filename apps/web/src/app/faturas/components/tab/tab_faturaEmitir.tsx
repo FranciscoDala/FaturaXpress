@@ -44,14 +44,14 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
     }
 
     return (
-        <div className="mx-4 sm:mx-8 lg:mx-12 mt-4">
-            <div className="bg-white border shadow-sm px-4 py-3 flex flex-wrap gap-3 mb-4">
+        <div className="w-full mt-0">
+            <div className="bg-white border shadow-sm px-4 py-3 flex flex-wrap gap-3 mb-4 w-full">
                 <span className="text-[11px] font-bold">Itens:</span>
                 {itens.length === 0? <span className="text-[11px] text-gray-400">Nenhum</span> : itens.map(it => (
                     <span key={it.produto_id} className="bg-[#ff7a00] text-white text-[10px] font-bold px-2.5 py-1 rounded flex items-center gap-1">{it.nome.toUpperCase()} x{it.quantidade} <Star className="w-3 h-3 fill-white" /></span>
                 ))}
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_1fr] gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_1fr] gap-4 w-full">
                 <div className="bg-white border p-5">
                     <div className="relative mb-3"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar produto..." className="w-full pl-9 pr-3 py-2 border rounded text-[13px]" /></div>
                     <div className="max-h-[320px] overflow-auto divide-y">
@@ -63,7 +63,7 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
                         ))}
                     </div>
                 </div>
-                <div className="bg-white border p-5">
+                <div className="bg-white border p-5 h-fit">
                     <h3 className="text-[12px] font-bold mb-4">Resumo</h3>
                     {itens.map(it => (
                         <div key={it.produto_id} className="flex gap-2 items-center text-[11px] py-1"><input type="number" min={1} value={it.quantidade} onChange={e => { const q = Number(e.target.value); setItens(prev => prev.map(x => x.produto_id === it.produto_id? {...x, quantidade: q, subtotal: q * x.preco_unit } : x)) }} className="w-10 border rounded px-1 py-0.5" /><span className="flex-1 truncate">{it.nome}</span><span className="font-bold">{it.subtotal.toFixed(2)}</span><button onClick={() => setItens(prev => prev.filter(x => x.produto_id!== it.produto_id))}><Trash2 className="w-3 h-3 text-red-500" /></button></div>

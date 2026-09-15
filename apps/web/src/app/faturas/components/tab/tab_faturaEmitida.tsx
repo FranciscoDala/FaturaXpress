@@ -36,18 +36,15 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
     }
 
     return (
-        <div className="mx-4 sm:mx-8 lg:mx-12 mt-4">
+        <div className="w-full mt-0">
             <h3 className="text-[17px] font-bold text-gray-900 mb-4">Todas as Faturas</h3>
 
-            {/* FILTROS - SCROLL X INVISÍVEL, 1 POR VEZ NO CELULAR */}
             <div className={`flex gap-3 pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${openSelect? 'overflow-visible' : 'overflow-x-auto snap-x snap-mandatory'}`}>
-                {/* SELECT - AGORA O DROPDOWN É ABSOLUTE DENTRO DELE E NÃO SE MOVE */}
                 <div ref={wrapperRef} className="relative min-w-[100%] md:min-w-[180px] snap-start flex-shrink-0 z-50">
                     <button onClick={() => setOpenSelect(!openSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
                         <span className="text-gray-900">{OPTIONS.find(o => o.value === filtro)?.label}</span>
                         <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openSelect? 'rotate-180' : ''}`} />
                     </button>
-
                     {openSelect && (
                         <div className="absolute top-[54px] left-0 w-full bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
                             {OPTIONS.map(opt => (
@@ -59,7 +56,6 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
                         </div>
                     )}
                 </div>
-
                 <div className="relative min-w-[100%] md:min-w-[280px] snap-start flex-shrink-0 z-0">
                     <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
                     <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar nº" className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />

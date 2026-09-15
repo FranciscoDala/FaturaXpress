@@ -24,11 +24,7 @@ export default function EmitirFaturaPage() {
     useEffect(() => {
         if (!clienteId) { navigate('/app/dashboard'); return }
         api.get(`/api/clientes/${clienteId}`).then(r => setCliente(r.data)).catch(() => navigate('/app/dashboard'))
-        api.get('/api/auth/me').then(r => {
-            setEmpresa(r.data.company || r.data)
-        }).catch(() => {
-            setEmpresa({ nome: 'FaturaXpress', nif: '---', endereco: 'Luanda' })
-        })
+        api.get('/api/auth/me').then(r => setEmpresa(r.data.company || r.data)).catch(() => setEmpresa({ nome: 'FaturaXpress', nif: '---', endereco: 'Luanda' }))
     }, [clienteId, navigate])
 
     const fetchFaturas = async () => {
@@ -50,22 +46,24 @@ export default function EmitirFaturaPage() {
 
     return (
         <div className="min-h-screen bg-white">
-            <div className="max-w-[1100px] mx-auto">
-                {/* HEADER */}
+            {/* MESMO CONTAINER PARA TUDO - 1100px CENTRALIZADO */}
+            <div className="w-full max-w-[1100px] mx-auto">
+
+                {/* HEADER - MESMO PADDING */}
                 <div className="bg-white px-4 sm:px-8 lg:px-12 pt-8 pb-6 border-b border-gray-100">
-                    <div className="flex flex-col md:flex-row gap-5 items-start text-left">
+                    <div className="flex flex-row gap-4 sm:gap-6 items-start text-left">
                         <div className="w-[96px] h-[96px] sm:w-[132px] sm:h-[132px] rounded-full overflow-hidden bg-gray-200 border-[6px] border-white shadow-sm shrink-0 self-start">
                             <img src={`https://ui-avatars.com/api/?name=${cliente.nome}&background=E5E7EB&color=374151&size=132`} className="w-full h-full object-cover" alt={cliente.nome} />
                         </div>
-                        <div className="flex-1 w-full">
+                        <div className="flex-1 w-full min-w-0">
                             <div className="flex flex-row justify-between items-start gap-4 w-full">
-                                <div className="flex flex-col items-start text-left">
-                                    <h1 className="text-[22px] sm:text-[24px] font-bold text-[#1a202c] text-left">{cliente.nome}</h1>
-                                    <div className="flex gap-1.5 mt-1.5 justify-start">
+                                <div className="flex flex-col items-start text-left min-w-0">
+                                    <h1 className="text-[22px] sm:text-[24px] font-bold text-[#1a202c]">{cliente.nome}</h1>
+                                    <div className="flex gap-1.5 mt-1.5">
                                         <span className="text-[9px] px-2 py-[2px] bg-[#fff2e0] border border-[#ffd9a0] text-[#8a5a20] rounded">Cliente</span>
                                         <span className="text-[9px] px-2 py-[2px] bg-white border rounded text-gray-600">NIF {cliente.nif}</span>
                                     </div>
-                                    <div className="mt-3 space-y-1 text-[13px] text-[#4a5568] text-left">
+                                    <div className="mt-3 space-y-1 text-[13px] text-[#4a5568]">
                                         <p>{cliente.email}</p>
                                         <p>{cliente.telefone}</p>
                                         <p>{cliente.cidade? `${cliente.endereco} - ${cliente.cidade}` : cliente.endereco}</p>
@@ -85,11 +83,13 @@ export default function EmitirFaturaPage() {
                     </div>
                 </div>
 
-                {/* CONTEÚDO DAS ABAS - MESMO WIDTH DO HEADER */}
+                {/* CONTEÚDO DAS ABAS - MESMO PADDING E MESMO INICIO DO HEADER */}
                 <div className="w-full px-4 sm:px-8 lg:px-12 py-6">
-                    {activeTab === 'emitir' && <TabEmitir clienteId={clienteId!} onEmitida={() => { setActiveTab('curso'); fetchFaturas() }} />}
-                    {activeTab === 'curso' && <TabCurso faturas={faturasCurso} cliente={cliente} empresa={empresa} onRefresh={fetchFaturas} />}
-                    {activeTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} cliente={cliente} empresa={empresa} />}
+                    <div className="w-full">
+                        {activeTab === 'emitir' && <TabEmitir clienteId={clienteId!} onEmitida={() => { setActiveTab('curso'); fetchFaturas() }} />}
+                        {activeTab === 'curso' && <TabCurso faturas={faturasCurso} cliente={cliente} empresa={empresa} onRefresh={fetchFaturas} />}
+                        {activeTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} cliente={cliente} empresa={empresa} />}
+                    </div>
                 </div>
             </div>
         </div>

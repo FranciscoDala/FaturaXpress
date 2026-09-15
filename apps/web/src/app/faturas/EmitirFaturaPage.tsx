@@ -51,10 +51,9 @@ export default function EmitirFaturaPage() {
     return (
         <div className="min-h-screen bg-white">
             <div className="max-w-[1100px] mx-auto">
+                {/* HEADER */}
                 <div className="bg-white px-4 sm:px-8 lg:px-12 pt-8 pb-6 border-b border-gray-100">
-                    {/* SEMPRE LEFT - MOBILE E DESKTOP */}
                     <div className="flex flex-col md:flex-row gap-5 items-start text-left">
-                        {/* IMG SEMPRE À ESQUERDA */}
                         <div className="w-[96px] h-[96px] sm:w-[132px] sm:h-[132px] rounded-full overflow-hidden bg-gray-200 border-[6px] border-white shadow-sm shrink-0 self-start">
                             <img src={`https://ui-avatars.com/api/?name=${cliente.nome}&background=E5E7EB&color=374151&size=132`} className="w-full h-full object-cover" alt={cliente.nome} />
                         </div>
@@ -85,9 +84,13 @@ export default function EmitirFaturaPage() {
                         </div>
                     </div>
                 </div>
-                {activeTab === 'emitir' && <TabEmitir clienteId={clienteId!} onEmitida={() => { setActiveTab('curso'); fetchFaturas() }} />}
-                {activeTab === 'curso' && <TabCurso faturas={faturasCurso} cliente={cliente} empresa={empresa} onRefresh={fetchFaturas} />}
-                {activeTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} cliente={cliente} empresa={empresa} />}
+
+                {/* CONTEÚDO DE BAIXO - MESMO LIMITE DO DE CIMA */}
+                <div className="px-4 sm:px-8 lg:px-12 py-6 bg-white">
+                    {activeTab === 'emitir' && <TabEmitir clienteId={clienteId!} onEmitida={() => { setActiveTab('curso'); fetchFaturas() }} />}
+                    {activeTab === 'curso' && <TabCurso faturas={faturasCurso} cliente={cliente} empresa={empresa} onRefresh={fetchFaturas} />}
+                    {activeTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} cliente={cliente} empresa={empresa} />}
+                </div>
             </div>
         </div>
     )

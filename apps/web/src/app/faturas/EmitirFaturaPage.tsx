@@ -46,10 +46,8 @@ export default function EmitirFaturaPage() {
 
     return (
         <div className="min-h-screen bg-white">
-            {/* MESMO CONTAINER PARA TUDO - 1100px CENTRALIZADO */}
             <div className="w-full max-w-[1100px] mx-auto">
-
-                {/* HEADER - MESMO PADDING */}
+                {/* HEADER */}
                 <div className="bg-white px-4 sm:px-8 lg:px-12 pt-8 pb-6 border-b border-gray-100">
                     <div className="flex flex-row gap-4 sm:gap-6 items-start text-left">
                         <div className="w-[96px] h-[96px] sm:w-[132px] sm:h-[132px] rounded-full overflow-hidden bg-gray-200 border-[6px] border-white shadow-sm shrink-0 self-start">
@@ -83,13 +81,11 @@ export default function EmitirFaturaPage() {
                     </div>
                 </div>
 
-                {/* CONTEÚDO DAS ABAS - MESMO PADDING E MESMO INICIO DO HEADER */}
-                <div className="w-full sm:px-8 lg:px-12 py-6">
-                    <div className="w-full">
-                        {activeTab === 'emitir' && <TabEmitir clienteId={clienteId!} onEmitida={() => { setActiveTab('curso'); fetchFaturas() }} />}
-                        {activeTab === 'curso' && <TabCurso faturas={faturasCurso} cliente={cliente} empresa={empresa} onRefresh={fetchFaturas} />}
-                        {activeTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} cliente={cliente} empresa={empresa} />}
-                    </div>
+                {/* CONTEÚDO DAS ABAS - SEM PADDING LEFT/RIGHT */}
+                <div className="w-full py-6">
+                    {activeTab === 'emitir' && <TabEmitir clienteId={clienteId!} onEmitida={() => { setActiveTab('curso'); fetchFaturas() }} />}
+                    {activeTab === 'curso' && <TabCurso faturas={faturasCurso} cliente={cliente} empresa={empresa} onRefresh={fetchFaturas} />}
+                    {activeTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} cliente={cliente} empresa={empresa} />}
                 </div>
             </div>
         </div>

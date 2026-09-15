@@ -15,19 +15,31 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
     const [viewFatura, setViewFatura] = useState<any>(null)
     const [search, setSearch] = useState('')
     const [openSelect, setOpenSelect] = useState(false)
-    const selectRef = useRef<HTMLDivElement>(null)
-
-    useEffect(() => {
-        const h = (e: MouseEvent) => { if (selectRef.current &&!selectRef.current.contains(e.target as Node)) setOpenSelect(false) }
-        document.addEventListener('mousedown', h)
-        return () => document.removeEventListener('mousedown', h)
-    }, [])
+    const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 })
+    const btnRef = useRef<HTMLButtonElement>(null)
 
     const filtradas = faturas.filter(f => {
         const matchFiltro = filtro === 'todos'? true : f.status === filtro
         const matchSearch = search === ''? true : getNumero(f).toLowerCase().includes(search.toLowerCase())
         return matchFiltro && matchSearch
     })
+
+    const handleToggleSelect = () => {
+        if (btnRef.current) {
+            const rect = btnRef.current.getBoundingClientRect()
+            setDropdownPos({ top: rect.bottom + 8, left: rect.left, width: rect.width })
+        }
+        setOpenSelect(!openSelect)
+    }
+
+    useEffect(() => {
+        const close = (e: MouseEvent) => {
+            const target = e.target as HTMLElement
+            if (!target.closest('[data-select-dropdown]') &&!target.closest('[data-select-btn]')) setOpenSelect(false)
+        }
+        document.addEventListener('mousedown', close)
+        return () => document.removeEventListener('mousedown', close)
+    }, [])
 
     if (viewFatura) {
         return <FaturaFolhaView fatura={viewFatura} cliente={cliente} empresa={empresa} onVoltar={() => setViewFatura(null)} />
@@ -37,37 +49,37 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
         <div className="mx-4 sm:mx-8 lg:mx-12 mt-4">
             <h3 className="text-[17px] font-bold text-gray-900 mb-4">Todas as Faturas</h3>
 
-            {/* FILTROS EM SCROLL IGUAL CARDS - MOBILE 1 POR VEZ */}
-            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-3 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mb-4">
-                {/* SELECT CUSTOM NO PADRÃO CARD */}
-                <div ref={selectRef} className="relative min-w-[100%] md:min-w-[180px] snap-start flex-shrink-0">
-                    <button onClick={() => setOpenSelect(!openSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
+            {/* FILTROS EM SCROLL */}
+            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-3 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mb-4 relative z-20">
+                <div className="relative min-w-[100%] md:min-w-[180px] snap-start flex-shrink-0">
+                    <button data-select-btn ref={btnRef} onClick={handleToggleSelect} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
                         <span className="text-gray-900">{OPTIONS.find(o => o.value === filtro)?.label}</span>
                         <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openSelect? 'rotate-180' : ''}`} />
                     </button>
-                    {openSelect && (
-                        <div className="absolute top-[52px] left-0 w-full bg-white rounded-[20px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-gray-100 overflow-hidden z-30 p-1.5 animate-in">
-                            {OPTIONS.map(opt => (
-                                <button key={opt.value} onClick={() => { setFiltro(opt.value); setOpenSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${filtro === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
-                                    {opt.label}
-                                    {filtro === opt.value && <Check className="w-4 h-4" />}
-                                </button>
-                            ))}
-                        </div>
-                    )}
                 </div>
 
-                {/* BUSCA - TAMBÉM EM CARD NO SCROLL */}
                 <div className="relative min-w-[100%] md:min-w-[280px] snap-start flex-shrink-0">
                     <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
                     <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar nº" className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
                 </div>
             </div>
 
+            {/* DROPDOWN FIXO COM Z-INDEX ALTO FORA DO SCROLL */}
+            {openSelect && (
+                <div data-select-dropdown className="fixed z-[9999] bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5" style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}>
+                    {OPTIONS.map(opt => (
+                        <button key={opt.value} onClick={() => { setFiltro(opt.value); setOpenSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${filtro === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                            {opt.label}
+                            {filtro === opt.value && <Check className="w-4 h-4" />}
+                        </button>
+                    ))}
+                </div>
+            )}
+
             {filtradas.length === 0? (
-                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma fatura</p>
+                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border relative z-0">Nenhuma fatura</p>
             ) : (
-                <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] relative z-0">
                     {filtradas.map(f => (
                         <FaturaCard key={f.id} fatura={f} onView={setViewFatura} />
                     ))}
@@ -80,7 +92,6 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
 function FaturaCard({ fatura, onView }: { fatura: any; onView: (f:any)=>void }) {
     const statusColor = fatura.status === 'cancelada'? 'bg-red-100 text-red-600' : fatura.status === 'concluida'? 'bg-green-100 text-green-600' : 'bg-[#FFF7CC] text-[#8A6D00]'
     const initials = getNumero(fatura)?.slice(0,2).toUpperCase() || 'PR'
-
     return (
         <div className="min-w-[100%] md:min-w-[300px] md:max-w-[300px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
             <div className="relative h-[90px] bg-[#E6F0FF]">

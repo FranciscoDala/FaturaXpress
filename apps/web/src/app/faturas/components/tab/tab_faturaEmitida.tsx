@@ -1,12 +1,27 @@
-import { useState } from 'react'
-import { FileText, Eye, Search } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { FileText, Eye, Search, ChevronDown, Check } from 'lucide-react'
 import { getNumero, getTotal } from '../../EmitirFaturaPage'
 import FaturaFolhaView from '../../components/pdf/FaturaFolhaView'
+
+const OPTIONS = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'concluida', label: 'Concluídas' },
+  { value: 'cancelada', label: 'Canceladas' },
+  { value: 'em_curso', label: 'Em Curso' },
+]
 
 export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: any[]; cliente: any; empresa: any }) {
     const [filtro, setFiltro] = useState('todos')
     const [viewFatura, setViewFatura] = useState<any>(null)
     const [search, setSearch] = useState('')
+    const [openSelect, setOpenSelect] = useState(false)
+    const selectRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        const h = (e: MouseEvent) => { if (selectRef.current &&!selectRef.current.contains(e.target as Node)) setOpenSelect(false) }
+        document.addEventListener('mousedown', h)
+        return () => document.removeEventListener('mousedown', h)
+    }, [])
 
     const filtradas = faturas.filter(f => {
         const matchFiltro = filtro === 'todos'? true : f.status === filtro
@@ -20,19 +35,32 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
 
     return (
         <div className="mx-4 sm:mx-8 lg:mx-12 mt-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-                <h3 className="text-[17px] font-bold text-gray-900">Todas as Faturas</h3>
-                <div className="flex gap-2 w-full sm:w-auto">
-                    <select value={filtro} onChange={e => setFiltro(e.target.value)} className="text-[13px] border border-gray-200 rounded-full px-3 py-2.5 bg-white">
-                        <option value="todos">Todos</option>
-                        <option value="concluida">Concluídas</option>
-                        <option value="cancelada">Canceladas</option>
-                        <option value="em_curso">Em Curso</option>
-                    </select>
-                    <div className="relative flex-1 sm:w-64">
-                        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar nº" className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
+            <h3 className="text-[17px] font-bold text-gray-900 mb-4">Todas as Faturas</h3>
+
+            {/* FILTROS EM SCROLL IGUAL CARDS - MOBILE 1 POR VEZ */}
+            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-3 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mb-4">
+                {/* SELECT CUSTOM NO PADRÃO CARD */}
+                <div ref={selectRef} className="relative min-w-[100%] md:min-w-[180px] snap-start flex-shrink-0">
+                    <button onClick={() => setOpenSelect(!openSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
+                        <span className="text-gray-900">{OPTIONS.find(o => o.value === filtro)?.label}</span>
+                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openSelect? 'rotate-180' : ''}`} />
+                    </button>
+                    {openSelect && (
+                        <div className="absolute top-[52px] left-0 w-full bg-white rounded-[20px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-gray-100 overflow-hidden z-30 p-1.5 animate-in">
+                            {OPTIONS.map(opt => (
+                                <button key={opt.value} onClick={() => { setFiltro(opt.value); setOpenSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${filtro === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                    {opt.label}
+                                    {filtro === opt.value && <Check className="w-4 h-4" />}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* BUSCA - TAMBÉM EM CARD NO SCROLL */}
+                <div className="relative min-w-[100%] md:min-w-[280px] snap-start flex-shrink-0">
+                    <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar nº" className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
                 </div>
             </div>
 
@@ -56,9 +84,7 @@ function FaturaCard({ fatura, onView }: { fatura: any; onView: (f:any)=>void }) 
     return (
         <div className="min-w-[100%] md:min-w-[300px] md:max-w-[300px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
             <div className="relative h-[90px] bg-[#E6F0FF]">
-                <div className={`absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[11px] font-medium shadow-sm border ${statusColor}`}>
-                    {fatura.status}
-                </div>
+                <div className={`absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[11px] font-medium shadow-sm border ${statusColor}`}>{fatura.status}</div>
                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white">
                     <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-gray-700">{initials}</div>
                 </div>

@@ -9,8 +9,8 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
     const [search, setSearch] = useState('')
 
     const filtradas = faturas.filter(f => {
-        const matchFiltro = filtro === 'todos' ? true : f.status === filtro
-        const matchSearch = search === '' ? true : getNumero(f).toLowerCase().includes(search.toLowerCase())
+        const matchFiltro = filtro === 'todos'? true : f.status === filtro
+        const matchSearch = search === ''? true : getNumero(f).toLowerCase().includes(search.toLowerCase())
         return matchFiltro && matchSearch
     })
 
@@ -19,9 +19,9 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
     }
 
     return (
-        <div className="bg-[#F5F5F7] rounded-[24px] p-4 sm:p-6 mx-4 sm:mx-8 lg:mx-12 mt-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">Todas as Faturas</h3>
+        <div className="w-full mt-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 px-0">
+                <h3 className="text-[17px] font-bold text-gray-900">Todas as Faturas</h3>
                 <div className="flex gap-2 w-full sm:w-auto">
                     <select value={filtro} onChange={e => setFiltro(e.target.value)} className="text-[13px] border border-gray-200 rounded-full px-3 py-2.5 bg-white">
                         <option value="todos">Todos</option>
@@ -36,7 +36,7 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
                 </div>
             </div>
 
-            {filtradas.length === 0 ? (
+            {filtradas.length === 0? (
                 <p className="text-center text-gray-500 py-16 bg-white rounded-[20px]">Nenhuma fatura</p>
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -49,12 +49,12 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
     )
 }
 
-function FaturaCard({ fatura, onView }: { fatura: any; onView: (f: any) => void }) {
-    const statusColor = fatura.status === 'cancelada' ? 'bg-red-100 text-red-600' : fatura.status === 'concluida' ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-700'
-    const initials = getNumero(fatura)?.slice(0, 2).toUpperCase() || 'FT'
+function FaturaCard({ fatura, onView }: { fatura: any; onView: (f:any)=>void }) {
+    const statusColor = fatura.status === 'cancelada'? 'bg-red-100 text-red-600' : fatura.status === 'concluida'? 'bg-green-100 text-green-600' : 'bg-[#FFF7CC] text-[#8A6D00]'
+    const initials = getNumero(fatura)?.slice(0,2).toUpperCase() || 'PR'
 
     return (
-        <div className="min-w-[100%] md:min-w-[300px] md:max-w-[300px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-white flex flex-col">
+        <div className="min-w-[100%] md:min-w-[300px] md:max-w-[300px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
             <div className="relative h-[90px] bg-[#E6F0FF]">
                 <div className={`absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[11px] font-medium shadow-sm border ${statusColor}`}>
                     {fatura.status}
@@ -71,15 +71,15 @@ function FaturaCard({ fatura, onView }: { fatura: any; onView: (f: any) => void 
                     <span className="text-[11px] text-gray-400">exp.</span>
                     <div className="flex gap-[2px]">
                         {Array.from({ length: 10 }).map((_, i) => (
-                            <div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5 ? 'bg-yellow-400' : 'bg-gray-200'}`} />
+                            <div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5? 'bg-yellow-400' : 'bg-gray-200'}`} />
                         ))}
                     </div>
                 </div>
                 <h3 className="font-bold text-[15px] text-gray-900 leading-tight truncate">{getNumero(fatura)}</h3>
                 <div className="mt-2 flex flex-col gap-0.5">
-                    <p className="text-[12.5px] text-gray-900 font-semibold truncate">{getTotal(fatura).toFixed(2)} KZ</p>
+                    <p className="text-[13px] text-gray-900 font-bold truncate">{getTotal(fatura).toFixed(2)} KZ</p>
                     <p className="text-[12.5px] text-gray-500 truncate capitalize">{fatura.tipo_documento} · {fatura.status}</p>
-                    <p className="text-[12.5px] text-gray-500 truncate">{fatura.data ? new Date(fatura.data).toLocaleDateString() : '15-09-2026'}</p>
+                    <p className="text-[12.5px] text-gray-500 truncate">{fatura.data? new Date(fatura.data).toLocaleDateString() : '15-09-2026'}</p>
                 </div>
             </div>
 
@@ -90,8 +90,8 @@ function FaturaCard({ fatura, onView }: { fatura: any; onView: (f: any) => void 
                 <button onClick={() => onView(fatura)} className="py-3.5 flex justify-center border-x border-gray-100 hover:bg-gray-50 transition group" title="PDF">
                     <FileText className="w-4 h-4 text-gray-600 group-hover:text-blue-600" />
                 </button>
-                <button className="py-3.5 flex justify-center hover:bg-gray-50 transition group" title="Status">
-                    <div className={`w-2 h-2 rounded-full mt-1 ${fatura.status === 'cancelada' ? 'bg-red-500' : 'bg-green-500'}`} />
+                <button className="py-3.5 flex justify-center hover:bg-gray-50 transition group">
+                    <div className={`w-2.5 h-2.5 rounded-full ${fatura.status === 'cancelada'? 'bg-red-500' : 'bg-green-500'}`} />
                 </button>
             </div>
         </div>

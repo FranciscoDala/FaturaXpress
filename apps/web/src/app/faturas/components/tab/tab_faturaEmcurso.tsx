@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Trash2, XCircle, Eye, FileText } from 'lucide-react'
+import { Trash2, XCircle, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../../../../lib/api'
 import { getNumero, getTotal } from '../../EmitirFaturaPage'
@@ -18,10 +18,10 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
     }
 
     return (
-        <div className="bg-[#F5F5F7] rounded-[24px] p-4 sm:p-6 mx-4 sm:mx-8 lg:mx-12 mt-4">
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">Faturas em Curso</h3>
-                <span className="text-[12px] bg-white px-3 py-1 rounded-full border">{faturas.length} itens</span>
+        <div className="w-full mt-4">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-[17px] font-bold text-gray-900">Faturas em Curso</h3>
+                <span className="text-[12px] bg-white px-3 py-1 rounded-full border">{faturas.length}</span>
             </div>
 
             {faturas.length === 0? (
@@ -29,9 +29,9 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {faturas.map(f => (
-                        <div key={f.id} className="min-w-[100%] md:min-w-[300px] md:max-w-[300px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-white flex flex-col">
-                            <div className="relative h-[90px] bg-[#FFF4E6]">
-                                <div className="absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[11px] font-medium shadow-sm border text-yellow-700">em_curso</div>
+                        <div key={f.id} className="min-w-[100%] md:min-w-[300px] md:max-w-[300px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
+                            <div className="relative h-[90px] bg-[#E6F0FF]">
+                                <div className="absolute top-3 right-3 bg-[#FFF7CC] px-3 py-1 rounded-full text-[11px] font-medium shadow-sm border text-[#8A6D00]">em_curso</div>
                                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white">
                                     <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-gray-700">
                                         {getNumero(f).slice(0,2).toUpperCase()}
@@ -49,7 +49,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
                                 </div>
                                 <h3 className="font-bold text-[15px] text-gray-900 leading-tight truncate">{getNumero(f)}</h3>
                                 <div className="mt-2 flex flex-col gap-0.5">
-                                    <p className="text-[12.5px] text-gray-900 font-semibold truncate">{getTotal(f).toFixed(2)} KZ</p>
+                                    <p className="text-[13px] text-gray-900 font-bold truncate">{getTotal(f).toFixed(2)} KZ</p>
                                     <p className="text-[12.5px] text-gray-500 truncate">{f.tipo_documento}</p>
                                     <p className="text-[12.5px] text-gray-500 truncate">{f.data? new Date(f.data).toLocaleDateString() : 'Hoje'}</p>
                                 </div>

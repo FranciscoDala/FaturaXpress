@@ -86,53 +86,44 @@ function ClientCard({
     onEmitirFatura: Props['onEmitirFatura']
 }) {
     const initials = cliente.nome
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase()
+     .split(' ')
+     .map((n) => n[0])
+     .join('')
+     .slice(0, 2)
+     .toUpperCase()
 
     return (
         <div className="min-w-[100%] md:min-w-[300px] md:max-w-[300px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-white flex flex-col">
-            {/* CAPA */}
-            <div className="relative h-[88px] bg-gradient-to-br from-[#D6E8FF] to-[#EAF2FF]">
-                <img
-                    src="https://images.unsplash.com/photo-1534088568595-a066f410bcda?q=80&w=400"
-                    alt=""
-                    className="w-full h-full object-cover opacity-60"
-                />
-                <button
-                    onClick={() => onEdit(cliente)}
-                    className="absolute top-3 right-3 bg-white rounded-full px-4 py-1.5 text-[13px] font-medium shadow-sm border border-gray-100 hover:scale-105 transition"
-                >
-                    Detalhes
-                </button>
+            {/* CAPA - mesmo padrão do produto */}
+            <div className="relative h-[90px] bg-[#E6F0FF]">
+                <div className="absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[12px] font-medium shadow-sm border">
+                    Ativo +
+                </div>
 
-                <div className="absolute -bottom-8 left-4 w-[64px] h-[64px] rounded-full bg-white p-1 shadow-sm">
-                    <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[18px] font-bold text-gray-700">
+                {/* IMG CIRCULAR GRANDE BEM VISÍVEL - 88px igual produto */}
+                <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white">
+                    <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-gray-700">
                         {initials}
                     </div>
                 </div>
+            </div>
 
-                <div className="absolute -bottom-5 left-[84px] flex items-center gap-1.5">
+            {/* CONTEÚDO */}
+            <div className="pt-14 px-5 pb-4">
+                <div className="flex items-center gap-1.5 mb-3">
                     <span className="text-[11px] text-gray-400">exp.</span>
                     <div className="flex gap-[2px]">
-                        {Array.from({ length: 16 }).map((_, i) => (
+                        {Array.from({ length: 10 }).map((_, i) => (
                             <div
                                 key={i}
-                                className={`w-[3px] h-[8px] rounded-full ${
-                                    i < 7
-                                      ? 'bg-gradient-to-b from-purple-500 via-pink-500 to-yellow-400'
-                                        : 'bg-gray-200'
+                                className={`w-[4px] h-[10px] rounded-full ${
+                                    i < 5? 'bg-yellow-400' : 'bg-gray-200'
                                 }`}
                             />
                         ))}
                     </div>
                 </div>
-            </div>
 
-            {/* CONTEÚDO EM COLUNA VERTICAL COM TELEFONE */}
-            <div className="pt-11 px-5 pb-4">
                 <h3 className="font-bold text-[16px] text-gray-900 leading-tight truncate">
                     {cliente.nome}
                 </h3>

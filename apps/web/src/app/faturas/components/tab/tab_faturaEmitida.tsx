@@ -19,8 +19,8 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
     }
 
     return (
-        <div className="w-full mt-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 px-0">
+        <div className="mx-4 sm:mx-8 lg:mx-12 mt-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
                 <h3 className="text-[17px] font-bold text-gray-900">Todas as Faturas</h3>
                 <div className="flex gap-2 w-full sm:w-auto">
                     <select value={filtro} onChange={e => setFiltro(e.target.value)} className="text-[13px] border border-gray-200 rounded-full px-3 py-2.5 bg-white">
@@ -37,7 +37,7 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
             </div>
 
             {filtradas.length === 0? (
-                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px]">Nenhuma fatura</p>
+                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma fatura</p>
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {filtradas.map(f => (
@@ -60,20 +60,13 @@ function FaturaCard({ fatura, onView }: { fatura: any; onView: (f:any)=>void }) 
                     {fatura.status}
                 </div>
                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white">
-                    <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-gray-700">
-                        {initials}
-                    </div>
+                    <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-gray-700">{initials}</div>
                 </div>
             </div>
-
             <div className="pt-14 px-5 pb-4">
                 <div className="flex items-center gap-1.5 mb-3">
                     <span className="text-[11px] text-gray-400">exp.</span>
-                    <div className="flex gap-[2px]">
-                        {Array.from({ length: 10 }).map((_, i) => (
-                            <div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5? 'bg-yellow-400' : 'bg-gray-200'}`} />
-                        ))}
-                    </div>
+                    <div className="flex gap-[2px]">{Array.from({ length: 10 }).map((_, i) => (<div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5? 'bg-yellow-400' : 'bg-gray-200'}`} />))}</div>
                 </div>
                 <h3 className="font-bold text-[15px] text-gray-900 leading-tight truncate">{getNumero(fatura)}</h3>
                 <div className="mt-2 flex flex-col gap-0.5">
@@ -82,17 +75,10 @@ function FaturaCard({ fatura, onView }: { fatura: any; onView: (f:any)=>void }) 
                     <p className="text-[12.5px] text-gray-500 truncate">{fatura.data? new Date(fatura.data).toLocaleDateString() : '15-09-2026'}</p>
                 </div>
             </div>
-
             <div className="grid grid-cols-3 border-t border-gray-100 mt-auto">
-                <button onClick={() => onView(fatura)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group" title="Ver">
-                    <Eye className="w-4 h-4 text-gray-600 group-hover:text-black" />
-                </button>
-                <button onClick={() => onView(fatura)} className="py-3.5 flex justify-center border-x border-gray-100 hover:bg-gray-50 transition group" title="PDF">
-                    <FileText className="w-4 h-4 text-gray-600 group-hover:text-blue-600" />
-                </button>
-                <button className="py-3.5 flex justify-center hover:bg-gray-50 transition group">
-                    <div className={`w-2.5 h-2.5 rounded-full ${fatura.status === 'cancelada'? 'bg-red-500' : 'bg-green-500'}`} />
-                </button>
+                <button onClick={() => onView(fatura)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group"><Eye className="w-4 h-4 text-gray-600 group-hover:text-black" /></button>
+                <button onClick={() => onView(fatura)} className="py-3.5 flex justify-center border-x border-gray-100 hover:bg-gray-50 transition group"><FileText className="w-4 h-4 text-gray-600 group-hover:text-blue-600" /></button>
+                <button className="py-3.5 flex justify-center hover:bg-gray-50 transition group"><div className={`w-2.5 h-2.5 rounded-full ${fatura.status === 'cancelada'? 'bg-red-500' : 'bg-green-500'}`} /></button>
             </div>
         </div>
     )

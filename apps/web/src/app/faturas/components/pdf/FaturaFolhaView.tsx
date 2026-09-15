@@ -32,24 +32,19 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
     }
 
     return (
-        <div className="bg-[#525659] min-h-screen flex flex-col">
-            {/* BARRA DE CIMA - icones pretos, sem padding lateral, sem circulo */}
-            <div className="bg-white border-b border-gray-200 py-2 flex items-center justify-between sticky top-0 z-20" style={{ fontFamily: "var(--fonte-principal)" }}>
-                {/* Esquerda - fechar */}
+        <div className="bg-[#525659] min-h-screen flex flex-col w-full overflow-x-hidden">
+            {/* BARRA DE CIMA - COM PADDING PADRÃO */}
+            <div className="bg-white border-b border-gray-200 py-2 px-4 sm:px-8 lg:px-12 flex items-center justify-between sticky top-0 z-20 w-full" style={{ fontFamily: "var(--fonte-principal)" }}>
                 <div className="flex items-center">
                     <button onClick={onVoltar} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 text-black" title="Fechar">
-                        {/* X */}
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round">
                             <line x1="18" y1="6" x2="6" y2="18" />
                             <line x1="6" y1="6" x2="18" y2="18" />
                         </svg>
                     </button>
                 </div>
-
-                {/* Direita - download, imprimir, expandir */}
-                <div className="flex items-center">
+                <div className="flex items-center gap-1">
                     <button onClick={handleBaixar} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 text-black" title="Baixar PDF">
-                        {/* Download */}
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                             <polyline points="7 10 12 15 17 10" />
@@ -57,7 +52,6 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
                         </svg>
                     </button>
                     <button onClick={handlePrint} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 text-black" title="Imprimir">
-                        {/* Print */}
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="6 9 6 2 18 2 18 9" />
                             <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
@@ -65,7 +59,6 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
                         </svg>
                     </button>
                     <button onClick={() => setIsFullscreen(!isFullscreen)} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 text-black" title="Expandir">
-                        {/* Expand */}
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round">
                             <polyline points="15 3 21 3 21 9" />
                             <polyline points="9 21 3 21 3 15" />
@@ -76,9 +69,9 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
                 </div>
             </div>
 
-            {/* Folha centralizada */}
-            <div className="flex-1 p-6 flex justify-center overflow-auto">
-                <div className="shadow-2xl">
+            {/* CONTEÚDO - COM PADDING PADRÃO E SEM SCROLL-X FANTASMA */}
+            <div className="flex-1 w-full px-4 sm:px-8 lg:px-12 py-6 flex justify-center overflow-x-hidden overflow-y-auto">
+                <div className="w-full max-w-[210mm] shadow-2xl rounded-[16px] overflow-hidden bg-white">
                     <FaturaPDF fatura={fatura} cliente={cliente} empresa={empresa} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} />
                 </div>
             </div>

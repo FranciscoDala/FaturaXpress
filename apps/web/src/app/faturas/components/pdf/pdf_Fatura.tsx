@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { getNumero } from '../../EmitirFaturaPage'
 
 interface Props {
@@ -27,7 +27,7 @@ const LogoDefault = ({ nome, size = 'small' }: { nome?: string; size?: 'small' |
     )
 }
 
-export const FaturaPDF = ({ fatura, empresa, cliente, onClose, isFullscreen, setIsFullscreen }: Props) => {
+export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
     const itensRaw = fatura?.itens || fatura?.items || []
 
     const { itens, totais } = useMemo(() => {
@@ -80,7 +80,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose, isFullscreen, set
         email: empresa?.email || '',
         cidade: empresa?.cidade || '',
         logo: empresa?.logo || '',
-        operador: empresa?.operador || '',
         banco: empresa?.banco || 'BAI',
         iban: empresa?.iban || '',
         conta: empresa?.conta_bancaria || '',
@@ -91,7 +90,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose, isFullscreen, set
     const buildPrintHTML = () => {
         const logoHTML = hasLogo? `<img src="${emp.logo}" style="width:110px;height:90px;object-fit:contain" />` : `<div style="width:70px;height:70px;background:#1a5ca8;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:36px;font-family:'Zalando Sans Expanded',sans-serif">${(emp.nome || 'T').charAt(0)}</div>`
         const watermarkHTML = hasLogo? `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:680px;height:680px;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0"><img src="${emp.logo}" style="width:100%;height:100%;object-fit:contain;opacity:0.12" /></div>` : `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.12;pointer-events:none;z-index:0"><div style="width:550px;height:550px;background:#1a5ca8;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:220px;font-family:'Zalando Sans Expanded',sans-serif">${(emp.nome || 'T').charAt(0)}</div></div>`
-
         const itensRows = itens.map((it: any) => `
       <tr style="height:26px;font-size:11px;">
         <td style="border:1px solid #bbb;padding:4px;background:rgba(255,255,255,0.40)">${it.referencia}</td>
@@ -104,9 +102,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose, isFullscreen, set
         <td style="border:1px solid #bbb;text-align:right;padding-right:4px;background:rgba(255,255,255,0.40);font-weight:600">${fmt(it.subtotal_linha)}</td>
       </tr>
     `).join('')
-
         const emptyRows = Array.from({ length: Math.max(0, 8 - itens.length) }).map(() => `<tr style="height:28px"><td style="border:1px solid #bbb;background:rgba(255,255,255,0.40)"></td><td style="border:1px solid #bbb;background:rgba(255,255,255,0.40)"></td><td style="border:1px solid #bbb;background:rgba(255,255,255,0.40)"></td><td style="border:1px solid #bbb;background:rgba(255,255,255,0.40)"></td><td style="border:1px solid #bbb;background:rgba(255,255,255,0.40)"></td><td style="border:1px solid #bbb;background:rgba(255,255,255,0.40)"></td><td style="border:1px solid #bbb;background:rgba(255,255,255,0.40)"></td><td style="border:1px solid #bbb;background:rgba(255,255,255,0.40)"></td></tr>`).join('')
-
         const ivaRows = Object.entries(totais.ivaPorTaxa).map(([taxa, d]: any) => `
       <div style="display:flex;font-size:10px;">
         <div style="flex:1;border-right:1px solid #999;padding:6px 4px;background:rgba(255,255,255,0.40)">${Number(taxa.replace('%', '')) === 0? '*M04 IVA - Regime de Exclusão' : `IVA ${taxa}`}</div>
@@ -115,24 +111,11 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose, isFullscreen, set
         <div style="width:80px;padding:6px;text-align:right;background:rgba(255,255,255,0.40)">${fmt(d.valor)}</div>
       </div>
     `).join('')
-
         return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>${getNumero(fatura) || 'PROFORMA'}</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <!DOCTYPE html><html><head><meta charset="utf-8" /><title>${getNumero(fatura) || 'PROFORMA'}</title>
         <link href="https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
-        <style>
-          @page{size:A4;margin:0}
-          :root{ --fonte-principal: 'Zalando Sans Expanded'; }
-          *{ font-family: 'Zalando Sans Expanded', sans-serif!important; -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
-          body{margin:0;padding:0;background:white;}
-        </style>
-      </head>
-      <body>
+        <style>@page{size:A4;margin:0}:root{ --fonte-principal: 'Zalando Sans Expanded'; }*{ font-family: 'Zalando Sans Expanded', sans-serif!important; -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }body{margin:0;padding:0;background:white;}</style>
+      </head><body>
       <div style="width:210mm;min-height:297mm;padding:10mm;font-family:'Zalando Sans Expanded',sans-serif;font-size:12px;color:black;background:white;position:relative;box-sizing:border-box;overflow:hidden">
         ${watermarkHTML}
         <div style="position:relative;z-index:1;display:flex;flex-direction:column;min-height:277mm">
@@ -142,24 +125,11 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose, isFullscreen, set
           <div style="margin-top:24px;font-size:9px;color:#666">Processado por programa validado 83/AGT/2019 KwanzaGest</div>
           <div style="margin-top:8px;display:grid;grid-template-columns:90px 95px 95px 125px 115px 1fr;gap:5px;"><div style="border:1px solid #bbb;padding:4px;background:rgba(255,255,255,0.40)"><div style="font-weight:700;font-size:9px">CÓD. CLIE...</div><div style="text-align:center;font-size:10px;margin-top:3px">${cliente?.codigo || '***********'}</div></div><div style="border:1px solid #bbb;padding:4px;background:rgba(255,255,255,0.40)"><div style="font-weight:700;font-size:9px">DATA</div><div style="text-align:center;font-size:10px;margin-top:3px">15-09-2026</div></div><div style="border:1px solid #bbb;padding:4px;background:rgba(255,255,255,0.40)"><div style="font-weight:700;font-size:9px">DATA VENC.</div><div style="text-align:center;font-size:10px;margin-top:3px">***********</div></div><div style="border:1px solid #bbb;padding:4px;background:rgba(255,255,255,0.40)"><div style="font-weight:700;font-size:9px">NIF</div><div style="text-align:center;font-size:10px;margin-top:3px">${cliente?.nif || '00643232LS045'}</div></div><div style="border:1px solid #bbb;padding:4px;background:rgba(255,255,255,0.40)"><div style="font-weight:700;font-size:9px">REFª</div><div style="text-align:center;font-size:10px;margin-top:3px">***********</div></div><div style="border:1px solid #bbb;padding:4px;background:rgba(255,255,255,0.40)"><div style="font-weight:700;font-size:9px">OPERADOR</div><div style="text-align:center;font-size:10px;margin-top:3px">***********</div></div></div>
           <table style="width:100%;border-collapse:collapse;margin-top:8px;table-layout:auto;"><colgroup><col style="width:18%"><col style="width:28%"><col style="width:7%"><col style="width:6%"><col style="width:13%"><col style="width:10%"><col style="width:6%"><col style="width:12%"></colgroup><thead><tr style="background:#c2c2c2;font-size:10px;font-weight:700"><th style="border:1px solid #999;padding:6px 4px;text-align:left;background:rgba(194,194,194,0.65)">REFERÊNCIA</th><th style="border:1px solid #999;padding:6px 4px;text-align:left;background:rgba(194,194,194,0.65)">PRODUTO / SERVIÇO</th><th style="border:1px solid #999;padding:6px;background:rgba(194,194,194,0.65)">QTD.</th><th style="border:1px solid #999;padding:6px;background:rgba(194,194,194,0.65)">UN.</th><th style="border:1px solid #999;padding:6px;background:rgba(194,194,194,0.65)">PREÇO UNIT.</th><th style="border:1px solid #999;padding:6px;background:rgba(194,194,194,0.65)">DESCONTO</th><th style="border:1px solid #999;padding:6px;background:rgba(194,194,194,0.65)">TAXA</th><th style="border:1px solid #999;padding:6px;text-align:right;background:rgba(194,194,194,0.65)">VALOR (AKZ)</th></tr></thead><tbody>${itensRows}${emptyRows}</tbody></table>
-          <div style="display:flex;margin-top:8px;gap:4px;">
-            <div style="flex:1;border:1px solid #999;"><div style="display:flex;background:rgba(194,194,194,0.65);font-size:10px;font-weight:700"><div style="flex:1;border-right:1px solid #999;padding:6px 4px;background:rgba(194,194,194,0.65)">IMPOSTO</div><div style="width:50px;border-right:1px solid #999;padding:6px;text-align:center;background:rgba(194,194,194,0.65)">TAXA</div><div style="width:80px;border-right:1px solid #999;padding:6px;text-align:center;background:rgba(194,194,194,0.65)">INCIDÊNCIA</div><div style="width:80px;padding:6px;text-align:center;background:rgba(194,194,194,0.65)">VALOR</div></div>${ivaRows}</div>
-            <div style="width:240px;">
-              <div style="display:flex;background:rgba(194,194,194,0.65);font-size:10px;border:1px solid #999"><div style="flex:1;padding:6px 4px;text-align:right;background:rgba(194,194,194,0.65)">Total Líquido</div><div style="width:90px;background:rgba(255,255,255,0.55);border-left:1px solid #999;padding:6px;text-align:right">${fmt(totais.liquido)}</div></div>
-              <div style="display:flex;background:rgba(194,194,194,0.65);font-size:10px;border:1px solid #999;border-top:0"><div style="flex:1;padding:6px 4px;text-align:right;background:rgba(194,194,194,0.65)">Total Desconto</div><div style="width:90px;background:rgba(255,255,255,0.55);border-left:1px solid #999;padding:6px;text-align:right">${fmt(totais.desconto)}</div></div>
-              <div style="display:flex;background:rgba(194,194,194,0.65);font-size:10px;border:1px solid #999;border-top:0"><div style="flex:1;padding:6px 4px;text-align:right;background:rgba(194,194,194,0.65)">Total IVA</div><div style="width:90px;background:rgba(255,255,255,0.55);border-left:1px solid #999;padding:6px;text-align:right">${fmt(totais.iva)}</div></div>
-              <div style="display:flex;background:rgba(194,194,194,0.75);font-size:11px;font-weight:700;border:1px solid #999;border-top:0"><div style="flex:1;padding:6px 4px;text-align:right;background:rgba(194,194,194,0.75)">TOTAL A PAGAR</div><div style="width:90px;background:rgba(255,255,255,0.65);border-left:1px solid #999;padding:6px;text-align:right;font-weight:700">${fmt(totais.pagar)}</div></div>
-            </div>
-          </div>
+          <div style="display:flex;margin-top:8px;gap:4px;"><div style="flex:1;border:1px solid #999;"><div style="display:flex;background:rgba(194,194,194,0.65);font-size:10px;font-weight:700"><div style="flex:1;border-right:1px solid #999;padding:6px 4px;background:rgba(194,194,194,0.65)">IMPOSTO</div><div style="width:50px;border-right:1px solid #999;padding:6px;text-align:center;background:rgba(194,194,194,0.65)">TAXA</div><div style="width:80px;border-right:1px solid #999;padding:6px;text-align:center;background:rgba(194,194,194,0.65)">INCIDÊNCIA</div><div style="width:80px;padding:6px;text-align:center;background:rgba(194,194,194,0.65)">VALOR</div></div>${ivaRows}</div><div style="width:240px;"><div style="display:flex;background:rgba(194,194,194,0.65);font-size:10px;border:1px solid #999"><div style="flex:1;padding:6px 4px;text-align:right;background:rgba(194,194,194,0.65)">Total Líquido</div><div style="width:90px;background:rgba(255,255,255,0.55);border-left:1px solid #999;padding:6px;text-align:right">${fmt(totais.liquido)}</div></div><div style="display:flex;background:rgba(194,194,194,0.65);font-size:10px;border:1px solid #999;border-top:0"><div style="flex:1;padding:6px 4px;text-align:right;background:rgba(194,194,194,0.65)">Total Desconto</div><div style="width:90px;background:rgba(255,255,255,0.55);border-left:1px solid #999;padding:6px;text-align:right">${fmt(totais.desconto)}</div></div><div style="display:flex;background:rgba(194,194,194,0.65);font-size:10px;border:1px solid #999;border-top:0"><div style="flex:1;padding:6px 4px;text-align:right;background:rgba(194,194,194,0.65)">Total IVA</div><div style="width:90px;background:rgba(255,255,255,0.55);border-left:1px solid #999;padding:6px;text-align:right">${fmt(totais.iva)}</div></div><div style="display:flex;background:rgba(194,194,194,0.75);font-size:11px;font-weight:700;border:1px solid #999;border-top:0"><div style="flex:1;padding:6px 4px;text-align:right;background:rgba(194,194,194,0.75)">TOTAL A PAGAR</div><div style="width:90px;background:rgba(255,255,255,0.65);border-left:1px solid #999;padding:6px;text-align:right;font-weight:700">${fmt(totais.pagar)}</div></div></div></div>
           <div style="margin-top:16px;background:rgba(255,255,255,0.40);padding:2px"><div style="font-weight:700;font-size:13px">Coordenada Bancárias:</div><div style="font-size:12px">Banco ${mask(emp.banco)} ${emp.conta? `nº ${emp.conta} / ` : ''}IBAN ${emp.iban? emp.iban : '***********'}</div></div>
-          <div style="margin-top:auto;padding-top:18px;border-top:1px solid black;display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.40);padding:8px 2px 2px 2px">
-            <span style="font-size:13px;font-weight:700">Licenciado a: ${mask(emp.nome) || 'Connect'} | NIF: ${mask(emp.nif) || '50924984'} | Morada: ${mask(emp.endereco) || 'Sassamba'}</span>
-            <span style="font-size:13px;font-weight:700">Pág. 1 de 1</span>
-          </div>
+          <div style="margin-top:auto;padding-top:18px;border-top:1px solid black;display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.40);padding:8px 2px 2px 2px"><span style="font-size:13px;font-weight:700">Licenciado a: ${mask(emp.nome) || 'Connect'} | NIF: ${mask(emp.nif) || '50924984'} | Morada: ${mask(emp.endereco) || 'Sassamba'}</span><span style="font-size:13px;font-weight:700">Pág. 1 de 1</span></div>
         </div>
-      </div>
-      </body></html>
-    `
+      </div></body></html>`
     }
 
     ;(window as any).imprimirFatura = () => {
@@ -172,11 +142,11 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose, isFullscreen, set
     }
 
     const FolhaTela = () => (
-        <div id="fatura-pdf" className="relative bg-white text-black w-[210mm] min-w-[210mm] min-h-[297mm] p-[10mm] flex flex-col border border-gray-200 rounded-[16px] overflow-hidden mx-auto" style={{ fontFamily: "var(--fonte-principal)" }}>
+        <div id="fatura-pdf" className="relative bg-white text-black w-full max-w-[210mm] min-h-[297mm] p-[8mm] sm:p-[10mm] flex flex-col border-0 overflow-hidden mx-auto" style={{ fontFamily: "var(--fonte-principal)" }}>
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                {hasLogo? <img src={emp.logo} alt="marca" className="w-[650px] h-[650px] object-contain opacity-[0.12]" /> : <LogoDefault nome={emp.nome} size="large" />}
+                {hasLogo? <img src={emp.logo} alt="marca" className="w-[500px] h-[500px] object-contain opacity-[0.12]" /> : <LogoDefault nome={emp.nome} size="large" />}
             </div>
-            <div className="relative z-10 flex flex-col flex-1">
+            <div className="relative z-10 flex flex-col flex-1 w-full overflow-hidden">
                 <div className="flex gap-3">
                     {hasLogo? <img src={emp.logo} className="w-[110px] h-[90px] object-contain shrink-0" alt="logo" /> : <LogoDefault nome={emp.nome} />}
                     <div className="text-[12px] leading-[16px]"><p className="font-bold text-[15px]">{mask(emp.nome)}</p><p>NIF: {mask(emp.nif)}</p><p>Endereço: {mask(emp.endereco)}</p><p>Contactos: {mask(emp.telefone)}</p><p>Email: {mask(emp.email)}</p><p>{mask(emp.cidade)}</p></div>
@@ -184,7 +154,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose, isFullscreen, set
                 <div className="flex justify-between items-start mt-6 border-b border-dotted border-gray-300 pb-3"><div></div><div className="flex gap-3 items-start"><div className="text-right leading-[15px]"><p className="font-bold text-[15px]">{getNumero(fatura) || 'PROFORMA 2026/00007'}</p><p className="text-[#777] text-[12px] mt-1">Regime de Exclusão</p><p className="font-bold text-[13px]">Original</p></div><div className="w-[72px] h-[72px] shrink-0"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=72x72&data=${fatura?.id || 'PROFORMA'}`} alt="qr" /></div></div></div>
                 <div className="mt-6 flex justify-end"><div className="w-[280px] text-[13px] leading-[18px] text-right"><p className="font-bold">{cliente?.nome || 'Santos Luis Dala'}</p><p className="mt-2">{cliente?.endereco || 'Lunda-Sul, saurimo'}</p><p>{cliente?.cidade || 'Saurimo'}</p></div></div>
                 <div className="mt-6 text-[9px] text-[#666]">Processado por programa validado 83/AGT/2019 KwanzaGest</div>
-                <div className="mt-2 grid grid-cols-[90px_95px_95px_125px_115px_1fr] gap-[5px]">
+                <div className="mt-2 grid grid-cols-[90px_95px_95px_125px_115px_1fr] gap-[5px] overflow-x-auto">
                     {[
                         { k: 'CÓD. CLIE...', v: cliente?.codigo || '***********' },
                         { k: 'DATA', v: '15-09-2026' },
@@ -196,7 +166,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose, isFullscreen, set
                         <div key={b.k} className="border border-[#bbb] py-[4px] px-1 bg-[rgba(255,255,255,0.40)]"><p className="font-bold text-[10px] truncate">{b.k}</p><p className="text-center text-[11px] mt-[3px] truncate">{b.v}</p></div>
                     ))}
                 </div>
-                <div className="w-full mt-2">
+                <div className="w-full mt-2 overflow-hidden">
                     <table className="w-full border-collapse">
                         <colgroup><col style={{ width: '18%' }} /><col style={{ width: '28%' }} /><col style={{ width: '7%' }} /><col style={{ width: '6%' }} /><col style={{ width: '13%' }} /><col style={{ width: '10%' }} /><col style={{ width: '6%' }} /><col style={{ width: '12%' }} /></colgroup>
                         <thead><tr className="bg-[rgba(194,194,194,0.65)] text-[10px] font-bold"><th className="border border-[#999] py-[6px] px-1 text-left">REFERÊNCIA</th><th className="border border-[#999] py-[6px] px-1 text-left">PRODUTO / SERVIÇO</th><th className="border border-[#999] py-[6px]">QTD.</th><th className="border border-[#999] py-[6px]">UN.</th><th className="border border-[#999] py-[6px]">PREÇO UNIT.</th><th className="border border-[#999] py-[6px]">DESCONTO</th><th className="border border-[#999] py-[6px]">TAXA</th><th className="border border-[#999] py-[6px] text-right">VALOR (AKZ)</th></tr></thead>
@@ -230,12 +200,17 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose, isFullscreen, set
 
     return (
         <>
-            <style>{`@import url('https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap');#fatura-pdf-wrapper{display:flex;justify-content:center;background:transparent;width:100%;overflow:hidden;font-family:var(--fonte-principal)}#fatura-pdf{transform-origin:top center;font-family:var(--fonte-principal)}@media (max-width:768px){#fatura-pdf{transform:scale(0.46);margin-bottom:-620px;width:210mm!important;min-width:210mm!important}}`}</style>
-            {/* WRAPPER ESTILO CARDS - MESMO PADRÃO DAS TABS */}
-            <div className="w-full px-4 sm:px-8 lg:px-12 mt-0">
-                <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 overflow-hidden p-2 sm:p-4 md:p-6">
-                    <div id="fatura-pdf-wrapper" className="bg-white"><FolhaTela /></div>
-                </div>
+            <style>{`
+              @import url('https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap');
+              #fatura-pdf-wrapper{width:100%;overflow-x:hidden;display:flex;justify-content:center;background:white}
+              #fatura-pdf{transform-origin:top center;width:100%;max-width:210mm}
+              @media (max-width:768px){
+                #fatura-pdf-wrapper{overflow-x:hidden!important}
+                #fatura-pdf{width:100%!important;min-width:unset!important;transform:none!important;margin-bottom:0!important;scale:1!important}
+              }
+            `}</style>
+            <div id="fatura-pdf-wrapper">
+                <FolhaTela />
             </div>
         </>
     )

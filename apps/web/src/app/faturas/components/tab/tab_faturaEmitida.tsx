@@ -37,7 +37,7 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
 
     return (
         <div className="w-full mt-0">
-            <h3 className="text-[17px] font-bold text-gray-900 mb-4">Todas as Faturas</h3>
+            {/* <h3 className="text-[17px] font-bold text-gray-900 mb-4">Todas as Faturas</h3> */}
 
             <div className={`flex gap-3 pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${openSelect? 'overflow-visible' : 'overflow-x-auto snap-x snap-mandatory'}`}>
                 <div ref={wrapperRef} className="relative min-w-[100%] md:min-w-[180px] snap-start flex-shrink-0 z-50">

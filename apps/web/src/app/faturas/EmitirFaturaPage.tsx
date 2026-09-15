@@ -86,7 +86,7 @@ export default function EmitirFaturaPage() {
                 </div>
 
                 {/* CONTEÚDO DAS ABAS - MESMO WIDTH DO HEADER */}
-                <div className="w-full px-4 sm:px-8 lg:px-12 py-6">
+                <div className="w-full py-6">
                     {activeTab === 'emitir' && <TabEmitir clienteId={clienteId!} onEmitida={() => { setActiveTab('curso'); fetchFaturas() }} />}
                     {activeTab === 'curso' && <TabCurso faturas={faturasCurso} cliente={cliente} empresa={empresa} onRefresh={fetchFaturas} />}
                     {activeTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} cliente={cliente} empresa={empresa} />}

@@ -9,21 +9,8 @@ import CardsProdutos from './components/cards/cards_Produto'
 import DashboardCards from './components/cards/cards_Dashboard'
 import { api } from '../../lib/api'
 
-interface Cliente {
-  id: string; nome: string; nif: string; email: string | null; telefone: string | null; endereco: string | null; cidade: string | null; provincia: string | null
-}
-
-interface Produto {
-  id: string;
-  nome: string;
-  codigo: string;
-  categoria: string | null;
-  preco_venda: number | string;
-  stock_atual: number;
-  unidade: string;
-  imagem_url: string | null;
-  ativo: boolean
-}
+interface Cliente { id: string; nome: string; nif: string; email: string | null; telefone: string | null; endereco: string | null; cidade: string | null; provincia: string | null }
+interface Produto { id: string; nome: string; codigo: string; categoria: string | null; preco_venda: number | string; stock_atual: number; unidade: string; imagem_url: string | null; ativo: boolean; descricao?: string | null }
 
 type TabView = 'clientes' | 'produtos'
 
@@ -35,90 +22,49 @@ export default function DashboardPage() {
     const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null)
     const [menuNovoOpen, setMenuNovoOpen] = useState(false)
     const [view, setView] = useState<TabView>('clientes')
-
     const [clientes, setClientes] = useState<Cliente[]>([])
     const [produtos, setProdutos] = useState<Produto[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
     const [page, setPage] = useState(1)
     const [total, setTotal] = useState(0)
-    const limit = 10
+    const limit = 20 // AUMENTADO PRA CARROSSEL MOSTRAR MAIS
 
     const fetchClientes = async () => {
-        try {
-            setLoading(true);
-            const skip = (page - 1) * limit
-            console.log("[FRONT] Chamando GET /api/clientes", { skip, limit, search }) // <- ADD
-            const res = await api.get('/api/clientes', { params: { skip, limit, search } });
-            console.log("[FRONT] Resposta clientes:", res.data) // <- ADD
-            setClientes(res.data.items);
-            setTotal(res.data.total)
-        }
-        catch (err: any) { // <- ADD err
-            console.error("[FRONT] Erro clientes:", err.response?.data || err.message) // <- ADD
-            toast.error('Erro ao carregar clientes')
-        } finally {
-            setLoading(false)
-        }
+        try { setLoading(true); const skip = (page - 1) * limit; const res = await api.get('/api/clientes', { params: { skip, limit, search } }); setClientes(res.data.items); setTotal(res.data.total) }
+        catch { toast.error('Erro ao carregar clientes') } finally { setLoading(false) }
     }
-
     const fetchProdutos = async () => {
-        try {
-            setLoading(true);
-            const skip = (page - 1) * limit
-            console.log("[FRONT] Chamando GET /api/produtos", { skip, limit, search }) // <- ADD
-            const res = await api.get('/api/produtos', { params: { skip, limit, search } });
-            console.log("[FRONT] Resposta produtos:", res.data) // <- ADD
-            setProdutos(res.data.items);
-            setTotal(res.data.total)
-        }
-        catch (err: any) { // <- ADD err
-            console.error("[FRONT] Erro produtos:", err.response?.data || err.message) // <- ADD
-            toast.error('Erro ao carregar produtos')
-        } finally {
-            setLoading(false)
-        }
+        try { setLoading(true); const skip = (page - 1) * limit; const res = await api.get('/api/produtos', { params: { skip, limit, search } }); setProdutos(res.data.items); setTotal(res.data.total) }
+        catch { toast.error('Erro ao carregar produtos') } finally { setLoading(false) }
     }
 
     useEffect(() => { const name = localStorage.getItem("company_name"); if (name) setCompanyName(name) }, [])
-    useEffect(() => { setPage(1) }, [view])
-    useEffect(() => { if (view === 'clientes') fetchClientes(); else fetchProdutos() }, [page, search, view])
+    useEffect(() => { setPage(1) }, [view, search])
+    useEffect(() => { if (view === 'clientes') fetchClientes(); else fetchProdutos() }, [page, view])
 
     const handleOpenCreateCliente = () => { setClienteSelecionado(null); setModalClienteOpen(true); setMenuNovoOpen(false) }
-    const handleOpenEdit = (cliente: Cliente) => { setClienteSelecionado(cliente); setModalClienteOpen(true) }
+    const handleOpenEdit = (c: Cliente) => { setClienteSelecionado(c); setModalClienteOpen(true) }
     const handleOpenCreateProduto = () => { setModalProdutoOpen(true); setMenuNovoOpen(false) }
-    const handleEmitirFatura = (cliente: Cliente) => navigate(`/faturas/nova?cliente_id=${cliente.id}`)
-    const handleLogout = () => { localStorage.removeItem("access_token"); localStorage.removeItem("company_id"); localStorage.removeItem("company_name"); toast.success("Sessão encerrada"); navigate('/login') }
-    const handleDelete = async (id: string) => {
-        if (!confirm('Tem certeza que deseja apagar este cliente?')) return
-        try { await api.delete(`/api/clientes/${id}`); toast.success('Cliente apagado'); if (clientes.length === 1 && page > 1) setPage(p => p - 1); else fetchClientes() }
-        catch { toast.error('Erro ao apagar cliente') }
-    }
-    const handleCardClick = (title: string) => {
-        if (title === 'Clientes') setView('clientes')
-        else if (title === 'Produtos') setView('produtos')
-        else if (title === 'Emitir Fatura') toast.info('Selecione um cliente na tabela abaixo para emitir fatura')
-        else toast.info('Em breve')
-    }
+    const handleEmitirFatura = (c: Cliente) => navigate(`/faturas/nova?cliente_id=${c.id}`)
+    const handleLogout = () => { localStorage.clear(); toast.success("Sessão encerrada"); navigate('/login') }
+    const handleDelete = async (id: string) => { if (!confirm('Apagar cliente?')) return; try { await api.delete(`/api/clientes/${id}`); toast.success('Apagado'); fetchClientes() } catch { toast.error('Erro ao apagar') } }
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => { toast.success(clienteSelecionado? 'Cliente atualizado' : 'Cliente criado'); setPage(1); fetchClientes() }} />
-            <ProdutoModal open={modalProdutoOpen} onClose={() => setModalProdutoOpen(false)} onSuccess={() => { toast.success('Produto criado'); setPage(1); fetchProdutos() }} />
+            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => { toast.success(clienteSelecionado? 'Atualizado' : 'Criado'); fetchClientes() }} />
+            <ProdutoModal open={modalProdutoOpen} onClose={() => setModalProdutoOpen(false)} onSuccess={() => { toast.success('Produto criado'); fetchProdutos() }} />
 
-            <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
+            <header className="bg-white border-b sticky top-0 z-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center h-16">
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center"><Building2 className="w-5 h-5 text-white" /></div>
-                            <div><h1 className="text-lg font-bold text-gray-900">FaturaXpress</h1><p className="text-xs text-gray-500">{companyName}</p></div>
-                        </div>
+                        <div className="flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center"><Building2 className="w-5 h-5 text-white" /></div><div><h1 className="text-lg font-bold">FaturaXpress</h1><p className="text-xs text-gray-500">{companyName}</p></div></div>
                         <div className="flex items-center gap-2">
-                            <button onClick={handleOpenCreateProduto} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700"><Package className="w-4 h-4" />Novo Produto</button>
-                            <button onClick={handleOpenCreateCliente} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"><Plus className="w-4 h-4" />Novo Cliente</button>
+                            <button onClick={handleOpenCreateProduto} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg"><Package className="w-4 h-4" />Novo Produto</button>
+                            <button onClick={handleOpenCreateCliente} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg"><Plus className="w-4 h-4" />Novo Cliente</button>
                             <div className="relative sm:hidden">
                                 <button onClick={() => setMenuNovoOpen(!menuNovoOpen)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg"><Plus className="w-4 h-4" />Novo<ChevronDown className="w-4 h-4" /></button>
-                                {menuNovoOpen && (<div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-30"><button onClick={handleOpenCreateCliente} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"><Users className="w-4 h-4" /> Novo Cliente</button><button onClick={handleOpenCreateProduto} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"><Package className="w-4 h-4" /> Novo Produto</button></div>)}
+                                {menuNovoOpen && <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-30"><button onClick={handleOpenCreateCliente} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"><Users className="w-4 h-4" /> Novo Cliente</button><button onClick={handleOpenCreateProduto} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"><Package className="w-4 h-4" /> Novo Produto</button></div>}
                             </div>
                             <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-red-600"><LogOut className="w-4 h-4" /><span className="hidden sm:inline">Sair</span></button>
                         </div>
@@ -127,32 +73,29 @@ export default function DashboardPage() {
             </header>
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="mb-8"><h2 className="text-2xl font-bold text-gray-900">Painel</h2><p className="text-gray-500 mt-1">Bem-vindo de volta, {companyName}</p></div>
+                <div className="mb-8"><h2 className="text-2xl font-bold">Painel</h2><p className="text-gray-500 mt-1">Bem-vindo de volta, {companyName}</p></div>
+                <DashboardCards onCardClick={(t) => t === 'Clientes'? setView('clientes') : t === 'Produtos'? setView('produtos') : null} />
 
-                <DashboardCards onCardClick={handleCardClick} />
-
-                <div className="bg-white rounded-xl border-gray-200 p-4 mb-4 flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900">Listagem</h3>
-                    <select value={view} onChange={(e) => setView(e.target.value as TabView)} className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                        <option value="clientes">Clientes</option>
-                        <option value="produtos">Produtos</option>
+                <div className="bg-white rounded-xl border p-4 mb-4 flex items-center justify-between mt-6">
+                    <h3 className="font-semibold">Listagem</h3>
+                    <select value={view} onChange={(e) => setView(e.target.value as TabView)} className="border rounded-lg px-3 py-2 text-sm">
+                        <option value="clientes">Clientes</option><option value="produtos">Produtos</option>
                     </select>
                 </div>
 
                 <div id="tabela">
-                    {view === 'clientes'? (
-                        <TabelaClientes clientes={clientes} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEdit} onDelete={handleDelete} onEmitirFatura={handleEmitirFatura} />
-                    ) : (
-                        <CardsProdutos produtos={produtos} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} />
-                    )}
+                    {view === 'clientes'?
+                        <TabelaClientes clientes={clientes} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEdit} onDelete={handleDelete} onEmitirFatura={handleEmitirFatura} /> :
+                        <CardsProdutos produtos={produtos} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={(p: any) => toast.info(p.nome)} onAdd={(p: any) => toast.success(`${p.nome} adicionado`)} />
+                    }
                 </div>
 
-                <div className="mt-8 bg-white rounded-xl p-6 border border-gray-200">
-                    <h3 className="font-semibold text-gray-900 mb-4">Resumo do mês</h3>
+                <div className="mt-8 bg-white rounded-xl p-6 border">
+                    <h3 className="font-semibold mb-4">Resumo do mês</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div><p className="text-sm text-gray-500">Total Faturado</p><p className="text-2xl font-bold text-gray-900 mt-1">0.00 KZ</p></div>
-                        <div><p className="text-sm text-gray-500">Faturas Emitidas</p><p className="text-2xl font-bold text-gray-900 mt-1">0</p></div>
-                        <div><p className="text-sm text-gray-500">Clientes Ativos</p><p className="text-2xl font-bold text-gray-900 mt-1">{total}</p></div>
+                        <div><p className="text-sm text-gray-500">Total Faturado</p><p className="text-2xl font-bold mt-1">0.00 KZ</p></div>
+                        <div><p className="text-sm text-gray-500">Faturas Emitidas</p><p className="text-2xl font-bold mt-1">0</p></div>
+                        <div><p className="text-sm text-gray-500">Clientes Ativos</p><p className="text-2xl font-bold mt-1">{total}</p></div>
                     </div>
                 </div>
             </main>

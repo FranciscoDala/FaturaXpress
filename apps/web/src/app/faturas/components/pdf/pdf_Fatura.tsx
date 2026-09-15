@@ -142,11 +142,11 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
     }
 
     const FolhaTela = () => (
-        <div id="fatura-pdf" className="relative bg-white text-black w-full max-w-[210mm] min-h-[297mm] p-[8mm] sm:p-[10mm] flex flex-col border-0 overflow-hidden mx-auto" style={{ fontFamily: "var(--fonte-principal)" }}>
+        <div id="fatura-pdf" className="relative bg-white text-black w-[210mm] min-w-[210mm] min-h-[297mm] p-[10mm] flex flex-col border border-gray-200 overflow-hidden mx-auto" style={{ fontFamily: "var(--fonte-principal)" }}>
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                {hasLogo? <img src={emp.logo} alt="marca" className="w-[500px] h-[500px] object-contain opacity-[0.12]" /> : <LogoDefault nome={emp.nome} size="large" />}
+                {hasLogo? <img src={emp.logo} alt="marca" className="w-[650px] h-[650px] object-contain opacity-[0.12]" /> : <LogoDefault nome={emp.nome} size="large" />}
             </div>
-            <div className="relative z-10 flex flex-col flex-1 w-full overflow-hidden">
+            <div className="relative z-10 flex flex-col flex-1">
                 <div className="flex gap-3">
                     {hasLogo? <img src={emp.logo} className="w-[110px] h-[90px] object-contain shrink-0" alt="logo" /> : <LogoDefault nome={emp.nome} />}
                     <div className="text-[12px] leading-[16px]"><p className="font-bold text-[15px]">{mask(emp.nome)}</p><p>NIF: {mask(emp.nif)}</p><p>Endereço: {mask(emp.endereco)}</p><p>Contactos: {mask(emp.telefone)}</p><p>Email: {mask(emp.email)}</p><p>{mask(emp.cidade)}</p></div>
@@ -154,7 +154,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                 <div className="flex justify-between items-start mt-6 border-b border-dotted border-gray-300 pb-3"><div></div><div className="flex gap-3 items-start"><div className="text-right leading-[15px]"><p className="font-bold text-[15px]">{getNumero(fatura) || 'PROFORMA 2026/00007'}</p><p className="text-[#777] text-[12px] mt-1">Regime de Exclusão</p><p className="font-bold text-[13px]">Original</p></div><div className="w-[72px] h-[72px] shrink-0"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=72x72&data=${fatura?.id || 'PROFORMA'}`} alt="qr" /></div></div></div>
                 <div className="mt-6 flex justify-end"><div className="w-[280px] text-[13px] leading-[18px] text-right"><p className="font-bold">{cliente?.nome || 'Santos Luis Dala'}</p><p className="mt-2">{cliente?.endereco || 'Lunda-Sul, saurimo'}</p><p>{cliente?.cidade || 'Saurimo'}</p></div></div>
                 <div className="mt-6 text-[9px] text-[#666]">Processado por programa validado 83/AGT/2019 KwanzaGest</div>
-                <div className="mt-2 grid grid-cols-[90px_95px_95px_125px_115px_1fr] gap-[5px] overflow-x-auto">
+                <div className="mt-2 grid grid-cols-[90px_95px_95px_125px_115px_1fr] gap-[5px]">
                     {[
                         { k: 'CÓD. CLIE...', v: cliente?.codigo || '***********' },
                         { k: 'DATA', v: '15-09-2026' },
@@ -166,7 +166,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                         <div key={b.k} className="border border-[#bbb] py-[4px] px-1 bg-[rgba(255,255,255,0.40)]"><p className="font-bold text-[10px] truncate">{b.k}</p><p className="text-center text-[11px] mt-[3px] truncate">{b.v}</p></div>
                     ))}
                 </div>
-                <div className="w-full mt-2 overflow-hidden">
+                <div className="w-full mt-2">
                     <table className="w-full border-collapse">
                         <colgroup><col style={{ width: '18%' }} /><col style={{ width: '28%' }} /><col style={{ width: '7%' }} /><col style={{ width: '6%' }} /><col style={{ width: '13%' }} /><col style={{ width: '10%' }} /><col style={{ width: '6%' }} /><col style={{ width: '12%' }} /></colgroup>
                         <thead><tr className="bg-[rgba(194,194,194,0.65)] text-[10px] font-bold"><th className="border border-[#999] py-[6px] px-1 text-left">REFERÊNCIA</th><th className="border border-[#999] py-[6px] px-1 text-left">PRODUTO / SERVIÇO</th><th className="border border-[#999] py-[6px]">QTD.</th><th className="border border-[#999] py-[6px]">UN.</th><th className="border border-[#999] py-[6px]">PREÇO UNIT.</th><th className="border border-[#999] py-[6px]">DESCONTO</th><th className="border border-[#999] py-[6px]">TAXA</th><th className="border border-[#999] py-[6px] text-right">VALOR (AKZ)</th></tr></thead>
@@ -202,11 +202,11 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
         <>
             <style>{`
               @import url('https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap');
-              #fatura-pdf-wrapper{width:100%;overflow-x:hidden;display:flex;justify-content:center;background:white}
-              #fatura-pdf{transform-origin:top center;width:100%;max-width:210mm}
+              #fatura-pdf-wrapper{display:flex;justify-content:center;width:100%;overflow-x:hidden;background:transparent}
+              #fatura-pdf{transform-origin:top center}
               @media (max-width:768px){
-                #fatura-pdf-wrapper{overflow-x:hidden!important}
-                #fatura-pdf{width:100%!important;min-width:unset!important;transform:none!important;margin-bottom:0!important;scale:1!important}
+                #fatura-pdf-wrapper{overflow-x:hidden!important;width:100%!important}
+                #fatura-pdf{transform:scale(0.45);transform-origin:top center;margin-bottom:-55%;width:210mm!important;min-width:210mm!important}
               }
             `}</style>
             <div id="fatura-pdf-wrapper">

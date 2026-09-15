@@ -27,10 +27,16 @@ def listar(
     company_id: uuid.UUID = Depends(get_current_company_id)
 ):
     q = db.query(Fatura).filter(Fatura.company_id == company_id)
-    if cliente_id: q = q.filter(Fatura.cliente_id == cliente_id)
-    if tipo_documento: q = q.filter(Fatura.tipo_documento == tipo_documento)
-    if status: q = q.filter(Fatura.status == status)
-    else: q = q.filter(Fatura.status!= 'apagada')
+    if cliente_id:
+        q = q.filter(Fatura.cliente_id == cliente_id)
+    if tipo_documento:
+        q = q.filter(Fatura.tipo_documento == tipo_documento)
+    if status and status!= 'todos':
+        q = q.filter(Fatura.status == status)
+    else:
+        # por padrão não mostra apagadas, mas se pedir 'apagada' mostra
+        if not status:
+            q = q.filter(Fatura.status!= 'apagada')
     if search:
         q = q.filter(or_(Fatura.numero_fatura.ilike(f"%{search}%"), Fatura.numero_proforma.ilike(f"%{search}%")))
     return q.order_by(Fatura.created_at.desc()).offset((page-1)*limit).limit(limit).all()
@@ -44,8 +50,10 @@ def stats(cliente_id: Optional[uuid.UUID] = None, db: Session = Depends(get_db),
         "proformas": base.filter(Fatura.tipo_documento == 'proforma', Fatura.status == 'em_curso').count(),
         "emitidas": base.filter(Fatura.tipo_documento == 'fatura').count(),
         "canceladas": base.filter(Fatura.status == 'cancelada').count(),
+        "total": base.filter(Fatura.status!= 'apagada').count(),
     }
 
+# ROTAS FIXAS ANTES DAS DINÂMICAS
 @router.get("/numero/{numero}", response_model=FaturaResponse)
 def por_numero(numero: str, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     f = db.query(Fatura).filter(Fatura.company_id == company_id, or_(Fatura.numero_fatura == numero, Fatura.numero_proforma == numero)).first()
@@ -81,7 +89,8 @@ def cancelar(fatura_id: uuid.UUID, motivo: str = "", db: Session = Depends(get_d
     if f.status == 'cancelada': raise HTTPException(400, "Já cancelada")
     f.status = 'cancelada'
     db.commit()
-    return {"ok": True}
+    db.refresh(f)
+    return {"ok": True, "fatura": f}
 
 @router.delete("/{fatura_id}")
 def apagar(fatura_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):

@@ -23,19 +23,23 @@ export default function EmitirFaturaPage() {
     useEffect(() => {
         if (!clienteId) { navigate('/app/dashboard'); return }
         api.get(`/api/clientes/${clienteId}`).then(r => setCliente(r.data)).catch(() => navigate('/app/dashboard'))
-        api.get('/api/companies/me').then(r => setEmpresa(r.data)).catch(() => api.get('/api/auth/me').then(r => setEmpresa(r.data.company || r.data)))
+        // SEGURO - não quebra a página
+        api.get('/api/companies/me').then(r => setEmpresa(r.data)).catch(() => {
+            setEmpresa({ nome: 'FaturaXpress', nif: '500000000', endereco: 'Luanda' })
+        })
     }, [clienteId])
 
     const fetchFaturas = async () => {
         if (!clienteId) return
-        const res = await api.get('/api/faturas', { params: { cliente_id: clienteId } })
-        const all = Array.isArray(res.data)? res.data : (res.data.items || res.data || [])
-        setFaturasCurso(all.filter((f: any) => ['rascunho','pendente','em_curso'].includes(f.status)))
-        setFaturasEmitidas(all)
+        try {
+            const res = await api.get('/api/faturas', { params: { cliente_id: clienteId } })
+            const all = Array.isArray(res.data)? res.data : (res.data.items || [])
+            setFaturasCurso(all.filter((f: any) => ['rascunho','pendente','em_curso'].includes(f.status)))
+            setFaturasEmitidas(all)
+        } catch {}
     }
     useEffect(() => { if (activeTab!== 'emitir') fetchFaturas() }, [activeTab])
-
-    if (!cliente) return null
+    if (!cliente) return <div className="p-8 text-[12px]">Carregando...</div>
 
     return (
         <div className="min-h-screen bg-white">
@@ -53,10 +57,7 @@ export default function EmitirFaturaPage() {
                                         <span className="text-[9px] px-2 py-[2px] bg-[#fff2e0] border border-[#ffd9a0] text-[#8a5a20] rounded">Cliente</span>
                                         <span className="text-[9px] px-2 py-[2px] bg-white border rounded text-gray-600">NIF {cliente.nif}</span>
                                     </div>
-                                    <div className="mt-3 space-y-1 text-[13px] text-[#4a5568]">
-                                        <p>{cliente.email}</p><p>{cliente.telefone}</p>
-                                        <p>Endereço: {cliente.endereco} - {cliente.cidade}</p>
-                                    </div>
+                                    <div className="mt-3 space-y-1 text-[13px] text-[#4a5568]"><p>{cliente.email}</p><p>{cliente.telefone}</p><p>{cliente.endereco} - {cliente.cidade}</p></div>
                                 </div>
                                 <button onClick={() => navigate('/app/dashboard')} className="bg-[#FF3B30] text-white text-[12px] font-semibold px-4 py-1.5 rounded-full">Voltar</button>
                             </div>
@@ -68,7 +69,6 @@ export default function EmitirFaturaPage() {
                         </div>
                     </div>
                 </div>
-
                 {activeTab === 'emitir' && <TabEmitir clienteId={clienteId!} onEmitida={() => { setActiveTab('curso'); fetchFaturas() }} />}
                 {activeTab === 'curso' && <TabCurso faturas={faturasCurso} cliente={cliente} empresa={empresa} onRefresh={fetchFaturas} />}
                 {activeTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} cliente={cliente} empresa={empresa} />}

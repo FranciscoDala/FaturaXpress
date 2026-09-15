@@ -23,11 +23,16 @@ export default function EmitirFaturaPage() {
     useEffect(() => {
         if (!clienteId) { navigate('/app/dashboard'); return }
         api.get(`/api/clientes/${clienteId}`).then(r => setCliente(r.data)).catch(() => navigate('/app/dashboard'))
-        // SEGURO - não quebra a página
-        api.get('/api/companies/me').then(r => setEmpresa(r.data)).catch(() => {
-            setEmpresa({ nome: 'FaturaXpress', nif: '500000000', endereco: 'Luanda' })
+
+        // CORRIGIDO: usa /auth/me que agora existe
+        api.get('/api/auth/me').then(r => {
+            // suporta os dois formatos que mandei no backend
+            setEmpresa(r.data.company || r.data)
+        }).catch(() => {
+            // fallback não quebra mais a página
+            setEmpresa({ nome: 'FaturaXpress', nif: '---', endereco: 'Luanda' })
         })
-    }, [clienteId])
+    }, [clienteId, navigate])
 
     const fetchFaturas = async () => {
         if (!clienteId) return

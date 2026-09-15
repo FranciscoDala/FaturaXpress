@@ -2,19 +2,19 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
+import uuid
 
 from app.db.database import get_db
 from app.modules.auth.models import Company, User
 from app.modules.auth import schemas
 from app.core.jwt import create_access_token
-from app.core.security import hash_password, verify_password
+from app.core.security import hash_password, verify_password, get_current_company_id
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 @router.post("/register", status_code=201, response_model=schemas.RegisterResponse)
 async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Depends(get_db)):
     try:
-        # 1. Verifica se já existe
         result = await db.execute(
             select(Company).where(
                 or_(Company.nif == data.nif, Company.email == data.emailCompany)
@@ -26,7 +26,6 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
 
         password_hash = hash_password(data.password)
 
-        # 2. Cria company
         company = Company(
             companyName=data.companyName,
             nif=data.nif,
@@ -38,10 +37,9 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
             password_hash=password_hash
         )
         db.add(company)
-        await db.commit() # commit pra gerar o UUID
-        await db.refresh(company) # pega o id gerado
+        await db.commit()
+        await db.refresh(company)
 
-        # 3. Cria user admin - opcional. Pode remover se só vai logar pela empresa
         admin_user = User(
             company_id=company.id,
             name=data.companyName,
@@ -62,7 +60,6 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
 
 @router.post("/login", response_model=schemas.TokenResponse)
 async def login(data: schemas.LoginRequest, db: AsyncSession = Depends(get_db)):
-    # LOGIN AGORA É POR NIF DA EMPRESA
     result = await db.execute(
         select(Company).where(Company.nif == data.nif)
     )
@@ -78,11 +75,38 @@ async def login(data: schemas.LoginRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Empresa inativa")
 
     token = create_access_token(
-        data={"sub": str(company.id), "company_id": str(company.id)} # sub = company.id
+        data={"sub": str(company.id), "company_id": str(company.id)}
     )
     return {
         "message": "Login realizado",
         "access_token": token,
         "company_id": company.id,
         "company_name": company.companyName
+    }
+
+@router.get("/me")
+async def get_me(
+    db: AsyncSession = Depends(get_db),
+    company_id: uuid.UUID = Depends(get_current_company_id)
+):
+    result = await db.execute(
+        select(Company).where(Company.id == company_id)
+    )
+    company = result.scalar_one_or_none()
+    if not company:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    return {
+        "company": {
+            "id": str(company.id),
+            "nome": company.companyName,
+            "nif": company.nif,
+            "email": company.email,
+            "telefone": company.phone,
+            "endereco": company.address,
+            "cidade": company.city,
+            "provincia": company.province
+        },
+        "id": str(company.id),
+        "companyName": company.companyName
     }

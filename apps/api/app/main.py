@@ -13,7 +13,6 @@ from app.modules.auth.router import router as auth_router
 from app.modules.clients.router import router as cliente_router
 from app.modules.products.router import router as produto_router
 from app.modules.fatura.router import router as fatura_router
-from app.modules.company.router import router as company_router # <- NOVO
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -24,7 +23,7 @@ def import_all_models():
     import app.modules.clients.models
     import app.modules.products.models
     import app.modules.fatura.models
-    import app.modules.company.models if False else None
+    # Company já está dentro de auth.models, não precisa de company.models separado
     tabelas = sorted(list(Base.metadata.tables.keys()))
     logger.info(f"Models registrados: {', '.join(tabelas)}")
 
@@ -55,7 +54,6 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(cliente_router, prefix="/api")
 app.include_router(produto_router, prefix="/api")
 app.include_router(fatura_router, prefix="/api")
-app.include_router(company_router, prefix="/api") # <- NOVO, resolve o 404
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):

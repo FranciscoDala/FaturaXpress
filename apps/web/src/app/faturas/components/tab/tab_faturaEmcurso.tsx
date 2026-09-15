@@ -18,7 +18,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
     }
 
     return (
-        <div className="w-full mt-0">
+        <div className="-full px-4 sm:px-0 lg:px-0 mt-0">
             {/* <div className="w-full mt-0">
                 <span className="text-[12px] bg-white px-3 py-1 rounded-full border">{faturas.length}</span>
             </div> */}

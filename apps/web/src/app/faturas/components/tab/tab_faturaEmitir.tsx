@@ -44,7 +44,7 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
     }
 
     return (
-        <div className="w-full mt-0">
+        <div className="-full px-4 sm:px-0 lg:px-0 mt-0">
             {/* ITENS - MESMO ESTILO DOS CARDS */}
             <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 px-5 py-4 flex flex-wrap gap-3 mb-4 w-full">
                 <span className="text-[11px] font-bold text-gray-900">Itens:</span>

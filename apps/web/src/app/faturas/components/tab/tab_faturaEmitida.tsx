@@ -36,7 +36,7 @@ export default function TabEmitidas({ faturas, cliente, empresa }: { faturas: an
     }
 
     return (
-        <div className="w-full mt-0">
+        <div className="-full px-4 sm:px-0 lg:px-0 mt-0">
             {/* FILTROS TIPO CARDS - ARRASTÁVEL NO MOBILE */}
             <div className={`flex gap-3 pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${openSelect? 'overflow-visible' : 'overflow-x-auto snap-x snap-mandatory snap-always'}`}>
                 <div ref={wrapperRef} className="relative min-w-full sm:min-w-[180px] snap-center flex-shrink-0 z-50">

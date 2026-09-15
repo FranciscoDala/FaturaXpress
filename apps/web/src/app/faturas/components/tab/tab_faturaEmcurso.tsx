@@ -19,11 +19,11 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
 
     return (
         <div className="w-full px-4 sm:px-8 lg:px-12 mt-0">
-            <div className="flex justify-between items-center mb-4">
+            {/* <div className="flex justify-between items-center mb-4">
                 <span className="text-[12px] bg-white px-3 py-1 rounded-full border">{faturas.length}</span>
-            </div>
+            </div> */}
 
-            {faturas.length === 0? (
+            {faturas.length === 0 ? (
                 <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma em curso</p>
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -32,19 +32,19 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
                             <div className="relative h-[90px] bg-[#E6F0FF]">
                                 <div className="absolute top-3 right-3 bg-[#FFF7CC] px-3 py-1 rounded-full text-[11px] font-medium shadow-sm border text-[#8A6D00]">em_curso</div>
                                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white">
-                                    <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-gray-700">{getNumero(f).slice(0,2).toUpperCase()}</div>
+                                    <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-gray-700">{getNumero(f).slice(0, 2).toUpperCase()}</div>
                                 </div>
                             </div>
                             <div className="pt-14 px-5 pb-4">
                                 <div className="flex items-center gap-1.5 mb-3">
                                     <span className="text-[11px] text-gray-400">exp.</span>
-                                    <div className="flex gap-[2px]">{Array.from({ length: 10 }).map((_, i) => (<div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 7? 'bg-yellow-400' : 'bg-gray-200'}`} />))}</div>
+                                    <div className="flex gap-[2px]">{Array.from({ length: 10 }).map((_, i) => (<div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 7 ? 'bg-yellow-400' : 'bg-gray-200'}`} />))}</div>
                                 </div>
                                 <h3 className="font-bold text-[15px] text-gray-900 leading-tight truncate">{getNumero(f)}</h3>
                                 <div className="mt-2 flex flex-col gap-0.5">
                                     <p className="text-[13px] text-gray-900 font-bold truncate">{getTotal(f).toFixed(2)} KZ</p>
                                     <p className="text-[12.5px] text-gray-500 truncate">{f.tipo_documento}</p>
-                                    <p className="text-[12.5px] text-gray-500 truncate">{f.data? new Date(f.data).toLocaleDateString() : 'Hoje'}</p>
+                                    <p className="text-[12.5px] text-gray-500 truncate">{f.data ? new Date(f.data).toLocaleDateString() : 'Hoje'}</p>
                                 </div>
                             </div>
                             <div className="grid grid-cols-3 border-t border-gray-100 mt-auto">
@@ -56,7 +56,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
                     ))}
                 </div>
             )}
-            <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget? getNumero(deleteTarget) : ''} onClose={() => setDeleteTarget(null)} onConfirm={handleApagar} title="Apagar?" description="Removida permanentemente." />
+            <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget ? getNumero(deleteTarget) : ''} onClose={() => setDeleteTarget(null)} onConfirm={handleApagar} title="Apagar?" description="Removida permanentemente." />
         </div>
     )
 }

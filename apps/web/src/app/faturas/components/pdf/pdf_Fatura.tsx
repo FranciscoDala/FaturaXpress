@@ -116,7 +116,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose, isFullscreen, set
       </div>
     `).join('')
 
-        // AQUI ESTAVA O ERRO: faltava o @import e o :root no documento de impressão
         return `
       <!DOCTYPE html>
       <html>
@@ -163,7 +162,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose, isFullscreen, set
     `
     }
 
-    // expõe a função pro FaturaFolhaView usar
     ;(window as any).imprimirFatura = () => {
         const html = buildPrintHTML()
         const w = window.open('', '_blank')
@@ -174,7 +172,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose, isFullscreen, set
     }
 
     const FolhaTela = () => (
-        <div id="fatura-pdf" className="relative bg-white text-black w-[210mm] min-w-[210mm] min-h-[297mm] p-[10mm] flex flex-col border border-gray-300 overflow-hidden mx-auto" style={{ fontFamily: "var(--fonte-principal)" }}>
+        <div id="fatura-pdf" className="relative bg-white text-black w-[210mm] min-w-[210mm] min-h-[297mm] p-[10mm] flex flex-col border border-gray-200 rounded-[16px] overflow-hidden mx-auto" style={{ fontFamily: "var(--fonte-principal)" }}>
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
                 {hasLogo? <img src={emp.logo} alt="marca" className="w-[650px] h-[650px] object-contain opacity-[0.12]" /> : <LogoDefault nome={emp.nome} size="large" />}
             </div>
@@ -232,8 +230,13 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose, isFullscreen, set
 
     return (
         <>
-            <style>{`@import url('https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap');#fatura-pdf-wrapper{display:flex;justify-content:center;background:white;width:100%;overflow:hidden;font-family:var(--fonte-principal)}#fatura-pdf{transform-origin:top center;font-family:var(--fonte-principal)}@media (max-width:768px){#fatura-pdf{transform:scale(0.46);margin-bottom:-620px;width:210mm!important;min-width:210mm!important}}`}</style>
-            <div id="fatura-pdf-wrapper" className="bg-white p-0 md:p-6"><FolhaTela /></div>
+            <style>{`@import url('https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap');#fatura-pdf-wrapper{display:flex;justify-content:center;background:transparent;width:100%;overflow:hidden;font-family:var(--fonte-principal)}#fatura-pdf{transform-origin:top center;font-family:var(--fonte-principal)}@media (max-width:768px){#fatura-pdf{transform:scale(0.46);margin-bottom:-620px;width:210mm!important;min-width:210mm!important}}`}</style>
+            {/* WRAPPER ESTILO CARDS - MESMO PADRÃO DAS TABS */}
+            <div className="w-full px-4 sm:px-8 lg:px-12 mt-0">
+                <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 overflow-hidden p-2 sm:p-4 md:p-6">
+                    <div id="fatura-pdf-wrapper" className="bg-white"><FolhaTela /></div>
+                </div>
+            </div>
         </>
     )
 }

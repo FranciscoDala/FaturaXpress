@@ -9,7 +9,6 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.core.upload_Imagem import cloudinary
 from app.db.database import Base, engine
 
 # IMPORTA OS ROUTERS
@@ -17,43 +16,30 @@ from app.modules.auth.router import router as auth_router
 from app.modules.clients.router import router as cliente_router
 from app.modules.products.router import router as produto_router
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 def import_all_models():
     logger.info("Forçando import de todos os models...")
-    from app.modules.auth import models
-    from app.modules.clients import models
-    from app.modules.products import models
+    import app.modules.auth.models
+    import app.modules.clients.models
+    import app.modules.products.models
     tabelas = sorted(list(Base.metadata.tables.keys()))
     logger.info(f"Models registrados: {', '.join(tabelas)}")
-    logger.info(f"Total: {len(tabelas)} tabelas mapeadas.")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("FaturaXpress API a iniciar...")
-    logger.info(f"Cloudinary configurado: {settings.CLOUDINARY_CLOUD_NAME}")
     import_all_models()
-
     async with engine.begin() as conn:
         await conn.execute(text("SELECT 1"))
-        logger.info("Conexão com Neon OK ✅. Use 'alembic upgrade head' para criar as tabelas.")
-
+        logger.info("Conexão Neon OK")
     yield
     await engine.dispose()
-    logger.info("API a desligar...")
 
-app = FastAPI(title="FaturaXpress API", version="1.0.0", lifespan=lifespan, docs_url="/docs", redoc_url="/redoc")
+app = FastAPI(title="FaturaXpress API", version="1.0.0", lifespan=lifespan)
 
-# CORS
 allowed_origins = ["https://faturaxpress.onrender.com", "http://localhost:5173", "http://localhost:3000"]
-extra_origins = getattr(settings, "ALLOWED_ORIGINS_LIST", [])
-if isinstance(extra_origins, list): allowed_origins.extend(extra_origins)
-allowed_origins = list(dict.fromkeys(allowed_origins))
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -63,18 +49,16 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"]
 )
-logger.info(f"CORS liberado para: {allowed_origins}")
 
-# INCLUI OS ROUTERS - PADRONIZADO COM /api
 app.include_router(auth_router, prefix="/api")
-app.include_router(cliente_router, prefix="/api") # <- CORRIGIDO
-app.include_router(produto_router, prefix="/api") # <- CORRIGIDO
+app.include_router(cliente_router, prefix="/api")
+app.include_router(produto_router, prefix="/api")
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Erro 500 não tratado na rota {request.url}: {exc}\n{traceback.format_exc()}")
-    return JSONResponse(status_code=500, content={"detail": "Erro interno do servidor"})
+    logger.error(f"Erro 500 em {request.url}: {exc}\n{traceback.format_exc()}")
+    return JSONResponse(status_code=500, content={"detail": "Erro interno"})
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "env": os.getenv("ENV", "dev"), "cloudinary": settings.CLOUDINARY_CLOUD_NAME}
+    return {"status": "ok"}

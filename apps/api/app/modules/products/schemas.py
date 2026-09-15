@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 import uuid
 from enum import Enum
@@ -15,7 +15,7 @@ class ProdutoCreateRequest(BaseModel):
     nome: str
     descricao: Optional[str] = None
     categoria: Optional[str] = None
-    imagem_url: Optional[str] = None # <- NOVO
+    imagem_url: Optional[str] = None
     preco_custo: float = 0.0
     preco_venda: float
     iva: float = 14.0
@@ -35,7 +35,7 @@ class ProdutoUpdateRequest(BaseModel):
     nome: Optional[str] = None
     descricao: Optional[str] = None
     categoria: Optional[str] = None
-    imagem_url: Optional[str] = None # <- NOVO
+    imagem_url: Optional[str] = None
     preco_custo: Optional[float] = None
     preco_venda: Optional[float] = None
     iva: Optional[float] = None
@@ -52,15 +52,17 @@ class BaixaStockRequest(BaseModel):
     quantidade: float
 
 class ProdutoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: uuid.UUID
-    company_id: uuid.UUID # <- bom ter no response
+    company_id: uuid.UUID
     codigo: str
-    codigo_barras: Optional[str]
-    codigo_qr: Optional[str]
+    codigo_barras: Optional[str] = None
+    codigo_qr: Optional[str] = None
     nome: str
-    descricao: Optional[str]
-    categoria: Optional[str]
-    imagem_url: Optional[str] # <- NOVO
+    descricao: Optional[str] = None
+    categoria: Optional[str] = None
+    imagem_url: Optional[str] = None
     preco_custo: float
     preco_venda: float
     iva: float
@@ -70,7 +72,5 @@ class ProdutoResponse(BaseModel):
     stock_minimo: float
     controlar_stock: bool
     unidade: str
-    peso: Optional[float]
+    peso: Optional[float] = None
     ativo: bool
-    class Config:
-        from_attributes = True

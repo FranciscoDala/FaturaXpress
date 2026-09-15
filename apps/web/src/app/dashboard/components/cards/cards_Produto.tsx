@@ -59,12 +59,12 @@ function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
 
     return (
         <div className="min-w-[100%] md:min-w-[300px] md:max-w-[300px] snap-start flex-shrink-0 bg-white rounded-[24px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
-            {/* TOP azul claro */}
+            {/* TOP azul claro - padrão único */}
             <div className="relative h-[90px] bg-[#E6F0FF]">
                 <div className="absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[12px] font-medium shadow-sm border">
                     {produto.ativo? 'Ativo' : 'Inativo'} +
                 </div>
-                {/* IMG CIRCULAR GRANDE BEM VISÍVEL */}
+                {/* IMG CIRCULAR GRANDE 88px */}
                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white border-[4px] border-white flex items-center justify-center shadow-md overflow-hidden">
                     {produto.imagem_url? (
                         <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover" />
@@ -96,18 +96,16 @@ function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
                 </p>
             </div>
 
-            {/* REMOVIDO: 2273 | 0 | UN */}
-
-            {/* AÇÕES */}
+            {/* AÇÕES - agora abre modal_ConfirmDelete.tsx */}
             <div className="grid grid-cols-3 border-t border-gray-100 mt-auto">
-                <button onClick={()=>onView?.(produto)} className="py-3.5 flex items-center justify-center hover:bg-gray-50 border-r border-gray-100">
-                    <FileText className="w-4 h-4 text-gray-600" />
+                <button onClick={()=>onView?.(produto)} className="py-3.5 flex items-center justify-center hover:bg-gray-50 border-r border-gray-100 group">
+                    <FileText className="w-4 h-4 text-gray-600 group-hover:text-blue-600" />
                 </button>
-                <button onClick={()=>onEdit?.(produto)} className="py-3.5 flex items-center justify-center hover:bg-gray-50 border-r border-gray-100">
-                    <Pencil className="w-4 h-4 text-gray-600" />
+                <button onClick={()=>onEdit?.(produto)} className="py-3.5 flex items-center justify-center hover:bg-gray-50 border-r border-gray-100 group">
+                    <Pencil className="w-4 h-4 text-gray-600 group-hover:text-orange-600" />
                 </button>
-                <button onClick={()=>onDelete?.(produto)} className="py-3.5 flex items-center justify-center hover:bg-red-50">
-                    <Trash2 className="w-4 h-4 text-gray-600" />
+                <button onClick={()=>onDelete?.(produto)} className="py-3.5 flex items-center justify-center hover:bg-red-50 group">
+                    <Trash2 className="w-4 h-4 text-gray-600 group-hover:text-red-600" />
                 </button>
             </div>
         </div>

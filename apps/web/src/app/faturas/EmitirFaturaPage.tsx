@@ -23,39 +23,19 @@ export default function EmitirFaturaPage() {
     useEffect(() => {
         if (!clienteId) { navigate('/app/dashboard'); return }
         api.get(`/api/clientes/${clienteId}`).then(r => setCliente(r.data)).catch(() => navigate('/app/dashboard'))
-
-        // TENTA PEGAR EMPRESA SEM QUEBRAR A PAGE
-        const loadEmpresa = async () => {
-            try {
-                const r = await api.get('/api/empresas/me')
-                setEmpresa(r.data)
-            } catch {
-                try {
-                    const r2 = await api.get('/api/empresa')
-                    setEmpresa(r2.data)
-                } catch {
-                    // fallback: pega do localStorage ou deixa null
-                    const stored = localStorage.getItem('empresa')
-                    if (stored) setEmpresa(JSON.parse(stored))
-                    else setEmpresa({ nome: 'Minha Empresa', nif: '---', endereco: '' })
-                }
-            }
-        }
-        loadEmpresa()
+        api.get('/api/companies/me').then(r => setEmpresa(r.data)).catch(() => api.get('/api/auth/me').then(r => setEmpresa(r.data.company || r.data)))
     }, [clienteId])
 
     const fetchFaturas = async () => {
         if (!clienteId) return
-        try {
-            const res = await api.get('/api/faturas', { params: { cliente_id: clienteId } })
-            const all = Array.isArray(res.data)? res.data : (res.data.items || res.data || [])
-            setFaturasCurso(all.filter((f: any) => ['rascunho','pendente','em_curso'].includes(f.status)))
-            setFaturasEmitidas(all)
-        } catch {}
+        const res = await api.get('/api/faturas', { params: { cliente_id: clienteId } })
+        const all = Array.isArray(res.data)? res.data : (res.data.items || res.data || [])
+        setFaturasCurso(all.filter((f: any) => ['rascunho','pendente','em_curso'].includes(f.status)))
+        setFaturasEmitidas(all)
     }
     useEffect(() => { if (activeTab!== 'emitir') fetchFaturas() }, [activeTab])
 
-    if (!cliente) return <div className="p-8 text-[12px]">Carregando...</div>
+    if (!cliente) return null
 
     return (
         <div className="min-h-screen bg-white">

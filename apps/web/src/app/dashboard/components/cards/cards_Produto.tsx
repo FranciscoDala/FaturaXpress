@@ -1,5 +1,4 @@
-import { Search, Package, Heart, Pencil } from 'lucide-react'
-import { useState } from 'react'
+import { Search, Package, Pencil, Trash2 } from 'lucide-react'
 
 interface Produto {
     id: string
@@ -30,9 +29,10 @@ interface Props {
     total: number
     limit: number
     onEdit?: (p: Produto) => void
+    onDelete?: (p: Produto) => void
 }
 
-export default function CardsProdutos({ produtos, loading, search, setSearch, page, setPage, total, limit, onEdit }: Props) {
+export default function CardsProdutos({ produtos, loading, search, setSearch, page, setPage, total, limit, onEdit, onDelete }: Props) {
     const formatPrice = (val: any) => {
         const n = typeof val === 'string'? parseFloat(val) : val
         return isNaN(n)? '0' : n.toFixed(0)
@@ -60,7 +60,7 @@ export default function CardsProdutos({ produtos, loading, search, setSearch, pa
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {produtos.map((p) => (
-                        <ProductCard key={p.id} produto={p} formatPrice={formatPrice} onEdit={onEdit} />
+                        <ProductCard key={p.id} produto={p} formatPrice={formatPrice} onEdit={onEdit} onDelete={onDelete} />
                     ))}
                 </div>
             )}
@@ -68,8 +68,7 @@ export default function CardsProdutos({ produtos, loading, search, setSearch, pa
     )
 }
 
-function ProductCard({ produto, formatPrice, onEdit }: { produto: Produto; formatPrice: any; onEdit?: any }) {
-    const [fav, setFav] = useState(false)
+function ProductCard({ produto, formatPrice, onEdit, onDelete }: { produto: Produto; formatPrice: any; onEdit?: any; onDelete?: any }) {
     const tipo = (produto.tipo || 'produto').toLowerCase() as 'produto' | 'servico' | 'kit'
     const controla = produto.controlar_stock?? true
 
@@ -87,10 +86,10 @@ function ProductCard({ produto, formatPrice, onEdit }: { produto: Produto; forma
                     </div>
                 )}
                 <button
-                    onClick={(e) => { e.stopPropagation(); setFav(!fav) }}
-                    className="absolute top-3 right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100"
+                    onClick={(e) => { e.stopPropagation(); onEdit?.(produto) }}
+                    className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 hover:bg-orange-50"
                 >
-                    <Heart className={`w-4 h-4 ${fav? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
+                    <Pencil className="w-4 h-4 text-gray-800" />
                 </button>
             </div>
 
@@ -136,10 +135,10 @@ function ProductCard({ produto, formatPrice, onEdit }: { produto: Produto; forma
                 <div className="flex items-center justify-between mt-3">
                     <p className="text-[18px] font-bold text-gray-900">Kz {formatPrice(produto.preco_venda)}</p>
                     <button
-                        onClick={(e) => { e.stopPropagation(); onEdit?.(produto) }}
-                        className="flex items-center gap-1.5 bg-[#FF8A1A] hover:bg-[#FF7A00] text-black text-[13px] font-medium px-4 py-2.5 rounded-full transition"
+                        onClick={(e) => { e.stopPropagation(); onDelete?.(produto) }}
+                        className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-[13px] font-medium px-4 py-2.5 rounded-full transition"
                     >
-                        <Pencil className="w-3.5 h-3.5" /> Atualizar
+                        <Trash2 className="w-3.5 h-3.5" /> Apagar
                     </button>
                 </div>
             </div>

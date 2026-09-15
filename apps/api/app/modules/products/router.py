@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, Path, Form, File, UploadFile
+from fastapi import APIRouter, Depends, Query, HTTPException, Form, File, UploadFile
 from sqlalchemy.orm import Session
 import uuid
 from typing import List, Optional
@@ -12,7 +12,6 @@ from app.core.security import get_current_company_id
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/produtos", tags=["Produtos"])
 
-# FIXAS PRIMEIRO
 @router.get("/categorias/lista", response_model=List[str])
 def listar_categorias(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return produto_service.get_categorias(db, company_id)
@@ -21,7 +20,6 @@ def listar_categorias(db: Session = Depends(get_db), company_id: uuid.UUID = Dep
 def produtos_stock_baixo(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return produto_service.get_produtos_stock_baixo(db, company_id)
 
-# LISTAR - IGUAL AO CLIENTE
 @router.get("/")
 def listar_produtos(
     skip: int = Query(0, ge=0),
@@ -34,14 +32,12 @@ def listar_produtos(
     company_id: uuid.UUID = Depends(get_current_company_id)
 ):
     try:
-        logger.info(f"[PRODUTOS] company={company_id} skip={skip} search={search}")
         items, total = produto_service.get_produtos(db, company_id, search, categoria or "", tipo or "", ativo, skip, limit)
         return {"items": items, "total": total}
     except Exception as e:
         logger.exception(f"[PRODUTOS] ERRO: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# DINAMICAS DEPOIS
 @router.get("/codigo/{codigo}", response_model=ProdutoResponse)
 def buscar_por_codigo(codigo: str, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     produto = produto_service.get_produto_by_codigo(db, codigo, company_id)
@@ -53,47 +49,79 @@ def buscar_por_codigo(codigo: str, db: Session = Depends(get_db), company_id: uu
 def buscar_por_id(produto_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return produto_service.get_produto_by_id(db, produto_id, company_id)
 
+# CRIAR - agora com codigo_qr e peso
 @router.post("/", response_model=ProdutoResponse, status_code=201)
 async def criar_produto(
     nome: str = Form(...), codigo: str = Form(...), preco_venda: float = Form(...),
     tipo: str = Form("produto"), unidade: str = Form("UN"), ativo: bool = Form(True),
     controlar_stock: bool = Form(True), stock_atual: float = Form(0.0), stock_minimo: float = Form(0.0),
-    preco_custo: float = Form(0.0), codigo_barras: Optional[str] = Form(None),
+    preco_custo: float = Form(0.0),
+    codigo_barras: Optional[str] = Form(None), codigo_qr: Optional[str] = Form(None),
     descricao: Optional[str] = Form(None), categoria: Optional[str] = Form(None),
-    iva: float = Form(14.0), tem_iva: bool = Form(True),
+    iva: float = Form(14.0), tem_iva: bool = Form(True), peso: Optional[float] = Form(None),
     imagem: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)
 ):
     imagem_url = None
     if imagem:
         try:
-            from app.core.upload_Imagem import upload_image # minusculo!
+            from app.core.upload_Imagem import upload_image
             imagem_url = await upload_image(imagem, folder=f"produtos/{company_id}")
         except Exception as e:
             logger.warning(f"Falha upload: {e}")
 
-    # Converte tipo str para Enum
-    tipo_enum = TipoProdutoEnum.produto
-    if tipo in ["produto", "servico", "kit"]:
-        tipo_enum = TipoProdutoEnum(tipo)
+    tipo_enum = TipoProdutoEnum(tipo) if tipo in ["produto","servico","kit"] else TipoProdutoEnum.produto
 
     produto_data = ProdutoCreateRequest(
         nome=nome, codigo=codigo, preco_venda=preco_venda, tipo=tipo_enum, unidade=unidade,
         ativo=ativo, controlar_stock=controlar_stock, stock_atual=stock_atual,
-        stock_minimo=stock_minimo, preco_custo=preco_custo, codigo_barras=codigo_barras,
-        descricao=descricao, categoria=categoria, iva=iva, tem_iva=tem_iva, imagem_url=imagem_url
+        stock_minimo=stock_minimo, preco_custo=preco_custo, codigo_barras=codigo_barras, codigo_qr=codigo_qr,
+        descricao=descricao, categoria=categoria, iva=iva, tem_iva=tem_iva, peso=peso, imagem_url=imagem_url
     )
     return produto_service.create_produto(db, produto_data, company_id)
 
+# EDITAR - AGORA ACEITA FormData COM IMAGEM TAMBÉM
 @router.put("/{produto_id}", response_model=ProdutoResponse)
-def atualizar_produto(
+async def atualizar_produto(
     produto_id: uuid.UUID,
-    produto: ProdutoUpdateRequest,
-    db: Session = Depends(get_db),
-    company_id: uuid.UUID = Depends(get_current_company_id)
+    # todos opcionais pra permitir update parcial
+    nome: Optional[str] = Form(None), codigo: Optional[str] = Form(None), preco_venda: Optional[float] = Form(None),
+    tipo: Optional[str] = Form(None), unidade: Optional[str] = Form(None), ativo: Optional[bool] = Form(None),
+    controlar_stock: Optional[bool] = Form(None), stock_minimo: Optional[float] = Form(None),
+    preco_custo: Optional[float] = Form(None), codigo_barras: Optional[str] = Form(None), codigo_qr: Optional[str] = Form(None),
+    descricao: Optional[str] = Form(None), categoria: Optional[str] = Form(None),
+    iva: Optional[float] = Form(None), tem_iva: Optional[bool] = Form(None), peso: Optional[float] = Form(None),
+    imagem: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)
 ):
-    # JSON simples, igual ao cliente - sem Form pra não quebrar
-    return produto_service.update_produto(db, produto_id, produto, company_id)
+    update_data = {}
+    if nome is not None: update_data["nome"] = nome
+    if codigo is not None: update_data["codigo"] = codigo
+    if preco_venda is not None: update_data["preco_venda"] = preco_venda
+    if tipo is not None and tipo in ["produto","servico","kit"]: update_data["tipo"] = TipoProdutoEnum(tipo)
+    if unidade is not None: update_data["unidade"] = unidade
+    if ativo is not None: update_data["ativo"] = ativo
+    if controlar_stock is not None: update_data["controlar_stock"] = controlar_stock
+    if stock_minimo is not None: update_data["stock_minimo"] = stock_minimo
+    if preco_custo is not None: update_data["preco_custo"] = preco_custo
+    if codigo_barras is not None: update_data["codigo_barras"] = codigo_barras
+    if codigo_qr is not None: update_data["codigo_qr"] = codigo_qr
+    if descricao is not None: update_data["descricao"] = descricao
+    if categoria is not None: update_data["categoria"] = categoria
+    if iva is not None: update_data["iva"] = iva
+    if tem_iva is not None: update_data["tem_iva"] = tem_iva
+    if peso is not None: update_data["peso"] = peso
+
+    if imagem:
+        try:
+            from app.core.upload_Imagem import upload_image
+            imagem_url = await upload_image(imagem, folder=f"produtos/{company_id}")
+            update_data["imagem_url"] = imagem_url
+        except Exception as e:
+            logger.warning(f"Falha upload edição: {e}")
+
+    produto_update = ProdutoUpdateRequest(**update_data)
+    return produto_service.update_produto(db, produto_id, produto_update, company_id)
 
 @router.delete("/{produto_id}")
 def delete_produto(produto_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):

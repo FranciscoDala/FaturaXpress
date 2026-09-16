@@ -8,6 +8,7 @@ from app.db.session import get_db
 from app.modules.products.schemas import ProdutoCreateRequest, ProdutoResponse, ProdutoUpdateRequest, BaixaStockRequest, TipoProdutoEnum
 from app.modules.products import service as produto_service
 from app.core.security import get_current_company_id
+from app.modules.realtime.manager import manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/produtos", tags=["Produtos"])
@@ -78,7 +79,12 @@ async def criar_produto(
         stock_minimo=stock_minimo, preco_custo=preco_custo, codigo_barras=codigo_barras, codigo_qr=codigo_qr,
         descricao=descricao, categoria=categoria, iva=iva, tem_iva=tem_iva, peso=peso, imagem_url=imagem_url
     )
-    return produto_service.create_produto(db, produto_data, company_id)
+    result = produto_service.create_produto(db, produto_data, company_id)
+    try:
+        await manager.broadcast(company_id, {"event": "produtos:changed", "action": "created", "id": str(result.id) if hasattr(result, 'id') else None})
+    except Exception as e:
+        logger.warning(f"Falha broadcast produtos:changed: {e}")
+    return result
 
 # EDITAR - AGORA ACEITA FormData COM IMAGEM TAMBÉM
 @router.put("/{produto_id}", response_model=ProdutoResponse)
@@ -121,16 +127,30 @@ async def atualizar_produto(
             logger.warning(f"Falha upload edição: {e}")
 
     produto_update = ProdutoUpdateRequest(**update_data)
-    return produto_service.update_produto(db, produto_id, produto_update, company_id)
+    result = produto_service.update_produto(db, produto_id, produto_update, company_id)
+    try:
+        await manager.broadcast(company_id, {"event": "produtos:changed", "action": "updated", "id": str(produto_id)})
+    except Exception as e:
+        logger.warning(f"Falha broadcast produtos:changed: {e}")
+    return result
 
 @router.delete("/{produto_id}")
-def delete_produto(produto_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    return produto_service.delete_produto(db, produto_id, company_id)
+async def delete_produto(produto_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    result = produto_service.delete_produto(db, produto_id, company_id)
+    try:
+        await manager.broadcast(company_id, {"event": "produtos:changed", "action": "deleted", "id": str(produto_id)})
+    except Exception as e:
+        logger.warning(f"Falha broadcast produtos:changed: {e}")
+    return result
 
 @router.post("/{produto_id}/baixa-stock")
-def dar_baixa_stock(produto_id: uuid.UUID, dados: BaixaStockRequest, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+async def dar_baixa_stock(produto_id: uuid.UUID, dados: BaixaStockRequest, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     try:
         produto_service.baixar_stock(db, produto_id, dados.quantidade, company_id)
+        try:
+            await manager.broadcast(company_id, {"event": "produtos:changed", "action": "stock", "id": str(produto_id)})
+        except Exception as e:
+            logger.warning(f"Falha broadcast produtos:changed: {e}")
         return {"detail": "Stock atualizado"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

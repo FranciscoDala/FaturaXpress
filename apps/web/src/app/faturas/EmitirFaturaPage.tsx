@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { EmitirFaturaSkeleton } from '../../components/EmitirFaturaSkeleton'
+import { useRealtime } from '../../hooks/useRealtime'
 import { api } from '../../lib/api'
 import TabEmitir from './components/tab/tab_faturaEmitir'
 import TabCurso from './components/tab/tab_faturaEmcurso'
@@ -11,9 +12,9 @@ export interface Cliente { id: string; nome: string; nif: string; email: string 
 export type Tab = 'emitir' | 'curso' | 'emitidas'
 
 export const getNumero = (f: any) => f?.numero_nota_credito || f?.numero_fatura || f?.numero_proforma || f?.numero || f?.id?.slice(0, 8) || '---'
-export const getTotal = (f: any) => Number(f?.total_geral?? f?.total?? 0)
+export const getTotal = (f: any) => Number(f?.total_geral ?? f?.total ?? 0)
 export const getData = (f: any) => f?.data_emissao || f?.created_at || f?.data
-export const isFaturaOficial = (f: any) => f?.tipo_documento === 'fatura' &&!!f?.hash_agt
+export const isFaturaOficial = (f: any) => f?.tipo_documento === 'fatura' && !!f?.hash_agt
 export const isNotaCredito = (f: any) => f?.tipo_documento === 'nota_credito'
 
 const VALID_TABS: Tab[] = ['emitir', 'curso', 'emitidas']
@@ -38,15 +39,42 @@ export default function EmitirFaturaPage() {
     const [loadingCounts, setLoadingCounts] = useState(true)
     const [loadingEmpresa, setLoadingEmpresa] = useState(true)
 
+    const fetchFaturas = useCallback(async () => {
+        if (!clienteId) return
+        try {
+            setLoadingCounts(true)
+            const res = await api.get('/faturas', { params: { cliente_id: clienteId, limit: 100 } })
+            const all = Array.isArray(res.data) ? res.data : (res.data.items || [])
+            setFaturasCurso(all.filter((f: any) => {
+                const tipo = String(f.tipo_documento || '').toLowerCase()
+                const st = String(f.status || '').toLowerCase()
+                return (tipo.includes('proforma') || tipo === 'pp') && ['rascunho', 'pendente', 'em_curso', 'em curso'].includes(st)
+            }))
+            setFaturasEmitidas(all.filter((f: any) => {
+                const tipo = String(f.tipo_documento || '').toLowerCase()
+                const st = String(f.status || '').toLowerCase()
+                return tipo.includes('fatura') || tipo.includes('nota') || tipo === 'ft' || tipo === 'nc' || ['concluida', 'emitida', 'cancelada', 'emitida_ft'].includes(st)
+            }))
+        } catch { }
+        finally { setLoadingCounts(false) }
+    }, [clienteId])
+
+    // REALTIME
+    useRealtime({
+        onEvent: (msg) => {
+            if (msg.event === 'faturas:changed') fetchFaturas()
+        }
+    })
+
     useEffect(() => {
         if (clienteId) {
-            api.get(`/api/clientes/${clienteId}`).then(r => setCliente(r.data)).catch(() => setCliente(null))
+            api.get(`/clientes/${clienteId}`).then(r => setCliente(r.data)).catch(() => setCliente(null))
         }
         setLoadingEmpresa(true)
-        api.get('/api/auth/me').then(r => {
+        api.get('/auth/me').then(r => {
             const comp = r.data.company || r.data
             setEmpresa({
-              ...comp,
+                ...comp,
                 nome: comp.nome || comp.companyName,
                 endereco: comp.endereco || comp.address,
                 cidade: comp.cidade || comp.city,
@@ -92,31 +120,11 @@ export default function EmitirFaturaPage() {
         setSearchParams(newParams, { replace: true })
     }, [activeTab])
 
-    const fetchFaturas = async () => {
-        if (!clienteId) return
-        try {
-            setLoadingCounts(true)
-            const res = await api.get('/api/faturas', { params: { cliente_id: clienteId, limit: 100 } })
-            const all = Array.isArray(res.data)? res.data : (res.data.items || [])
-            setFaturasCurso(all.filter((f: any) => {
-                const tipo = String(f.tipo_documento || '').toLowerCase()
-                const st = String(f.status || '').toLowerCase()
-                return (tipo.includes('proforma') || tipo === 'pp') && ['rascunho', 'pendente', 'em_curso', 'em curso'].includes(st)
-            }))
-            setFaturasEmitidas(all.filter((f: any) => {
-                const tipo = String(f.tipo_documento || '').toLowerCase()
-                const st = String(f.status || '').toLowerCase()
-                return tipo.includes('fatura') || tipo.includes('nota') || tipo === 'ft' || tipo === 'nc' || ['concluida', 'emitida', 'cancelada', 'emitida_ft'].includes(st)
-            }))
-        } catch { }
-        finally { setLoadingCounts(false) }
-    }
-
     useEffect(() => {
         if (clienteId) fetchFaturas()
-    }, [clienteId])
+    }, [clienteId, fetchFaturas])
 
-    const isInitialLoading = loadingEmpresa &&!empresa
+    const isInitialLoading = loadingEmpresa && !empresa
 
     if (isInitialLoading) {
         return (
@@ -147,15 +155,15 @@ export default function EmitirFaturaPage() {
                                 <div className="flex flex-col items-start text-left">
                                     <h1 className="text-[22px] sm:text-[24px] font-bold text-[#1a202c] text-left">{cliente?.nome || 'Cliente Avulso - Emitir Direto'}</h1>
                                     <div className="flex gap-1.5 mt-1.5 justify-start">
-                                        <span className="text-[9px] px-2 py-[2px] bg-[#fff2e0] border border-[#ffd9a0] text-[#8a5a20] rounded">{cliente? 'Cliente' : 'Avulso'}</span>
+                                        <span className="text-[9px] px-2 py-[2px] bg-[#fff2e0] border border-[#ffd9a0] text-[#8a5a20] rounded">{cliente ? 'Cliente' : 'Avulso'}</span>
                                         <span className="text-[9px] px-2 py-[2px] bg-white border rounded text-gray-600">NIF {cliente?.nif || '999999999'}</span>
                                     </div>
                                     <div className="mt-3 space-y-1 text-[13px] text-[#4a5568] text-left">
-                                        {cliente? (
+                                        {cliente ? (
                                             <>
                                                 <p>{cliente.email}</p>
                                                 <p>{cliente.telefone}</p>
-                                                <p>{cliente.cidade? `${cliente.endereco} - ${cliente.cidade}` : cliente.endereco}</p>
+                                                <p>{cliente.cidade ? `${cliente.endereco} - ${cliente.cidade}` : cliente.endereco}</p>
                                             </>
                                         ) : (
                                             <p className="text-gray-500">Sem cadastro - preencha nome/NIF na emissão. Pode salvar depois.</p>
@@ -167,17 +175,17 @@ export default function EmitirFaturaPage() {
                                     Voltar
                                 </button>
                             </div>
-                            {clienteId? (
+                            {clienteId ? (
                                 <div className="mt-6 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
-                                    <button onClick={() => { setLoadingCounts(true); setActiveTab('curso'); fetchFaturas(); }} className={`flex-1 py-2 ${activeTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                        <p className="text-[13px] font-bold">{loadingCounts? '...' : faturasCurso.length}</p>
+                                    <button onClick={() => { setLoadingCounts(true); setActiveTab('curso'); fetchFaturas(); }} className={`flex-1 py-2 ${activeTab === 'curso' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                        <p className="text-[13px] font-bold">{loadingCounts ? '...' : faturasCurso.length}</p>
                                         <p className="text-[11px] text-gray-500">Proformas PP</p>
                                     </button>
-                                    <button onClick={() => { setLoadingCounts(true); setActiveTab('emitidas'); fetchFaturas(); }} className={`flex-1 py-2 border-l ${activeTab === 'emitidas'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                        <p className="text-[13px] font-bold">{loadingCounts? '...' : faturasEmitidas.length}</p>
+                                    <button onClick={() => { setLoadingCounts(true); setActiveTab('emitidas'); fetchFaturas(); }} className={`flex-1 py-2 border-l ${activeTab === 'emitidas' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                        <p className="text-[13px] font-bold">{loadingCounts ? '...' : faturasEmitidas.length}</p>
                                         <p className="text-[11px] text-gray-500">Faturas FT + NC</p>
                                     </button>
-                                    <button onClick={() => setActiveTab('emitir')} className={`flex-[1.2] border-l text-[13px] font-semibold ${activeTab === 'emitir'? 'bg-[#0095ff] text-white' : 'bg-[#8ecfff] text-white'}`}>+ Emitir Fatura</button>
+                                    <button onClick={() => setActiveTab('emitir')} className={`flex-[1.2] border-l text-[13px] font-semibold ${activeTab === 'emitir' ? 'bg-[#0095ff] text-white' : 'bg-[#8ecfff] text-white'}`}>+ Emitir Fatura</button>
                                 </div>
                             ) : (
                                 <div className="mt-6 bg-white/80 border rounded-[3px] p-2 max-w-[520px] text-[11px] text-gray-600">Modo Avulso: emissão rápida sem precisar salvar cliente</div>
@@ -185,7 +193,7 @@ export default function EmitirFaturaPage() {
                         </div>
                     </div>
                     <style>{`
-             .bubble {
+            .bubble {
                             position: absolute;
                             border-radius: 50%;
                             background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%);
@@ -194,12 +202,12 @@ export default function EmitirFaturaPage() {
                             animation: floatBubble 8s infinite ease-in-out;
                             will-change: transform;
                         }
-             .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
-             .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
-             .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
-             .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
-             .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
-             .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
+            .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
+            .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
+            .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
+            .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
+            .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
+            .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
                         @keyframes floatBubble {
                             0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.55; }
                             25% { transform: translateY(-15px) translateX(10px) scale(1.05); opacity: 0.85; }
@@ -209,7 +217,7 @@ export default function EmitirFaturaPage() {
                     `}</style>
                 </div>
                 <div className="w-full py-6">
-                    {(activeTab === 'emitir' ||!clienteId) && <TabEmitir clienteId={clienteId || undefined} onEmitida={() => { if (clienteId) { fetchFaturas(); setActiveTab('curso'); } else { navigate('/app/dashboard') } }} />}
+                    {(activeTab === 'emitir' || !clienteId) && <TabEmitir clienteId={clienteId || undefined} onEmitida={() => { if (clienteId) { fetchFaturas(); setActiveTab('curso'); } else { navigate('/app/dashboard') } }} />}
                     {clienteId && activeTab === 'curso' && <TabCurso faturas={faturasCurso} loading={loadingCounts} cliente={cliente!} empresa={empresa} onRefresh={fetchFaturas} />}
                     {clienteId && activeTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} loading={loadingCounts} cliente={cliente!} empresa={empresa} onRefresh={fetchFaturas} />}
                 </div>

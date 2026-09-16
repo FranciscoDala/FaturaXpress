@@ -1,8 +1,9 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Pencil, Database, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { DashboardSkeleton } from '../../components/DashboardSkeleton'
+import { useRealtime } from '../../hooks/useRealtime'
 import ClienteModal from './components/modals/modal_Cliente'
 import ProdutoModal from './components/modals/modal_Produto'
 import ModalConfirmDelete from './components/modals/modal_ConfirmDelete'
@@ -119,8 +120,6 @@ export default function DashboardPage() {
 
     const isInitialLoading = !empresa && (loading || loadingFaturas)
 
-
-
     useEffect(() => {
         localStorage.setItem(LS_KEYS.view, homeView)
         localStorage.setItem(LS_KEYS.ftab, faturaTab)
@@ -132,28 +131,29 @@ export default function DashboardPage() {
         setSearchParams(params, { replace: true })
     }, [homeView, faturaTab, listView])
 
-    const fetchFaturasGeral = async () => {
+    const fetchFaturasGeral = useCallback(async () => {
         try {
             setLoadingFaturas(true)
-            const res = await api.get('/api/faturas', { params: { limit: 500 } })
+            const res = await api.get('/faturas', { params: { limit: 500 } })
             const all = Array.isArray(res.data) ? res.data : (res.data.items || [])
             setFaturasCurso(all.filter((f: any) => f.tipo_documento === 'proforma'))
             setFaturasEmitidas(all.filter((f: any) => f.tipo_documento === 'fatura' || f.tipo_documento === 'nota_credito' || !!f.hash_agt))
         } catch { } finally { setLoadingFaturas(false) }
-    }
+    }, [])
 
-    const fetchClientes = async () => {
-        try { setLoading(true); const skip = (page - 1) * limit; const res = await api.get('/api/clientes', { params: { skip, limit, search } }); setClientes(res.data.items); if (listView === 'clientes') setTotal(res.data.total) }
+    const fetchClientes = useCallback(async () => {
+        try { setLoading(true); const skip = (page - 1) * limit; const res = await api.get('/clientes', { params: { skip, limit, search } }); setClientes(res.data.items); if (listView === 'clientes') setTotal(res.data.total) }
         catch { toast.error('Erro ao carregar clientes') } finally { setLoading(false) }
-    }
-    const fetchProdutos = async () => {
-        try { setLoading(true); const skip = (page - 1) * limit; const res = await api.get('/api/produtos', { params: { skip, limit, search } }); setProdutos(res.data.items); setTotal(res.data.total) }
-        catch { toast.error('Erro ao carregar produtos') } finally { setLoading(false) }
-    }
+    }, [page, limit, search, listView])
 
-    const fetchEmpresa = async () => {
+    const fetchProdutos = useCallback(async () => {
+        try { setLoading(true); const skip = (page - 1) * limit; const res = await api.get('/produtos', { params: { skip, limit, search } }); setProdutos(res.data.items); setTotal(res.data.total) }
+        catch { toast.error('Erro ao carregar produtos') } finally { setLoading(false) }
+    }, [page, limit, search])
+
+    const fetchEmpresa = useCallback(async () => {
         try {
-            const r = await api.get('/api/auth/me')
+            const r = await api.get('/auth/me')
             const comp = r.data.company || r.data
             setEmpresa(comp)
             const nome = comp.nome || comp.companyName || localStorage.getItem("company_name")
@@ -174,15 +174,28 @@ export default function DashboardPage() {
                 image_url: comp.image_url || comp.logo_url || ''
             })
         } catch (err: any) { if (err?.response?.status === 401) { localStorage.clear(); navigate('/login') } }
-    }
+    }, [navigate])
+
+    // REALTIME - aqui estava faltando
+    useRealtime({
+        onEvent: (msg) => {
+            if (msg.event === 'faturas:changed') fetchFaturasGeral()
+            if (msg.event === 'clientes:changed') {
+                fetchClientes()
+                fetchFaturasGeral()
+            }
+            if (msg.event === 'produtos:changed') fetchProdutos()
+            if (msg.event === 'company:changed') fetchEmpresa()
+        }
+    })
 
     useEffect(() => {
         const name = localStorage.getItem("company_name");
         if (name) setCompanyName(name);
         fetchEmpresa(); fetchFaturasGeral()
-    }, [])
+    }, [fetchEmpresa, fetchFaturasGeral])
     useEffect(() => { setPage(1) }, [listView])
-    useEffect(() => { if (homeView === 'gestao') { if (listView === 'clientes') fetchClientes(); else fetchProdutos() } }, [page, listView, search, homeView])
+    useEffect(() => { if (homeView === 'gestao') { if (listView === 'clientes') fetchClientes(); else fetchProdutos() } }, [page, listView, search, homeView, fetchClientes, fetchProdutos])
 
     const updateListPos = () => {
         if (listBtnRef.current) {
@@ -217,8 +230,6 @@ export default function DashboardPage() {
         return () => document.removeEventListener('mousedown', close)
     }, [])
 
-    
-    // --- AQUI, DEPOIS DE TODOS OS HOOKS ---
     if (isInitialLoading) {
         return (
             <div className="min-h-screen bg-white">
@@ -251,8 +262,8 @@ export default function DashboardPage() {
         if (!deleteTarget) return
         setDeleting(true)
         try {
-            if (deleteTarget.type === 'cliente') { await api.delete(`/api/clientes/${deleteTarget.id}`); toast.success('Cliente apagado'); fetchClientes(); fetchFaturasGeral() }
-            else { await api.delete(`/api/produtos/${deleteTarget.id}`); toast.success('Produto apagado'); fetchProdutos() }
+            if (deleteTarget.type === 'cliente') { await api.delete(`/clientes/${deleteTarget.id}`); toast.success('Cliente apagado'); fetchClientes(); fetchFaturasGeral() }
+            else { await api.delete(`/produtos/${deleteTarget.id}`); toast.success('Produto apagado'); fetchProdutos() }
             setDeleteTarget(null)
         } catch { toast.error('Erro ao apagar') } finally { setDeleting(false) }
     }
@@ -263,9 +274,9 @@ export default function DashboardPage() {
             if (data.logoFile) {
                 const fd = new FormData()
                 fd.append('logo', data.logoFile)
-                await api.put('/api/auth/company/logo', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+                await api.put('/auth/company/logo', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
             }
-            await api.put('/api/auth/company', {
+            await api.put('/auth/company', {
                 companyName: data.companyName,
                 nif: data.nif,
                 email: data.email,
@@ -275,9 +286,6 @@ export default function DashboardPage() {
                 province: data.province,
                 iban: data.iban,
                 iban2: data.iban2,
-                // se quiser salvar banco também, adiciona no backend
-                // banco1: data.banco1,
-                // banco2: data.banco2,
             })
             toast.success('Empresa atualizada')
             setModalEmpresaOpen(false)
@@ -353,8 +361,8 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <style>{`
-                    .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-                    .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
+                   .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+                   .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
                       @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }
                     `}</style>
                 </div>

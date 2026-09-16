@@ -13,6 +13,7 @@ from app.modules.auth.router import router as auth_router
 from app.modules.clients.router import router as cliente_router
 from app.modules.products.router import router as produto_router
 from app.modules.fatura.router import router as fatura_router
+from app.modules.realtime.router import router as realtime_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -54,6 +55,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(cliente_router, prefix="/api")
 app.include_router(produto_router, prefix="/api")
 app.include_router(fatura_router, prefix="/api")
+app.include_router(realtime_router, prefix="/api")
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):

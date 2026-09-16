@@ -10,6 +10,7 @@ from app.modules.auth.models import Company, User
 from app.modules.auth import schemas
 from app.core.security import hash_password, verify_password, get_current_company_id
 from app.core.jwt import create_access_token
+from app.modules.realtime.manager import manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -125,6 +126,10 @@ async def update_company(data: schemas.UpdateCompanyRequest, db: AsyncSession = 
 
     await db.commit()
     await db.refresh(company)
+    try:
+        await manager.broadcast(company_id, {"event": "company:changed"})
+    except Exception:
+        pass
     return {"message": "Empresa atualizada com sucesso"}
 
 # NOVO - UPLOAD LOGO igual produto
@@ -150,6 +155,11 @@ async def upload_company_logo(
     company.image_url = logo_url
     await db.commit()
     await db.refresh(company)
+
+    try:
+        await manager.broadcast(company_id, {"event": "company:changed"})
+    except Exception:
+        pass
 
     return {
         "message": "Logo atualizada com sucesso",
@@ -199,4 +209,8 @@ async def update_company_with_logo(
 
     await db.commit()
     await db.refresh(company)
+    try:
+        await manager.broadcast(company_id, {"event": "company:changed"})
+    except Exception:
+        pass
     return {"message": "Empresa atualizada com sucesso", "logo_url": company.logo_url}

@@ -11,6 +11,7 @@ from app.core.security import get_current_company_id
 from app.modules.fatura.models import Fatura
 from app.modules.fatura.schemas import FaturaCreate, FaturaResponse, FaturaUpdate, NotaCreditoCreate
 from app.modules.fatura import service as fatura_service
+import logging
 
 from sqlalchemy import extract
 from typing import Optional, Union
@@ -20,12 +21,19 @@ from app.core.security import get_current_company_id
 from app.modules.fatura.models import Fatura
 from app.modules.auth.models import Company
 from app.modules.clients.models import Cliente
+from app.modules.realtime.manager import manager
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/faturas", tags=["Faturas"])
 
 @router.post("", response_model=FaturaResponse, status_code=201)
-def criar(dados: FaturaCreate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    return fatura_service.criar_fatura(db, company_id, dados)
+async def criar(dados: FaturaCreate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    result = fatura_service.criar_fatura(db, company_id, dados)
+    try:
+        await manager.broadcast(company_id, {"event": "faturas:changed", "action": "created", "tipo": result.tipo_documento, "id": str(result.id)})
+    except Exception as e:
+        logger.warning(f"Falha broadcast faturas:changed: {e}")
+    return result
 
 @router.get("", response_model=List[FaturaResponse])
 def listar(
@@ -164,7 +172,6 @@ def gerar_saft(
     for cid in clientes_ids:
         cli = clientes_map.get(cid) # type: ignore
         cust = ET.SubElement(mf, "Customer")
-        # FIX: sem [:30] para não cortar UUID
         ET.SubElement(cust, "CustomerID").text = str(cid)
         ET.SubElement(cust, "AccountID").text = "Desconhecido"
 
@@ -190,7 +197,6 @@ def gerar_saft(
 
         ET.SubElement(cust, "SelfBillingIndicator").text = "0"
 
-    # clientes avulsos - sem cliente_id, usa snapshot
     for f in faturas:
         if not f.cliente_id:
             cust = ET.SubElement(mf, "Customer")
@@ -303,46 +309,73 @@ def por_id(fatura_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid
     return f
 
 @router.put("/{fatura_id}", response_model=FaturaResponse)
-def atualizar(fatura_id: uuid.UUID, dados: FaturaUpdate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+async def atualizar(fatura_id: uuid.UUID, dados: FaturaUpdate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     fatura = db.query(Fatura).filter(Fatura.id == fatura_id, Fatura.company_id == company_id).first()
     if not fatura: raise HTTPException(404, "Não encontrada")
     if fatura.tipo_documento in ['fatura','nota_credito'] and fatura.hash_agt and fatura.status in ['emitida','concluida']:
         raise HTTPException(400, "Documento AGT oficial não pode ser editado - emita Nota de Crédito")
-    return fatura_service.atualizar_fatura(db, fatura, company_id, dados)
+    result = fatura_service.atualizar_fatura(db, fatura, company_id, dados)
+    try:
+        await manager.broadcast(company_id, {"event": "faturas:changed", "action": "updated", "id": str(fatura_id)})
+    except Exception as e:
+        logger.warning(f"Falha broadcast: {e}")
+    return result
 
 @router.post("/{fatura_id}/converter", response_model=FaturaResponse)
-def converter(fatura_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    return fatura_service.converter_proforma_para_fatura(db, fatura_id, company_id)
+async def converter(fatura_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    result = fatura_service.converter_proforma_para_fatura(db, fatura_id, company_id)
+    try:
+        await manager.broadcast(company_id, {"event": "faturas:changed", "action": "converted", "id": str(fatura_id), "nova_id": str(result.id)})
+    except Exception as e:
+        logger.warning(f"Falha broadcast: {e}")
+    return result
 
 @router.post("/{fatura_id}/duplicar", response_model=FaturaResponse)
-def duplicar(fatura_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    return fatura_service.duplicar_fatura(db, fatura_id, company_id)
+async def duplicar(fatura_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    result = fatura_service.duplicar_fatura(db, fatura_id, company_id)
+    try:
+        await manager.broadcast(company_id, {"event": "faturas:changed", "action": "duplicated", "id": str(result.id)})
+    except Exception as e:
+        logger.warning(f"Falha broadcast: {e}")
+    return result
 
 @router.post("/{fatura_id}/cancelar")
-def cancelar(fatura_id: uuid.UUID, motivo: str = "", db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+async def cancelar(fatura_id: uuid.UUID, motivo: str = "", db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     f = db.query(Fatura).filter(Fatura.id == fatura_id, Fatura.company_id == company_id).first()
     if not f: raise HTTPException(404, "Não encontrada")
     if f.status == 'cancelada': raise HTTPException(400, "Já cancelada")
     if f.tipo_documento == 'fatura' and f.hash_agt:
-        # AGT: só pode cancelar no mesmo dia
         if (datetime.now(timezone.utc) - f.created_at).days >= 1:
             raise HTTPException(400, "FT com mais de 24h não pode ser cancelada - tem que emitir Nota de Crédito (regra AGT)")
     f.status = 'cancelada'
     if motivo: f.observacoes = f"{f.observacoes or ''} | Cancelada: {motivo}"
     db.commit()
     db.refresh(f)
+    try:
+        await manager.broadcast(company_id, {"event": "faturas:changed", "action": "cancelled", "id": str(fatura_id)})
+    except Exception as e:
+        logger.warning(f"Falha broadcast: {e}")
     return {"ok": True, "fatura": f}
 
 @router.post("/{fatura_id}/nota-credito", response_model=FaturaResponse)
-def criar_nota_credito(fatura_id: uuid.UUID, dados: NotaCreditoCreate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    return fatura_service.criar_nota_credito(db, company_id, fatura_id, dados.motivo, dados.observacoes)
+async def criar_nota_credito(fatura_id: uuid.UUID, dados: NotaCreditoCreate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    result = fatura_service.criar_nota_credito(db, company_id, fatura_id, dados.motivo, dados.observacoes)
+    try:
+        await manager.broadcast(company_id, {"event": "faturas:changed", "action": "nota_credito", "id": str(result.id), "origem": str(fatura_id)})
+    except Exception as e:
+        logger.warning(f"Falha broadcast: {e}")
+    return result
 
 @router.delete("/{fatura_id}")
-def apagar(fatura_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+async def apagar(fatura_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     f = db.query(Fatura).filter(Fatura.id == fatura_id, Fatura.company_id == company_id).first()
     if not f: raise HTTPException(404, "Não encontrada")
     if f.tipo_documento in ['fatura','nota_credito'] and f.hash_agt:
         raise HTTPException(400, "PROIBIDO AGT: FT/NC oficial não pode ser apagada. Use Cancelar (24h) ou Nota de Crédito.")
     f.status = 'apagada'
     db.commit()
+    try:
+        await manager.broadcast(company_id, {"event": "faturas:changed", "action": "deleted", "id": str(fatura_id)})
+    except Exception as e:
+        logger.warning(f"Falha broadcast: {e}")
     return {"ok": True}

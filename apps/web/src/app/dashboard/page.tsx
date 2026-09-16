@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, LogOut, Plus, Package, ChevronDown, Users, FileDown, Check } from 'lucide-react'
+import { LogOut, Plus, Package, ChevronDown, Users, FileDown, Check, Power } from 'lucide-react'
 import { toast } from 'sonner'
 import ClienteModal from './components/modals/modal_Cliente'
 import ProdutoModal from './components/modals/modal_Produto'
@@ -16,8 +16,8 @@ interface Produto { id: string; nome: string; codigo: string; categoria: string 
 type TabView = 'clientes' | 'produtos'
 
 const VIEW_OPTIONS = [
-  { value: 'clientes', label: 'Clientes' },
-  { value: 'produtos', label: 'Produtos / Serviços' },
+    { value: 'clientes', label: 'Clientes' },
+    { value: 'produtos', label: 'Produtos / Serviços' },
 ]
 
 export default function DashboardPage() {
@@ -38,7 +38,7 @@ export default function DashboardPage() {
     const [total, setTotal] = useState(0)
     const limit = 20
 
-    const [deleteTarget, setDeleteTarget] = useState<{type:'cliente'|'produto', id:string, nome:string} | null>(null)
+    const [deleteTarget, setDeleteTarget] = useState<{ type: 'cliente' | 'produto', id: string, nome: string } | null>(null)
     const [deleting, setDeleting] = useState(false)
 
     const [openSelect, setOpenSelect] = useState(false)
@@ -78,7 +78,7 @@ export default function DashboardPage() {
     }, [openSelect])
     useEffect(() => {
         const close = (e: MouseEvent) => {
-            if (wrapperRef.current &&!wrapperRef.current.contains(e.target as Node) &&!(e.target as HTMLElement).closest('[data-select-dropdown]')) setOpenSelect(false)
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node) && !(e.target as HTMLElement).closest('[data-select-dropdown]')) setOpenSelect(false)
         }
         document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
@@ -92,121 +92,175 @@ export default function DashboardPage() {
     const handleLogout = () => { localStorage.clear(); toast.success("Sessão encerrada"); navigate('/login') }
 
     const handleRequestDeleteCliente = (id: string) => {
-        const c = clientes.find(x=>x.id===id)
-        setDeleteTarget({type:'cliente', id, nome: c?.nome || 'este cliente'})
+        const c = clientes.find(x => x.id === id)
+        setDeleteTarget({ type: 'cliente', id, nome: c?.nome || 'este cliente' })
     }
-    const handleRequestDeleteProduto = (p: Produto) => {
-        setDeleteTarget({type:'produto', id: p.id, nome: p.nome})
-    }
+    const handleRequestDeleteProduto = (p: Produto) => setDeleteTarget({ type: 'produto', id: p.id, nome: p.nome })
 
     const handleConfirmDelete = async () => {
-        if(!deleteTarget) return
+        if (!deleteTarget) return
         setDeleting(true)
         try {
-            if(deleteTarget.type==='cliente'){
-                await api.delete(`/api/clientes/${deleteTarget.id}`)
-                toast.success('Cliente apagado')
-                fetchClientes()
-            } else {
-                await api.delete(`/api/produtos/${deleteTarget.id}`)
-                toast.success('Produto apagado')
-                fetchProdutos()
-            }
+            if (deleteTarget.type === 'cliente') { await api.delete(`/api/clientes/${deleteTarget.id}`); toast.success('Cliente apagado'); fetchClientes() }
+            else { await api.delete(`/api/produtos/${deleteTarget.id}`); toast.success('Produto apagado'); fetchProdutos() }
             setDeleteTarget(null)
         } catch { toast.error('Erro ao apagar') }
         finally { setDeleting(false) }
     }
 
     const ProdutoModalAny = ProdutoModal as any
+    const totalClientes = view === 'clientes' ? total : clientes.length
+    const totalProdutos = view === 'produtos' ? total : produtos.length
 
     return (
-        <div className="min-h-screen bg-[#F7F8FA]">
-            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => { toast.success(clienteSelecionado? 'Atualizado' : 'Criado'); fetchClientes() }} />
-            <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => { toast.success(produtoSelecionado? 'Produto atualizado' : 'Produto criado'); fetchProdutos() }} />
-            <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget?.nome} loading={deleting} onClose={()=>setDeleteTarget(null)} onConfirm={handleConfirmDelete} />
-            <ModalSaftAO open={modalSaftOpen} onClose={()=>setModalSaftOpen(false)} />
+        <div className="min-h-screen bg-white">
+            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => { toast.success(clienteSelecionado ? 'Atualizado' : 'Criado'); fetchClientes() }} />
+            <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => { toast.success(produtoSelecionado ? 'Produto atualizado' : 'Produto criado'); fetchProdutos() }} />
+            <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget?.nome} loading={deleting} onClose={() => setDeleteTarget(null)} onConfirm={handleConfirmDelete} />
+            <ModalSaftAO open={modalSaftOpen} onClose={() => setModalSaftOpen(false)} />
 
-            <header className="bg-white border-b border-gray-100 sticky top-0 z-20">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center h-[64px]">
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-[#0095ff] flex items-center justify-center shadow-sm"><Building2 className="w-5 h-5 text-white" /></div>
-                            <div><h1 className="text-[15px] font-bold leading-tight">FaturaXpress</h1><p className="text-[11px] text-gray-500 truncate max-w-[160px]">{companyName}</p></div>
+            <div className="max-w-[1100px] mx-auto">
+                {/* HEADER IGUAL EMITIR FATURA */}
+                <div className="relative px-4 sm:px-8 lg:px-12 pt-8 pb-6 border-b border-gray-100 overflow-hidden bg-gradient-to-br from-[#E8F2FF] via-[#F0F7FF] to-white">
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+                        <div className="bubble bubble-1"></div>
+                        <div className="bubble bubble-2"></div>
+                        <div className="bubble bubble-3"></div>
+                        <div className="bubble bubble-4"></div>
+                        <div className="bubble bubble-5"></div>
+                        <div className="bubble bubble-6"></div>
+                    </div>
+                    <div className="relative z-10 flex flex-col md:flex-row gap-5 items-start text-left">
+                        <div className="w-[96px] h-[96px] sm:w-[132px] sm:h-[132px] rounded-full overflow-hidden bg-gray-200 border-[6px] border-white shadow-sm shrink-0 self-start">
+                            <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(companyName || 'FX')}&background=E5E7EB&color=374151&size=132`} className="w-full h-full object-cover" alt={companyName} />
                         </div>
-                        <div className="flex items-center gap-2">
-                            <button onClick={()=>setModalSaftOpen(true)} className="hidden sm:flex items-center gap-2 h-[38px] px-4 bg-[#0A2540] text-white text-[12px] font-bold rounded-full hover:bg-black shadow-[0_2px_12px_rgba(0,0,0,0.08)]"><FileDown className="w-4 h-4" /> SAFT-AO AGT</button>
-                            <button onClick={handleOpenCreateProduto} className="hidden sm:flex items-center gap-2 h-[38px] px-4 bg-orange-500 text-white text-[12px] font-bold rounded-full hover:bg-orange-600 shadow-[0_2px_12px_rgba(0,0,0,0.08)]"><Package className="w-4 h-4" />Novo Produto</button>
-                            <button onClick={handleOpenCreateCliente} className="hidden sm:flex items-center gap-2 h-[38px] px-5 bg-[#0095ff] text-white text-[12px] font-bold rounded-full hover:bg-[#0080e0] shadow-[0_2px_12px_rgba(0,0,0,0.08)]"><Plus className="w-4 h-4" />Novo Cliente</button>
-                            <div className="relative sm:hidden">
-                                <button onClick={() => setMenuNovoOpen(!menuNovoOpen)} className="flex items-center gap-2 h-[38px] px-5 bg-[#0095ff] text-white text-[12px] font-bold rounded-full"><Plus className="w-4 h-4" />Novo<ChevronDown className={`w-4 h-4 transition ${menuNovoOpen? 'rotate-180':''}`} /></button>
-                                {menuNovoOpen && (
-                                    <div className="absolute right-0 mt-2 w-60 bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 z-30 overflow-hidden p-1.5">
-                                        <button onClick={()=>{ setMenuNovoOpen(false); setModalSaftOpen(true) }} className="w-full text-left px-4 py-3 text-[13px] hover:bg-gray-50 rounded-[12px] flex items-center gap-2 font-semibold"><FileDown className="w-4 h-4" /> Exportar SAFT-AO</button>
-                                        <button onClick={handleOpenCreateCliente} className="w-full text-left px-4 py-3 text-[13px] hover:bg-gray-50 rounded-[12px] flex items-center gap-2"><Users className="w-4 h-4" /> Novo Cliente</button>
-                                        <button onClick={handleOpenCreateProduto} className="w-full text-left px-4 py-3 text-[13px] hover:bg-gray-50 rounded-[12px] flex items-center gap-2"><Package className="w-4 h-4" /> Novo Produto</button>
+                        <div className="flex-1 w-full">
+                            <div className="flex flex-row justify-between items-start gap-4 w-full">
+                                <div className="flex flex-col items-start text-left">
+                                    <h1 className="text-[22px] sm:text-[24px] font-bold text-[#1a202c] text-left">{companyName || 'FaturaXpress'}</h1>
+                                    <div className="flex gap-1.5 mt-1.5 justify-start">
+                                        <span className="text-[9px] px-2 py-[2px] bg-[#fff2e0] border border-[#ffd9a0] text-[#8a5a20] rounded">Empresa</span>
+                                        <span className="text-[9px] px-2 py-[2px] bg-white border rounded text-gray-600">Painel Admin</span>
                                     </div>
-                                )}
+                                    <div className="mt-3 space-y-1 text-[13px] text-[#4a5568] text-left">
+                                        <p>Bem-vindo de volta, {companyName}</p>
+                                        <p className="text-[11px] text-gray-500">Gestão de clientes e produtos - AGT compatível</p>
+                                    </div>
+                                </div>
+                                <button onClick={handleLogout} className="bg-[#FF3B30] text-white text-[12px] font-semibold px-4 py-1.5 rounded-full shrink-0 flex items-center gap-1.5 hover:bg-[#e6362c] transition shadow-sm">
+                                    <Power className="w-4 h-4" />
+                                    Sair
+                                </button>
                             </div>
-                            <button onClick={handleLogout} className="flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 bg-white text-gray-600 hover:text-red-600 hover:border-red-200"><LogOut className="w-4 h-4" /></button>
+
+                            {/* TABS NA MESMA ORDEM DO EMITIR - 2 contadores + ação */}
+                            <div className="mt-6 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
+                                <button onClick={() => setView('clientes')} className={`flex-1 py-2 ${view === 'clientes' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                    <p className="text-[13px] font-bold">{loading && view === 'clientes' ? '...' : totalClientes}</p>
+                                    <p className="text-[11px] text-gray-500">Clientes</p>
+                                </button>
+                                <button onClick={() => setView('produtos')} className={`flex-1 py-2 border-l ${view === 'produtos' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                    <p className="text-[13px] font-bold">{loading && view === 'produtos' ? '...' : totalProdutos}</p>
+                                    <p className="text-[11px] text-gray-500">Produtos</p>
+                                </button>
+                                <button onClick={handleOpenCreateCliente} className="flex-[1.2] border-l text-[13px] font-semibold bg-[#0095ff] text-white hover:bg-[#0080e0] flex items-center justify-center gap-1">
+                                    <Plus className="w-4 h-4" /> Novo
+                                </button>
+                            </div>
                         </div>
                     </div>
+                    <style>{`
+                .bubble {
+                            position: absolute;
+                            border-radius: 50%;
+                            background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%);
+                            border: 1px solid rgba(0,149,255,0.14);
+                            box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10);
+                            animation: floatBubble 8s infinite ease-in-out;
+                            will-change: transform;
+                        }
+                .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
+                .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
+                .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
+                .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
+                .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
+                .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
+                        @keyframes floatBubble {
+                            0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.55; }
+                            25% { transform: translateY(-15px) translateX(10px) scale(1.05); opacity: 0.85; }
+                            50% { transform: translateY(-25px) translateX(-5px) scale(0.95); opacity: 0.45; }
+                            75% { transform: translateY(-10px) translateX(-10px) scale(1.02); opacity: 0.7; }
+                        }
+                    `}</style>
                 </div>
-            </header>
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                <div className="mb-6 flex flex-col sm:flex-row justify-between gap-4">
-                  <div><h2 className="text-[22px] font-bold text-gray-900">Painel</h2><p className="text-[13px] text-gray-500 mt-1">Bem-vindo de volta, {companyName}</p></div>
-                  <button onClick={()=>setModalSaftOpen(true)} className="sm:hidden w-full h-[46px] rounded-full bg-[#0A2540] text-white text-[13px] font-bold flex items-center justify-center gap-2 shadow-[0_2px_12px_rgba(0,0,0,0.08)]"><FileDown className="w-4 h-4" /> Exportar SAFT-AO para AGT</button>
-                </div>
+                {/* CONTEUDO */}
+                <div className="w-full px-4 sm:px-8 lg:px-12 py-6">
+                    <DashboardCards onCardClick={(t) => t === 'Clientes' ? setView('clientes') : t === 'Produtos' ? setView('produtos') : null} />
 
-                <DashboardCards onCardClick={(t) => t === 'Clientes'? setView('clientes') : t === 'Produtos'? setView('produtos') : null} />
-
-                <div className="mt-6">
-                    <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-3 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                        <div ref={wrapperRef} className="relative min-w-[200px] md:min-w-[320px] snap-start flex-shrink-0 z-40">
+                    {/* FILTROS NO MESMO ESTILO DOS CARDS FT */}
+                    <div className="mt-6 flex gap-4 overflow-x-auto snap-x snap-mandatory pb-3 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                        <div ref={wrapperRef} className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-40">
                             <button ref={btnRef} onClick={() => setOpenSelect(!openSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
                                 <span className="text-gray-900">{VIEW_OPTIONS.find(o => o.value === view)?.label}</span>
-                                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openSelect? 'rotate-180' : ''}`} />
+                                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openSelect ? 'rotate-180' : ''}`} />
                             </button>
                         </div>
-                        <div className="min-w-[140px] h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-center shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[12px] font-bold text-gray-500 snap-start flex-shrink-0">
-                            Total: {total} • Pág {page}
+                        <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-0">
+                            <button onClick={() => setModalSaftOpen(true)} className="w-full h-[46px] bg-[#0A2540] text-white rounded-full text-[13px] font-bold flex items-center justify-center gap-2 shadow-[0_2px_12px_rgba(0,0,0,0.04)]"><FileDown className="w-4 h-4" /> Exportar SAFT-AO</button>
                         </div>
                     </div>
 
                     {openSelect && (
                         <div data-select-dropdown style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
                             {VIEW_OPTIONS.map(opt => (
-                                <button key={opt.value} onClick={() => { setView(opt.value as TabView); setOpenSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${view === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                <button key={opt.value} onClick={() => { setView(opt.value as TabView); setOpenSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${view === opt.value ? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
                                     {opt.label}
                                     {view === opt.value && <Check className="w-4 h-4 text-[#0095ff]" />}
                                 </button>
                             ))}
                         </div>
                     )}
-                </div>
 
-                <div id="tabela" className="mt-2">
-                    {view === 'clientes'? (
-                        <TabelaClientes clientes={clientes} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditCliente} onDelete={handleRequestDeleteCliente} onEmitirFatura={handleEmitirFatura} />
-                    ) : (
-                        <CardsProdutos produtos={produtos} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditProduto} onDelete={handleRequestDeleteProduto} />
-                    )}
-                </div>
+                    {/* AÇÕES RAPIDAS ESTILO PILLS */}
+                    <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-3 mb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                        <button onClick={handleOpenCreateCliente} className="snap-start flex-shrink-0 h-[38px] px-5 rounded-full bg-white border border-gray-200 shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[12px] font-bold flex items-center gap-2"><Users className="w-4 h-4 text-[#0095ff]" /> Novo Cliente</button>
+                        <button onClick={handleOpenCreateProduto} className="snap-start flex-shrink-0 h-[38px] px-5 rounded-full bg-white border border-gray-200 shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[12px] font-bold flex items-center gap-2"><Package className="w-4 h-4 text-orange-500" /> Novo Produto</button>
+                        <div className="relative">
+                            <button onClick={() => setMenuNovoOpen(!menuNovoOpen)} className="snap-start flex-shrink-0 h-[38px] px-5 rounded-full bg-white border border-gray-200 shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[12px] font-bold flex items-center gap-2">Mais <ChevronDown className={`w-4 h-4 transition ${menuNovoOpen ? 'rotate-180' : ''}`} /></button>
+                            {menuNovoOpen && (
+                                <div className="absolute left-0 mt-2 w-60 bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 z-30 overflow-hidden p-1.5">
+                                    <button onClick={() => { setMenuNovoOpen(false); setModalSaftOpen(true) }} className="w-full text-left px-4 py-3 text-[13px] hover:bg-gray-50 rounded-[12px] flex items-center gap-2 font-semibold"><FileDown className="w-4 h-4" /> Exportar SAFT-AO</button>
+                                    <button onClick={handleOpenCreateCliente} className="w-full text-left px-4 py-3 text-[13px] hover:bg-gray-50 rounded-[12px] flex items-center gap-2"><Users className="w-4 h-4" /> Novo Cliente</button>
+                                    <button onClick={handleOpenCreateProduto} className="w-full text-left px-4 py-3 text-[13px] hover:bg-gray-50 rounded-[12px] flex items-center gap-2"><Package className="w-4 h-4" /> Novo Produto</button>
+                                    <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-[13px] hover:bg-red-50 rounded-[12px] flex items-center gap-2 text-[#FF3B30]"><LogOut className="w-4 h-4" /> Sair</button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
 
-                <div className="mt-6 bg-white rounded-[22px] p-6 border border-gray-100 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
-                    <h3 className="font-bold text-[14px] mb-4">Resumo do mês</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="bg-[#F7F8FA] rounded-[16px] p-4 border border-gray-100"><p className="text-[11px] text-gray-500">Total Faturado</p><p className="text-[18px] font-bold mt-1">0.00 KZ</p></div>
-                        <div className="bg-[#F7F8FA] rounded-[16px] p-4 border border-gray-100"><p className="text-[11px] text-gray-500">Faturas Emitidas</p><p className="text-[18px] font-bold mt-1">0</p></div>
-                        <div className="bg-[#F7F8FA] rounded-[16px] p-4 border border-gray-100"><p className="text-[11px] text-gray-500">Clientes Ativos</p><p className="text-[18px] font-bold mt-1">{total}</p></div>
+                    <div id="tabela">
+                        {view === 'clientes' ? (
+                            <TabelaClientes clientes={clientes} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditCliente} onDelete={handleRequestDeleteCliente} onEmitirFatura={handleEmitirFatura} />
+                        ) : (
+                            <CardsProdutos produtos={produtos} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditProduto} onDelete={handleRequestDeleteProduto} />
+                        )}
                     </div>
-                    <div className="mt-6 p-4 bg-[#FFF7ED] border border-orange-200 rounded-[16px] flex items-center justify-between gap-3">
-                      <div><p className="text-[13px] font-bold text-gray-900">Obrigação AGT</p><p className="text-[11px] text-gray-600">Exporta o SAFT-AO até dia 15 de cada mês</p></div>
-                      <button onClick={()=>setModalSaftOpen(true)} className="h-9 px-5 rounded-full bg-[#0A2540] text-white text-[12px] font-bold shadow-sm">Gerar SAFT</button>
+
+                    <div className="mt-6 bg-white rounded-[22px] p-6 border border-gray-100 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+                        <h3 className="font-bold text-[14px] mb-4">Resumo do mês</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-[#F7F8FA] rounded-[16px] p-4 border border-gray-100"><p className="text-[11px] text-gray-500">Total Faturado</p><p className="text-[18px] font-bold mt-1">0.00 KZ</p></div>
+                            <div className="bg-[#F7F8FA] rounded-[16px] p-4 border border-gray-100"><p className="text-[11px] text-gray-500">Faturas Emitidas</p><p className="text-[18px] font-bold mt-1">0</p></div>
+                            <div className="bg-[#F7F8FA] rounded-[16px] p-4 border border-gray-100"><p className="text-[11px] text-gray-500">Clientes Ativos</p><p className="text-[18px] font-bold mt-1">{total}</p></div>
+                        </div>
+                        <div className="mt-6 p-4 bg-[#FFF7ED] border border-orange-200 rounded-[16px] flex items-center justify-between gap-3">
+                            <div><p className="text-[13px] font-bold text-gray-900">Obrigação AGT</p><p className="text-[11px] text-gray-600">Exporta o SAFT-AO até dia 15 de cada mês</p></div>
+                            <button onClick={() => setModalSaftOpen(true)} className="h-9 px-5 rounded-full bg-[#0A2540] text-white text-[12px] font-bold shadow-sm">Gerar SAFT</button>
+                        </div>
                     </div>
                 </div>
-            </main>
+            </div>
         </div>
     )
 }

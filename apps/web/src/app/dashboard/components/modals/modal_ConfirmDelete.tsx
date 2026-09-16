@@ -1,4 +1,4 @@
-import { Trash2, X, AlertTriangle, Check } from 'lucide-react'
+import { Trash2, X, AlertTriangle } from 'lucide-react'
 
 interface Props {
     open: boolean
@@ -20,7 +20,6 @@ export default function ModalConfirmDelete({
     onConfirm
 }: Props) {
     if (!open) return null
-
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
@@ -38,12 +37,12 @@ export default function ModalConfirmDelete({
                     <p className="text-[13.5px] text-gray-500 mt-3 leading-relaxed">
                         {description} {itemName && <span className="font-bold text-gray-800">"{itemName}"</span>} será removido permanentemente.
                     </p>
-                    <div className="flex justify-end gap-3 mt-8">
-                        <button onClick={onClose} disabled={loading} className="w-11 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 disabled:opacity-50">
-                            <X className="w-5 h-5 text-gray-600" />
+                    <div className="flex gap-3 mt-8">
+                        <button onClick={onClose} disabled={loading} className="flex-1 h-11 rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2">
+                            <X className="w-4 h-4" />
                         </button>
-                        <button onClick={onConfirm} disabled={loading} className="w-11 h-11 rounded-full bg-[#FF3B30] text-white flex items-center justify-center hover:bg-red-600 shadow-[0_6px_20px_rgba(255,59,48,0.35)] disabled:opacity-50">
-                            <Trash2 className="w-5 h-5" />
+                        <button onClick={onConfirm} disabled={loading} className="flex-1 h-11 rounded-full bg-[#FF3B30] text-white font-semibold hover:bg-red-600 shadow-[0_6px_20px_rgba(255,59,48,0.35)] flex items-center justify-center gap-2 disabled:opacity-50">
+                            {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Trash2 className="w-5 h-5" />}
                         </button>
                     </div>
                 </div>

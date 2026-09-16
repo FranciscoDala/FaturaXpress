@@ -35,12 +35,12 @@ export default function ModalConfirmEmit({ open, tipoDoc, total, qtdItens, loadi
                         <div className="flex justify-between"><span className="text-gray-500">Total</span><span className="font-bold text-gray-900">{total.toFixed(2)} KZ</span></div>
                         <div className="flex justify-between"><span className="text-gray-500">Tipo</span><span className="font-bold text-gray-900">{isFatura? 'FT - Fatura Oficial' : 'PP - Proforma'}</span></div>
                     </div>
-                    <div className="flex justify-end gap-3 mt-8">
-                        <button onClick={onClose} disabled={loading} className="w-11 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 disabled:opacity-50">
-                            <X className="w-5 h-5 text-gray-600" />
+                    <div className="flex gap-3 mt-8">
+                        <button onClick={onClose} disabled={loading} className="flex-1 h-11 rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2">
+                            <X className="w-4 h-4" />
                         </button>
-                        <button onClick={onConfirm} disabled={loading} className="w-11 h-11 rounded-full bg-[#0095ff] text-white flex items-center justify-center hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] disabled:opacity-50">
-                            <Check className="w-5 h-5" />
+                        <button onClick={onConfirm} disabled={loading} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-50">
+                            {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
                         </button>
                     </div>
                 </div>

@@ -26,11 +26,11 @@ export default function ModalConfirmSair({ open, companyName, onClose, onConfirm
                     <p className="text-[13.5px] text-gray-500 mt-3 leading-relaxed">
                         Tens a certeza que queres encerrar a sessão de <span className="font-bold text-gray-800 uppercase">{companyName}</span>?
                     </p>
-                    <div className="flex justify-end gap-3 mt-8">
-                        <button onClick={onClose} className="w-11 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50">
-                            <X className="w-5 h-5 text-gray-600" />
+                    <div className="flex gap-3 mt-8">
+                        <button onClick={onClose} className="flex-1 h-11 rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2">
+                            <X className="w-4 h-4" />
                         </button>
-                        <button onClick={onConfirm} className="w-11 h-11 rounded-full bg-[#FF3B30] text-white flex items-center justify-center hover:bg-[#e6362c] shadow-[0_6px_20px_rgba(255,59,48,0.35)]">
+                        <button onClick={onConfirm} className="flex-1 h-11 rounded-full bg-[#FF3B30] text-white font-semibold hover:bg-[#e6362c] shadow-[0_6px_20px_rgba(255,59,48,0.35)] flex items-center justify-center gap-2">
                             <LogOut className="w-5 h-5" />
                         </button>
                     </div>

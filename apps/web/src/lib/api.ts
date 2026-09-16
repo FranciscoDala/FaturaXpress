@@ -1,28 +1,21 @@
 import axios from 'axios'
 
 const raw = import.meta.env.VITE_API_URL || 'https://faturaxpress-backend.onrender.com/api'
-const baseURL = raw.replace(/\/$/, '') // garante sem barra no final
+const baseURL = raw.replace(/\/$/, '')
 
 const api = axios.create({
-    baseURL, // já tem /api dentro
-    headers: {
-        'Content-Type': 'application/json',
-    },
+    baseURL,
+    headers: { 'Content-Type': 'application/json' },
 })
 
-api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('access_token')
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`
-        }
-        return config
-    },
-    (error) => Promise.reject(error)
-)
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('access_token')
+    if (token) config.headers.Authorization = `Bearer ${token}`
+    return config
+})
 
 api.interceptors.response.use(
-    (response) => response,
+    (r) => r,
     (error) => {
         if (error.response?.status === 401) {
             localStorage.clear()

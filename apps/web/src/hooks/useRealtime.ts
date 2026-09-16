@@ -14,11 +14,9 @@ type Options = {
 
 function getWsUrl() {
     const apiUrl = (import.meta.env.VITE_API_URL as string) || 'https://faturaxpress-backend.onrender.com/api'
-    // remove /api no final
-    const base = apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
-    // https -> wss, http -> ws
+    const base = apiUrl.replace(/\/$/, '') // mantém o /api
     const wsBase = base.replace(/^http/, 'ws')
-    return `${wsBase}/ws/realtime`
+    return `${wsBase}/ws/realtime` // vira wss://.../api/ws/realtime
 }
 
 export function useRealtime({ onEvent, enabled = true }: Options) {
@@ -27,7 +25,6 @@ export function useRealtime({ onEvent, enabled = true }: Options) {
 
     useEffect(() => {
         if (!enabled) return
-
         const token = localStorage.getItem('access_token')
         if (!token) return
 
@@ -40,18 +37,13 @@ export function useRealtime({ onEvent, enabled = true }: Options) {
                 try {
                     const data = JSON.parse(e.data) as RealtimeEvent
                     onEvent?.(data)
-                } catch { }
+                } catch {}
             }
-
             ws.onclose = () => {
-                // reconecta em 3s
                 if (reconnectTimer.current) window.clearTimeout(reconnectTimer.current)
                 reconnectTimer.current = window.setTimeout(connect, 3000) as any
             }
-
-            ws.onerror = () => {
-                ws.close()
-            }
+            ws.onerror = () => ws.close()
         }
 
         connect()

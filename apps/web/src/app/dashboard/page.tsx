@@ -67,15 +67,15 @@ export default function DashboardPage() {
     const novoWrapperRef = useRef<HTMLDivElement>(null)
     const novoBtnRef = useRef<HTMLButtonElement>(null)
     const [listDropdownPos, setListDropdownPos] = useState({ top: 0, left: 0, width: 320 })
-    const [novoDropdownPos, setNovoDropdownPos] = useState({ top: 0, left: 0, width: 320 })
+    const [novoDropdownPos, setNovoDropdownPos] = useState({ top: 0, left: 0, width: 284 })
 
     const fetchFaturasGeral = async () => {
         try {
             setLoadingFaturas(true)
             const res = await api.get('/api/faturas', { params: { limit: 500 } })
-            const all = Array.isArray(res.data) ? res.data : (res.data.items || [])
+            const all = Array.isArray(res.data)? res.data : (res.data.items || [])
             setFaturasCurso(all.filter((f: any) => f.tipo_documento === 'proforma'))
-            setFaturasEmitidas(all.filter((f: any) => f.tipo_documento === 'fatura' || f.tipo_documento === 'nota_credito' || !!f.hash_agt))
+            setFaturasEmitidas(all.filter((f: any) => f.tipo_documento === 'fatura' || f.tipo_documento === 'nota_credito' ||!!f.hash_agt))
         } catch { } finally { setLoadingFaturas(false) }
     }
 
@@ -97,14 +97,55 @@ export default function DashboardPage() {
     useEffect(() => { setPage(1) }, [listView])
     useEffect(() => { if (homeView === 'gestao') { if (listView === 'clientes') fetchClientes(); else fetchProdutos() } }, [page, listView, search, homeView])
 
-    const updateListPos = () => { if (listBtnRef.current) { const r = listBtnRef.current.getBoundingClientRect(); setListDropdownPos({ top: r.bottom + 8, left: r.left, width: r.width }) } }
-    const updateNovoPos = () => { if (novoBtnRef.current) { const r = novoBtnRef.current.getBoundingClientRect(); setNovoDropdownPos({ top: r.bottom + 8, left: r.left, width: 280 }) } }
+    const updateListPos = () => {
+        if (listBtnRef.current) {
+            const r = listBtnRef.current.getBoundingClientRect()
+            const isMobile = window.innerWidth < 768
+            setListDropdownPos({
+                top: r.bottom + 8,
+                left: isMobile? 16 : r.left,
+                width: isMobile? window.innerWidth - 32 : r.width
+            })
+        }
+    }
+
+    const updateNovoPos = () => {
+        if (novoBtnRef.current) {
+            const r = novoBtnRef.current.getBoundingClientRect()
+            const width = 284
+            const isMobile = window.innerWidth < 768
+            const left = isMobile
+               ? window.innerWidth - width - 16
+                : r.right - width
+            setNovoDropdownPos({
+                top: r.bottom + 8,
+                left: Math.max(16, left),
+                width
+            })
+        }
+    }
+
     useEffect(() => { if (openListSelect) updateListPos() }, [openListSelect])
     useEffect(() => { if (openNovo) updateNovoPos() }, [openNovo])
+
+    useEffect(() => {
+        if (!openListSelect &&!openNovo) return
+        const handle = () => {
+            if (openListSelect) updateListPos()
+            if (openNovo) updateNovoPos()
+        }
+        window.addEventListener('scroll', handle, true)
+        window.addEventListener('resize', handle)
+        return () => {
+            window.removeEventListener('scroll', handle, true)
+            window.removeEventListener('resize', handle)
+        }
+    }, [openListSelect, openNovo])
+
     useEffect(() => {
         const close = (e: MouseEvent) => {
-            if (listWrapperRef.current && !listWrapperRef.current.contains(e.target as Node) && !(e.target as HTMLElement).closest('[data-list-dropdown]')) setOpenListSelect(false)
-            if (novoWrapperRef.current && !novoWrapperRef.current.contains(e.target as Node) && !(e.target as HTMLElement).closest('[data-novo-dropdown]')) setOpenNovo(false)
+            if (listWrapperRef.current &&!listWrapperRef.current.contains(e.target as Node) &&!(e.target as HTMLElement).closest('[data-list-dropdown]')) setOpenListSelect(false)
+            if (novoWrapperRef.current &&!novoWrapperRef.current.contains(e.target as Node) &&!(e.target as HTMLElement).closest('[data-novo-dropdown]')) setOpenNovo(false)
         }
         document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
@@ -142,8 +183,8 @@ export default function DashboardPage() {
 
     return (
         <div className="min-h-screen bg-white">
-            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => { toast.success(clienteSelecionado ? 'Atualizado' : 'Criado'); fetchClientes() }} />
-            <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => { toast.success(produtoSelecionado ? 'Produto atualizado' : 'Produto criado'); fetchProdutos() }} />
+            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => { toast.success(clienteSelecionado? 'Atualizado' : 'Criado'); fetchClientes() }} />
+            <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => { toast.success(produtoSelecionado? 'Produto atualizado' : 'Produto criado'); fetchProdutos() }} />
             <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget?.nome} loading={deleting} onClose={() => setDeleteTarget(null)} onConfirm={handleConfirmDelete} />
             <ModalSaftAO open={modalSaftOpen} onClose={() => setModalSaftOpen(false)} />
 
@@ -175,31 +216,39 @@ export default function DashboardPage() {
                             </div>
 
                             <div className="mt-6 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
-                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className={`flex-1 py-2 ${homeView === 'faturas' && faturaTab === 'curso' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                    <p className="text-[13px] font-bold">{loadingFaturas ? '...' : faturasCurso.length}</p>
+                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className={`flex-1 py-2 ${homeView === 'faturas' && faturaTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                    <p className="text-[13px] font-bold">{loadingFaturas? '...' : faturasCurso.length}</p>
                                     <p className="text-[11px] text-gray-500">Proforma PP</p>
                                 </button>
-                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('emitidas') }} className={`flex-1 py-2 border-l ${homeView === 'faturas' && faturaTab === 'emitidas' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                    <p className="text-[13px] font-bold">{loadingFaturas ? '...' : faturasEmitidas.length}</p>
+                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('emitidas') }} className={`flex-1 py-2 border-l ${homeView === 'faturas' && faturaTab === 'emitidas'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                    <p className="text-[13px] font-bold">{loadingFaturas? '...' : faturasEmitidas.length}</p>
                                     <p className="text-[11px] text-gray-500">Fatura AGT FT</p>
                                 </button>
                                 <div ref={novoWrapperRef} className="flex-[1.2] border-l relative">
-                                    <button ref={novoBtnRef} onClick={() => setOpenNovo(!openNovo)} className={`w-full h-full text-[13px] font-semibold flex items-center justify-center gap-1 ${openNovo ? 'bg-[#0095ff] text-white' : 'bg-[#8ecfff] text-white hover:bg-[#7ac4ff]'}`}>
-                                        + Novo <ChevronDown className={`w-4 h-4 transition ${openNovo ? 'rotate-180' : ''}`} />
+                                    <button ref={novoBtnRef} onClick={() => setOpenNovo(!openNovo)} className={`w-full h-full text-[13px] font-semibold flex items-center justify-center gap-1 ${openNovo? 'bg-[#0095ff] text-white' : 'bg-[#8ecfff] text-white hover:bg-[#7ac4ff]'}`}>
+                                        + Novo <ChevronDown className={`w-4 h-4 transition ${openNovo? 'rotate-180' : ''}`} />
                                     </button>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <style>{`
-            .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-            .bubble-1 { width:80px; height:80px; left:10%; top:20%; animation-delay:0s; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; animation-delay:1s; animation-duration:10s; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; animation-delay:2s; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; animation-delay:0.5s; animation-duration:7s; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; animation-delay:1.5s; animation-duration:9s; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; animation-delay:2.5s; }
+           .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+           .bubble-1 { width:80px; height:80px; left:10%; top:20%; animation-delay:0s; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; animation-delay:1s; animation-duration:10s; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; animation-delay:2s; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; animation-delay:0.5s; animation-duration:7s; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; animation-delay:1.5s; animation-duration:9s; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; animation-delay:2.5s; }
                 @keyframes floatBubble { 0%,100%{transform:translateY(0) translateX(0) scale(1); opacity:0.55;} 25%{transform:translateY(-15px) translateX(10px) scale(1.05); opacity:0.85;} 50%{transform:translateY(-25px) translateX(-5px) scale(0.95); opacity:0.45;} 75%{transform:translateY(-10px) translateX(-10px) scale(1.02); opacity:0.7;} }
                     `}</style>
                 </div>
 
                 {openNovo && (
-                    <div data-novo-dropdown style={{ top: novoDropdownPos.top, left: novoDropdownPos.left, width: novoDropdownPos.width }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
+                    <div
+                        data-novo-dropdown
+                        style={{
+                            top: novoDropdownPos.top,
+                            left: novoDropdownPos.left,
+                            width: novoDropdownPos.width,
+                            maxWidth: '92vw'
+                        }}
+                        className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
                         {NOVO_OPTIONS.map(opt => {
                             const Icon = opt.icon
                             return (
@@ -242,16 +291,16 @@ export default function DashboardPage() {
                                 <div ref={listWrapperRef} className="relative min-w-[320px] max-w-[320px] flex-shrink-0 z-40">
                                     <button ref={listBtnRef} onClick={() => setOpenListSelect(!openListSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
                                         <span className="text-gray-900">{LIST_OPTIONS.find(o => o.value === listView)?.label}</span>
-                                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openListSelect ? 'rotate-180' : ''}`} />
+                                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openListSelect? 'rotate-180' : ''}`} />
                                     </button>
                                 </div>
                                 <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className="h-[46px] px-6 rounded-full bg-gray-900 text-white text-[13px] font-bold">← Voltar para Faturas</button>
                             </div>
 
                             {openListSelect && (
-                                <div data-list-dropdown style={{ top: listDropdownPos.top, left: listDropdownPos.left, width: listDropdownPos.width }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
+                                <div data-list-dropdown style={{ top: listDropdownPos.top, left: listDropdownPos.left, width: listDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
                                     {LIST_OPTIONS.map(opt => (
-                                        <button key={opt.value} onClick={() => { setListView(opt.value as ListView); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === opt.value ? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                        <button key={opt.value} onClick={() => { setListView(opt.value as ListView); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
                                             {opt.label}
                                             {listView === opt.value && <Check className="w-4 h-4 text-[#0095ff]" />}
                                         </button>
@@ -260,7 +309,7 @@ export default function DashboardPage() {
                             )}
 
                             <div id="tabela">
-                                {listView === 'clientes' ? (
+                                {listView === 'clientes'? (
                                     <TabelaClientes clientes={clientes} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditCliente} onDelete={handleRequestDeleteCliente} onEmitirFatura={handleEmitirFatura} />
                                 ) : (
                                     <CardsProdutos produtos={produtos} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditProduto} onDelete={handleRequestDeleteProduto} />

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, LogOut, Plus, Package, ChevronDown, Users } from 'lucide-react'
+import { Building2, LogOut, Plus, Package, ChevronDown, Users, FileDown } from 'lucide-react'
 import { toast } from 'sonner'
 import ClienteModal from './components/modals/modal_Cliente'
 import ProdutoModal from './components/modals/modal_Produto'
 import ModalConfirmDelete from './components/modals/modal_ConfirmDelete'
+import ModalSaftAO from './components/modals/modal_SaftAO'
 import TabelaClientes from './components/tables/tabela_Cliente'
 import CardsProdutos from './components/cards/cards_Produto'
 import DashboardCards from './components/cards/cards_Dashboard'
@@ -19,6 +20,7 @@ export default function DashboardPage() {
     const [companyName, setCompanyName] = useState('')
     const [modalClienteOpen, setModalClienteOpen] = useState(false)
     const [modalProdutoOpen, setModalProdutoOpen] = useState(false)
+    const [modalSaftOpen, setModalSaftOpen] = useState(false)
     const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null)
     const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(null)
     const [menuNovoOpen, setMenuNovoOpen] = useState(false)
@@ -31,7 +33,6 @@ export default function DashboardPage() {
     const [total, setTotal] = useState(0)
     const limit = 20
 
-    // MODAL DELETE SAAS
     const [deleteTarget, setDeleteTarget] = useState<{type:'cliente'|'produto', id:string, nome:string} | null>(null)
     const [deleting, setDeleting] = useState(false)
 
@@ -55,7 +56,6 @@ export default function DashboardPage() {
     const handleEmitirFatura = (c: Cliente) => navigate(`/faturas/nova?cliente_id=${c.id}`)
     const handleLogout = () => { localStorage.clear(); toast.success("Sessão encerrada"); navigate('/login') }
 
-    // ABRE MODAL EM VEZ DE CONFIRM NATIVO
     const handleRequestDeleteCliente = (id: string) => {
         const c = clientes.find(x=>x.id===id)
         setDeleteTarget({type:'cliente', id, nome: c?.nome || 'este cliente'})
@@ -88,9 +88,8 @@ export default function DashboardPage() {
         <div className="min-h-screen bg-gray-50">
             <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => { toast.success(clienteSelecionado? 'Atualizado' : 'Criado'); fetchClientes() }} />
             <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => { toast.success(produtoSelecionado? 'Produto atualizado' : 'Produto criado'); fetchProdutos() }} />
-
-            {/* MODAL CONFIRM DELETE SAAS */}
             <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget?.nome} loading={deleting} onClose={()=>setDeleteTarget(null)} onConfirm={handleConfirmDelete} />
+            <ModalSaftAO open={modalSaftOpen} onClose={()=>setModalSaftOpen(false)} />
 
             <header className="bg-white border-b sticky top-0 z-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -100,12 +99,14 @@ export default function DashboardPage() {
                             <div><h1 className="text-lg font-bold">FaturaXpress</h1><p className="text-xs text-gray-500">{companyName}</p></div>
                         </div>
                         <div className="flex items-center gap-2">
+                            <button onClick={()=>setModalSaftOpen(true)} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-[#0A2540] text-white text-sm font-medium rounded-lg hover:bg-black shadow-sm"><FileDown className="w-4 h-4" /> SAFT-AO AGT</button>
                             <button onClick={handleOpenCreateProduto} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700"><Package className="w-4 h-4" />Novo Produto</button>
                             <button onClick={handleOpenCreateCliente} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"><Plus className="w-4 h-4" />Novo Cliente</button>
                             <div className="relative sm:hidden">
                                 <button onClick={() => setMenuNovoOpen(!menuNovoOpen)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg"><Plus className="w-4 h-4" />Novo<ChevronDown className="w-4 h-4" /></button>
                                 {menuNovoOpen && (
-                                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-30">
+                                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border z-30 overflow-hidden">
+                                        <button onClick={()=>{ setMenuNovoOpen(false); setModalSaftOpen(true) }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-100 flex items-center gap-2 font-semibold"><FileDown className="w-4 h-4" /> Exportar SAFT-AO</button>
                                         <button onClick={handleOpenCreateCliente} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"><Users className="w-4 h-4" /> Novo Cliente</button>
                                         <button onClick={handleOpenCreateProduto} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"><Package className="w-4 h-4" /> Novo Produto</button>
                                     </div>
@@ -118,7 +119,10 @@ export default function DashboardPage() {
             </header>
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="mb-8"><h2 className="text-2xl font-bold">Painel</h2><p className="text-gray-500 mt-1">Bem-vindo de volta, {companyName}</p></div>
+                <div className="mb-8 flex flex-col sm:flex-row justify-between gap-4">
+                  <div><h2 className="text-2xl font-bold">Painel</h2><p className="text-gray-500 mt-1">Bem-vindo de volta, {companyName}</p></div>
+                  <button onClick={()=>setModalSaftOpen(true)} className="sm:hidden w-full h-11 rounded-full bg-[#0A2540] text-white text-[13px] font-bold flex items-center justify-center gap-2"><FileDown className="w-4 h-4" /> Exportar SAFT-AO para AGT</button>
+                </div>
                 <DashboardCards onCardClick={(t) => t === 'Clientes'? setView('clientes') : t === 'Produtos'? setView('produtos') : null} />
                 <div className="bg-white rounded-xl border p-4 mb-4 flex items-center justify-between mt-6">
                     <h3 className="font-semibold">Listagem</h3>
@@ -139,6 +143,10 @@ export default function DashboardPage() {
                         <div><p className="text-sm text-gray-500">Total Faturado</p><p className="text-2xl font-bold mt-1">0.00 KZ</p></div>
                         <div><p className="text-sm text-gray-500">Faturas Emitidas</p><p className="text-2xl font-bold mt-1">0</p></div>
                         <div><p className="text-sm text-gray-500">Clientes Ativos</p><p className="text-2xl font-bold mt-1">{total}</p></div>
+                    </div>
+                    <div className="mt-6 p-4 bg-[#FFF7ED] border border-orange-200 rounded-[14px] flex items-center justify-between">
+                      <div><p className="text-[13px] font-bold text-gray-900">Obrigação AGT</p><p className="text-[11px] text-gray-600">Exporta o SAFT-AO até dia 15 de cada mês</p></div>
+                      <button onClick={()=>setModalSaftOpen(true)} className="h-9 px-4 rounded-full bg-[#0A2540] text-white text-[12px] font-bold">Gerar SAFT</button>
                     </div>
                 </div>
             </main>

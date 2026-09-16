@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Pencil, Database } from 'lucide-react'
+import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Pencil, Database, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import ClienteModal from './components/modals/modal_Cliente'
 import ProdutoModal from './components/modals/modal_Produto'
@@ -38,11 +38,9 @@ function getInitialFromStorage(searchParams: URLSearchParams) {
   const urlView = searchParams.get('view') as HomeView | null
   const urlFtab = searchParams.get('ftab') as FaturaTab | null
   const urlList = searchParams.get('list') as ListView | null
-
   const lsView = localStorage.getItem(LS_KEYS.view) as HomeView | null
   const lsFtab = localStorage.getItem(LS_KEYS.ftab) as FaturaTab | null
   const lsList = localStorage.getItem(LS_KEYS.list) as ListView | null
-
   return {
     view: urlView || lsView || 'faturas' as HomeView,
     ftab: urlFtab || lsFtab || 'curso' as FaturaTab,
@@ -98,12 +96,10 @@ export default function DashboardPage() {
     const totalFaturado = faturasEmitidas.reduce((s: any, f: any) => s + Number(f.total_geral || f.total || 0), 0)
     const totalDocs = faturasCurso.length + faturasEmitidas.length
 
-    // PERSISTENCIA URL + LOCALSTORAGE
     useEffect(() => {
         localStorage.setItem(LS_KEYS.view, homeView)
         localStorage.setItem(LS_KEYS.ftab, faturaTab)
         localStorage.setItem(LS_KEYS.list, listView)
-
         const params = new URLSearchParams(searchParams)
         params.set('view', homeView)
         params.set('ftab', faturaTab)
@@ -136,32 +132,22 @@ export default function DashboardPage() {
             const comp = r.data.company || r.data
             setEmpresa(comp)
             const nome = comp.nome || comp.companyName || localStorage.getItem("company_name")
-            if (nome) {
-                setCompanyName(nome)
-                localStorage.setItem("company_name", nome)
-            }
+            if (nome) { setCompanyName(nome); localStorage.setItem("company_name", nome) }
             setFormEmpresa({
                 companyName: comp.nome || comp.companyName || '',
-                nif: comp.nif || '',
-                email: comp.email || '',
+                nif: comp.nif || '', email: comp.email || '',
                 phone: comp.telefone || comp.phone || '',
                 address: comp.endereco || comp.address || '',
                 city: comp.cidade || comp.city || '',
                 province: comp.provincia || comp.province || ''
             })
-        } catch (err: any) {
-            if (err?.response?.status === 401) {
-                localStorage.clear()
-                navigate('/login')
-            }
-        }
+        } catch (err: any) { if (err?.response?.status === 401) { localStorage.clear(); navigate('/login') } }
     }
 
     useEffect(() => {
         const name = localStorage.getItem("company_name");
         if (name) setCompanyName(name);
-        fetchEmpresa()
-        fetchFaturasGeral()
+        fetchEmpresa(); fetchFaturasGeral()
     }, [])
     useEffect(() => { setPage(1) }, [listView])
     useEffect(() => { if (homeView === 'gestao') { if (listView === 'clientes') fetchClientes(); else fetchProdutos() } }, [page, listView, search, homeView])
@@ -169,8 +155,7 @@ export default function DashboardPage() {
     const updateListPos = () => {
         if (listBtnRef.current) {
             const r = listBtnRef.current.getBoundingClientRect()
-            const isMobile = window.innerWidth < 768
-            setListDropdownPos({ top: r.bottom + 8, left: isMobile? 16 : r.left, width: isMobile? window.innerWidth - 32 : r.width })
+            setListDropdownPos({ top: r.bottom + 8, left: r.left, width: r.width })
         }
     }
     const updateNovoPos = () => {
@@ -232,14 +217,8 @@ export default function DashboardPage() {
 
     const handleSaveEmpresa = async (data: typeof formEmpresa) => {
         setSavingEmpresa(true)
-        try {
-            await api.put('/api/auth/company', data)
-            toast.success('Empresa atualizada')
-            setModalEmpresaOpen(false)
-            fetchEmpresa()
-        } catch (e: any) {
-            toast.error(e?.response?.data?.detail || 'Erro ao atualizar empresa')
-        } finally { setSavingEmpresa(false) }
+        try { await api.put('/api/auth/company', data); toast.success('Empresa atualizada'); setModalEmpresaOpen(false); fetchEmpresa() }
+        catch (e: any) { toast.error(e?.response?.data?.detail || 'Erro ao atualizar empresa') } finally { setSavingEmpresa(false) }
     }
 
     const ProdutoModalAny = ProdutoModal as any
@@ -269,31 +248,25 @@ export default function DashboardPage() {
                                 <Pencil className="w-4 h-4 text-gray-700" />
                             </button>
                         </div>
-
                         <div className="flex-1 w-full">
                             <div className="flex flex-row justify-between items-start gap-4 w-full">
                                 <div className="flex flex-col items-start text-left w-full">
-                                    <h1 className="text-[22px] sm:text-[26px] font-bold text-[#1a202c] text-left uppercase tracking-wide">{companyName || 'CONNECT'}</h1>
-
+                                    <h1 className="text-[22px] sm:text-[26px] font-bold text-[#1a202c] uppercase tracking-wide">{companyName || 'CONNECT'}</h1>
                                     <div className="mt-3 space-y-0 text-[13px] text-gray-700">
                                         <p><span className="font-medium text-gray-500">NIF:</span> {empresa?.nif || '50924984'}</p>
                                         <p><span className="font-medium text-gray-500">Tel:</span> {empresa?.telefone || empresa?.phone || '+244930438947'}</p>
                                         <p><span className="font-medium text-gray-500">Email:</span> {empresa?.email || 'killerbless12@gmail.com'}</p>
                                         <p><span className="font-medium text-gray-500">Endereço:</span> {(empresa?.endereco || empresa?.address || 'Sassamba')} • {empresa?.cidade || empresa?.city || 'Saurimo'} • {empresa?.provincia || empresa?.province || 'Lunda-Sul'}</p>
                                     </div>
-
                                     <div className="mt-5 space-y-1">
                                         <p className="text-[11px] text-gray-500">Total de faturas emitidas, PP, FT - {loadingFaturas? '...' : `${totalDocs} docs`}</p>
-                                        <p className="text-[11px] text-gray-500">
-                                            Total Faturado FT - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas? '...' : `${totalFaturado.toFixed(2)} KZ`}</span>
-                                        </p>
+                                        <p className="text-[11px] text-gray-500">Total Faturado FT - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas? '...' : `${totalFaturado.toFixed(2)} KZ`}</span></p>
                                     </div>
                                 </div>
                                 <button onClick={handleLogout} className="w-11 h-11 rounded-full bg-white border border-red-200 shadow-[0_2px_12px_rgba(0,0,0,0.06)] flex items-center justify-center text-[#FF3B30] hover:bg-red-50 transition shrink-0">
                                     <Power className="w-5 h-5" />
                                 </button>
                             </div>
-
                             <div className="mt-6 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
                                 <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className={`flex-1 py-2 ${homeView === 'faturas' && faturaTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
                                     <p className="text-[13px] font-bold">{loadingFaturas? '...' : faturasCurso.length}</p>
@@ -312,35 +285,23 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <style>{`
-   .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-   .bubble-1 { width:80px; height:80px; left:10%; top:20%; animation-delay:0s; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; animation-delay:1s; animation-duration:10s; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; animation-delay:2s; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; animation-delay:0.5s; animation-duration:7s; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; animation-delay:1.5s; animation-duration:9s; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; animation-delay:2.5s; }
-            @keyframes floatBubble { 0%,100%{transform:translateY(0) translateX(0) scale(1); opacity:0.55;} 25%{transform:translateY(-15px) translateX(10px) scale(1.05); opacity:0.85;} 50%{transform:translateY(-25px) translateX(-5px) scale(0.95); opacity:0.45;} 75%{transform:translateY(-10px) translateX(-10px) scale(1.02); opacity:0.7;} }
+                     .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+                     .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
+                      @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }
                     `}</style>
                 </div>
 
                 {openNovo && (
                     <div data-novo-dropdown style={{ top: novoDropdownPos.top, left: novoDropdownPos.left, width: novoDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
                         <p className="px-4 pt-2 pb-1 text-[10px] font-bold text-gray-400 tracking-widest">VISUALIZAR</p>
-                        <button onClick={() => handleNovoAction('ver_faturas')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'faturas'? 'bg-[#E6F0FF] font-semibold text-gray-900' : 'hover:bg-gray-50 text-gray-700'}`}>
-                            <Receipt className="w-4 h-4 text-[#0095ff]" /> Ver Faturas PP/FT
-                        </button>
-                        <button onClick={() => handleNovoAction('ver_registros')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao'? 'bg-[#E6F0FF] font-semibold text-gray-900' : 'hover:bg-gray-50 text-gray-700'}`}>
-                            <Database className="w-4 h-4 text-gray-500" /> Ver Registros
-                        </button>
+                        <button onClick={() => handleNovoAction('ver_faturas')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 ${homeView === 'faturas'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-50'}`}><Receipt className="w-4 h-4 text-[#0095ff]" /> Ver Faturas PP/FT</button>
+                        <button onClick={() => handleNovoAction('ver_registros')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 ${homeView === 'gestao'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-50'}`}><Database className="w-4 h-4 text-gray-500" /> Ver Registros</button>
                         <div className="h-[1px] bg-gray-100 my-2 mx-2" />
                         <p className="px-4 pt-1 pb-1 text-[10px] font-bold text-gray-400 tracking-widest">CRIAR / EXPORTAR</p>
-                        <button onClick={() => handleNovoAction('emitir')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-50 text-gray-700">
-                            <Receipt className="w-4 h-4 text-gray-500" /> Emitir Fatura (Avulso)
-                        </button>
-                        <button onClick={() => handleNovoAction('cliente')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-50 text-gray-700">
-                            <Users className="w-4 h-4 text-gray-500" /> Adicionar Cliente
-                        </button>
-                        <button onClick={() => handleNovoAction('produto')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-50 text-gray-700">
-                            <Package className="w-4 h-4 text-gray-500" /> Adicionar Produto
-                        </button>
-                        <button onClick={() => handleNovoAction('saft')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-50 text-gray-700">
-                            <FileDown className="w-4 h-4 text-gray-500" /> Exportar SAFT-AO AGT
-                        </button>
+                        <button onClick={() => handleNovoAction('emitir')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 hover:bg-gray-50"><Receipt className="w-4 h-4" /> Emitir Fatura (Avulso)</button>
+                        <button onClick={() => handleNovoAction('cliente')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 hover:bg-gray-50"><Users className="w-4 h-4" /> Adicionar Cliente</button>
+                        <button onClick={() => handleNovoAction('produto')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 hover:bg-gray-50"><Package className="w-4 h-4" /> Adicionar Produto</button>
+                        <button onClick={() => handleNovoAction('saft')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 hover:bg-gray-50"><FileDown className="w-4 h-4" /> Exportar SAFT-AO AGT</button>
                     </div>
                 )}
 
@@ -353,25 +314,40 @@ export default function DashboardPage() {
                         </div>
                     )}
                     {homeView === 'gestao' && (
-                        <>
-                            <div className="flex gap-4 overflow-x-auto pb-3 mb-4 items-center no-scrollbar">
-                                <div ref={listWrapperRef} className="relative min-w-[200px] max-w-[320px] flex-shrink-0 z-40">
+                        <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+                            {/* IGUAL TAB EMITIDA: SELECT + INPUT MESMO TAMANHO DOS CARDS */}
+                            <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                <div ref={listWrapperRef} className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-40">
                                     <button ref={listBtnRef} onClick={() => setOpenListSelect(!openListSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
                                         <span className="text-gray-900 capitalize">{LIST_OPTIONS.find(o => o.value === listView)?.label || listView}</span>
                                         <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openListSelect? 'rotate-180' : ''}`} />
                                     </button>
                                 </div>
-                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className="h-[46px] px-6 rounded-full bg-gray-900 text-white text-[13px] font-bold shrink-0">← Voltar para Faturas</button>
+                                <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-0">
+                                    <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                                    <input
+                                      value={search}
+                                      onChange={e => { setSearch(e.target.value); setPage(1) }}
+                                      placeholder={
+                                        listView === 'clientes'? 'Buscar cliente por nome ou NIF' :
+                                        listView === 'servicos'? 'Buscar serviço por nome' :
+                                        'Buscar produto por nome ou código'
+                                      }
+                                      className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
+                                    />
+                                </div>
                             </div>
+
                             {openListSelect && (
-                                <div data-list-dropdown style={{ top: listDropdownPos.top, left: listDropdownPos.left, width: listDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
+                                <div data-list-dropdown style={{ top: listDropdownPos.top, left: listDropdownPos.left, width: listDropdownPos.width }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
                                     {LIST_OPTIONS.map(opt => (
-                                        <button key={opt.value} onClick={() => { setListView(opt.value as any); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                        <button key={opt.value} onClick={() => { setListView(opt.value as any); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between ${listView === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
                                             {opt.label} {listView === opt.value && <Check className="w-4 h-4 text-[#0095ff]" />}
                                         </button>
                                     ))}
                                 </div>
                             )}
+
                             <div id="tabela">
                                 {listView === 'clientes'? (
                                     <TabelaClientes clientes={clientes} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditCliente} onDelete={handleRequestDeleteCliente} onEmitirFatura={handleEmitirFatura} />
@@ -379,7 +355,7 @@ export default function DashboardPage() {
                                     <CardsProdutos produtos={produtosFiltrados} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditProduto} onDelete={handleRequestDeleteProduto} />
                                 )}
                             </div>
-                        </>
+                        </div>
                     )}
                 </div>
             </div>

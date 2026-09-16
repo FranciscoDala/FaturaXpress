@@ -15,6 +15,10 @@ from app.modules.fatura import service as fatura_service
 from sqlalchemy import extract
 from typing import Optional, Union
 
+from app.core.security import get_current_company_id
+from app.modules.fatura.models import Fatura
+from app.modules.auth.models import Company
+from app.modules.clients.models import Cliente
 
 
 
@@ -71,29 +75,27 @@ def stats(cliente_id: Optional[uuid.UUID] = None, db: Session = Depends(get_db),
 
 @router.get("/saf-t")
 def gerar_saft(
-    mes: Union[str, int, None] = Query(None, description="5 ou 2026-05"),
+    mes: Union[str, int, None] = Query(None),
     ano: Optional[int] = Query(None, ge=2020),
-    mes_str: Optional[str] = Query(None, alias="mes"), # pega?mes=2026-09 como string
+    mes_str: Optional[str] = Query(None, alias="mes"),
     db: Session = Depends(get_db),
-    company_id: uuid.UUID = Depends(get_current_company_id)
+    company_id: uuid.UUID = Depends(get_current_company_id),
 ):
-    # Normaliza - prioridade para mes_str que é sempre string
     raw = mes_str or mes
-
-    mes_int = None
-    ano_int = ano
+    mes_int: Optional[int] = None
+    ano_int: Optional[int] = ano
 
     if isinstance(raw, str) and "-" in raw:
         try:
             y, m = raw.split("-")
             ano_int = int(y)
             mes_int = int(m)
-        except:
-            raise HTTPException(400, "Formato inválido, use YYYY-MM ex: 2026-09")
+        except ValueError:
+            raise HTTPException(400, "Formato inválido, use YYYY-MM")
     elif raw is not None:
         try:
-            mes_int = int(raw)
-        except:
+            mes_int = int(raw) # type: ignore
+        except ValueError:
             raise HTTPException(400, "Mês inválido")
 
     if not mes_int or not ano_int:
@@ -101,56 +103,176 @@ def gerar_saft(
         mes_int = mes_int or now.month
         ano_int = ano_int or now.year
 
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company:
+        raise HTTPException(404, "Empresa não encontrada")
+
+    # Pylance agora sabe que não é None
+    assert company is not None
+    comp_name: str = company.companyName
+    comp_nif: str = company.nif
+    comp_address_detail: str = company.address or "Luanda"
+    comp_city: str = company.city or "Luanda"
+
     faturas = db.query(Fatura).filter(
-        Fatura.company_id==company_id,
-        Fatura.tipo_documento.in_(['fatura','nota_credito']),
+        Fatura.company_id == company_id,
+        Fatura.tipo_documento.in_(["fatura", "nota_credito"]),
         Fatura.hash_agt.is_not(None),
-        extract('year', Fatura.data_emissao) == ano_int,
-        extract('month', Fatura.data_emissao) == mes_int
+        extract("year", Fatura.data_emissao) == ano_int,
+        extract("month", Fatura.data_emissao) == mes_int,
     ).order_by(Fatura.data_emissao.asc()).all()
 
     if not faturas:
         raise HTTPException(404, f"Sem FT/NC com hash em {ano_int}-{mes_int:02d}")
 
-    root = ET.Element("AuditFile")
+    root = ET.Element("AuditFile", xmlns="urn:OECD:StandardAuditFile-Tax:AO_1.04_01")
     header = ET.SubElement(root, "Header")
     ET.SubElement(header, "AuditFileVersion").text = "1.04_01"
-    ET.SubElement(header, "CompanyID").text = str(company_id)
-    ET.SubElement(header, "TaxRegistrationNumber").text = "999999999"
+    ET.SubElement(header, "CompanyID").text = comp_name[:50]
+    ET.SubElement(header, "TaxRegistrationNumber").text = comp_nif
     ET.SubElement(header, "TaxAccountingBasis").text = "F"
-    ET.SubElement(header, "CompanyName").text = "Empresa"
+    ET.SubElement(header, "CompanyName").text = comp_name
+    ET.SubElement(header, "BusinessName").text = comp_name
+
+    addr = ET.SubElement(header, "CompanyAddress")
+    ET.SubElement(addr, "AddressDetail").text = comp_address_detail
+    ET.SubElement(addr, "City").text = comp_city
+    ET.SubElement(addr, "PostalCode").text = "0000"
+    ET.SubElement(addr, "Country").text = "AO"
+
     ET.SubElement(header, "FiscalYear").text = str(ano_int)
     ET.SubElement(header, "StartDate").text = f"{ano_int}-{mes_int:02d}-01"
     ET.SubElement(header, "EndDate").text = f"{ano_int}-{mes_int:02d}-28"
     ET.SubElement(header, "CurrencyCode").text = "AKZ"
     ET.SubElement(header, "DateCreated").text = datetime.now().strftime("%Y-%m-%d")
-    ET.SubElement(header, "ProductID").text = "FaturaXpress/83/AGT/2019"
+    ET.SubElement(header, "TaxEntity").text = "Global"
+    ET.SubElement(header, "ProductCompanyTaxID").text = comp_nif
+    ET.SubElement(header, "SoftwareValidationNumber").text = "83/AGT/2019"
+    ET.SubElement(header, "ProductID").text = "FaturaXpress/1.0"
+    ET.SubElement(header, "ProductVersion").text = "1.0"
+
+    mf = ET.SubElement(root, "MasterFiles")
+
+    clientes_ids = list({f.cliente_id for f in faturas if f.cliente_id})
+    clientes_map: dict[uuid.UUID, Cliente] = {}
+    if clientes_ids:
+        # Usar filter().in_() - NÃO usar.get() que causa erro de UUID vs Column[UUID]
+        clientes_db = db.query(Cliente).filter(Cliente.id.in_(clientes_ids)).all()
+        clientes_map = {c.id: c for c in clientes_db} # type: ignore
+
+    for cid in clientes_ids:
+        cli = clientes_map.get(cid) # type: ignore
+        cust = ET.SubElement(mf, "Customer")
+        ET.SubElement(cust, "CustomerID").text = str(cid)[:30]
+        ET.SubElement(cust, "AccountID").text = "Desconhecido"
+
+        if cli is not None:
+            c_nif = getattr(cli, "nif", "999999999") or "999999999"
+            c_nome = getattr(cli, "nome", None) or getattr(cli, "name", "Consumidor Final")
+            c_addr_det = getattr(cli, "address", None) or getattr(cli, "endereco", "Luanda") or "Luanda"
+            ET.SubElement(cust, "CustomerTaxID").text = c_nif
+            ET.SubElement(cust, "CompanyName").text = str(c_nome)[:60]
+            baddr = ET.SubElement(cust, "BillingAddress")
+            ET.SubElement(baddr, "AddressDetail").text = str(c_addr_det)
+            ET.SubElement(baddr, "City").text = "Luanda"
+            ET.SubElement(baddr, "PostalCode").text = "0000"
+            ET.SubElement(baddr, "Country").text = "AO"
+        else:
+            ET.SubElement(cust, "CustomerTaxID").text = "999999999"
+            ET.SubElement(cust, "CompanyName").text = "Consumidor Final"
+            baddr = ET.SubElement(cust, "BillingAddress")
+            ET.SubElement(baddr, "AddressDetail").text = "Luanda"
+            ET.SubElement(baddr, "City").text = "Luanda"
+            ET.SubElement(baddr, "PostalCode").text = "0000"
+            ET.SubElement(baddr, "Country").text = "AO"
+
+        ET.SubElement(cust, "SelfBillingIndicator").text = "0"
+
+    produtos_seen = {}
+    for f in faturas:
+        for it in f.itens:
+            if it.nome_snapshot not in produtos_seen:
+                produtos_seen[it.nome_snapshot] = it
+
+    for nome, it in produtos_seen.items():
+        prod = ET.SubElement(mf, "Product")
+        ET.SubElement(prod, "ProductType").text = "P"
+        ET.SubElement(prod, "ProductCode").text = (str(it.produto_id)[:30] if it.produto_id else nome[:30])
+        ET.SubElement(prod, "ProductGroup").text = "Produtos"
+        ET.SubElement(prod, "ProductDescription").text = nome[:60]
+        ET.SubElement(prod, "ProductNumberCode").text = nome[:30]
+
+    tax_table = ET.SubElement(mf, "TaxTable")
+    for code, perc, desc in [("NOR", "14", "IVA Normal"), ("ISE", "0", "Isento")]:
+        e = ET.SubElement(tax_table, "TaxTableEntry")
+        ET.SubElement(e, "TaxType").text = "IVA"
+        ET.SubElement(e, "TaxCountryRegion").text = "AO"
+        ET.SubElement(e, "TaxCode").text = code
+        ET.SubElement(e, "Description").text = desc
+        ET.SubElement(e, "TaxPercentage").text = perc
 
     docs = ET.SubElement(root, "SourceDocuments")
     sales = ET.SubElement(docs, "SalesInvoices")
     ET.SubElement(sales, "NumberOfEntries").text = str(len(faturas))
-    ET.SubElement(sales, "TotalDebit").text = f"{sum(float(f.total_geral) for f in faturas if float(f.total_geral)>0):.2f}"
-    ET.SubElement(sales, "TotalCredit").text = f"{abs(sum(float(f.total_geral) for f in faturas if float(f.total_geral)<0)):.2f}"
+    ET.SubElement(sales, "TotalDebit").text = f"{sum(float(f.total_geral) for f in faturas if float(f.total_geral) > 0):.2f}"
+    ET.SubElement(sales, "TotalCredit").text = f"{abs(sum(float(f.total_geral) for f in faturas if float(f.total_geral) < 0)):.2f}"
 
     for f in faturas:
         inv = ET.SubElement(sales, "Invoice")
         ET.SubElement(inv, "InvoiceNo").text = f.numero_fatura or f.numero_nota_credito or ""
-        doc_status = ET.SubElement(inv, "DocumentStatus")
-        ET.SubElement(doc_status, "InvoiceStatus").text = "N"
-        ET.SubElement(doc_status, "InvoiceStatusDate").text = f.data_emissao.strftime("%Y-%m-%dT%H:%M:%S") if f.data_emissao else ""
+        ds = ET.SubElement(inv, "DocumentStatus")
+        ET.SubElement(ds, "InvoiceStatus").text = "N"
+        ET.SubElement(ds, "InvoiceStatusDate").text = f.data_emissao.strftime("%Y-%m-%dT%H:%M:%S")
+        ET.SubElement(ds, "SourceID").text = str(f.cliente_id)
+        ET.SubElement(ds, "SourceBilling").text = "P"
         ET.SubElement(inv, "Hash").text = f.hash_agt or ""
         ET.SubElement(inv, "HashControl").text = "1"
         ET.SubElement(inv, "Period").text = str(mes_int)
-        ET.SubElement(inv, "InvoiceDate").text = f.data_emissao.strftime("%Y-%m-%d") if f.data_emissao else ""
-        ET.SubElement(inv, "InvoiceType").text = "FT" if f.tipo_documento=='fatura' else "NC"
+        ET.SubElement(inv, "InvoiceDate").text = f.data_emissao.strftime("%Y-%m-%d")
+        ET.SubElement(inv, "InvoiceType").text = "FT" if f.tipo_documento == "fatura" else "NC"
+        ET.SubElement(inv, "SelfBillingIndicator").text = "0"
+        ET.SubElement(inv, "SystemEntryDate").text = f.created_at.strftime("%Y-%m-%dT%H:%M:%S") if f.created_at else f.data_emissao.strftime("%Y-%m-%dT%H:%M:%S")
+        ET.SubElement(inv, "CustomerID").text = str(f.cliente_id)[:30]
 
-    xml_str = ET.tostring(root, encoding='utf-8', xml_declaration=True)
+        for idx, item in enumerate(f.itens, 1):
+            line = ET.SubElement(inv, "Line")
+            ET.SubElement(line, "LineNumber").text = str(idx)
+            ET.SubElement(line, "ProductCode").text = (str(item.produto_id)[:30] if item.produto_id else item.nome_snapshot[:30])
+            ET.SubElement(line, "ProductDescription").text = item.nome_snapshot
+            ET.SubElement(line, "Quantity").text = f"{float(item.quantidade):.2f}"
+            ET.SubElement(line, "UnitOfMeasure").text = "UN"
+            ET.SubElement(line, "UnitPrice").text = f"{float(item.preco_unit_snapshot):.2f}"
+            ET.SubElement(line, "TaxBase").text = f"{float(item.subtotal_linha):.2f}"
+            ET.SubElement(line, "TaxPointDate").text = f.data_emissao.strftime("%Y-%m-%d")
+            ET.SubElement(line, "Description").text = item.nome_snapshot
+            if float(item.subtotal_linha) >= 0:
+                ET.SubElement(line, "DebitAmount").text = f"{float(item.subtotal_linha):.2f}"
+            else:
+                ET.SubElement(line, "CreditAmount").text = f"{abs(float(item.subtotal_linha)):.2f}"
+            tax = ET.SubElement(line, "Tax")
+            ET.SubElement(tax, "TaxType").text = "IVA"
+            ET.SubElement(tax, "TaxCountryRegion").text = "AO"
+            ET.SubElement(tax, "TaxCode").text = "NOR" if float(item.iva_percent or 0) > 0 else "ISE"
+            ET.SubElement(tax, "TaxPercentage").text = f"{float(item.iva_percent or 0):.2f}"
+            if item.motivo_isencao:
+                ET.SubElement(line, "TaxExemptionReason").text = item.motivo_isencao
+            ET.SubElement(line, "SettlementAmount").text = "0.00"
 
+        dt = ET.SubElement(inv, "DocumentTotals")
+        ET.SubElement(dt, "TaxPayable").text = f"{float(f.total_iva or 0):.2f}"
+        ET.SubElement(dt, "NetTotal").text = f"{float(f.subtotal or 0):.2f}"
+        ET.SubElement(dt, "GrossTotal").text = f"{float(f.total_geral or 0):.2f}"
+
+    xml_str = ET.tostring(root, encoding="utf-8", xml_declaration=True)
     for f in faturas:
         f.comunicado_agt = True
     db.commit()
+    return Response(
+        content=xml_str,
+        media_type="application/xml",
+        headers={"Content-Disposition": f"attachment; filename=SAFT-AO-{ano_int}-{mes_int:02d}.xml"},
+    )
 
-    return Response(content=xml_str, media_type="application/xml", headers={"Content-Disposition": f"attachment; filename=SAFT-AO-{ano_int}-{mes_int:02d}.xml"})
 
 
 @router.get("/numero/{numero}", response_model=FaturaResponse)

@@ -64,8 +64,8 @@ export default function LoginPage() {
                         <Link to="/register" className="flex-1 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition">
                             <X className="w-5 h-5 text-gray-600" />
                         </Link>
-                        <button type="submit" disabled={loading} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50 transition gap-2">
-                            {loading? <><Loader2 className="h-4 w-4 animate-spin" /> Entrando...</> : <Check className="w-5 h-5" />}
+                        <button type="submit" disabled={loading} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50 transition">
+                            {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
                         </button>
                     </div>
 

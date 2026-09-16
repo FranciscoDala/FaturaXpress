@@ -36,13 +36,16 @@ export default function EmitirFaturaPage() {
     const [faturasCurso, setFaturasCurso] = useState<any[]>([])
     const [faturasEmitidas, setFaturasEmitidas] = useState<any[]>([])
     const [loadingCounts, setLoadingCounts] = useState(true)
+
     const [loadingEmpresa, setLoadingEmpresa] = useState(true)
 
     useEffect(() => {
         if (clienteId) {
             api.get(`/api/clientes/${clienteId}`).then(r => setCliente(r.data)).catch(() => setCliente(null))
         }
+
         setLoadingEmpresa(true)
+
         api.get('/api/auth/me').then(r => {
             const comp = r.data.company || r.data
             setEmpresa({

@@ -64,17 +64,47 @@ def stats(cliente_id: Optional[uuid.UUID] = None, db: Session = Depends(get_db),
 
 @router.get("/saf-t")
 def gerar_saft(
-    mes: int = Query(..., ge=1, le=12),
-    ano: int = Query(..., ge=2020),
+    mes: int = Query(None, ge=1, le=12),
+    ano: int = Query(None, ge=2020),
+    mes_str: str = Query(None, alias="mes_str"), # compatível com "2026-05"
     db: Session = Depends(get_db),
     company_id: uuid.UUID = Depends(get_current_company_id)
 ):
+    # Compatibilidade: aceita ?mes=2026-05 do modal novo OU ?mes=5&ano=2026 antigo
+    if mes_str:
+        try:
+            y, m = mes_str.split("-")
+            ano = int(y)
+            mes = int(m)
+        except:
+            pass
+    if isinstance(mes, str) and "-" in mes: # quando front manda ?mes=2026-05 no param "mes"
+        try:
+            y, m = mes.split("-")
+            ano = int(y)
+            mes = int(m)
+        except:
+            pass
+
+    if not mes or not ano:
+        # se não mandou mês, pega mês atual
+        now = datetime.now(timezone.utc)
+        mes = mes or now.month
+        ano = ano or now.year
+
+    from sqlalchemy import extract
     faturas = db.query(Fatura).filter(
         Fatura.company_id==company_id,
         Fatura.tipo_documento.in_(['fatura','nota_credito']),
-        Fatura.hash_agt.is_not(None)
-    ).order_by(Fatura.created_at.asc()).all()
+        Fatura.hash_agt.is_not(None),
+        extract('year', Fatura.data_emissao) == ano,
+        extract('month', Fatura.data_emissao) == mes
+    ).order_by(Fatura.data_emissao.asc()).all()
 
+    if not faturas:
+        raise HTTPException(404, f"Sem FT/NC com hash em {ano}-{mes:02d}")
+
+    # ... resto do teu XML já tá OK
     root = ET.Element("AuditFile")
     header = ET.SubElement(root, "Header")
     ET.SubElement(header, "AuditFileVersion").text = "1.04_01"
@@ -100,9 +130,8 @@ def gerar_saft(
     for f in faturas:
         inv = ET.SubElement(sales, "Invoice")
         ET.SubElement(inv, "InvoiceNo").text = f.numero_fatura or f.numero_nota_credito or ""
-        ET.SubElement(inv, "ATCUD").text = (f.hash_agt or "")[:30]
         doc_status = ET.SubElement(inv, "DocumentStatus")
-        ET.SubElement(doc_status, "InvoiceStatus").text = "N" if f.status=='cancelada' else "N"
+        ET.SubElement(doc_status, "InvoiceStatus").text = "N"
         ET.SubElement(doc_status, "InvoiceStatusDate").text = f.data_emissao.strftime("%Y-%m-%dT%H:%M:%S") if f.data_emissao else ""
         ET.SubElement(inv, "Hash").text = f.hash_agt or ""
         ET.SubElement(inv, "HashControl").text = "1"
@@ -110,7 +139,13 @@ def gerar_saft(
         ET.SubElement(inv, "InvoiceDate").text = f.data_emissao.strftime("%Y-%m-%d") if f.data_emissao else ""
         ET.SubElement(inv, "InvoiceType").text = "FT" if f.tipo_documento=='fatura' else "NC"
 
-    xml_str = ET.tostring(root, encoding='utf-8', method='xml')
+    xml_str = ET.tostring(root, encoding='utf-8', xml_declaration=True)
+
+    # Marca como comunicado só depois de gerar
+    for f in faturas:
+        f.comunicado_agt = True
+    db.commit()
+
     return Response(content=xml_str, media_type="application/xml", headers={"Content-Disposition": f"attachment; filename=SAFT-AO-{ano}-{mes:02d}.xml"})
 
 @router.get("/numero/{numero}", response_model=FaturaResponse)

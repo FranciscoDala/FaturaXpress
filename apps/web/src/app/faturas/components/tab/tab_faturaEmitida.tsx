@@ -72,8 +72,8 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh }: { 
     return (
         <>
             <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
-                <div className="flex gap-3 pb-3 mb-4 overflow-visible">
-                    <div ref={wrapperRef} className="relative min-w-[180px] z-40">
+                <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                    <div ref={wrapperRef} className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-40">
                         <button onClick={() => setOpenSelect(!openSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
                             <span className="text-gray-900">{OPTIONS.find(o => o.value === filtro)?.label}</span>
                             <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openSelect? 'rotate-180' : ''}`} />
@@ -89,7 +89,7 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh }: { 
                             </div>
                         )}
                     </div>
-                    <div className="relative flex-1 z-0">
+                    <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-0">
                         <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
                         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar nº FT/NC ou hash AGT" className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
                     </div>

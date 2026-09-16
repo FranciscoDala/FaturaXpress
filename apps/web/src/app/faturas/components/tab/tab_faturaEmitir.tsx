@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { Plus, Trash2, Search, Star, ChevronDown, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
+import { TabEmitirProdutosSkeleton } from '../../../../components/CardsSkeleton'
 import { api } from '../../../../lib/api'
 import ModalConfirmEmit from '../../../dashboard/components/modals/modal_ConfirmEmit'
 
@@ -20,6 +21,7 @@ const OPTIONS_PAG = [
 
 export default function TabEmitir({ clienteId, onEmitida }: { clienteId?: string; onEmitida: () => void }) {
     const [produtos, setProdutos] = useState<Produto[]>([])
+    const [loadingProdutos, setLoadingProdutos] = useState(true)
     const [itens, setItens] = useState<any[]>([])
     const [busca, setBusca] = useState('')
     const [tipoDoc, setTipoDoc] = useState<'proforma'|'fatura'>('proforma')
@@ -34,7 +36,6 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId?: string
     const refTipo = useRef<HTMLDivElement>(null)
     const refPag = useRef<HTMLDivElement>(null)
 
-    // avulso
     const [clienteNome, setClienteNome] = useState('')
     const [clienteNif, setClienteNif] = useState('999999999')
     const [clienteTel, setClienteTel] = useState('')
@@ -51,6 +52,7 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId?: string
     }, [])
 
     useEffect(() => {
+        setLoadingProdutos(true)
         api.get('/api/produtos', { params: { search: busca, limit: 100 } }).then(r => {
             const raw = r.data.items || r.data || []
             setProdutos(raw.map((p: any) => ({
@@ -61,7 +63,8 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId?: string
               quantidade: p.quantidade?? p.quantidade_disponivel?? p.stock?? p.estoque?? p.qtd?? 0
             })))
             setPagina(1)
-        })
+        }).catch(() => setProdutos([]))
+       .finally(() => setLoadingProdutos(false))
     }, [busca])
 
     const totalPaginas = Math.ceil(produtos.length / ITENS_POR_PAGINA) || 1
@@ -153,15 +156,21 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId?: string
                         <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar produto..." className="w-full pl-11 pr-4 h-[46px] bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
                     </div>
                     <div className="max-h-[380px] overflow-auto pr-1 space-y-2">
-                        {produtosPaginados.map(p => (
-                            <div key={p.id} className="flex justify-between items-center py-3.5 px-4 bg-white border border-gray-200 rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
-                                <div><p className="text-[13.5px] font-medium text-gray-900">{p.nome}</p><p className="text-[11.5px] text-gray-500 mt-0.5">{p.preco.toFixed(2)} KZ - IVA {p.iva}% | Quant - {p.quantidade}</p></div>
-                                <button onClick={() => addItem(p)} className="w-8 h-8 border border-gray-200 rounded-full flex items-center justify-center hover:bg-[#0095ff] hover:text-white hover:border-[#0095ff] transition shrink-0 ml-2"><Plus className="w-4 h-4" /></button>
-                            </div>
-                        ))}
-                        {produtos.length === 0 && <p className="text-[12px] text-gray-400 py-6 text-center">Nenhum produto encontrado</p>}
+                        {loadingProdutos? (
+                            <TabEmitirProdutosSkeleton />
+                        ) : (
+                            <>
+                                {produtosPaginados.map(p => (
+                                    <div key={p.id} className="flex justify-between items-center py-3.5 px-4 bg-white border border-gray-200 rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+                                        <div><p className="text-[13.5px] font-medium text-gray-900">{p.nome}</p><p className="text-[11.5px] text-gray-500 mt-0.5">{p.preco.toFixed(2)} KZ - IVA {p.iva}% | Quant - {p.quantidade}</p></div>
+                                        <button onClick={() => addItem(p)} className="w-8 h-8 border border-gray-200 rounded-full flex items-center justify-center hover:bg-[#0095ff] hover:text-white hover:border-[#0095ff] transition shrink-0 ml-2"><Plus className="w-4 h-4" /></button>
+                                    </div>
+                                ))}
+                                {produtos.length === 0 && <p className="text-[12px] text-gray-400 py-6 text-center">Nenhum produto encontrado</p>}
+                            </>
+                        )}
                     </div>
-                    {produtos.length > ITENS_POR_PAGINA && (
+                    {!loadingProdutos && produtos.length > ITENS_POR_PAGINA && (
                       <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
                         <button disabled={pagina===1} onClick={()=>setPagina(p=>Math.max(1,p-1))} className="h-8 px-3 rounded-full border border-gray-200 bg-white text-[12px] font-medium flex items-center gap-1 disabled:opacity-40 hover:bg-gray-50"><ChevronLeft className="w-3.5 h-3.5" /> Ant</button>
                         <div className="flex items-center gap-1.5">

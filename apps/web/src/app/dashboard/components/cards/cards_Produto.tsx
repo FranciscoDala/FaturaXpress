@@ -1,4 +1,5 @@
 import { FileText, Pencil, Trash2 } from 'lucide-react'
+import { CardsProdutosSkeleton } from '../../../../components/CardsSkeleton'
 
 interface Produto {
     id: string
@@ -33,7 +34,7 @@ export default function CardsProdutos({ produtos, loading, onEdit, onDelete, onV
         return isNaN(n)? '0' : n.toFixed(0)
     }
 
-    if (loading) return <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Carregando...</p>
+    if (loading) return <CardsProdutosSkeleton />
     if (produtos.length === 0) return <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhum produto encontrado</p>
 
     return (

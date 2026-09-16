@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Trash2, XCircle, Eye, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
+import { TabCursoSkeleton } from '../../../../components/CardsSkeleton'
 import { api } from '../../../../lib/api'
 import { getNumero, getTotal } from '../../EmitirFaturaPage'
 import ModalConfirmDelete from '../../../dashboard/components/modals/modal_ConfirmDelete'
@@ -13,7 +14,15 @@ const cleanNumero = (raw: string) => {
     return raw.replace(/PROFORMA/gi, '').replace(/\bPP\b/gi, '').replace(/\s+/g, ' ').trim()
 }
 
-export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { faturas: any[]; cliente?: any | null; empresa: any; onRefresh: () => void }) {
+interface Props {
+    faturas: any[]
+    cliente?: any | null
+    empresa: any
+    onRefresh: () => void
+    loading?: boolean
+}
+
+export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading = false }: Props) {
     const [deleteTarget, setDeleteTarget] = useState<any>(null)
     const [viewFatura, setViewFatura] = useState<any>(null)
 
@@ -41,6 +50,10 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
     if (viewFatura) {
         const cliView = cliente || { nome: viewFatura.cliente_nome || 'Cliente Avulso', nif: viewFatura.cliente_nif || '999999999', telefone: viewFatura.cliente_telefone, email: viewFatura.cliente_email, endereco: viewFatura.cliente_endereco }
         return <FaturaFolhaView fatura={viewFatura} cliente={cliView} empresa={empresa} onVoltar={() => setViewFatura(null)} />
+    }
+
+    if (loading) {
+        return <TabCursoSkeleton />
     }
 
     return (

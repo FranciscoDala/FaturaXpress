@@ -1,4 +1,5 @@
 import { FileText, Pencil, Trash2 } from 'lucide-react'
+import { TabelaClientesSkeleton } from '../../../../components/CardsSkeleton'
 
 interface Cliente {
     id: string
@@ -27,7 +28,7 @@ interface Props {
 
 export default function TabelaClientes({ clientes, loading, onEdit, onDelete, onEmitirFatura }: Props) {
     if (loading) {
-        return <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Carregando...</p>
+        return <TabelaClientesSkeleton />
     }
 
     if (clientes.length === 0) {
@@ -57,11 +58,11 @@ function ClientCard({
     onEmitirFatura: Props['onEmitirFatura']
 }) {
     const initials = cliente.nome
-       .split(' ')
-       .map((n) => n[0])
-       .join('')
-       .slice(0, 2)
-       .toUpperCase()
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase()
 
     return (
         <div className="min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">

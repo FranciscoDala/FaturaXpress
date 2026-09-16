@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { FileText, Eye, Search, ChevronDown, Check, Ban } from 'lucide-react'
 import { toast } from 'sonner'
+import { TabEmitidasSkeleton } from '../../../../components/CardsSkeleton'
 import { api } from '../../../../lib/api'
 import { getNumero, getTotal, isNotaCredito } from '../../EmitirFaturaPage'
 import FaturaFolhaView from '../../components/pdf/FaturaFolhaView'
@@ -14,7 +15,15 @@ const OPTIONS = [
     { value: 'cancelada', label: 'Canceladas' },
 ]
 
-export default function TabEmitidas({ faturas, cliente, empresa, onRefresh }: { faturas: any[]; cliente?: any | null; empresa: any; onRefresh: () => void }) {
+interface Props {
+    faturas: any[]
+    cliente?: any | null
+    empresa: any
+    onRefresh: () => void
+    loading?: boolean
+}
+
+export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, loading = false }: Props) {
     const [filtro, setFiltro] = useState('todos')
     const [viewFatura, setViewFatura] = useState<any>(null)
     const [search, setSearch] = useState('')
@@ -94,6 +103,18 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh }: { 
     if (viewFatura) {
         const cliView = cliente || { nome: viewFatura.cliente_nome || 'Cliente Avulso', nif: viewFatura.cliente_nif || '999999999', telefone: viewFatura.cliente_telefone, email: viewFatura.cliente_email, endereco: viewFatura.cliente_endereco }
         return <FaturaFolhaView fatura={viewFatura} cliente={cliView} empresa={empresa} onVoltar={() => setViewFatura(null)} />
+    }
+
+    if (loading) {
+        return (
+            <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+                <div className="flex gap-4 overflow-x-auto pb-3 mb-4 [&::-webkit-scrollbar]:hidden">
+                    <div className="min-w-full md:min-w-[320px] md:max-w-[320px] h-[46px] bg-gray-100 animate-pulse rounded-full" />
+                    <div className="min-w-full md:min-w-[320px] md:max-w-[320px] h-[46px] bg-gray-100 animate-pulse rounded-full" />
+                </div>
+                <TabEmitidasSkeleton />
+            </div>
+        )
     }
 
     return (

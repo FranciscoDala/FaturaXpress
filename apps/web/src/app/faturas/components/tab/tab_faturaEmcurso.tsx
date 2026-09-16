@@ -8,6 +8,12 @@ import FaturaFolhaView from '../../components/pdf/FaturaFolhaView'
 
 const formatEstado = (s: string) => (s || 'em_curso').replace(/_/g, ' ').toUpperCase()
 
+// só limpa o que já vem com PROFORMA / PP para não duplicar
+const cleanNumero = (raw: string) => {
+    if (!raw) return '---'
+    return raw.replace(/PROFORMA/gi, '').replace(/\bPP\b/gi, '').replace(/\s+/g, ' ').trim()
+}
+
 export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { faturas: any[]; cliente: any; empresa: any; onRefresh: () => void }) {
     const [deleteTarget, setDeleteTarget] = useState<any>(null)
     const [viewFatura, setViewFatura] = useState<any>(null)
@@ -38,7 +44,8 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {faturas.map(f => {
-                        const numero = getNumero(f)
+                        const numeroRaw = getNumero(f)
+                        const numero = cleanNumero(numeroRaw)
                         const total = getTotal(f)
                         const estado = formatEstado(f.status)
                         return (
@@ -71,7 +78,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
                     })}
                 </div>
             )}
-            <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget ? `PROFORMA PP ${getNumero(deleteTarget)}` : ''} onClose={() => setDeleteTarget(null)} onConfirm={handleApagar} title="Apagar proforma?" description="Proforma PP pode ser apagada. FT oficial só cancela - regra AGT." />
+            <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget ? `PROFORMA PP ${cleanNumero(getNumero(deleteTarget))}` : ''} onClose={() => setDeleteTarget(null)} onConfirm={handleApagar} title="Apagar proforma?" description="Proforma PP pode ser apagada. FT oficial só cancela - regra AGT." />
         </div>
     )
 }

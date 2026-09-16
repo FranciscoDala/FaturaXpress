@@ -14,6 +14,7 @@ from app.modules.fatura import service as fatura_service
 
 from sqlalchemy import extract
 from typing import Optional, Union
+import calendar
 
 from app.core.security import get_current_company_id
 from app.modules.fatura.models import Fatura
@@ -73,6 +74,7 @@ def stats(cliente_id: Optional[uuid.UUID] = None, db: Session = Depends(get_db),
     }
 
 
+
 @router.get("/saf-t")
 def gerar_saft(
     mes: Union[str, int, None] = Query(None),
@@ -107,10 +109,10 @@ def gerar_saft(
     if not company:
         raise HTTPException(404, "Empresa não encontrada")
 
-    # Pylance agora sabe que não é None
     assert company is not None
     comp_name: str = company.companyName
-    comp_nif: str = company.nif
+    # NIF tem que ter 10 dígitos na AGT
+    comp_nif: str = str(company.nif).zfill(10)
     comp_address_detail: str = company.address or "Luanda"
     comp_city: str = company.city or "Luanda"
 
@@ -124,6 +126,8 @@ def gerar_saft(
 
     if not faturas:
         raise HTTPException(404, f"Sem FT/NC com hash em {ano_int}-{mes_int:02d}")
+
+    last_day = calendar.monthrange(ano_int, mes_int)[1]
 
     root = ET.Element("AuditFile", xmlns="urn:OECD:StandardAuditFile-Tax:AO_1.04_01")
     header = ET.SubElement(root, "Header")
@@ -142,7 +146,7 @@ def gerar_saft(
 
     ET.SubElement(header, "FiscalYear").text = str(ano_int)
     ET.SubElement(header, "StartDate").text = f"{ano_int}-{mes_int:02d}-01"
-    ET.SubElement(header, "EndDate").text = f"{ano_int}-{mes_int:02d}-28"
+    ET.SubElement(header, "EndDate").text = f"{ano_int}-{mes_int:02d}-{last_day:02d}"
     ET.SubElement(header, "CurrencyCode").text = "AKZ"
     ET.SubElement(header, "DateCreated").text = datetime.now().strftime("%Y-%m-%d")
     ET.SubElement(header, "TaxEntity").text = "Global"
@@ -156,21 +160,21 @@ def gerar_saft(
     clientes_ids = list({f.cliente_id for f in faturas if f.cliente_id})
     clientes_map: dict[uuid.UUID, Cliente] = {}
     if clientes_ids:
-        # Usar filter().in_() - NÃO usar.get() que causa erro de UUID vs Column[UUID]
         clientes_db = db.query(Cliente).filter(Cliente.id.in_(clientes_ids)).all()
         clientes_map = {c.id: c for c in clientes_db} # type: ignore
 
     for cid in clientes_ids:
         cli = clientes_map.get(cid) # type: ignore
         cust = ET.SubElement(mf, "Customer")
-        ET.SubElement(cust, "CustomerID").text = str(cid)[:30]
+        # FIX: sem [:30] para não cortar UUID
+        ET.SubElement(cust, "CustomerID").text = str(cid)
         ET.SubElement(cust, "AccountID").text = "Desconhecido"
 
         if cli is not None:
             c_nif = getattr(cli, "nif", "999999999") or "999999999"
             c_nome = getattr(cli, "nome", None) or getattr(cli, "name", "Consumidor Final")
             c_addr_det = getattr(cli, "address", None) or getattr(cli, "endereco", "Luanda") or "Luanda"
-            ET.SubElement(cust, "CustomerTaxID").text = c_nif
+            ET.SubElement(cust, "CustomerTaxID").text = str(c_nif)
             ET.SubElement(cust, "CompanyName").text = str(c_nome)[:60]
             baddr = ET.SubElement(cust, "BillingAddress")
             ET.SubElement(baddr, "AddressDetail").text = str(c_addr_det)
@@ -197,10 +201,10 @@ def gerar_saft(
     for nome, it in produtos_seen.items():
         prod = ET.SubElement(mf, "Product")
         ET.SubElement(prod, "ProductType").text = "P"
-        ET.SubElement(prod, "ProductCode").text = (str(it.produto_id)[:30] if it.produto_id else nome[:30])
+        ET.SubElement(prod, "ProductCode").text = str(it.produto_id) if it.produto_id else nome[:60]
         ET.SubElement(prod, "ProductGroup").text = "Produtos"
         ET.SubElement(prod, "ProductDescription").text = nome[:60]
-        ET.SubElement(prod, "ProductNumberCode").text = nome[:30]
+        ET.SubElement(prod, "ProductNumberCode").text = nome[:60]
 
     tax_table = ET.SubElement(mf, "TaxTable")
     for code, perc, desc in [("NOR", "14", "IVA Normal"), ("ISE", "0", "Isento")]:
@@ -232,12 +236,12 @@ def gerar_saft(
         ET.SubElement(inv, "InvoiceType").text = "FT" if f.tipo_documento == "fatura" else "NC"
         ET.SubElement(inv, "SelfBillingIndicator").text = "0"
         ET.SubElement(inv, "SystemEntryDate").text = f.created_at.strftime("%Y-%m-%dT%H:%M:%S") if f.created_at else f.data_emissao.strftime("%Y-%m-%dT%H:%M:%S")
-        ET.SubElement(inv, "CustomerID").text = str(f.cliente_id)[:30]
+        ET.SubElement(inv, "CustomerID").text = str(f.cliente_id)
 
         for idx, item in enumerate(f.itens, 1):
             line = ET.SubElement(inv, "Line")
             ET.SubElement(line, "LineNumber").text = str(idx)
-            ET.SubElement(line, "ProductCode").text = (str(item.produto_id)[:30] if item.produto_id else item.nome_snapshot[:30])
+            ET.SubElement(line, "ProductCode").text = str(item.produto_id) if item.produto_id else item.nome_snapshot[:60]
             ET.SubElement(line, "ProductDescription").text = item.nome_snapshot
             ET.SubElement(line, "Quantity").text = f"{float(item.quantidade):.2f}"
             ET.SubElement(line, "UnitOfMeasure").text = "UN"
@@ -272,7 +276,6 @@ def gerar_saft(
         media_type="application/xml",
         headers={"Content-Disposition": f"attachment; filename=SAFT-AO-{ano_int}-{mes_int:02d}.xml"},
     )
-
 
 
 @router.get("/numero/{numero}", response_model=FaturaResponse)

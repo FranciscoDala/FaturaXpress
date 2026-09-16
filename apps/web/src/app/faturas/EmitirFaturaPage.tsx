@@ -1,8 +1,6 @@
-import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
-import { EmitirFaturaSkeleton } from '../../components/EmitirFaturaSkeleton'
-import { useRealtime } from '../../hooks/useRealtime'
 import { api } from '../../lib/api'
 import TabEmitir from './components/tab/tab_faturaEmitir'
 import TabCurso from './components/tab/tab_faturaEmcurso'
@@ -19,38 +17,15 @@ export const isNotaCredito = (f: any) => f?.tipo_documento === 'nota_credito'
 
 const VALID_TABS: Tab[] = ['emitir', 'curso', 'emitidas']
 
-// lê cliente_id de qualquer lugar (antes do # ou depois do #)
-function getClienteIdFromUrl(): string | null {
-    const outer = new URLSearchParams(window.location.search).get('cliente_id')
-    if (outer) return outer
-    const hash = window.location.hash
-    if (hash.includes('?')) {
-        const qs = hash.split('?')[1]
-        return new URLSearchParams(qs).get('cliente_id')
-    }
-    return null
-}
-function getTabFromUrl(): Tab | null {
-    const hash = window.location.hash
-    if (hash.includes('tab=')) {
-        const qs = hash.split('?')[1] || ''
-        const t = new URLSearchParams(qs).get('tab') as Tab | null
-        if (t && VALID_TABS.includes(t)) return t
-    }
-    const outer = new URLSearchParams(window.location.search).get('tab') as Tab | null
-    if (outer && VALID_TABS.includes(outer)) return outer
-    return null
-}
-
 export default function EmitirFaturaPage() {
     const navigate = useNavigate()
-    const clienteId = getClienteIdFromUrl()
-
+    const [searchParams, setSearchParams] = useSearchParams()
+    const clienteId = searchParams.get('cliente_id')
     const [cliente, setCliente] = useState<Cliente | null>(null)
     const [empresa, setEmpresa] = useState<any>(null)
     const [activeTab, setActiveTab] = useState<Tab>(() => {
-        const tabUrl = getTabFromUrl()
-        if (tabUrl) return tabUrl
+        const tabUrl = searchParams.get('tab') as Tab | null
+        if (tabUrl && VALID_TABS.includes(tabUrl)) return tabUrl
         if (clienteId) {
             const saved = localStorage.getItem(`fatura_tab_${clienteId}`) as Tab | null
             if (saved && VALID_TABS.includes(saved)) return saved
@@ -60,43 +35,15 @@ export default function EmitirFaturaPage() {
     const [faturasCurso, setFaturasCurso] = useState<any[]>([])
     const [faturasEmitidas, setFaturasEmitidas] = useState<any[]>([])
     const [loadingCounts, setLoadingCounts] = useState(true)
-    const [loadingEmpresa, setLoadingEmpresa] = useState(true)
-
-    const fetchFaturas = useCallback(async () => {
-        if (!clienteId) return
-        try {
-            setLoadingCounts(true)
-            const res = await api.get('/api/faturas', { params: { cliente_id: clienteId, limit: 100 } })
-            const all = Array.isArray(res.data)? res.data : (res.data.items || [])
-            setFaturasCurso(all.filter((f: any) => {
-                const tipo = String(f.tipo_documento || '').toLowerCase()
-                const st = String(f.status || '').toLowerCase()
-                return (tipo.includes('proforma') || tipo === 'pp') && ['rascunho', 'pendente', 'em_curso', 'em curso'].includes(st)
-            }))
-            setFaturasEmitidas(all.filter((f: any) => {
-                const tipo = String(f.tipo_documento || '').toLowerCase()
-                const st = String(f.status || '').toLowerCase()
-                return tipo.includes('fatura') || tipo.includes('nota') || tipo === 'ft' || tipo === 'nc' || ['concluida', 'emitida', 'cancelada', 'emitida_ft'].includes(st)
-            }))
-        } catch { }
-        finally { setLoadingCounts(false) }
-    }, [clienteId])
-
-    const handleRealtime = useCallback((msg: any) => {
-        if (msg.event === 'faturas:changed') fetchFaturas()
-    }, [fetchFaturas])
-
-    useRealtime({ onEvent: handleRealtime })
 
     useEffect(() => {
         if (clienteId) {
             api.get(`/api/clientes/${clienteId}`).then(r => setCliente(r.data)).catch(() => setCliente(null))
         }
-        setLoadingEmpresa(true)
         api.get('/api/auth/me').then(r => {
             const comp = r.data.company || r.data
             setEmpresa({
-             ...comp,
+               ...comp,
                 nome: comp.nome || comp.companyName,
                 endereco: comp.endereco || comp.address,
                 cidade: comp.cidade || comp.city,
@@ -111,29 +58,50 @@ export default function EmitirFaturaPage() {
             })
         }).catch(() => {
             setEmpresa({ nome: 'FaturaXpress', nif: '---', endereco: 'Luanda' })
-        }).finally(() => {
-            setLoadingEmpresa(false)
         })
+    }, [clienteId, navigate])
+
+    useEffect(() => {
+        if (!clienteId) return
+        const tabUrl = searchParams.get('tab') as Tab | null
+        if (tabUrl && VALID_TABS.includes(tabUrl)) {
+            setActiveTab(tabUrl)
+            localStorage.setItem(`fatura_tab_${clienteId}`, tabUrl)
+        } else {
+            const saved = localStorage.getItem(`fatura_tab_${clienteId}`) as Tab | null
+            if (saved && VALID_TABS.includes(saved)) {
+                setActiveTab(saved)
+                const newParams = new URLSearchParams(searchParams)
+                newParams.set('tab', saved)
+                setSearchParams(newParams, { replace: true })
+            }
+        }
     }, [clienteId])
 
-    // só guarda no localStorage, NÃO mexe mais na URL (resolve #310)
     useEffect(() => {
         if (!clienteId) return
         localStorage.setItem(`fatura_tab_${clienteId}`, activeTab)
-    }, [activeTab, clienteId])
+        const newParams = new URLSearchParams(searchParams)
+        newParams.set('tab', activeTab)
+        if (clienteId) newParams.set('cliente_id', clienteId)
+        setSearchParams(newParams, { replace: true })
+    }, [activeTab])
+
+    const fetchFaturas = async () => {
+        if (!clienteId) return
+        try {
+            setLoadingCounts(true)
+            const res = await api.get('/api/faturas', { params: { cliente_id: clienteId, limit: 100 } })
+            const all = Array.isArray(res.data)? res.data : (res.data.items || [])
+            setFaturasCurso(all.filter((f: any) => f.tipo_documento === 'proforma' && ['rascunho', 'pendente', 'em_curso'].includes(f.status)))
+            setFaturasEmitidas(all.filter((f: any) => f.tipo_documento === 'fatura' || f.tipo_documento === 'nota_credito' || ['concluida', 'emitida', 'cancelada'].includes(f.status)))
+        } catch { }
+        finally { setLoadingCounts(false) }
+    }
 
     useEffect(() => {
         if (clienteId) fetchFaturas()
-    }, [clienteId, fetchFaturas])
-
-    const isInitialLoading = loadingEmpresa &&!empresa
-    if (isInitialLoading) {
-        return (
-            <div className="min-h-screen bg-white">
-                <EmitirFaturaSkeleton />
-            </div>
-        )
-    }
+    }, [clienteId])
 
     return (
         <div className="min-h-screen bg-white">
@@ -149,7 +117,7 @@ export default function EmitirFaturaPage() {
                     </div>
                     <div className="relative z-10 flex flex-col md:flex-row gap-5 items-start text-left">
                         <div className="w-[96px] h-[96px] sm:w-[132px] sm:h-[132px] rounded-full overflow-hidden bg-gray-200 border-[6px] border-white shadow-sm shrink-0 self-start">
-                            <img src={empresa?.logo_url || empresa?.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(cliente?.nome || 'Avulso')}&background=E5E7EB&color=374151&size=132}`} className="w-full h-full object-cover" alt={cliente?.nome || 'Avulso'} />
+                            <img src={empresa?.logo_url || empresa?.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(cliente?.nome || 'Avulso')}&background=E5E7EB&color=374151&size=132`} className="w-full h-full object-cover" alt={cliente?.nome || 'Avulso'} />
                         </div>
                         <div className="flex-1 w-full">
                             <div className="flex flex-row justify-between items-start gap-4 w-full">
@@ -161,13 +129,13 @@ export default function EmitirFaturaPage() {
                                     </div>
                                     <div className="mt-3 space-y-1 text-[13px] text-[#4a5568] text-left">
                                         {cliente? (
-                                            <>
-                                                <p>{cliente.email}</p>
-                                                <p>{cliente.telefone}</p>
-                                                <p>{cliente.cidade? `${cliente.endereco} - ${cliente.cidade}` : cliente.endereco}</p>
-                                            </>
+                                          <>
+                                            <p>{cliente.email}</p>
+                                            <p>{cliente.telefone}</p>
+                                            <p>{cliente.cidade? `${cliente.endereco} - ${cliente.cidade}` : cliente.endereco}</p>
+                                          </>
                                         ) : (
-                                            <p className="text-gray-500">Sem cadastro - preencha nome/NIF na emissão. Pode salvar depois.</p>
+                                          <p className="text-gray-500">Sem cadastro - preencha nome/NIF na emissão. Pode salvar depois.</p>
                                         )}
                                     </div>
                                 </div>
@@ -177,37 +145,50 @@ export default function EmitirFaturaPage() {
                                 </button>
                             </div>
                             {clienteId? (
-                                <div className="mt-6 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
-                                    <button onClick={() => { setLoadingCounts(true); setActiveTab('curso'); fetchFaturas(); }} className={`flex-1 py-2 ${activeTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                        <p className="text-[13px] font-bold">{loadingCounts? '...' : faturasCurso.length}</p>
-                                        <p className="text-[11px] text-gray-500">Proformas PP</p>
-                                    </button>
-                                    <button onClick={() => { setLoadingCounts(true); setActiveTab('emitidas'); fetchFaturas(); }} className={`flex-1 py-2 border-l ${activeTab === 'emitidas'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                        <p className="text-[13px] font-bold">{loadingCounts? '...' : faturasEmitidas.length}</p>
-                                        <p className="text-[11px] text-gray-500">Faturas FT + NC</p>
-                                    </button>
-                                    <button onClick={() => setActiveTab('emitir')} className={`flex-[1.2] border-l text-[13px] font-semibold ${activeTab === 'emitir'? 'bg-[#0095ff] text-white' : 'bg-[#8ecfff] text-white'}`}>+ Emitir Fatura</button>
-                                </div>
+                            <div className="mt-6 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
+                                <button onClick={() => setActiveTab('curso')} className={`flex-1 py-2 ${activeTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                    <p className="text-[13px] font-bold">{loadingCounts? '...' : faturasCurso.length}</p>
+                                    <p className="text-[11px] text-gray-500">Proformas PP</p>
+                                </button>
+                                <button onClick={() => setActiveTab('emitidas')} className={`flex-1 py-2 border-l ${activeTab === 'emitidas'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                    <p className="text-[13px] font-bold">{loadingCounts? '...' : faturasEmitidas.length}</p>
+                                    <p className="text-[11px] text-gray-500">Faturas FT + NC</p>
+                                </button>
+                                <button onClick={() => setActiveTab('emitir')} className={`flex-[1.2] border-l text-[13px] font-semibold ${activeTab === 'emitir'? 'bg-[#0095ff] text-white' : 'bg-[#8ecfff] text-white'}`}>+ Emitir Fatura</button>
+                            </div>
                             ) : (
-                                <div className="mt-6 bg-white/80 border rounded-[3px] p-2 max-w-[520px] text-[11px] text-gray-600">Modo Avulso: emissão rápida sem precisar salvar cliente</div>
+                            <div className="mt-6 bg-white/80 border rounded-[3px] p-2 max-w-[520px] text-[11px] text-gray-600">Modo Avulso: emissão rápida sem precisar salvar cliente</div>
                             )}
                         </div>
                     </div>
                     <style>{`
-       .bubble { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border: 1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-       .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
-       .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
-       .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
-       .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
-       .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
-       .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
-        @keyframes floatBubble { 0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.55; } 25% { transform: translateY(-15px) translateX(10px) scale(1.05); opacity: 0.85; } 50% { transform: translateY(-25px) translateX(-5px) scale(0.95); opacity: 0.45; } 75% { transform: translateY(-10px) translateX(-10px) scale(1.02); opacity: 0.7; } }
+               .bubble {
+                            position: absolute;
+                            border-radius: 50%;
+                            background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%);
+                            border: 1px solid rgba(0,149,255,0.14);
+                            box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10);
+                            animation: floatBubble 8s infinite ease-in-out;
+                            will-change: transform;
+                        }
+               .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
+               .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
+               .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
+               .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
+               .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
+               .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
+                        @keyframes floatBubble {
+                            0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.55; }
+                            25% { transform: translateY(-15px) translateX(10px) scale(1.05); opacity: 0.85; }
+                            50% { transform: translateY(-25px) translateX(-5px) scale(0.95); opacity: 0.45; }
+                            75% { transform: translateY(-10px) translateX(-10px) scale(1.02); opacity: 0.7; }
+                        }
                     `}</style>
                 </div>
                 <div className="w-full py-6">
-                    {(activeTab === 'emitir' ||!clienteId) && <TabEmitir clienteId={clienteId || undefined} onEmitida={() => { if (clienteId) { fetchFaturas(); setActiveTab('curso'); } else { navigate('/app/dashboard') } }} />}
-                    {clienteId && activeTab === 'curso' && <TabCurso faturas={faturasCurso} loading={loadingCounts} cliente={cliente!} empresa={empresa} onRefresh={fetchFaturas} />}
-                    {clienteId && activeTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} loading={loadingCounts} cliente={cliente!} empresa={empresa} onRefresh={fetchFaturas} />}
+                    {(activeTab === 'emitir' ||!clienteId) && <TabEmitir clienteId={clienteId || undefined} onEmitida={() => { if(clienteId){ fetchFaturas(); setActiveTab('curso'); } else { navigate('/app/dashboard') } }} />}
+                    {clienteId && activeTab === 'curso' && <TabCurso faturas={faturasCurso} cliente={cliente!} empresa={empresa} onRefresh={fetchFaturas} />}
+                    {clienteId && activeTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} cliente={cliente!} empresa={empresa} onRefresh={fetchFaturas} />}
                 </div>
             </div>
         </div>

@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef } from 'react'
-import { Plus, Trash2, Search, Star, ChevronDown, Check } from 'lucide-react'
+import { Plus, Trash2, Search, Star, ChevronDown, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../../../../lib/api'
 
-interface Produto { id: string; nome: string; preco: number; iva: number }
+interface Produto { id: string; nome: string; preco: number; iva: number; quantidade: number }
 
 const OPTIONS_TIPO = [
   { value: 'proforma', label: 'PP - Proforma (sem fiscal)' },
@@ -26,6 +26,8 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
     const [observacoes, setObservacoes] = useState('')
     const [openTipo, setOpenTipo] = useState(false)
     const [openPag, setOpenPag] = useState(false)
+    const [pagina, setPagina] = useState(1)
+    const ITENS_POR_PAGINA = 5
     const refTipo = useRef<HTMLDivElement>(null)
     const refPag = useRef<HTMLDivElement>(null)
 
@@ -39,11 +41,21 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
     }, [])
 
     useEffect(() => {
-        api.get('/api/produtos', { params: { search: busca, limit: 40 } }).then(r => {
+        api.get('/api/produtos', { params: { search: busca, limit: 100 } }).then(r => {
             const raw = r.data.items || r.data || []
-            setProdutos(raw.map((p: any) => ({ id: p.id, nome: p.nome, preco: typeof p.preco_venda === 'string'? parseFloat(p.preco_venda) : p.preco_venda || 0, iva: p.iva?? 14 })))
+            setProdutos(raw.map((p: any) => ({
+              id: p.id,
+              nome: p.nome,
+              preco: typeof p.preco_venda === 'string'? parseFloat(p.preco_venda) : p.preco_venda || 0,
+              iva: p.iva?? 14,
+              quantidade: p.quantidade?? p.quantidade_disponivel?? p.stock?? p.estoque?? p.qtd?? 0
+            })))
+            setPagina(1)
         })
     }, [busca])
+
+    const totalPaginas = Math.ceil(produtos.length / ITENS_POR_PAGINA) || 1
+    const produtosPaginados = produtos.slice((pagina - 1) * ITENS_POR_PAGINA, pagina * ITENS_POR_PAGINA)
 
     const addItem = (p: Produto) => {
         setItens(prev => {
@@ -76,7 +88,7 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
     return (
         <div className="-full px-4 sm:px-0 lg:px-0 mt-0">
             <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 px-5 py-4 flex flex-wrap gap-3 mb-4 w-full">
-                <span className="text-[11px] font-bold text-gray-900">Itens:</span>
+                <span className="text-[11px] font-bold text-gray-900 uppercase">ITENS:</span>
                 {itens.length === 0? <span className="text-[11px] text-gray-400">Nenhum</span> : itens.map(it => (
                     <span key={it.produto_id} className="bg-[#ff7a00] text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1 shadow-sm">{it.nome.toUpperCase()} x{it.quantidade} <Star className="w-3 h-3 fill-white" /></span>
                 ))}
@@ -107,18 +119,35 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
                         <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar produto..." className="w-full pl-11 pr-4 h-[46px] bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
                     </div>
-                    <div className="max-h-[360px] overflow-auto divide-y divide-gray-100 pr-1">
-                        {produtos.map(p => (
-                            <div key={p.id} className="flex justify-between items-center py-3.5">
-                                <div><p className="text-[13.5px] font-medium text-gray-900">{p.nome}</p><p className="text-[11.5px] text-gray-500 mt-0.5">{p.preco.toFixed(2)} KZ - IVA {p.iva}%</p></div>
-                                <button onClick={() => addItem(p)} className="w-8 h-8 border border-gray-200 rounded-full flex items-center justify-center hover:bg-[#0095ff] hover:text-white hover:border-[#0095ff] transition"><Plus className="w-4 h-4" /></button>
+                    <div className="max-h-[380px] overflow-auto pr-1 space-y-2">
+                        {produtosPaginados.map(p => (
+                            <div key={p.id} className="flex justify-between items-center py-3.5 px-4 bg-white border border-gray-200 rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+                                <div><p className="text-[13.5px] font-medium text-gray-900">{p.nome}</p><p className="text-[11.5px] text-gray-500 mt-0.5">{p.preco.toFixed(2)} KZ - IVA {p.iva}% | Quant - {p.quantidade}</p></div>
+                                <button onClick={() => addItem(p)} className="w-8 h-8 border border-gray-200 rounded-full flex items-center justify-center hover:bg-[#0095ff] hover:text-white hover:border-[#0095ff] transition shrink-0 ml-2"><Plus className="w-4 h-4" /></button>
                             </div>
                         ))}
+                        {produtos.length === 0 && <p className="text-[12px] text-gray-400 py-6 text-center">Nenhum produto encontrado</p>}
                     </div>
+                    {produtos.length > ITENS_POR_PAGINA && (
+                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+                        <button disabled={pagina===1} onClick={()=>setPagina(p=>Math.max(1,p-1))} className="h-8 px-3 rounded-full border border-gray-200 bg-white text-[12px] font-medium flex items-center gap-1 disabled:opacity-40 hover:bg-gray-50"><ChevronLeft className="w-3.5 h-3.5" /> Ant</button>
+                        <div className="flex items-center gap-1.5">
+                          {Array.from({length: totalPaginas}).map((_,i)=>{
+                            const num = i+1
+                            if (totalPaginas>5 && Math.abs(num-pagina)>2 && num!==1 && num!==totalPaginas) {
+                              if (num===2 || num===totalPaginas-1) return <span key={num} className="text-[11px] text-gray-400 px-1">...</span>
+                              return null
+                            }
+                            return <button key={num} onClick={()=>setPagina(num)} className={`w-8 h-8 rounded-full text-[12px] font-bold transition ${pagina===num? 'bg-[#0095ff] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>{num}</button>
+                          })}
+                        </div>
+                        <button disabled={pagina===totalPaginas} onClick={()=>setPagina(p=>Math.min(totalPaginas,p+1))} className="h-8 px-3 rounded-full border border-gray-200 bg-white text-[12px] font-medium flex items-center gap-1 disabled:opacity-40 hover:bg-gray-50">Prox <ChevronRight className="w-3.5 h-3.5" /></button>
+                      </div>
+                    )}
                 </div>
 
                 <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 p-6 h-fit">
-                    <h3 className="text-[13px] font-bold text-gray-900 mb-4">Resumo AGT</h3>
+                    {/* <h3 className="text-[13px] font-bold text-gray-900 mb-4">Resumo AGT</h3> */}
 
                     {/* SELECT FORMA PAG - ESTILO CARD */}
                     <div ref={refPag} className="relative w-full z-10 mb-3">

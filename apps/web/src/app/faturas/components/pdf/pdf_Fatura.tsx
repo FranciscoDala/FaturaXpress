@@ -91,11 +91,18 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
     const isOficial = fatura?.tipo_documento === 'fatura'
     const isNC = isNotaCredito(fatura)
 
-    // QR AGT Angola padrão: NIF*NrFatura*Data*Total*Hash
+    // QR AGT Angola oficial Decreto 123/19 - formato fiscal
     const dataEmissao = fatura?.data_emissao || fatura?.created_at
     const numeroDoc = isNC? fatura.numero_nota_credito : fatura?.numero_fatura || getNumero(fatura)
+    const dataISO = dataEmissao? new Date(dataEmissao).toISOString().split('T')[0] : ''
+    const tipoDoc = isNC? 'NC' : 'FT'
+    const nifCliente = cliente?.nif || '999999999'
+    const totalGeral = Number(fatura?.total_geral || totais.pagar || 0).toFixed(2)
+    const totalIva = Number(fatura?.total_iva || totais.iva || 0).toFixed(2)
+    const totalBase = Number(fatura?.subtotal || totais.liquido || 0).toFixed(2)
+
     const qrContent = (isOficial || isNC)
-       ? `${emp.nif}*${numeroDoc}*${dataEmissao? new Date(dataEmissao).toISOString().split('T')[0] : ''}*${Number(fatura.total_geral).toFixed(2)}*${fatura.hash_agt || ''}`
+      ? `A:${(emp.nif||'').toString().padStart(10,'0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco||'Luanda').slice(0,35)}*L1:${emp.cidade||'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior||''}`
         : `${getNumero(fatura)}|${fatura?.id}`
 
     const tituloDoc = isNC? 'NOTA DE CRÉDITO' : isOficial? 'FACTURA' : 'FACTURA PROFORMA'

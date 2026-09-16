@@ -293,7 +293,7 @@ export default function DashboardPage() {
 
                 {openNovo && (
                     <div data-novo-dropdown style={{ top: novoDropdownPos.top, left: novoDropdownPos.left, width: novoDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999]">
-                        <p className="px-4 pt-2 pb-1 text-[10px] font-bold text-black tracking-widest">VISUALIZAR</p>
+                        {/*<p className="px-4 pt-2 pb-1 text-[10px] font-bold text-black tracking-widest">VISUALIZAR</p>*/}
                         <button onClick={() => handleNovoAction('ver_faturas')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'faturas' ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
                             <Receipt className="w-4 h-4 text-black" /> Ver Faturas PP/FT
                         </button>
@@ -301,7 +301,7 @@ export default function DashboardPage() {
                             <Database className="w-4 h-4 text-black" /> Ver Registros
                         </button>
                         <div className="h-[1px] bg-gray-200 my-2 mx-2" />
-                        <p className="px-4 pt-1 pb-1 text-[10px] font-bold text-black tracking-widest">CRIAR / EXPORTAR</p>
+                        {/*<p className="px-4 pt-1 pb-1 text-[10px] font-bold text-black tracking-widest">CRIAR / EXPORTAR</p>*/}
                         <button onClick={() => handleNovoAction('emitir')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-100 text-black">
                             <Receipt className="w-4 h-4 text-black" /> Emitir Fatura (Avulso)
                         </button>

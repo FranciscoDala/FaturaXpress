@@ -46,16 +46,43 @@ interface Props {
     onSave: (data: EmpresaForm & { logoFile?: File | null }) => void
 }
 
+function BancoSelect({ value, onChange, placeholder }: { value?: string, onChange: (v: string | undefined) => void, placeholder: string }) {
+    const [open, setOpen] = useState(false)
+    const ref = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        const h = (e: MouseEvent) => { if (ref.current &&!ref.current.contains(e.target as Node)) setOpen(false) }
+        document.addEventListener('mousedown', h)
+        return () => document.removeEventListener('mousedown', h)
+    }, [])
+
+    return (
+        <div ref={ref} className="relative w-full">
+            <button type="button" onClick={() => setOpen(!open)} className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black flex items-center justify-between focus:outline-none focus:border-[#0095ff] transition">
+                <span className="flex items-center gap-2 truncate">
+                    <Landmark className="w-4 h-4 text-gray-500 shrink-0" />
+                    <span className={value? 'text-black' : 'text-black/40'}>{value || placeholder}</span>
+                </span>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open? 'rotate-180' : ''}`} />
+            </button>
+            {open && (
+                <div className="absolute z-50 top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5 max-h-[220px] overflow-y-auto no-scrollbar">
+                    {BANCOS_ANGOLA.map(b => (
+                        <button key={b} type="button" onClick={() => { onChange(b); setOpen(false) }} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[12.5px] flex items-center justify-between transition ${value === b? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-50 text-gray-700'}`}>
+                            {b} {value === b && <Check className="w-4 h-4 text-[#0095ff]" />}
+                        </button>
+                    ))}
+                    <button type="button" onClick={() => { onChange(undefined); setOpen(false) }} className="w-full text-left px-3 py-2.5 rounded-[10px] text-[12.5px] text-red-500 hover:bg-red-50">Limpar seleção</button>
+                </div>
+            )}
+        </div>
+    )
+}
+
 export default function ModalEmpresa({ open, initialData, saving, onClose, onSave }: Props) {
     const [form, setForm] = useState<EmpresaForm>(initialData)
     const [logoFile, setLogoFile] = useState<File | null>(null)
     const [logoPreview, setLogoPreview] = useState<string | null>(null)
-    const [openBanco1, setOpenBanco1] = useState(false)
-    const [openBanco2, setOpenBanco2] = useState(false)
-    const [banco1Pos, setBanco1Pos] = useState({ top: 0, left: 0, width: 0 })
-    const [banco2Pos, setBanco2Pos] = useState({ top: 0, left: 0, width: 0 })
-    const btnBanco1Ref = useRef<HTMLButtonElement>(null)
-    const btnBanco2Ref = useRef<HTMLButtonElement>(null)
 
     useEffect(() => {
         if (open) {
@@ -65,44 +92,9 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
         }
     }, [initialData, open])
 
-    useEffect(() => {
-        const handleResize = () => {
-            if (btnBanco1Ref.current) {
-                const r = btnBanco1Ref.current.getBoundingClientRect()
-                setBanco1Pos({ top: r.bottom + 8, left: r.left, width: r.width })
-            }
-            if (btnBanco2Ref.current) {
-                const r = btnBanco2Ref.current.getBoundingClientRect()
-                setBanco2Pos({ top: r.bottom + 8, left: r.left, width: r.width })
-            }
-        }
-        if (openBanco1 || openBanco2) {
-            handleResize()
-            window.addEventListener('scroll', handleResize, true)
-            window.addEventListener('resize', handleResize)
-            return () => {
-                window.removeEventListener('scroll', handleResize, true)
-                window.removeEventListener('resize', handleResize)
-            }
-        }
-    }, [openBanco1, openBanco2])
-
-    useEffect(() => {
-        const close = (e: MouseEvent) => {
-            const t = e.target as HTMLElement
-            if (!t.closest('[data-banco-dropdown]') &&!t.closest('[data-banco-btn]')) {
-                setOpenBanco1(false)
-                setOpenBanco2(false)
-            }
-        }
-        if (openBanco1 || openBanco2) document.addEventListener('mousedown', close)
-        return () => document.removeEventListener('mousedown', close)
-    }, [openBanco1, openBanco2])
-
     if (!open) return null
 
     const inputClass = "w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black placeholder:text-black/40 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition"
-    const selectBtnClass = "w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black flex items-center justify-between focus:outline-none focus:border-[#0095ff] transition"
 
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -121,6 +113,7 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <div className="relative bg-white rounded-[24px] w-full max-w-[560px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-h-[92vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                {/* HEADER FIXO */}
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF] shrink-0">
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center">
                         <Building2 className="w-4 h-4 text-[#0095ff]" />
@@ -136,12 +129,13 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
+                    {/* CONTEUDO COM SCROLL INVISIVEL */}
                     <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-4">
                         <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
 
-                        <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-[2px]">
                             {/* LOGO */}
-                            <div className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-100 rounded-[16px]">
+                            <div className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-100 rounded-[16px] mb-2">
                                 <div className="w-14 h-14 rounded-[12px] bg-white border flex items-center justify-center overflow-hidden shrink-0">
                                     {logoPreview? <img src={logoPreview} className="w-full h-full object-cover" /> : <Upload className="w-5 h-5 text-gray-400" />}
                                 </div>
@@ -157,7 +151,7 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
 
                             <input value={form.companyName} onChange={e => setForm({...form, companyName: e.target.value })} placeholder="Nome da empresa *" required className={inputClass} />
 
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-2 gap-[2px]">
                                 <input value={form.nif} onChange={e => setForm({...form, nif: e.target.value })} placeholder="NIF" className={inputClass} />
                                 <input value={form.phone} onChange={e => setForm({...form, phone: e.target.value })} placeholder="Telefone" className={inputClass} />
                             </div>
@@ -165,31 +159,25 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
                             <input value={form.email} type="email" onChange={e => setForm({...form, email: e.target.value })} placeholder="Email" className={inputClass} />
                             <input value={form.address} onChange={e => setForm({...form, address: e.target.value })} placeholder="Endereço" className={inputClass} />
 
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-2 gap-[2px]">
                                 <input value={form.city} onChange={e => setForm({...form, city: e.target.value })} placeholder="Cidade" className={inputClass} />
                                 <input value={form.province} onChange={e => setForm({...form, province: e.target.value })} placeholder="Província" className={inputClass} />
                             </div>
 
-                            <div className="h-[1px] bg-gray-100 my-1" />
-                            <p className="text-[11px] font-bold tracking-widest text-black">DADOS BANCÁRIOS</p>
+                            <div className="h-[1px] bg-gray-100 my-3" />
+                            <p className="text-[11px] font-bold tracking-widest text-black mb-2">DADOS BANCÁRIOS</p>
 
                             {/* BANCO 1 */}
-                            <div className="flex flex-col gap-2">
-                                <button ref={btnBanco1Ref} data-banco-btn type="button" onClick={() => { setOpenBanco1(!openBanco1); setOpenBanco2(false) }} className={selectBtnClass}>
-                                    <span className="flex items-center gap-2 truncate"><Landmark className="w-4 h-4 text-gray-500" />{form.banco1 || "Selecionar banco 1"}</span>
-                                    <ChevronDown className={`w-4 h-4 text-gray-500 transition ${openBanco1? 'rotate-180' : ''}`} />
-                                </button>
+                            <div className="flex flex-col gap-[2px]">
+                                <BancoSelect value={form.banco1} onChange={(v) => setForm({...form, banco1: v, iban: v? form.iban : '' })} placeholder="Selecionar banco 1" />
                                 {form.banco1 && (
                                     <input value={form.iban || ''} onChange={e => setForm({...form, iban: e.target.value })} placeholder={`IBAN - ${form.banco1.split('-')[0].trim()}`} className={inputClass} />
                                 )}
                             </div>
 
                             {/* BANCO 2 */}
-                            <div className="flex flex-col gap-2">
-                                <button ref={btnBanco2Ref} data-banco-btn type="button" onClick={() => { setOpenBanco2(!openBanco2); setOpenBanco1(false) }} className={selectBtnClass}>
-                                    <span className="flex items-center gap-2 truncate"><Landmark className="w-4 h-4 text-gray-500" />{form.banco2 || "Selecionar banco 2 (opcional)"}</span>
-                                    <ChevronDown className={`w-4 h-4 text-gray-500 transition ${openBanco2? 'rotate-180' : ''}`} />
-                                </button>
+                            <div className="flex flex-col gap-[2px] mt-[2px]">
+                                <BancoSelect value={form.banco2} onChange={(v) => setForm({...form, banco2: v, iban2: v? form.iban2 : '' })} placeholder="Selecionar banco 2 (opcional)" />
                                 {form.banco2 && (
                                     <input value={form.iban2 || ''} onChange={e => setForm({...form, iban2: e.target.value })} placeholder={`IBAN - ${form.banco2.split('-')[0].trim()}`} className={inputClass} />
                                 )}
@@ -197,7 +185,8 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
                         </div>
                     </div>
 
-                    <div className="shrink-0 px-6 py-4 border-t border-gray-100 bg-white flex gap-2">
+                    {/* FOOTER FIXO */}
+                    <div className="shrink-0 px-6 py-4 border-t border-gray-100 bg-white flex gap-[2px]">
                         <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50">
                             <X className="w-5 h-5 text-gray-600" />
                         </button>
@@ -207,23 +196,6 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
                     </div>
                 </form>
             </div>
-
-            {openBanco1 && (
-                <div data-banco-dropdown style={{ top: banco1Pos.top, left: banco1Pos.left, width: banco1Pos.width }} className="fixed bg-white rounded-[16px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999] max-h-[280px] overflow-y-auto">
-                    {BANCOS_ANGOLA.map(b => (
-                        <button key={b} onClick={() => { setForm({...form, banco1: b }); setOpenBanco1(false) }} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[12.5px] transition ${form.banco1 === b? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>{b}</button>
-                    ))}
-                    <button onClick={() => { setForm({...form, banco1: undefined, iban: '' }); setOpenBanco1(false) }} className="w-full text-left px-3 py-2.5 rounded-[10px] text-[12.5px] text-red-500 hover:bg-red-50">Limpar</button>
-                </div>
-            )}
-            {openBanco2 && (
-                <div data-banco-dropdown style={{ top: banco2Pos.top, left: banco2Pos.left, width: banco2Pos.width }} className="fixed bg-white rounded-[16px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999] max-h-[280px] overflow-y-auto">
-                    {BANCOS_ANGOLA.map(b => (
-                        <button key={b} onClick={() => { setForm({...form, banco2: b }); setOpenBanco2(false) }} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[12.5px] transition ${form.banco2 === b? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>{b}</button>
-                    ))}
-                    <button onClick={() => { setForm({...form, banco2: undefined, iban2: '' }); setOpenBanco2(false) }} className="w-full text-left px-3 py-2.5 rounded-[10px] text-[12.5px] text-red-500 hover:bg-red-50">Limpar</button>
-                </div>
-            )}
         </div>
     )
 }

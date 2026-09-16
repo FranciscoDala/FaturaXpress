@@ -250,7 +250,7 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-                <div className="w-full px-4 sm:px-8 lg:px-12 py-6">
+                <div className="w-full py-6">
                     {homeView === 'faturas' && (
                         <>
                             <div className="w-full py-2">

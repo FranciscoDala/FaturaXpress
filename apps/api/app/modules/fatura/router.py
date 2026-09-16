@@ -12,6 +12,12 @@ from app.modules.fatura.models import Fatura
 from app.modules.fatura.schemas import FaturaCreate, FaturaResponse, FaturaUpdate, NotaCreditoCreate
 from app.modules.fatura import service as fatura_service
 
+from sqlalchemy import extract
+from typing import Optional, Union
+
+
+
+
 router = APIRouter(prefix="/faturas", tags=["Faturas"])
 
 @router.post("", response_model=FaturaResponse, status_code=201)
@@ -62,49 +68,50 @@ def stats(cliente_id: Optional[uuid.UUID] = None, db: Session = Depends(get_db),
         "total": base.count(),
     }
 
+
 @router.get("/saf-t")
 def gerar_saft(
-    mes: int = Query(None, ge=1, le=12),
-    ano: int = Query(None, ge=2020),
-    mes_str: str = Query(None, alias="mes_str"), # compatível com "2026-05"
+    mes: Union[str, int, None] = Query(None, description="5 ou 2026-05"),
+    ano: Optional[int] = Query(None, ge=2020),
+    mes_str: Optional[str] = Query(None, alias="mes"), # pega?mes=2026-09 como string
     db: Session = Depends(get_db),
     company_id: uuid.UUID = Depends(get_current_company_id)
 ):
-    # Compatibilidade: aceita ?mes=2026-05 do modal novo OU ?mes=5&ano=2026 antigo
-    if mes_str:
-        try:
-            y, m = mes_str.split("-")
-            ano = int(y)
-            mes = int(m)
-        except:
-            pass
-    if isinstance(mes, str) and "-" in mes: # quando front manda ?mes=2026-05 no param "mes"
-        try:
-            y, m = mes.split("-")
-            ano = int(y)
-            mes = int(m)
-        except:
-            pass
+    # Normaliza - prioridade para mes_str que é sempre string
+    raw = mes_str or mes
 
-    if not mes or not ano:
-        # se não mandou mês, pega mês atual
+    mes_int = None
+    ano_int = ano
+
+    if isinstance(raw, str) and "-" in raw:
+        try:
+            y, m = raw.split("-")
+            ano_int = int(y)
+            mes_int = int(m)
+        except:
+            raise HTTPException(400, "Formato inválido, use YYYY-MM ex: 2026-09")
+    elif raw is not None:
+        try:
+            mes_int = int(raw)
+        except:
+            raise HTTPException(400, "Mês inválido")
+
+    if not mes_int or not ano_int:
         now = datetime.now(timezone.utc)
-        mes = mes or now.month
-        ano = ano or now.year
+        mes_int = mes_int or now.month
+        ano_int = ano_int or now.year
 
-    from sqlalchemy import extract
     faturas = db.query(Fatura).filter(
         Fatura.company_id==company_id,
         Fatura.tipo_documento.in_(['fatura','nota_credito']),
         Fatura.hash_agt.is_not(None),
-        extract('year', Fatura.data_emissao) == ano,
-        extract('month', Fatura.data_emissao) == mes
+        extract('year', Fatura.data_emissao) == ano_int,
+        extract('month', Fatura.data_emissao) == mes_int
     ).order_by(Fatura.data_emissao.asc()).all()
 
     if not faturas:
-        raise HTTPException(404, f"Sem FT/NC com hash em {ano}-{mes:02d}")
+        raise HTTPException(404, f"Sem FT/NC com hash em {ano_int}-{mes_int:02d}")
 
-    # ... resto do teu XML já tá OK
     root = ET.Element("AuditFile")
     header = ET.SubElement(root, "Header")
     ET.SubElement(header, "AuditFileVersion").text = "1.04_01"
@@ -112,9 +119,9 @@ def gerar_saft(
     ET.SubElement(header, "TaxRegistrationNumber").text = "999999999"
     ET.SubElement(header, "TaxAccountingBasis").text = "F"
     ET.SubElement(header, "CompanyName").text = "Empresa"
-    ET.SubElement(header, "FiscalYear").text = str(ano)
-    ET.SubElement(header, "StartDate").text = f"{ano}-{mes:02d}-01"
-    ET.SubElement(header, "EndDate").text = f"{ano}-{mes:02d}-28"
+    ET.SubElement(header, "FiscalYear").text = str(ano_int)
+    ET.SubElement(header, "StartDate").text = f"{ano_int}-{mes_int:02d}-01"
+    ET.SubElement(header, "EndDate").text = f"{ano_int}-{mes_int:02d}-28"
     ET.SubElement(header, "CurrencyCode").text = "AKZ"
     ET.SubElement(header, "DateCreated").text = datetime.now().strftime("%Y-%m-%d")
     ET.SubElement(header, "ProductID").text = "FaturaXpress/83/AGT/2019"
@@ -122,10 +129,8 @@ def gerar_saft(
     docs = ET.SubElement(root, "SourceDocuments")
     sales = ET.SubElement(docs, "SalesInvoices")
     ET.SubElement(sales, "NumberOfEntries").text = str(len(faturas))
-    total_debit = sum(float(f.total_geral) for f in faturas if float(f.total_geral)>0)
-    total_credit = abs(sum(float(f.total_geral) for f in faturas if float(f.total_geral)<0))
-    ET.SubElement(sales, "TotalDebit").text = f"{total_debit:.2f}"
-    ET.SubElement(sales, "TotalCredit").text = f"{total_credit:.2f}"
+    ET.SubElement(sales, "TotalDebit").text = f"{sum(float(f.total_geral) for f in faturas if float(f.total_geral)>0):.2f}"
+    ET.SubElement(sales, "TotalCredit").text = f"{abs(sum(float(f.total_geral) for f in faturas if float(f.total_geral)<0)):.2f}"
 
     for f in faturas:
         inv = ET.SubElement(sales, "Invoice")
@@ -135,18 +140,18 @@ def gerar_saft(
         ET.SubElement(doc_status, "InvoiceStatusDate").text = f.data_emissao.strftime("%Y-%m-%dT%H:%M:%S") if f.data_emissao else ""
         ET.SubElement(inv, "Hash").text = f.hash_agt or ""
         ET.SubElement(inv, "HashControl").text = "1"
-        ET.SubElement(inv, "Period").text = str(f.data_emissao.month) if f.data_emissao else str(mes)
+        ET.SubElement(inv, "Period").text = str(mes_int)
         ET.SubElement(inv, "InvoiceDate").text = f.data_emissao.strftime("%Y-%m-%d") if f.data_emissao else ""
         ET.SubElement(inv, "InvoiceType").text = "FT" if f.tipo_documento=='fatura' else "NC"
 
     xml_str = ET.tostring(root, encoding='utf-8', xml_declaration=True)
 
-    # Marca como comunicado só depois de gerar
     for f in faturas:
         f.comunicado_agt = True
     db.commit()
 
-    return Response(content=xml_str, media_type="application/xml", headers={"Content-Disposition": f"attachment; filename=SAFT-AO-{ano}-{mes:02d}.xml"})
+    return Response(content=xml_str, media_type="application/xml", headers={"Content-Disposition": f"attachment; filename=SAFT-AO-{ano_int}-{mes_int:02d}.xml"})
+
 
 @router.get("/numero/{numero}", response_model=FaturaResponse)
 def por_numero(numero: str, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):

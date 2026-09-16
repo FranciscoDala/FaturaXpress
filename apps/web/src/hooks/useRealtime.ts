@@ -22,6 +22,11 @@ function getWsUrl() {
 export function useRealtime({ onEvent, enabled = true }: Options) {
     const wsRef = useRef<WebSocket | null>(null)
     const reconnectTimer = useRef<number | null>(null)
+    const onEventRef = useRef(onEvent)
+
+    useEffect(() => {
+        onEventRef.current = onEvent
+    }, [onEvent])
 
     useEffect(() => {
         if (!enabled) return
@@ -36,7 +41,7 @@ export function useRealtime({ onEvent, enabled = true }: Options) {
             ws.onmessage = (e) => {
                 try {
                     const data = JSON.parse(e.data) as RealtimeEvent
-                    onEvent?.(data)
+                    onEventRef.current?.(data)
                 } catch {}
             }
             ws.onclose = () => {
@@ -53,5 +58,5 @@ export function useRealtime({ onEvent, enabled = true }: Options) {
             wsRef.current?.close()
             wsRef.current = null
         }
-    }, [enabled, onEvent])
+    }, [enabled])
 }

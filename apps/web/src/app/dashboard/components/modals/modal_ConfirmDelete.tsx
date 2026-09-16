@@ -54,7 +54,7 @@ export default function ModalConfirmDelete({
                             disabled={loading}
                             className="flex-1 h-11 rounded-full bg-[#FF3B30] text-white text-[14px] font-semibold hover:bg-red-600 shadow-[0_6px_20px_rgba(255,59,48,0.35)] flex items-center justify-center gap-2 disabled:opacity-50"
                         >
-                            {loading ? 'Apagando...' : <><Trash2 className="w-4 h-4" /> Apagar</>}
+                            {loading? 'Apagando...' : <><Trash2 className="w-4 h-4" /> Apagar</>}
                         </button>
                     </div>
                 </div>

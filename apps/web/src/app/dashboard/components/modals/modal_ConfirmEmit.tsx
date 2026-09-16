@@ -24,7 +24,7 @@ export default function ModalConfirmEmit({
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
             <div className="relative bg-white rounded-[24px] w-full max-w-[400px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
                 <div className={`relative h-[72px] px-5 pt-5 flex justify-between items-start ${isFatura? 'bg-[#E6F0FF]' : 'bg-[#FFF7ED]'}`}>

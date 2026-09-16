@@ -89,8 +89,8 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
         <div className="-full px-4 sm:px-0 lg:px-0 mt-0">
             <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 px-5 py-4 flex flex-wrap gap-3 mb-4 w-full">
                 <span className="text-[11px] font-bold text-gray-900 uppercase">ITENS:</span>
-                {itens.length === 0? <span className="text-[11px] text-gray-400">Nenhum</span> : itens.map(it => (
-                    <span key={it.produto_id} className="bg-[#ff7a00] text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1 shadow-sm">{it.nome.toUpperCase()} x{it.quantidade} <Star className="w-3 h-3 fill-white" /></span>
+                {itens.length === 0? <span className="text-[11px] text-gray-400">0</span> : itens.map(it => (
+                    <span key={it.produto_id} className="bg-[#ff7a00] text-white text-[10px] font-bold px-3 py-0 rounded-full flex items-center gap-1 shadow-sm">{it.nome.toUpperCase()} x{it.quantidade} <Star className="w-3 h-3 fill-white" /></span>
                 ))}
             </div>
 

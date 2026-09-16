@@ -56,7 +56,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(cliente_router, prefix="/api")
 app.include_router(produto_router, prefix="/api")
 app.include_router(fatura_router, prefix="/api")
-app.include_router(realtime_router, prefix="/api")
+app.include_router(realtime_router, prefix="/api") # já tem /ws/realtime com token
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):

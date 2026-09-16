@@ -21,7 +21,7 @@ const VALID_TABS: Tab[] = ['emitir', 'curso', 'emitidas']
 
 export default function EmitirFaturaPage() {
     const navigate = useNavigate()
-    const [searchParams] = useSearchParams()
+    const [searchParams, setSearchParams] = useSearchParams()
     const clienteId = searchParams.get('cliente_id')
     const [cliente, setCliente] = useState<Cliente | null>(null)
     const [empresa, setEmpresa] = useState<any>(null)
@@ -59,7 +59,6 @@ export default function EmitirFaturaPage() {
         finally { setLoadingCounts(false) }
     }, [clienteId])
 
-    // REALTIME - memoizado pra não recriar
     const handleRealtime = useCallback((msg: any) => {
         if (msg.event === 'faturas:changed') fetchFaturas()
     }, [fetchFaturas])
@@ -74,7 +73,7 @@ export default function EmitirFaturaPage() {
         api.get('/api/auth/me').then(r => {
             const comp = r.data.company || r.data
             setEmpresa({
-              ...comp,
+             ...comp,
                 nome: comp.nome || comp.companyName,
                 endereco: comp.endereco || comp.address,
                 cidade: comp.cidade || comp.city,
@@ -94,28 +93,21 @@ export default function EmitirFaturaPage() {
         })
     }, [clienteId])
 
-    // sincroniza tab com URL só uma vez na entrada
-    useEffect(() => {
-        if (!clienteId) return
-        const tabUrl = searchParams.get('tab') as Tab | null
-        if (tabUrl && VALID_TABS.includes(tabUrl) && tabUrl!== activeTab) {
-            setActiveTab(tabUrl)
-            localStorage.setItem(`fatura_tab_${clienteId}`, tabUrl)
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [clienteId])
-
-    // guarda tab e atualiza URL sem usar setSearchParams (evita loop #310)
+    // salva tab no localStorage e na URL sem causar loop #310
     useEffect(() => {
         if (!clienteId) return
         localStorage.setItem(`fatura_tab_${clienteId}`, activeTab)
-        const url = new URL(window.location.href)
-        if (url.searchParams.get('tab')!== activeTab) {
-            url.searchParams.set('tab', activeTab)
-            url.searchParams.set('cliente_id', clienteId)
-            window.history.replaceState(null, '', url.toString())
+        const currentTab = searchParams.get('tab')
+        if (currentTab!== activeTab) {
+            setSearchParams(prev => {
+                const p = new URLSearchParams(prev)
+                p.set('tab', activeTab)
+                p.set('cliente_id', clienteId)
+                return p
+            }, { replace: true })
         }
-    }, [activeTab, clienteId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab])
 
     useEffect(() => {
         if (clienteId) fetchFaturas()
@@ -190,7 +182,7 @@ export default function EmitirFaturaPage() {
                         </div>
                     </div>
                     <style>{`
-         .bubble {
+        .bubble {
                             position: absolute;
                             border-radius: 50%;
                             background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%);
@@ -199,12 +191,12 @@ export default function EmitirFaturaPage() {
                             animation: floatBubble 8s infinite ease-in-out;
                             will-change: transform;
                         }
-         .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
-         .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
-         .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
-         .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
-         .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
-         .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
+        .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
+        .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
+        .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
+        .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
+        .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
+        .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
                         @keyframes floatBubble {
                             0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.55; }
                             25% { transform: translateY(-15px) translateX(10px) scale(1.05); opacity: 0.85; }

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt } from 'lucide-react'
+import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import ClienteModal from './components/modals/modal_Cliente'
 import ProdutoModal from './components/modals/modal_Produto'
@@ -17,15 +17,8 @@ interface Cliente { id: string; nome: string; nif: string; email: string | null;
 interface Produto { id: string; nome: string; codigo: string; categoria: string | null; preco_venda: number | string; stock_atual: number; unidade: string; imagem_url: string | null; ativo: boolean; descricao?: string | null; tipo?: 'produto' | 'servico' | 'kit'; controlar_stock?: boolean; iva?: number }
 
 type FaturaTab = 'curso' | 'emitidas' | 'emitir'
-type ListView = 'clientes' | 'produtos'
+type ListView = 'clientes' | 'produtos' | 'servicos'
 type HomeView = 'faturas' | 'gestao'
-
-const NOVO_OPTIONS = [
-    { value: 'emitir', label: 'Emitir Fatura (Avulso)', icon: Receipt },
-    { value: 'cliente', label: 'Adicionar Cliente', icon: Users },
-    { value: 'produto', label: 'Adicionar Produto', icon: Package },
-    { value: 'saft', label: 'Exportar SAFT-AO AGT', icon: FileDown },
-]
 
 const LIST_OPTIONS = [
     { value: 'clientes', label: 'Clientes' },
@@ -67,7 +60,7 @@ export default function DashboardPage() {
     const novoWrapperRef = useRef<HTMLDivElement>(null)
     const novoBtnRef = useRef<HTMLButtonElement>(null)
     const [listDropdownPos, setListDropdownPos] = useState({ top: 0, left: 0, width: 320 })
-    const [novoDropdownPos, setNovoDropdownPos] = useState({ top: 0, left: 0, width: 284 })
+    const [novoDropdownPos, setNovoDropdownPos] = useState({ top: 0, left: 0, width: 320 })
 
     const fetchFaturasGeral = async () => {
         try {
@@ -84,7 +77,7 @@ export default function DashboardPage() {
         catch { toast.error('Erro ao carregar clientes') } finally { setLoading(false) }
     }
     const fetchProdutos = async () => {
-        try { setLoading(true); const skip = (page - 1) * limit; const res = await api.get('/api/produtos', { params: { skip, limit, search } }); setProdutos(res.data.items); if (listView === 'produtos') setTotal(res.data.total) }
+        try { setLoading(true); const skip = (page - 1) * limit; const res = await api.get('/api/produtos', { params: { skip, limit, search } }); setProdutos(res.data.items); setTotal(res.data.total) }
         catch { toast.error('Erro ao carregar produtos') } finally { setLoading(false) }
     }
 
@@ -101,47 +94,27 @@ export default function DashboardPage() {
         if (listBtnRef.current) {
             const r = listBtnRef.current.getBoundingClientRect()
             const isMobile = window.innerWidth < 768
-            setListDropdownPos({
-                top: r.bottom + 8,
-                left: isMobile? 16 : r.left,
-                width: isMobile? window.innerWidth - 32 : r.width
-            })
+            setListDropdownPos({ top: r.bottom + 8, left: isMobile? 16 : r.left, width: isMobile? window.innerWidth - 32 : r.width })
         }
     }
-
     const updateNovoPos = () => {
         if (novoBtnRef.current) {
             const r = novoBtnRef.current.getBoundingClientRect()
-            const width = 284
+            const width = 320
             const isMobile = window.innerWidth < 768
-            const left = isMobile
-               ? window.innerWidth - width - 16
-                : r.right - width
-            setNovoDropdownPos({
-                top: r.bottom + 8,
-                left: Math.max(16, left),
-                width
-            })
+            const left = isMobile? window.innerWidth - width - 16 : r.right - width
+            setNovoDropdownPos({ top: r.bottom + 8, left: Math.max(16, left), width })
         }
     }
-
     useEffect(() => { if (openListSelect) updateListPos() }, [openListSelect])
     useEffect(() => { if (openNovo) updateNovoPos() }, [openNovo])
-
     useEffect(() => {
         if (!openListSelect &&!openNovo) return
-        const handle = () => {
-            if (openListSelect) updateListPos()
-            if (openNovo) updateNovoPos()
-        }
+        const handle = () => { if (openListSelect) updateListPos(); if (openNovo) updateNovoPos() }
         window.addEventListener('scroll', handle, true)
         window.addEventListener('resize', handle)
-        return () => {
-            window.removeEventListener('scroll', handle, true)
-            window.removeEventListener('resize', handle)
-        }
+        return () => { window.removeEventListener('scroll', handle, true); window.removeEventListener('resize', handle) }
     }, [openListSelect, openNovo])
-
     useEffect(() => {
         const close = (e: MouseEvent) => {
             if (listWrapperRef.current &&!listWrapperRef.current.contains(e.target as Node) &&!(e.target as HTMLElement).closest('[data-list-dropdown]')) setOpenListSelect(false)
@@ -160,6 +133,10 @@ export default function DashboardPage() {
 
     const handleNovoAction = (v: string) => {
         setOpenNovo(false)
+        if (v === 'ver_clientes') { setHomeView('gestao'); setListView('clientes'); setSearch('') }
+        if (v === 'ver_produtos') { setHomeView('gestao'); setListView('produtos'); setSearch('') }
+        if (v === 'ver_servicos') { setHomeView('gestao'); setListView('servicos'); setSearch('') }
+        if (v === 'ver_faturas') { setHomeView('faturas'); setFaturaTab('curso') }
         if (v === 'cliente') handleOpenCreateCliente()
         if (v === 'produto') handleOpenCreateProduto()
         if (v === 'emitir') { setHomeView('faturas'); setFaturaTab('emitir') }
@@ -175,11 +152,11 @@ export default function DashboardPage() {
             if (deleteTarget.type === 'cliente') { await api.delete(`/api/clientes/${deleteTarget.id}`); toast.success('Cliente apagado'); fetchClientes(); fetchFaturasGeral() }
             else { await api.delete(`/api/produtos/${deleteTarget.id}`); toast.success('Produto apagado'); fetchProdutos() }
             setDeleteTarget(null)
-        } catch { toast.error('Erro ao apagar') }
-        finally { setDeleting(false) }
+        } catch { toast.error('Erro ao apagar') } finally { setDeleting(false) }
     }
 
     const ProdutoModalAny = ProdutoModal as any
+    const produtosFiltrados = listView === 'servicos'? produtos.filter(p => p.tipo === 'servico') : listView === 'produtos'? produtos.filter(p => p.tipo!== 'servico') : produtos
 
     return (
         <div className="min-h-screen bg-white">
@@ -224,9 +201,9 @@ export default function DashboardPage() {
                                     <p className="text-[13px] font-bold">{loadingFaturas? '...' : faturasEmitidas.length}</p>
                                     <p className="text-[11px] text-gray-500">Fatura AGT FT</p>
                                 </button>
-                                <div ref={novoWrapperRef} className="flex-[1.2] border-l relative">
-                                    <button ref={novoBtnRef} onClick={() => setOpenNovo(!openNovo)} className={`w-full h-full text-[13px] font-semibold flex items-center justify-center gap-1 ${openNovo? 'bg-[#0095ff] text-white' : 'bg-[#8ecfff] text-white hover:bg-[#7ac4ff]'}`}>
-                                        + Novo <ChevronDown className={`w-4 h-4 transition ${openNovo? 'rotate-180' : ''}`} />
+                                <div ref={novoWrapperRef} className="flex-[0.6] border-l relative">
+                                    <button ref={novoBtnRef} onClick={() => setOpenNovo(!openNovo)} className={`w-full h-full flex items-center justify-center ${openNovo? 'bg-[#0095ff] text-white' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
+                                        <Menu className="w-5 h-5" />
                                     </button>
                                 </div>
                             </div>
@@ -235,28 +212,41 @@ export default function DashboardPage() {
                     <style>{`
            .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
            .bubble-1 { width:80px; height:80px; left:10%; top:20%; animation-delay:0s; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; animation-delay:1s; animation-duration:10s; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; animation-delay:2s; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; animation-delay:0.5s; animation-duration:7s; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; animation-delay:1.5s; animation-duration:9s; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; animation-delay:2.5s; }
-                @keyframes floatBubble { 0%,100%{transform:translateY(0) translateX(0) scale(1); opacity:0.55;} 25%{transform:translateY(-15px) translateX(10px) scale(1.05); opacity:0.85;} 50%{transform:translateY(-25px) translateX(-5px) scale(0.95); opacity:0.45;} 75%{transform:translateY(-10px) translateX(-10px) scale(1.02); opacity:0.7;} }
+            @keyframes floatBubble { 0%,100%{transform:translateY(0) translateX(0) scale(1); opacity:0.55;} 25%{transform:translateY(-15px) translateX(10px) scale(1.05); opacity:0.85;} 50%{transform:translateY(-25px) translateX(-5px) scale(0.95); opacity:0.45;} 75%{transform:translateY(-10px) translateX(-10px) scale(1.02); opacity:0.7;} }
                     `}</style>
                 </div>
 
                 {openNovo && (
-                    <div
-                        data-novo-dropdown
-                        style={{
-                            top: novoDropdownPos.top,
-                            left: novoDropdownPos.left,
-                            width: novoDropdownPos.width,
-                            maxWidth: '92vw'
-                        }}
-                        className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
-                        {NOVO_OPTIONS.map(opt => {
-                            const Icon = opt.icon
-                            return (
-                                <button key={opt.value} onClick={() => handleNovoAction(opt.value)} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-50 text-gray-700">
-                                    <Icon className="w-4 h-4 text-gray-500" /> {opt.label}
-                                </button>
-                            )
-                        })}
+                    <div data-novo-dropdown style={{ top: novoDropdownPos.top, left: novoDropdownPos.left, width: novoDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
+                        <p className="px-4 pt-2 pb-1 text-[10px] font-bold text-gray-400 tracking-widest">VISUALIZAR</p>
+                        <button onClick={() => handleNovoAction('ver_faturas')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'faturas'? 'bg-[#E6F0FF] font-semibold text-gray-900' : 'hover:bg-gray-50 text-gray-700'}`}>
+                            <Receipt className="w-4 h-4 text-[#0095ff]" /> Ver Faturas PP/FT
+                        </button>
+                        <button onClick={() => handleNovoAction('ver_clientes')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao' && listView === 'clientes'? 'bg-[#E6F0FF] font-semibold text-gray-900' : 'hover:bg-gray-50 text-gray-700'}`}>
+                            <Users className="w-4 h-4 text-gray-500" /> Ver Clientes
+                        </button>
+                        <button onClick={() => handleNovoAction('ver_produtos')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao' && listView === 'produtos'? 'bg-[#E6F0FF] font-semibold text-gray-900' : 'hover:bg-gray-50 text-gray-700'}`}>
+                            <Package className="w-4 h-4 text-gray-500" /> Ver Produtos
+                        </button>
+                        <button onClick={() => handleNovoAction('ver_servicos')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao' && listView === 'servicos'? 'bg-[#E6F0FF] font-semibold text-gray-900' : 'hover:bg-gray-50 text-gray-700'}`}>
+                            <Wrench className="w-4 h-4 text-gray-500" /> Ver Serviços
+                        </button>
+
+                        <div className="h-[1px] bg-gray-100 my-2 mx-2" />
+
+                        <p className="px-4 pt-1 pb-1 text-[10px] font-bold text-gray-400 tracking-widest">CRIAR / EXPORTAR</p>
+                        <button onClick={() => handleNovoAction('emitir')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-50 text-gray-700">
+                            <Receipt className="w-4 h-4 text-gray-500" /> Emitir Fatura (Avulso)
+                        </button>
+                        <button onClick={() => handleNovoAction('cliente')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-50 text-gray-700">
+                            <Users className="w-4 h-4 text-gray-500" /> Adicionar Cliente
+                        </button>
+                        <button onClick={() => handleNovoAction('produto')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-50 text-gray-700">
+                            <Package className="w-4 h-4 text-gray-500" /> Adicionar Produto
+                        </button>
+                        <button onClick={() => handleNovoAction('saft')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-50 text-gray-700">
+                            <FileDown className="w-4 h-4 text-gray-500" /> Exportar SAFT-AO AGT
+                        </button>
                     </div>
                 )}
 
@@ -269,8 +259,8 @@ export default function DashboardPage() {
                                 {faturaTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} cliente={null as any} empresa={empresa} onRefresh={fetchFaturasGeral} />}
                             </div>
 
-                            <div className="mt-8 flex gap-3">
-                                <button onClick={() => setHomeView('gestao')} className="h-[44px] px-6 rounded-full bg-white border text-[13px] font-medium">Gerir Clientes / Produtos</button>
+                            <div className="mt-8 flex gap-3 flex-wrap">
+                                <button onClick={() => { setHomeView('gestao'); setListView('clientes') }} className="h-[44px] px-6 rounded-full bg-white border text-[13px] font-medium">Gerir Clientes / Produtos</button>
                                 <button onClick={() => setModalSaftOpen(true)} className="h-[44px] px-6 rounded-full bg-[#0A2540] text-white text-[13px] font-bold flex items-center gap-2"><FileDown className="w-4 h-4" /> Exportar SAFT-AO</button>
                             </div>
 
@@ -287,24 +277,27 @@ export default function DashboardPage() {
 
                     {homeView === 'gestao' && (
                         <>
-                            <div className="flex gap-4 overflow-x-auto pb-3 mb-4">
-                                <div ref={listWrapperRef} className="relative min-w-[320px] max-w-[320px] flex-shrink-0 z-40">
+                            <div className="flex gap-4 overflow-x-auto pb-3 mb-4 items-center">
+                                <div ref={listWrapperRef} className="relative min-w-[200px] max-w-[320px] flex-shrink-0 z-40">
                                     <button ref={listBtnRef} onClick={() => setOpenListSelect(!openListSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
-                                        <span className="text-gray-900">{LIST_OPTIONS.find(o => o.value === listView)?.label}</span>
+                                        <span className="text-gray-900 capitalize">{listView === 'servicos'? 'Serviços' : LIST_OPTIONS.find(o => o.value === listView)?.label || listView}</span>
                                         <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openListSelect? 'rotate-180' : ''}`} />
                                     </button>
                                 </div>
-                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className="h-[46px] px-6 rounded-full bg-gray-900 text-white text-[13px] font-bold">← Voltar para Faturas</button>
+                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className="h-[46px] px-6 rounded-full bg-gray-900 text-white text-[13px] font-bold shrink-0">← Voltar para Faturas</button>
                             </div>
 
                             {openListSelect && (
                                 <div data-list-dropdown style={{ top: listDropdownPos.top, left: listDropdownPos.left, width: listDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
-                                    {LIST_OPTIONS.map(opt => (
-                                        <button key={opt.value} onClick={() => { setListView(opt.value as ListView); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
-                                            {opt.label}
-                                            {listView === opt.value && <Check className="w-4 h-4 text-[#0095ff]" />}
-                                        </button>
-                                    ))}
+                                    <button onClick={() => { setListView('clientes'); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === 'clientes'? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                        Clientes {listView === 'clientes' && <Check className="w-4 h-4 text-[#0095ff]" />}
+                                    </button>
+                                    <button onClick={() => { setListView('produtos'); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === 'produtos'? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                        Produtos {listView === 'produtos' && <Check className="w-4 h-4 text-[#0095ff]" />}
+                                    </button>
+                                    <button onClick={() => { setListView('servicos'); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === 'servicos'? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                        Serviços {listView === 'servicos' && <Check className="w-4 h-4 text-[#0095ff]" />}
+                                    </button>
                                 </div>
                             )}
 
@@ -312,7 +305,7 @@ export default function DashboardPage() {
                                 {listView === 'clientes'? (
                                     <TabelaClientes clientes={clientes} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditCliente} onDelete={handleRequestDeleteCliente} onEmitirFatura={handleEmitirFatura} />
                                 ) : (
-                                    <CardsProdutos produtos={produtos} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditProduto} onDelete={handleRequestDeleteProduto} />
+                                    <CardsProdutos produtos={produtosFiltrados} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditProduto} onDelete={handleRequestDeleteProduto} />
                                 )}
                             </div>
                         </>

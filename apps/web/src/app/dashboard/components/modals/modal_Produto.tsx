@@ -1,5 +1,5 @@
 import { useState, useRef, ChangeEvent, useEffect } from 'react'
-import { X, Package, Settings, Info, Upload } from 'lucide-react'
+import { X, Check, Package, Settings, Info, Upload, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import { api } from '../../../../lib/api'
 import { toast } from 'sonner'
 
@@ -41,6 +41,34 @@ const TIPOS = [
 
 type Tab = 'obrigatorio' | 'opcional' | 'estoque'
 
+function CustomSelect({ value, options, onChange, placeholder }: { value: string, options: { value: string, label: string }[], onChange: (v: string) => void, placeholder: string }) {
+    const [open, setOpen] = useState(false)
+    const ref = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+        const h = (e: MouseEvent) => { if (ref.current &&!ref.current.contains(e.target as Node)) setOpen(false) }
+        document.addEventListener('mousedown', h)
+        return () => document.removeEventListener('mousedown', h)
+    }, [])
+    const selected = options.find(o => o.value === value)
+    return (
+        <div ref={ref} className="relative w-full">
+            <button type="button" onClick={() => setOpen(!open)} className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-2 text-[13.5px] text-black flex items-center justify-between focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition">
+                <span className={selected? 'text-black' : 'text-black/60'}>{selected? selected.label : placeholder}</span>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open? 'rotate-180' : ''}`} />
+            </button>
+            {open && (
+                <div className="absolute z-50 top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5 animate-in fade-in">
+                    {options.map(o => (
+                        <button key={o.value} type="button" onClick={() => { onChange(o.value); setOpen(false) }} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[13px] flex items-center justify-between transition ${value === o.value? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-50 text-gray-700'}`}>
+                            {o.label} {value === o.value && <Check className="w-4 h-4 text-[#0095ff]" />}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
 export default function ProdutoModal({ open, produto, onClose, onSuccess }: Props) {
     const [tab, setTab] = useState<Tab>('obrigatorio')
     const [loading, setLoading] = useState(false)
@@ -59,7 +87,6 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
         controlar_stock: true, stock_minimo: '0'
     })
 
-    // CARREGA DADOS QUANDO É EDIÇÃO
     useEffect(() => {
         if (!open) return
         if (produto) {
@@ -114,28 +141,15 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
         setLoading(true)
         try {
             if (isEditing) {
-                // EDIÇÃO -> JSON (seu router PUT espera JSON)
                 const payload: any = {
-                    nome: form.nome,
-                    codigo: form.codigo,
-                    preco_venda: parseFloat(form.preco_venda || '0'),
-                    tipo: form.tipo,
-                    unidade: form.unidade,
-                    ativo: form.ativo,
-                    controlar_stock: form.controlar_stock,
-                    stock_minimo: parseFloat(form.stock_minimo || '0'),
-                    preco_custo: parseFloat(form.preco_custo || '0'),
-                    iva: form.useIva? parseFloat(form.iva || '0') : 0,
-                    tem_iva: form.useIva,
-                    categoria: form.useCategoria? form.categoria : null,
-                    descricao: form.useDescricao? form.descricao : null,
-                    codigo_barras: form.useCodigoBarras? form.codigo_barras : null,
-                    codigo_qr: form.useCodigoQR? form.codigo_qr : null,
+                    nome: form.nome, codigo: form.codigo, preco_venda: parseFloat(form.preco_venda || '0'),
+                    tipo: form.tipo, unidade: form.unidade, ativo: form.ativo, controlar_stock: form.controlar_stock,
+                    stock_minimo: parseFloat(form.stock_minimo || '0'), preco_custo: parseFloat(form.preco_custo || '0'),
+                    iva: form.useIva? parseFloat(form.iva || '0') : 0, tem_iva: form.useIva,
+                    categoria: form.useCategoria? form.categoria : null, descricao: form.useDescricao? form.descricao : null,
+                    codigo_barras: form.useCodigoBarras? form.codigo_barras : null, codigo_qr: form.useCodigoQR? form.codigo_qr : null,
                     peso: form.usePeso? parseFloat(form.peso || '0') : null,
                 }
-                // Se trocou imagem, faz upload separado via FormData no POST de imagem?
-                // Por enquanto mantem url antiga, ou envia arquivo se backend aceitar.
-                // Se seu backend PUT aceitar multipart, troca por FormData aqui.
                 if (form.imagem_file) {
                     const fd = new FormData()
                     Object.entries(payload).forEach(([k,v]) => fd.append(k, v==null?'':String(v)))
@@ -146,139 +160,180 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                 }
                 toast.success('Produto atualizado!')
             } else {
-                // CRIAÇÃO -> FormData
                 const formData = new FormData()
-                formData.append('nome', form.nome)
-                formData.append('codigo', form.codigo)
-                formData.append('preco_venda', form.preco_venda || '0')
-                formData.append('tipo', form.tipo)
-                formData.append('unidade', form.unidade)
-                formData.append('ativo', String(form.ativo))
-                formData.append('controlar_stock', String(form.controlar_stock))
-                formData.append('stock_atual', '0')
-                formData.append('stock_minimo', form.stock_minimo || '0')
-                formData.append('preco_custo', form.preco_custo || '0')
+                formData.append('nome', form.nome); formData.append('codigo', form.codigo)
+                formData.append('preco_venda', form.preco_venda || '0'); formData.append('tipo', form.tipo)
+                formData.append('unidade', form.unidade); formData.append('ativo', String(form.ativo))
+                formData.append('controlar_stock', String(form.controlar_stock)); formData.append('stock_atual', '0')
+                formData.append('stock_minimo', form.stock_minimo || '0'); formData.append('preco_custo', form.preco_custo || '0')
                 if (form.useCodigoBarras && form.codigo_barras) formData.append('codigo_barras', form.codigo_barras)
                 if (form.useCodigoQR && form.codigo_qr) formData.append('codigo_qr', form.codigo_qr)
                 if (form.useDescricao && form.descricao) formData.append('descricao', form.descricao)
                 if (form.useCategoria && form.categoria) formData.append('categoria', form.categoria)
                 if (form.usePeso && form.peso) formData.append('peso', form.peso)
-                formData.append('iva', form.useIva? form.iva || '0' : '0')
-                formData.append('tem_iva', String(form.useIva))
+                formData.append('iva', form.useIva? form.iva || '0' : '0'); formData.append('tem_iva', String(form.useIva))
                 if (form.useImagem && form.imagem_file) formData.append('imagem', form.imagem_file)
-
                 await api.post('/api/produtos', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
                 toast.success('Produto criado com sucesso!')
             }
-            onSuccess()
-            onClose()
-            if (!isEditing) resetForm()
+            onSuccess(); onClose(); if (!isEditing) resetForm()
         } catch (err: any) {
             const detail = err.response?.data?.detail
             let message = 'Erro ao salvar produto'
             if (Array.isArray(detail)) message = detail.map((e: any) => `${e.loc?.[1] || ''}: ${e.msg}`).join(', ')
             else if (typeof detail === 'string') message = detail
             toast.error(message)
-        } finally {
-            setLoading(false)
-        }
+        } finally { setLoading(false) }
     }
 
     const resetForm = () => {
         if (form.imagem_preview && form.imagem_file) URL.revokeObjectURL(form.imagem_preview)
         setForm({
-            nome: '', codigo: '', preco_venda: '', tipo: 'produto',
-            useImagem: false, imagem_file: null, imagem_preview: '',
-            useCodigoBarras: false, codigo_barras: '',
-            useCodigoQR: false, codigo_qr: '',
-            useDescricao: false, descricao: '',
-            useCategoria: false, categoria: '',
-            usePeso: false, peso: '',
-            preco_custo: '0', iva: '14', useIva: true, unidade: 'UN', ativo: true,
-            controlar_stock: true, stock_minimo: '0'
+            nome: '', codigo: '', preco_venda: '', tipo: 'produto', useImagem: false, imagem_file: null, imagem_preview: '',
+            useCodigoBarras: false, codigo_barras: '', useCodigoQR: false, codigo_qr: '', useDescricao: false, descricao: '',
+            useCategoria: false, categoria: '', usePeso: false, peso: '', preco_custo: '0', iva: '14', useIva: true, unidade: 'UN', ativo: true, controlar_stock: true, stock_minimo: '0'
         })
         setTab('obrigatorio')
     }
 
     if (!open) return null
 
+    const inputClass = "w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-2 text-[13.5px] text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition"
+
     const TabButton = ({ id, label, icon: Icon }: { id: Tab, label: string, icon: any }) => (
-        <button type="button" onClick={() => setTab(id)} className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition ${tab === id? 'bg-orange-100 text-orange-600' : 'text-gray-600 hover:bg-gray-100'}`}>
+        <button type="button" onClick={() => setTab(id)} className={`flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium rounded-full transition border ${tab === id? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff]' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
             <Icon className="w-4 h-4" /> {label}
         </button>
     )
 
     const ToggleField = ({ label, checked, onChange, children }: { label: string, checked: boolean, onChange: (e: ChangeEvent<HTMLInputElement>) => void, children: React.ReactNode }) => (
-        <div className="space-y-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={checked} onChange={onChange} className="w-4 h-4 accent-orange-600" />
-                <span className="text-sm font-medium text-gray-700">{label}</span>
+        <div className="space-y-[2px]">
+            <label className="flex items-center gap-2 cursor-pointer py-1">
+                <input type="checkbox" checked={checked} onChange={onChange} className="w-4 h-4 accent-[#0095ff] rounded" />
+                <span className="text-[12px] font-medium text-black">{label}</span>
             </label>
-            {checked && <div className="pl-6">{children}</div>}
+            {checked && <div className="pl-1">{children}</div>}
         </div>
     )
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10">
-                    <h3 className="text-lg font-semibold">{isEditing? 'Atualizar Produto' : 'Novo Produto'}</h3>
-                    <button onClick={onClose}><X className="w-5 h-5" /></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className="relative bg-white rounded-[24px] w-full max-w-[560px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#FFF7ED] shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center">
+                        <Package className="w-4 h-4 text-[#ff7a00]" />
+                    </div>
+                    <button onClick={onClose} className="w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center hover:bg-gray-50">
+                        <X className="w-4 h-4 text-gray-500" />
+                    </button>
                 </div>
-                <div className="flex gap-2 px-6 pt-4 border-b">
-                    <TabButton id="obrigatorio" label="Obrigatórios" icon={Info} />
-                    <TabButton id="opcional" label="Opcionais" icon={Settings} />
-                    <TabButton id="estoque" label="Estoque" icon={Package} />
+
+                <div className="px-6 pt-5 pb-3 shrink-0">
+                    <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{isEditing? 'Atualizar Produto' : 'Novo Produto'}</h3>
+                    <div className="flex gap-[2px] mt-4 overflow-auto">
+                        <TabButton id="obrigatorio" label="Obrigatórios" icon={Info} />
+                        <TabButton id="opcional" label="Opcionais" icon={Settings} />
+                        <TabButton id="estoque" label="Estoque" icon={Package} />
+                    </div>
                 </div>
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {tab === 'obrigatorio' && (
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-sm font-medium text-gray-700">Nome *</label><input required value={form.nome} onChange={(e) => setForm({...form, nome: e.target.value })} className="mt-1 border rounded-lg px-3 py-2 w-full" /></div>
-                                <div><label className="text-sm font-medium text-gray-700">Código *</label><input required value={form.codigo} onChange={(e) => setForm({...form, codigo: e.target.value })} className="mt-1 border rounded-lg px-3 py-2 w-full" /></div>
-                                <div><label className="text-sm font-medium text-gray-700">Preço Venda *</label><input type="number" step="0.01" required value={form.preco_venda} onChange={(e) => setForm({...form, preco_venda: e.target.value })} className="mt-1 border rounded-lg px-3 py-2 w-full" /></div>
-                                <div><label className="text-sm font-medium text-gray-700">Tipo</label><select value={form.tipo} onChange={(e) => setForm({...form, tipo: e.target.value })} className="mt-1 border rounded-lg px-3 py-2 w-full">{TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
-                                <div><label className="text-sm font-medium text-gray-700">Unidade</label><select value={form.unidade} onChange={(e) => setForm({...form, unidade: e.target.value })} className="mt-1 border rounded-lg px-3 py-2 w-full">{UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
-                                <div className="flex items-center gap-2 mt-6"><input type="checkbox" checked={form.ativo} onChange={(e) => setForm({...form, ativo: e.target.checked })} className="w-4 h-4 accent-orange-600" /><label className="text-sm font-medium text-gray-700">Produto Ativo</label></div>
-                            </div>
-                            <ToggleField label="Adicionar Imagem do Produto" checked={form.useImagem} onChange={(e) => setForm({...form, useImagem: e.target.checked })}>
-                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                                    <input type="file" ref={fileInputRef} accept="image/*" onChange={handleImagemChange} className="hidden" />
-                                    {form.imagem_preview? (
-                                        <div className="flex items-center gap-4">
-                                            <img src={form.imagem_preview} alt="Preview" className="w-20 h-20 object-cover rounded-lg" />
-                                            <div><p className="text-sm font-medium truncate max-w-[200px]">{form.imagem_file?.name || 'Imagem atual'}</p><button type="button" onClick={() => fileInputRef.current?.click()} className="text-xs text-orange-600">Trocar imagem</button></div>
-                                        </div>
-                                    ) : (
-                                        <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full flex flex-col items-center gap-2 text-gray-500 hover:text-orange-600"><Upload className="w-8 h-8" /><span className="text-sm">Clique para selecionar imagem</span></button>
-                                    )}
+
+                <form onSubmit={handleSubmit} className="px-6 pb-6 pt-2 overflow-auto flex-1 flex flex-col">
+                    <div className="flex-1">
+                        {tab === 'obrigatorio' && (
+                            <div className="flex flex-col gap-[2px]">
+                                <div className="grid grid-cols-2 gap-[2px]">
+                                    <input required value={form.nome} onChange={(e) => setForm({...form, nome: e.target.value })} placeholder="Nome *"
+                                        className={inputClass} />
+                                    <input required value={form.codigo} onChange={(e) => setForm({...form, codigo: e.target.value })} placeholder="Código *"
+                                        className={inputClass} />
+                                    <input type="number" step="0.01" required value={form.preco_venda} onChange={(e) => setForm({...form, preco_venda: e.target.value })} placeholder="Preço Venda *"
+                                        className={inputClass} />
+                                    <CustomSelect value={form.tipo} onChange={(v) => setForm({...form, tipo: v })} placeholder="Tipo"
+                                        options={TIPOS} />
+                                    <CustomSelect value={form.unidade} onChange={(v) => setForm({...form, unidade: v })} placeholder="Unidade"
+                                        options={UNIDADES.map(u => ({ value: u, label: u }))} />
+                                    <label className="flex items-center gap-2 h-[44px] px-2 border border-gray-200 rounded-[12px] cursor-pointer bg-white">
+                                        <input type="checkbox" checked={form.ativo} onChange={(e) => setForm({...form, ativo: e.target.checked })} className="w-4 h-4 accent-[#0095ff]" />
+                                        <span className="text-[12px] text-black font-medium">Ativo</span>
+                                    </label>
                                 </div>
-                            </ToggleField>
-                        </div>
-                    )}
-                    {tab === 'opcional' && (
-                        <div className="space-y-4">
-                            <ToggleField label="Código de Barras" checked={form.useCodigoBarras} onChange={(e) => setForm({...form, useCodigoBarras: e.target.checked })}><input value={form.codigo_barras} onChange={(e) => setForm({...form, codigo_barras: e.target.value })} className="border rounded-lg px-3 py-2 w-full" /></ToggleField>
-                            <ToggleField label="Código QR" checked={form.useCodigoQR} onChange={(e) => setForm({...form, useCodigoQR: e.target.checked })}><input value={form.codigo_qr} onChange={(e) => setForm({...form, codigo_qr: e.target.value })} className="border rounded-lg px-3 py-2 w-full" /></ToggleField>
-                            <ToggleField label="Descrição" checked={form.useDescricao} onChange={(e) => setForm({...form, useDescricao: e.target.checked })}><textarea value={form.descricao} onChange={(e) => setForm({...form, descricao: e.target.value })} rows={3} className="border rounded-lg px-3 py-2 w-full" /></ToggleField>
-                            <ToggleField label="Categoria" checked={form.useCategoria} onChange={(e) => setForm({...form, useCategoria: e.target.checked })}><input value={form.categoria} onChange={(e) => setForm({...form, categoria: e.target.value })} placeholder="Ex: Bebidas, Eletrônicos" className="border rounded-lg px-3 py-2 w-full" /></ToggleField>
-                            <ToggleField label="Peso" checked={form.usePeso} onChange={(e) => setForm({...form, usePeso: e.target.checked })}><input type="number" step="0.01" value={form.peso} onChange={(e) => setForm({...form, peso: e.target.value })} placeholder="Em KG" className="border rounded-lg px-3 py-2 w-full" /></ToggleField>
-                            <div className="grid grid-cols-2 gap-4 pt-2">
-                                <div><label className="text-sm font-medium text-gray-700">Preço Custo</label><input type="number" step="0.01" value={form.preco_custo} onChange={(e) => setForm({...form, preco_custo: e.target.value })} className="mt-1 border rounded-lg px-3 py-2 w-full" /></div>
-                                <ToggleField label="Aplicar IVA" checked={form.useIva} onChange={(e) => setForm({...form, useIva: e.target.checked })}><input type="number" step="0.1" value={form.iva} onChange={(e) => setForm({...form, iva: e.target.value })} className="border rounded-lg px-3 py-2 w-full" /></ToggleField>
+                                <ToggleField label="Adicionar Imagem" checked={form.useImagem} onChange={(e) => setForm({...form, useImagem: e.target.checked })}>
+                                    <div className="border border-dashed border-gray-200 rounded-[12px] p-3 bg-white">
+                                        <input type="file" ref={fileInputRef} accept="image/*" onChange={handleImagemChange} className="hidden" />
+                                        {form.imagem_preview? (
+                                            <div className="flex items-center gap-3">
+                                                <img src={form.imagem_preview} alt="Preview" className="w-16 h-16 object-cover rounded-[12px] border" />
+                                                <button type="button" onClick={() => fileInputRef.current?.click()} className="text-[12px] text-[#0095ff] font-medium">Trocar imagem</button>
+                                            </div>
+                                        ) : (
+                                            <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full flex flex-col items-center gap-2 text-gray-500 hover:text-[#0095ff] py-2">
+                                                <Upload className="w-6 h-6" /><span className="text-[12px] text-black">Selecionar imagem</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </ToggleField>
                             </div>
+                        )}
+                        {tab === 'opcional' && (
+                            <div className="flex flex-col gap-[2px]">
+                                <ToggleField label="Código de Barras" checked={form.useCodigoBarras} onChange={(e) => setForm({...form, useCodigoBarras: e.target.checked })}>
+                                    <input value={form.codigo_barras} onChange={(e) => setForm({...form, codigo_barras: e.target.value })} placeholder="Código de Barras" className={inputClass} />
+                                </ToggleField>
+                                <ToggleField label="Código QR" checked={form.useCodigoQR} onChange={(e) => setForm({...form, useCodigoQR: e.target.checked })}>
+                                    <input value={form.codigo_qr} onChange={(e) => setForm({...form, codigo_qr: e.target.value })} placeholder="Código QR" className={inputClass} />
+                                </ToggleField>
+                                <ToggleField label="Descrição" checked={form.useDescricao} onChange={(e) => setForm({...form, useDescricao: e.target.checked })}>
+                                    <textarea value={form.descricao} onChange={(e) => setForm({...form, descricao: e.target.value })} rows={3} placeholder="Descrição" className="w-full bg-white border border-gray-200 rounded-[12px] px-2 py-2 text-[13.5px] text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20" />
+                                </ToggleField>
+                                <ToggleField label="Categoria" checked={form.useCategoria} onChange={(e) => setForm({...form, useCategoria: e.target.checked })}>
+                                    <input value={form.categoria} onChange={(e) => setForm({...form, categoria: e.target.value })} placeholder="Categoria - Ex: Bebidas" className={inputClass} />
+                                </ToggleField>
+                                <ToggleField label="Peso" checked={form.usePeso} onChange={(e) => setForm({...form, usePeso: e.target.checked })}>
+                                    <input type="number" step="0.01" value={form.peso} onChange={(e) => setForm({...form, peso: e.target.value })} placeholder="Peso em KG" className={inputClass} />
+                                </ToggleField>
+                                <div className="grid grid-cols-2 gap-[2px] pt-[2px]">
+                                    <input type="number" step="0.01" value={form.preco_custo} onChange={(e) => setForm({...form, preco_custo: e.target.value })} placeholder="Preço Custo" className={inputClass} />
+                                    <ToggleField label="Aplicar IVA" checked={form.useIva} onChange={(e) => setForm({...form, useIva: e.target.checked })}>
+                                        <input type="number" step="0.1" value={form.iva} onChange={(e) => setForm({...form, iva: e.target.value })} placeholder="IVA %" className={inputClass} />
+                                    </ToggleField>
+                                </div>
+                            </div>
+                        )}
+                        {tab === 'estoque' && (
+                            <div className="flex flex-col gap-[2px]">
+                                <label className="flex items-center gap-2 h-[44px] px-2 border border-gray-200 rounded-[12px] cursor-pointer bg-white">
+                                    <input type="checkbox" checked={form.controlar_stock} onChange={(e) => setForm({...form, controlar_stock: e.target.checked })} className="w-4 h-4 accent-[#0095ff]" />
+                                    <span className="text-[12px] text-black font-medium">Controlar Estoque</span>
+                                </label>
+                                {form.controlar_stock? (
+                                    <input type="number" step="0.01" value={form.stock_minimo} onChange={(e) => setForm({...form, stock_minimo: e.target.value })} placeholder="Estoque Mínimo" className={inputClass} />
+                                ) : (
+                                    <p className="text-[12px] text-gray-500 bg-gray-50 p-3 rounded-[12px] border">Para serviços ou produtos sem controle de estoque.</p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex gap-[2px] mt-8 pt-4 border-t border-gray-100">
+                        <div className="flex gap-[2px] flex-1">
+                            {tab!== 'obrigatorio' && (
+                                <button type="button" onClick={() => setTab(tab === 'estoque'? 'opcional' : 'obrigatorio')} className="h-11 w-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 shrink-0">
+                                    <ChevronLeft className="w-4 h-4 text-gray-600" />
+                                </button>
+                            )}
+                            {tab!== 'estoque' && (
+                                <button type="button" onClick={() => setTab(tab === 'obrigatorio'? 'opcional' : 'estoque')} className="h-11 w-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 shrink-0">
+                                    <ChevronRight className="w-4 h-4 text-gray-600" />
+                                </button>
+                            )}
+                            <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50">
+                                <X className="w-4 h-4 text-gray-600" />
+                            </button>
                         </div>
-                    )}
-                    {tab === 'estoque' && (
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-2"><input type="checkbox" checked={form.controlar_stock} onChange={(e) => setForm({...form, controlar_stock: e.target.checked })} className="w-4 h-4 accent-orange-600" /><label className="text-sm font-medium text-gray-700">Controlar Estoque</label></div>
-                            {form.controlar_stock && (<div><label className="text-sm font-medium text-gray-700">Estoque Mínimo</label><input type="number" step="0.01" value={form.stock_minimo} onChange={(e) => setForm({...form, stock_minimo: e.target.value })} className="mt-1 border rounded-lg px-3 py-2 w-full" /></div>)}
-                            {!form.controlar_stock && (<p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">Para serviços ou produtos sem controle de estoque.</p>)}
-                        </div>
-                    )}
-                    <div className="flex justify-between items-center pt-4 border-t">
-                        <div className="flex gap-2">{tab!== 'obrigatorio' && <button type="button" onClick={() => setTab(tab === 'estoque'? 'opcional' : 'obrigatorio')} className="px-4 py-2 border rounded-lg">Voltar</button>}{tab!== 'estoque' && <button type="button" onClick={() => setTab(tab === 'obrigatorio'? 'opcional' : 'estoque')} className="px-4 py-2 border rounded-lg">Avançar</button>}</div>
-                        <div className="flex gap-2"><button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">Cancelar</button><button type="submit" disabled={loading} className="px-4 py-2 bg-orange-600 text-white rounded-lg disabled:opacity-50">{loading? 'Salvando...' : isEditing? 'Atualizar' : 'Salvar Produto'}</button></div>
+                        <button type="submit" disabled={loading} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50">
+                            {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
+                        </button>
                     </div>
                 </form>
             </div>

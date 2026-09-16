@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { X } from 'lucide-react'
+import { X, Check, User, FileText, Mail, Phone, MapPin, Building2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../../../../lib/api'
 
@@ -16,7 +16,7 @@ interface Cliente {
 
 interface Props {
     open: boolean
-    cliente: Cliente | null // <- RECEBE CLIENTE
+    cliente: Cliente | null
     onClose: () => void
     onSuccess: () => void
 }
@@ -33,7 +33,7 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
         provincia: ''
     })
 
-    const isEditMode = !!cliente // <- SE TEM CLIENTE É EDIÇÃO
+    const isEditMode =!!cliente
 
     useEffect(() => {
         if (cliente) {
@@ -62,10 +62,10 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
         setLoading(true)
         try {
             if (isEditMode && cliente) {
-                await api.put(`/api/clientes/${cliente.id}`, form) // <- PUT
+                await api.put(`/api/clientes/${cliente.id}`, form)
                 toast.success('Cliente atualizado com sucesso', { position: 'top-center' })
             } else {
-                await api.post('/api/clientes/', form) // <- POST
+                await api.post('/api/clientes/', form)
                 toast.success('Cliente criado com sucesso', { position: 'top-center' })
             }
             onSuccess()
@@ -77,71 +77,69 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
         }
     }
 
+    const inputClass = "w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-2 text-[13.5px] text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition"
+
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl w-full max-w-lg">
-                <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                    <h2 className="text-xl font-bold text-gray-900">
-                        {isEditMode ? 'Editar Cliente' : 'Novo Cliente'} {/* <- TÍTULO DINAMICO */}
-                    </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                        <X className="w-5 h-5" />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div
+                className="relative bg-white rounded-[24px] w-full max-w-[520px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-h-[90vh] flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF] shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center">
+                        <User className="w-4 h-4 text-[#0095ff]" />
+                    </div>
+                    <button onClick={onClose} className="w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center hover:bg-gray-50">
+                        <X className="w-4 h-4 text-gray-500" />
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
-                            <input name="nome" value={form.nome} onChange={handleChange} required
-                                className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                <div className="px-6 pt-5 pb-2 shrink-0">
+                    <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{isEditMode? 'Editar Cliente' : 'Novo Cliente'}</h3>
+                    <p className="text-[13.5px] text-gray-500 mt-1 leading-relaxed">
+                        {isEditMode? 'Atualize os dados do cliente.' : 'Preencha os dados para criar novo cliente.'}
+                    </p>
+                </div>
+
+                <form onSubmit={handleSubmit} className="px-6 pb-6 pt-3 overflow-auto flex-1">
+                    <div className="flex flex-col gap-[2px]">
+                        <div className="grid grid-cols-2 gap-[2px]">
+                            <div className="relative">
+                                <input name="nome" value={form.nome} onChange={handleChange} required placeholder="Nome *"
+                                    className={inputClass} />
+                            </div>
+                            <div className="relative">
+                                <input name="nif" value={form.nif} onChange={handleChange} required placeholder="NIF *"
+                                    className={inputClass} />
+                            </div>
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">NIF *</label>
-                            <input name="nif" value={form.nif} onChange={handleChange} required
-                                className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+
+                        <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="Email"
+                            className={inputClass} />
+
+                        <div className="grid grid-cols-2 gap-[2px]">
+                            <input name="telefone" value={form.telefone} onChange={handleChange} placeholder="Telefone"
+                                className={inputClass} />
+                            <input name="cidade" value={form.cidade} onChange={handleChange} placeholder="Cidade"
+                                className={inputClass} />
                         </div>
+
+                        <input name="endereco" value={form.endereco} onChange={handleChange} placeholder="Endereço"
+                            className={inputClass} />
+
+                        <input name="provincia" value={form.provincia} onChange={handleChange} placeholder="Província"
+                            className={inputClass} />
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                        <input name="email" type="email" value={form.email} onChange={handleChange}
-                            className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
-                            <input name="telefone" value={form.telefone} onChange={handleChange}
-                                className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
-                            <input name="cidade" value={form.cidade} onChange={handleChange}
-                                className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Endereço</label>
-                        <input name="endereco" value={form.endereco} onChange={handleChange}
-                            className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Província</label>
-                        <input name="provincia" value={form.provincia} onChange={handleChange}
-                            className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-4">
+                    <div className="flex gap-3 mt-8">
                         <button type="button" onClick={onClose}
-                            className="px-4 py-2 rounded-lg border-gray-300 text-gray-700 hover:bg-gray-50">
-                            Cancelar
+                            className="flex-1 h-11 rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2">
+                            <X className="w-4 h-4" />
                         </button>
                         <button type="submit" disabled={loading}
-                            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
-                            {loading? 'Salvando...' : isEditMode ? 'Atualizar' : 'Salvar'} {/* <- BTN DINAMICO */}
+                            className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-50">
+                            {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
                         </button>
                     </div>
                 </form>

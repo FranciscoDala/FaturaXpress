@@ -11,9 +11,9 @@ export interface Cliente { id: string; nome: string; nif: string; email: string 
 export type Tab = 'emitir' | 'curso' | 'emitidas'
 
 export const getNumero = (f: any) => f?.numero_nota_credito || f?.numero_fatura || f?.numero_proforma || f?.numero || f?.id?.slice(0, 8) || '---'
-export const getTotal = (f: any) => Number(f?.total_geral?? f?.total?? 0)
+export const getTotal = (f: any) => Number(f?.total_geral ?? f?.total ?? 0)
 export const getData = (f: any) => f?.data_emissao || f?.created_at || f?.data
-export const isFaturaOficial = (f: any) => f?.tipo_documento === 'fatura' &&!!f?.hash_agt
+export const isFaturaOficial = (f: any) => f?.tipo_documento === 'fatura' && !!f?.hash_agt
 export const isNotaCredito = (f: any) => f?.tipo_documento === 'nota_credito'
 
 const VALID_TABS: Tab[] = ['emitir', 'curso', 'emitidas']
@@ -49,7 +49,7 @@ export default function EmitirFaturaPage() {
         api.get('/api/auth/me').then(r => {
             const comp = r.data.company || r.data
             setEmpresa({
-               ...comp,
+                ...comp,
                 nome: comp.nome || comp.companyName,
                 endereco: comp.endereco || comp.address,
                 cidade: comp.cidade || comp.city,
@@ -100,9 +100,17 @@ export default function EmitirFaturaPage() {
         try {
             setLoadingCounts(true)
             const res = await api.get('/api/faturas', { params: { cliente_id: clienteId, limit: 100 } })
-            const all = Array.isArray(res.data)? res.data : (res.data.items || [])
-            setFaturasCurso(all.filter((f: any) => f.tipo_documento === 'proforma' && ['rascunho', 'pendente', 'em_curso'].includes(f.status)))
-            setFaturasEmitidas(all.filter((f: any) => f.tipo_documento === 'fatura' || f.tipo_documento === 'nota_credito' || ['concluida', 'emitida', 'cancelada'].includes(f.status)))
+            const all = Array.isArray(res.data) ? res.data : (res.data.items || [])
+            setFaturasCurso(all.filter((f: any) => {
+                const tipo = String(f.tipo_documento || '').toLowerCase()
+                const st = String(f.status || '').toLowerCase()
+                return (tipo.includes('proforma') || tipo === 'pp') && ['rascunho', 'pendente', 'em_curso', 'em curso'].includes(st)
+            }))
+            setFaturasEmitidas(all.filter((f: any) => {
+                const tipo = String(f.tipo_documento || '').toLowerCase()
+                const st = String(f.status || '').toLowerCase()
+                return tipo.includes('fatura') || tipo.includes('nota') || tipo === 'ft' || tipo === 'nc' || ['concluida', 'emitida', 'cancelada', 'emitida_ft'].includes(st)
+            }))
         } catch { }
         finally { setLoadingCounts(false) }
     }
@@ -111,7 +119,7 @@ export default function EmitirFaturaPage() {
         if (clienteId) fetchFaturas()
     }, [clienteId])
 
-    const isInitialLoading = loadingEmpresa &&!empresa
+    const isInitialLoading = loadingEmpresa && !empresa
 
     if (isInitialLoading) {
         return (
@@ -142,15 +150,15 @@ export default function EmitirFaturaPage() {
                                 <div className="flex flex-col items-start text-left">
                                     <h1 className="text-[22px] sm:text-[24px] font-bold text-[#1a202c] text-left">{cliente?.nome || 'Cliente Avulso - Emitir Direto'}</h1>
                                     <div className="flex gap-1.5 mt-1.5 justify-start">
-                                        <span className="text-[9px] px-2 py-[2px] bg-[#fff2e0] border border-[#ffd9a0] text-[#8a5a20] rounded">{cliente? 'Cliente' : 'Avulso'}</span>
+                                        <span className="text-[9px] px-2 py-[2px] bg-[#fff2e0] border border-[#ffd9a0] text-[#8a5a20] rounded">{cliente ? 'Cliente' : 'Avulso'}</span>
                                         <span className="text-[9px] px-2 py-[2px] bg-white border rounded text-gray-600">NIF {cliente?.nif || '999999999'}</span>
                                     </div>
                                     <div className="mt-3 space-y-1 text-[13px] text-[#4a5568] text-left">
-                                        {cliente? (
+                                        {cliente ? (
                                             <>
                                                 <p>{cliente.email}</p>
                                                 <p>{cliente.telefone}</p>
-                                                <p>{cliente.cidade? `${cliente.endereco} - ${cliente.cidade}` : cliente.endereco}</p>
+                                                <p>{cliente.cidade ? `${cliente.endereco} - ${cliente.cidade}` : cliente.endereco}</p>
                                             </>
                                         ) : (
                                             <p className="text-gray-500">Sem cadastro - preencha nome/NIF na emissão. Pode salvar depois.</p>
@@ -162,17 +170,17 @@ export default function EmitirFaturaPage() {
                                     Voltar
                                 </button>
                             </div>
-                            {clienteId? (
+                            {clienteId ? (
                                 <div className="mt-6 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
-                                    <button onClick={() => setActiveTab('curso')} className={`flex-1 py-2 ${activeTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                        <p className="text-[13px] font-bold">{loadingCounts? '...' : faturasCurso.length}</p>
+                                    <button onClick={() => setActiveTab('curso')} className={`flex-1 py-2 ${activeTab === 'curso' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                        <p className="text-[13px] font-bold">{loadingCounts ? '...' : faturasCurso.length}</p>
                                         <p className="text-[11px] text-gray-500">Proformas PP</p>
                                     </button>
-                                    <button onClick={() => setActiveTab('emitidas')} className={`flex-1 py-2 border-l ${activeTab === 'emitidas'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                        <p className="text-[13px] font-bold">{loadingCounts? '...' : faturasEmitidas.length}</p>
+                                    <button onClick={() => setActiveTab('emitidas')} className={`flex-1 py-2 border-l ${activeTab === 'emitidas' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                        <p className="text-[13px] font-bold">{loadingCounts ? '...' : faturasEmitidas.length}</p>
                                         <p className="text-[11px] text-gray-500">Faturas FT + NC</p>
                                     </button>
-                                    <button onClick={() => setActiveTab('emitir')} className={`flex-[1.2] border-l text-[13px] font-semibold ${activeTab === 'emitir'? 'bg-[#0095ff] text-white' : 'bg-[#8ecfff] text-white'}`}>+ Emitir Fatura</button>
+                                    <button onClick={() => setActiveTab('emitir')} className={`flex-[1.2] border-l text-[13px] font-semibold ${activeTab === 'emitir' ? 'bg-[#0095ff] text-white' : 'bg-[#8ecfff] text-white'}`}>+ Emitir Fatura</button>
                                 </div>
                             ) : (
                                 <div className="mt-6 bg-white/80 border rounded-[3px] p-2 max-w-[520px] text-[11px] text-gray-600">Modo Avulso: emissão rápida sem precisar salvar cliente</div>
@@ -204,7 +212,7 @@ export default function EmitirFaturaPage() {
                     `}</style>
                 </div>
                 <div className="w-full py-6">
-                    {(activeTab === 'emitir' ||!clienteId) && <TabEmitir clienteId={clienteId || undefined} onEmitida={() => { if (clienteId) { fetchFaturas(); setActiveTab('curso'); } else { navigate('/app/dashboard') } }} />}
+                    {(activeTab === 'emitir' || !clienteId) && <TabEmitir clienteId={clienteId || undefined} onEmitida={() => { if (clienteId) { fetchFaturas(); setActiveTab('curso'); } else { navigate('/app/dashboard') } }} />}
                     {clienteId && activeTab === 'curso' && <TabCurso faturas={faturasCurso} loading={loadingCounts} cliente={cliente!} empresa={empresa} onRefresh={fetchFaturas} />}
                     {clienteId && activeTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} loading={loadingCounts} cliente={cliente!} empresa={empresa} onRefresh={fetchFaturas} />}
                 </div>

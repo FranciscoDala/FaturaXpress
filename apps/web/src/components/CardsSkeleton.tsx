@@ -24,16 +24,34 @@ const CardShell = () => (
 )
 
 export const TabCursoSkeleton = () => (
-    <div className="flex gap-4 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden">
-        {Array.from({ length: 3 }).map((_, i) => <CardShell key={i} />)}
+    <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+        <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {Array.from({ length: 3 }).map((_, i) => <CardShell key={i} />)}
+        </div>
     </div>
 )
 
-export const TabEmitidasSkeleton = TabCursoSkeleton
+export const TabEmitidasSkeleton = () => (
+    <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+        <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="min-w-full md:min-w-[320px] md:max-w-[320px] h-[46px] bg-gray-100 animate-pulse rounded-full" />
+            <div className="min-w-full md:min-w-[320px] md:max-w-[320px] h-[46px] bg-gray-100 animate-pulse rounded-full" />
+        </div>
+        <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {Array.from({ length: 3 }).map((_, i) => <CardShell key={i} />)}
+        </div>
+    </div>
+)
 
-export const CardsProdutosSkeleton = TabCursoSkeleton
+export const CardsProdutosSkeleton = () => (
+    <div className="w-full">
+        <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {Array.from({ length: 3 }).map((_, i) => <CardShell key={i} />)}
+        </div>
+    </div>
+)
 
-export const TabelaClientesSkeleton = TabCursoSkeleton
+export const TabelaClientesSkeleton = CardsProdutosSkeleton
 
 export const TabEmitirProdutosSkeleton = () => (
     <div className="space-y-2">

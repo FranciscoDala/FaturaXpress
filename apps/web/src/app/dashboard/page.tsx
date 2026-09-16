@@ -210,8 +210,8 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <style>{`
-           .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-           .bubble-1 { width:80px; height:80px; left:10%; top:20%; animation-delay:0s; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; animation-delay:1s; animation-duration:10s; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; animation-delay:2s; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; animation-delay:0.5s; animation-duration:7s; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; animation-delay:1.5s; animation-duration:9s; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; animation-delay:2.5s; }
+          .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+          .bubble-1 { width:80px; height:80px; left:10%; top:20%; animation-delay:0s; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; animation-delay:1s; animation-duration:10s; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; animation-delay:2s; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; animation-delay:0.5s; animation-duration:7s; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; animation-delay:1.5s; animation-duration:9s; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; animation-delay:2.5s; }
             @keyframes floatBubble { 0%,100%{transform:translateY(0) translateX(0) scale(1); opacity:0.55;} 25%{transform:translateY(-15px) translateX(10px) scale(1.05); opacity:0.85;} 50%{transform:translateY(-25px) translateX(-5px) scale(0.95); opacity:0.45;} 75%{transform:translateY(-10px) translateX(-10px) scale(1.02); opacity:0.7;} }
                     `}</style>
                 </div>
@@ -257,11 +257,6 @@ export default function DashboardPage() {
                                 {faturaTab === 'emitir' && <TabEmitir onEmitida={() => { fetchFaturasGeral(); setFaturaTab('curso') }} />}
                                 {faturaTab === 'curso' && <TabCurso faturas={faturasCurso} cliente={null as any} empresa={empresa} onRefresh={fetchFaturasGeral} />}
                                 {faturaTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} cliente={null as any} empresa={empresa} onRefresh={fetchFaturasGeral} />}
-                            </div>
-
-                            <div className="mt-8 flex gap-3 flex-wrap">
-                                <button onClick={() => { setHomeView('gestao'); setListView('clientes') }} className="h-[44px] px-6 rounded-full bg-white border text-[13px] font-medium">Gerir Clientes / Produtos</button>
-                                <button onClick={() => setModalSaftOpen(true)} className="h-[44px] px-6 rounded-full bg-[#0A2540] text-white text-[13px] font-bold flex items-center gap-2"><FileDown className="w-4 h-4" /> Exportar SAFT-AO</button>
                             </div>
 
                             <div className="mt-6 bg-white rounded-[22px] p-6 border border-gray-100 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">

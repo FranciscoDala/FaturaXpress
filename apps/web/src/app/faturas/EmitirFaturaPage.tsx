@@ -36,7 +36,7 @@ export default function EmitirFaturaPage() {
     })
     const [faturasCurso, setFaturasCurso] = useState<any[]>([])
     const [faturasEmitidas, setFaturasEmitidas] = useState<any[]>([])
-    const [loadingCounts, setLoadingCounts] = useState(false)
+    const [loadingCounts, setLoadingCounts] = useState(true)
     const [loadingEmpresa, setLoadingEmpresa] = useState(true)
 
     const fetchFaturas = useCallback(async () => {
@@ -55,9 +55,11 @@ export default function EmitirFaturaPage() {
                 const st = String(f.status || '').toLowerCase()
                 return tipo.includes('fatura') || tipo.includes('nota') || tipo === 'ft' || tipo === 'nc' || ['concluida', 'emitida', 'cancelada', 'emitida_ft'].includes(st)
             }))
-        } catch { } finally { setLoadingCounts(false) }
+        } catch { }
+        finally { setLoadingCounts(false) }
     }, [clienteId])
 
+    // REALTIME
     useRealtime({
         onEvent: (msg) => {
             if (msg.event === 'faturas:changed') fetchFaturas()
@@ -72,7 +74,7 @@ export default function EmitirFaturaPage() {
         api.get('/auth/me').then(r => {
             const comp = r.data.company || r.data
             setEmpresa({
-               ...comp,
+             ...comp,
                 nome: comp.nome || comp.companyName,
                 endereco: comp.endereco || comp.address,
                 cidade: comp.cidade || comp.city,
@@ -80,42 +82,56 @@ export default function EmitirFaturaPage() {
                 provincia: comp.provincia || comp.province,
                 logo_url: comp.logo_url || comp.image_url,
                 image_url: comp.image_url || comp.logo_url,
-                iban: comp.iban, iban2: comp.iban2, banco1: comp.banco1, banco2: comp.banco2,
+                iban: comp.iban,
+                iban2: comp.iban2,
+                banco1: comp.banco1,
+                banco2: comp.banco2,
             })
         }).catch(() => {
             setEmpresa({ nome: 'FaturaXpress', nif: '---', endereco: 'Luanda' })
-        }).finally(() => setLoadingEmpresa(false))
-    }, [clienteId])
+        }).finally(() => {
+            setLoadingEmpresa(false)
+        })
+    }, [clienteId, navigate])
 
-    // Inicializa tab da URL apenas 1 vez
     useEffect(() => {
         if (!clienteId) return
         const tabUrl = searchParams.get('tab') as Tab | null
         if (tabUrl && VALID_TABS.includes(tabUrl)) {
             setActiveTab(tabUrl)
             localStorage.setItem(`fatura_tab_${clienteId}`, tabUrl)
+        } else {
+            const saved = localStorage.getItem(`fatura_tab_${clienteId}`) as Tab | null
+            if (saved && VALID_TABS.includes(saved)) {
+                setActiveTab(saved)
+                const newParams = new URLSearchParams(searchParams)
+                newParams.set('tab', saved)
+                setSearchParams(newParams, { replace: true })
+            }
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [clienteId])
 
-    // Grava tab sem causar loop
     useEffect(() => {
         if (!clienteId) return
         localStorage.setItem(`fatura_tab_${clienteId}`, activeTab)
-        setSearchParams(prev => {
-            const p = new URLSearchParams(prev)
-            p.set('tab', activeTab)
-            p.set('cliente_id', clienteId)
-            return p
-        }, { replace: true })
-    }, [activeTab, clienteId, setSearchParams])
+        const newParams = new URLSearchParams(searchParams)
+        newParams.set('tab', activeTab)
+        if (clienteId) newParams.set('cliente_id', clienteId)
+        setSearchParams(newParams, { replace: true })
+    }, [activeTab])
 
-    useEffect(() => { if (clienteId) fetchFaturas() }, [clienteId, fetchFaturas])
+    useEffect(() => {
+        if (clienteId) fetchFaturas()
+    }, [clienteId, fetchFaturas])
 
     const isInitialLoading = loadingEmpresa &&!empresa
 
     if (isInitialLoading) {
-        return <div className="min-h-screen bg-white"><EmitirFaturaSkeleton /></div>
+        return (
+            <div className="min-h-screen bg-white">
+                <EmitirFaturaSkeleton />
+            </div>
+        )
     }
 
     return (
@@ -123,8 +139,12 @@ export default function EmitirFaturaPage() {
             <div className="max-w-[1100px] mx-auto">
                 <div className="relative px-4 sm:px-8 lg:px-12 pt-8 pb-6 border-b border-gray-100 overflow-hidden bg-gradient-to-br from-[#E8F2FF] via-[#F0F7FF] to-white">
                     <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-                        <div className="bubble bubble-1"></div><div className="bubble bubble-2"></div><div className="bubble bubble-3"></div>
-                        <div className="bubble bubble-4"></div><div className="bubble bubble-5"></div><div className="bubble bubble-6"></div>
+                        <div className="bubble bubble-1"></div>
+                        <div className="bubble bubble-2"></div>
+                        <div className="bubble bubble-3"></div>
+                        <div className="bubble bubble-4"></div>
+                        <div className="bubble bubble-5"></div>
+                        <div className="bubble bubble-6"></div>
                     </div>
                     <div className="relative z-10 flex flex-col md:flex-row gap-5 items-start text-left">
                         <div className="w-[96px] h-[96px] sm:w-[132px] sm:h-[132px] rounded-full overflow-hidden bg-gray-200 border-[6px] border-white shadow-sm shrink-0 self-start">
@@ -140,14 +160,19 @@ export default function EmitirFaturaPage() {
                                     </div>
                                     <div className="mt-3 space-y-1 text-[13px] text-[#4a5568] text-left">
                                         {cliente? (
-                                            <><p>{cliente.email}</p><p>{cliente.telefone}</p><p>{cliente.cidade? `${cliente.endereco} - ${cliente.cidade}` : cliente.endereco}</p></>
+                                            <>
+                                                <p>{cliente.email}</p>
+                                                <p>{cliente.telefone}</p>
+                                                <p>{cliente.cidade? `${cliente.endereco} - ${cliente.cidade}` : cliente.endereco}</p>
+                                            </>
                                         ) : (
                                             <p className="text-gray-500">Sem cadastro - preencha nome/NIF na emissão. Pode salvar depois.</p>
                                         )}
                                     </div>
                                 </div>
                                 <button onClick={() => navigate('/app/dashboard')} className="bg-[#FF3B30] text-white text-[12px] font-semibold px-4 py-1.5 rounded-full shrink-0 flex items-center gap-1.5 hover:bg-[#e6362c] transition">
-                                    <ArrowLeft className="w-4 h-4" />Voltar
+                                    <ArrowLeft className="w-4 h-4" />
+                                    Voltar
                                 </button>
                             </div>
                             {clienteId? (
@@ -168,9 +193,27 @@ export default function EmitirFaturaPage() {
                         </div>
                     </div>
                     <style>{`
-           .bubble{position:absolute;border-radius:50%;background:radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%);border:1px solid rgba(0,149,255,0.14);box-shadow:inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10);animation:floatBubble 8s infinite ease-in-out;will-change:transform}
-           .bubble-1{width:80px;height:80px;left:10%;top:20%}.bubble-2{width:120px;height:120px;left:70%;top:10%}.bubble-3{width:60px;height:60px;left:40%;top:60%}.bubble-4{width:40px;height:40px;left:85%;top:50%}.bubble-5{width:100px;height:100px;left:5%;top:70%}.bubble-6{width:50px;height:50px;left:55%;top:15%}
-            @keyframes floatBubble{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-25px) scale(0.95)}}
+            .bubble {
+                            position: absolute;
+                            border-radius: 50%;
+                            background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%);
+                            border: 1px solid rgba(0,149,255,0.14);
+                            box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10);
+                            animation: floatBubble 8s infinite ease-in-out;
+                            will-change: transform;
+                        }
+            .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
+            .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
+            .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
+            .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
+            .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
+            .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
+                        @keyframes floatBubble {
+                            0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.55; }
+                            25% { transform: translateY(-15px) translateX(10px) scale(1.05); opacity: 0.85; }
+                            50% { transform: translateY(-25px) translateX(-5px) scale(0.95); opacity: 0.45; }
+                            75% { transform: translateY(-10px) translateX(-10px) scale(1.02); opacity: 0.7; }
+                        }
                     `}</style>
                 </div>
                 <div className="w-full py-6">

@@ -15,6 +15,13 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
         id: fatura?.cliente_id || null
     }
 
+    // garante logo vindo do DB
+    const empresaView = empresa? {
+       ...empresa,
+        logo: empresa.logo_url || empresa.image_url || empresa.logo || '',
+        logo_url: empresa.logo_url || empresa.image_url || '',
+    } : empresa
+
     const handlePrint = () => {
         const el = document.getElementById('fatura-pdf')
         if (!el) return
@@ -82,7 +89,7 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
             </div>
             <div className="flex-1 w-full px-4 sm:px-8 lg:px-12 py-6 flex justify-center overflow-x-hidden overflow-y-auto">
                 <div className="shadow-2xl w-full max-w-[210mm] overflow-hidden">
-                    <FaturaPDF fatura={fatura} cliente={clienteView} empresa={empresa} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} />
+                    <FaturaPDF fatura={fatura} cliente={clienteView} empresa={empresaView} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} />
                 </div>
             </div>
         </div>

@@ -11,6 +11,10 @@ class RegisterRequest(BaseModel):
     city: str
     province: str
     password: str
+    iban: Optional[str] = None
+    iban2: Optional[str] = None
+    logo_url: Optional[str] = None
+    image_url: Optional[str] = None
 
 class RegisterResponse(BaseModel):
     message: str
@@ -25,6 +29,10 @@ class CompanyResponse(BaseModel):
     address: Optional[str] = None
     city: Optional[str] = None
     province: Optional[str] = None
+    iban: Optional[str] = None
+    iban2: Optional[str] = None
+    logo_url: Optional[str] = None
+    image_url: Optional[str] = None
 
 class LoginRequest(BaseModel):
     nif: str
@@ -45,3 +53,7 @@ class UpdateCompanyRequest(BaseModel):
     address: Optional[str] = None
     city: Optional[str] = None
     province: Optional[str] = None
+    iban: Optional[str] = None
+    iban2: Optional[str] = None
+    logo_url: Optional[str] = None
+    image_url: Optional[str] = None

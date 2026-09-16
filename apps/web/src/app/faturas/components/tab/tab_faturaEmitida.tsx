@@ -24,6 +24,8 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh }: { 
     const [selectedMotivo, setSelectedMotivo] = useState('')
     const [loadingNC, setLoadingNC] = useState(false)
     const wrapperRef = useRef<HTMLDivElement>(null)
+    const btnRef = useRef<HTMLButtonElement>(null)
+    const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 320 })
 
     const filtradas = faturas.filter(f => {
         const matchFiltro = filtro === 'todos'? true : filtro === 'nota_credito'? f.tipo_documento === 'nota_credito' : f.status === filtro
@@ -33,11 +35,26 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh }: { 
 
     useEffect(() => {
         const close = (e: MouseEvent) => {
-            if (wrapperRef.current &&!wrapperRef.current.contains(e.target as Node)) setOpenSelect(false)
+            if (wrapperRef.current &&!wrapperRef.current.contains(e.target as Node) &&!(e.target as HTMLElement).closest('[data-select-dropdown]')) {
+                setOpenSelect(false)
+            }
         }
         document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
     }, [])
+
+    useEffect(() => {
+        if (openSelect && btnRef.current) {
+            const rect = btnRef.current.getBoundingClientRect()
+            setDropdownPos({ top: rect.bottom + 8, left: rect.left, width: rect.width })
+        }
+    }, [openSelect])
+
+    useEffect(() => {
+        const onScroll = () => { if (openSelect) setOpenSelect(false) }
+        window.addEventListener('scroll', onScroll, true)
+        return () => window.removeEventListener('scroll', onScroll, true)
+    }, [openSelect])
 
     const handleOpenNC = (fatura: any) => {
       setSelectedFatura(fatura)
@@ -74,26 +91,27 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh }: { 
             <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     <div ref={wrapperRef} className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-40">
-                        <button onClick={() => setOpenSelect(!openSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
+                        <button ref={btnRef} onClick={() => setOpenSelect(!openSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
                             <span className="text-gray-900">{OPTIONS.find(o => o.value === filtro)?.label}</span>
                             <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openSelect? 'rotate-180' : ''}`} />
                         </button>
-                        {openSelect && (
-                            <div className="absolute top-[54px] left-0 w-full bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
-                                {OPTIONS.map(opt => (
-                                    <button key={opt.value} onClick={() => { setFiltro(opt.value); setOpenSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${filtro === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
-                                        {opt.label}
-                                        {filtro === opt.value && <Check className="w-4 h-4 text-[#0095ff]" />}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
                     </div>
                     <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-0">
                         <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
                         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar nº FT/NC ou hash AGT" className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
                     </div>
                 </div>
+
+                {openSelect && (
+                    <div data-select-dropdown style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
+                        {OPTIONS.map(opt => (
+                            <button key={opt.value} onClick={() => { setFiltro(opt.value); setOpenSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${filtro === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                {opt.label}
+                                {filtro === opt.value && <Check className="w-4 h-4 text-[#0095ff]" />}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 {filtradas.length === 0? (
                     <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma fatura FT/NC</p>

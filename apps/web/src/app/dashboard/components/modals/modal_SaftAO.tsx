@@ -26,6 +26,24 @@ export default function ModalSaftAO({ open, onClose }: Props) {
     const [anoView, setAnoView] = useState(new Date().getFullYear())
     const ref = useRef<HTMLDivElement>(null)
 
+    // TRAVA SCROLL DO FUNDO QUANDO MODAL ABERTA
+    useEffect(() => {
+        if (open) {
+            document.body.style.overflow = 'hidden'
+            document.documentElement.style.overflow = 'hidden'
+            document.body.style.touchAction = 'none'
+        } else {
+            document.body.style.overflow = ''
+            document.documentElement.style.overflow = ''
+            document.body.style.touchAction = ''
+        }
+        return () => {
+            document.body.style.overflow = ''
+            document.documentElement.style.overflow = ''
+            document.body.style.touchAction = ''
+        }
+    }, [open])
+
     useEffect(() => {
         const h = (e: MouseEvent) => { if (ref.current &&!ref.current.contains(e.target as Node)) setOpenSel(false) }
         document.addEventListener('mousedown', h)
@@ -35,7 +53,6 @@ export default function ModalSaftAO({ open, onClose }: Props) {
     const exportar = async () => {
         setLoading(true)
         try {
-            // Bate com teu backend: /api/faturas/saf-t?mes=YYYY-MM
             const res = await api.get(`/api/faturas/saf-t`, { params: { mes }, responseType: 'blob' })
             const url = window.URL.createObjectURL(new Blob([res.data]))
             const a = document.createElement('a')
@@ -54,11 +71,15 @@ export default function ModalSaftAO({ open, onClose }: Props) {
     const current = MESES.find(m => m.value === mes)
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+        <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain"
+             onWheel={(e) => e.stopPropagation()}
+             onTouchMove={(e) => e.stopPropagation()}
+        >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-            <div className="relative bg-white rounded-[24px] w-full max-w-[400px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
-                <div className="relative h-[72px] bg-[#E6F0FF] px-5 pt-5 flex justify-between items-start">
+            {/* Container com overflow visible pra calendário não cortar */}
+            <div className="relative bg-white rounded-[24px] w-full max-w-[400px] my-4 sm:my-0 shadow-[0_20px_60px_rgba(0,0,0,0.25)] flex flex-col max-h-[90vh] overflow-visible">
+                <div className="relative h-[72px] bg-[#E6F0FF] px-5 pt-5 flex justify-between items-start rounded-t-[24px] shrink-0">
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center">
                         <FileDown className="w-4 h-4 text-[#0095ff]" />
                     </div>
@@ -67,7 +88,10 @@ export default function ModalSaftAO({ open, onClose }: Props) {
                     </button>
                 </div>
 
-                <div className="px-6 pt-5 pb-6">
+                {/* Área rolável - só ela rola */}
+                <div className="px-6 pt-5 pb-6 overflow-y-auto overscroll-contain flex-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                     onWheel={(e) => e.stopPropagation()}
+                >
                     <h3 className="text-[18px] font-bold text-gray-900 leading-tight">Exportar SAFT-AO</h3>
                     <p className="text-[13.5px] text-gray-500 mt-3 leading-relaxed">
                         Ficheiro oficial <span className="font-bold text-gray-800">AGT Angola</span> com FT + NC + Hash. Prazo até dia 15.
@@ -80,15 +104,13 @@ export default function ModalSaftAO({ open, onClose }: Props) {
                         </button>
 
                         {openSel && (
-                            <div className="absolute top-[54px] left-0 w-full bg-white rounded-[24px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden z-[9999]">
-                                {/* Header ano - estilo card */}
+                            <div className="absolute top-[54px] left-0 w-full bg-white rounded-[24px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 z-[9999] overflow-hidden">
                                 <div className="h-[56px] px-4 flex items-center justify-between bg-[#F8FAFF] border-b border-gray-100">
                                     <button onClick={()=>setAnoView(a=>a-1)} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50"><ChevronLeft className="w-4 h-4" /></button>
                                     <span className="text-[14px] font-bold text-gray-900">{anoView}</span>
                                     <button onClick={()=>setAnoView(a=>a+1)} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50"><ChevronRight className="w-4 h-4" /></button>
                                 </div>
 
-                                {/* Atalhos rápidos - cards */}
                                 <div className="p-2.5 grid grid-cols-2 gap-2">
                                     {MESES.slice(0,2).map(m => (
                                         <button key={m.value} onClick={() => { setMes(m.value); setAnoView(m.year); setOpenSel(false) }}
@@ -99,7 +121,6 @@ export default function ModalSaftAO({ open, onClose }: Props) {
                                     ))}
                                 </div>
 
-                                {/* Grid meses - estilo cards 3x4 */}
                                 <div className="px-2.5 pb-3">
                                     <div className="grid grid-cols-3 gap-2">
                                         {Array.from({length:12}).map((_, idx) => {
@@ -114,18 +135,9 @@ export default function ModalSaftAO({ open, onClose }: Props) {
                                                     <span className={`text-[12px] font-bold leading-none ${isSel? 'text-[#0A2540]' : 'text-gray-900'}`}>{MONTH_LABEL[idx]}</span>
                                                     <span className={`text-[10px] mt-1 leading-none ${isSel? 'text-[#0095ff]' : 'text-gray-400'}`}>{anoView}</span>
                                                     {isCurrent && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#0095ff]"></span>}
-                                                    {isSel && <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#0095ff]"></span>}
                                                 </button>
                                             )
                                         })}
-                                    </div>
-                                </div>
-
-                                <div className="px-3 pb-3 pt-1">
-                                    <div className="h-[1px] bg-gray-100 mb-3"></div>
-                                    <div className="flex items-center justify-between text-[11px] text-gray-500 px-1">
-                                        <span>Selecionado: <b className="text-gray-900">{mes}</b></span>
-                                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#0095ff]"></span> Hoje</span>
                                     </div>
                                 </div>
                             </div>

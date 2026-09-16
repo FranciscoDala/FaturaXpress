@@ -11,7 +11,12 @@ const genMeses = () => {
   for (let i = 0; i < 12; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
     const value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
-    list.push({ value, label: i===0? 'Mês atual' : i===1? 'Mês passado' : `${MONTH_LABEL[d.getMonth()]} ${d.getFullYear()}`, year: d.getFullYear(), month: d.getMonth()+1 })
+    list.push({
+      value,
+      label: i===0? 'Mês atual' : i===1? 'Mês passado' : `${MONTH_LABEL[d.getMonth()]} ${d.getFullYear()}`,
+      year: d.getFullYear(),
+      month: d.getMonth()+1
+    })
   }
   return list
 }
@@ -49,20 +54,43 @@ export default function ModalSaftAO({ open, onClose }: Props) {
     const exportar = async () => {
         setLoading(true)
         try {
-            // Agora manda como string, backend aceita
-            const res = await api.get(`/api/faturas/saf-t`, { params: { mes }, responseType: 'blob' })
-            const url = window.URL.createObjectURL(new Blob([res.data]))
+            const res = await api.get(`/api/faturas/saf-t`, {
+              params: { mes },
+              responseType: 'blob'
+            })
+
+            // FIX: blob tipado como XML para validador AGT
+            const blob = new Blob([res.data], { type: 'application/xml;charset=utf-8' })
+            const url = window.URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
             a.download = `SAFT-AO-${mes}.xml`
+            document.body.appendChild(a)
             a.click()
+            a.remove()
             window.URL.revokeObjectURL(url)
-            toast.success(`SAFT ${mes} gerado`)
+
+            toast.success(`SAFT ${mes} gerado - AGT 1.04_01`)
             onClose()
         } catch (e: any) {
             if (e.response?.status === 404) toast.error(`Sem FT/NC em ${mes}`)
-            else toast.error(e.response?.data?.detail || 'Erro ao gerar SAFT')
-        } finally { setLoading(false) }
+            else {
+                // Se for blob com erro, lê como texto
+                if (e.response?.data instanceof Blob) {
+                  const text = await e.response.data.text()
+                  try {
+                    const json = JSON.parse(text)
+                    toast.error(json.detail || 'Erro ao gerar SAFT')
+                  } catch {
+                    toast.error('Erro ao gerar SAFT')
+                  }
+                } else {
+                  toast.error(e.response?.data?.detail || 'Erro ao gerar SAFT')
+                }
+            }
+        } finally {
+          setLoading(false)
+        }
     }
 
     if (!open) return null
@@ -137,7 +165,7 @@ export default function ModalSaftAO({ open, onClose }: Props) {
 
                     <div className="flex gap-3 mt-8">
                         <button onClick={onClose} disabled={loading} className="flex-1 h-11 rounded-full border border-gray-200 bg-white text-[14px] font-medium text-gray-400">Cancelar</button>
-                        <button onClick={exportar} disabled={loading} className="flex-1 h-11 rounded-full bg-[#0A2540] text-white text-[14px] font-semibold flex items-center justify-center gap-2">
+                        <button onClick={exportar} disabled={loading} className="flex-1 h-11 rounded-full bg-[#0A2540] text-white text-[14px] font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
                             {loading? 'A gerar...' : <><FileDown className="w-4 h-4" /> Exportar XML</>}
                         </button>
                     </div>

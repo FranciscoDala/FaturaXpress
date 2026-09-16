@@ -1,5 +1,5 @@
 import { useState, useRef, ChangeEvent, useEffect } from 'react'
-import { X, Check, Package, Settings, Info, Upload, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
+import { X, Check, Package, Settings, Info, Upload, ChevronDown } from 'lucide-react'
 import { api } from '../../../../lib/api'
 import { toast } from 'sonner'
 
@@ -41,6 +41,15 @@ const TIPOS = [
 
 type Tab = 'obrigatorio' | 'opcional' | 'estoque'
 
+function generateBarCode() {
+    // EAN13 fake mas valido para salvar
+    const base = `560${Date.now().toString().slice(-7)}${Math.floor(Math.random()*90+10)}`
+    return base.slice(0,13)
+}
+function generateQRCode(codigo: string) {
+    return `QR-${codigo || Date.now()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`
+}
+
 function CustomSelect({ value, options, onChange, placeholder }: { value: string, options: { value: string, label: string }[], onChange: (v: string) => void, placeholder: string }) {
     const [open, setOpen] = useState(false)
     const ref = useRef<HTMLDivElement>(null)
@@ -52,12 +61,12 @@ function CustomSelect({ value, options, onChange, placeholder }: { value: string
     const selected = options.find(o => o.value === value)
     return (
         <div ref={ref} className="relative w-full">
-            <button type="button" onClick={() => setOpen(!open)} className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-2 text-[13.5px] text-black flex items-center justify-between focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition">
+            <button type="button" onClick={() => setOpen(!open)} className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-2 text-[13.5px] text-black flex items-center justify-between focus:outline-none focus:border-[#0095ff]">
                 <span className={selected? 'text-black' : 'text-black/60'}>{selected? selected.label : placeholder}</span>
                 <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open? 'rotate-180' : ''}`} />
             </button>
             {open && (
-                <div className="absolute z-50 top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5 animate-in fade-in">
+                <div className="absolute z-50 top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5">
                     {options.map(o => (
                         <button key={o.value} type="button" onClick={() => { onChange(o.value); setOpen(false) }} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[13px] flex items-center justify-between transition ${value === o.value? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-50 text-gray-700'}`}>
                             {o.label} {value === o.value && <Check className="w-4 h-4 text-[#0095ff]" />}
@@ -78,8 +87,7 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
     const [form, setForm] = useState({
         nome: '', codigo: '', preco_venda: '', tipo: 'produto',
         useImagem: false, imagem_file: null as File | null, imagem_preview: '',
-        useCodigoBarras: false, codigo_barras: '',
-        useCodigoQR: false, codigo_qr: '',
+        codigo_barras: '', codigo_qr: '',
         useDescricao: false, descricao: '',
         useCategoria: false, categoria: '',
         usePeso: false, peso: '',
@@ -90,7 +98,7 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
     useEffect(() => {
         if (!open) return
         if (produto) {
-            if (form.imagem_preview) URL.revokeObjectURL(form.imagem_preview)
+            if (form.imagem_preview && form.imagem_file) URL.revokeObjectURL(form.imagem_preview)
             setForm({
                 nome: produto.nome || '',
                 codigo: produto.codigo || '',
@@ -99,10 +107,8 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                 useImagem:!!produto.imagem_url,
                 imagem_file: null,
                 imagem_preview: produto.imagem_url || '',
-                useCodigoBarras:!!produto.codigo_barras,
-                codigo_barras: produto.codigo_barras || '',
-                useCodigoQR:!!produto.codigo_qr,
-                codigo_qr: produto.codigo_qr || '',
+                codigo_barras: produto.codigo_barras || generateBarCode(),
+                codigo_qr: produto.codigo_qr || generateQRCode(produto.codigo),
                 useDescricao:!!produto.descricao,
                 descricao: produto.descricao || '',
                 useCategoria:!!produto.categoria,
@@ -140,6 +146,10 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
         e.preventDefault()
         setLoading(true)
         try {
+            // garante geração automática se vazio
+            const finalBarCode = form.codigo_barras || generateBarCode()
+            const finalQR = form.codigo_qr || generateQRCode(form.codigo)
+
             if (isEditing) {
                 const payload: any = {
                     nome: form.nome, codigo: form.codigo, preco_venda: parseFloat(form.preco_venda || '0'),
@@ -147,7 +157,7 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                     stock_minimo: parseFloat(form.stock_minimo || '0'), preco_custo: parseFloat(form.preco_custo || '0'),
                     iva: form.useIva? parseFloat(form.iva || '0') : 0, tem_iva: form.useIva,
                     categoria: form.useCategoria? form.categoria : null, descricao: form.useDescricao? form.descricao : null,
-                    codigo_barras: form.useCodigoBarras? form.codigo_barras : null, codigo_qr: form.useCodigoQR? form.codigo_qr : null,
+                    codigo_barras: finalBarCode, codigo_qr: finalQR,
                     peso: form.usePeso? parseFloat(form.peso || '0') : null,
                 }
                 if (form.imagem_file) {
@@ -166,8 +176,7 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                 formData.append('unidade', form.unidade); formData.append('ativo', String(form.ativo))
                 formData.append('controlar_stock', String(form.controlar_stock)); formData.append('stock_atual', '0')
                 formData.append('stock_minimo', form.stock_minimo || '0'); formData.append('preco_custo', form.preco_custo || '0')
-                if (form.useCodigoBarras && form.codigo_barras) formData.append('codigo_barras', form.codigo_barras)
-                if (form.useCodigoQR && form.codigo_qr) formData.append('codigo_qr', form.codigo_qr)
+                formData.append('codigo_barras', finalBarCode); formData.append('codigo_qr', finalQR)
                 if (form.useDescricao && form.descricao) formData.append('descricao', form.descricao)
                 if (form.useCategoria && form.categoria) formData.append('categoria', form.categoria)
                 if (form.usePeso && form.peso) formData.append('peso', form.peso)
@@ -190,36 +199,29 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
         if (form.imagem_preview && form.imagem_file) URL.revokeObjectURL(form.imagem_preview)
         setForm({
             nome: '', codigo: '', preco_venda: '', tipo: 'produto', useImagem: false, imagem_file: null, imagem_preview: '',
-            useCodigoBarras: false, codigo_barras: '', useCodigoQR: false, codigo_qr: '', useDescricao: false, descricao: '',
-            useCategoria: false, categoria: '', usePeso: false, peso: '', preco_custo: '0', iva: '14', useIva: true, unidade: 'UN', ativo: true, controlar_stock: true, stock_minimo: '0'
+            codigo_barras: generateBarCode(), codigo_qr: generateQRCode(''),
+            useDescricao: false, descricao: '', useCategoria: false, categoria: '',
+            usePeso: false, peso: '', preco_custo: '0', iva: '14', useIva: true, unidade: 'UN', ativo: true, controlar_stock: true, stock_minimo: '0'
         })
         setTab('obrigatorio')
     }
 
     if (!open) return null
 
-    const inputClass = "w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-2 text-[13.5px] text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition"
+    const inputClass = "w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-2 text-[13.5px] text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition outline-none"
+    const checkBoxCard = "flex items-center gap-2 h-[44px] px-2 border border-gray-200 rounded-[12px] cursor-pointer bg-white hover:bg-gray-50 transition shrink-0 w-full"
 
     const TabButton = ({ id, label, icon: Icon }: { id: Tab, label: string, icon: any }) => (
-        <button type="button" onClick={() => setTab(id)} className={`flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium rounded-full transition border ${tab === id? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff]' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+        <button type="button" onClick={() => setTab(id)} className={`flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium rounded-full transition border shrink-0 ${tab === id? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff]' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
             <Icon className="w-4 h-4" /> {label}
         </button>
-    )
-
-    const ToggleField = ({ label, checked, onChange, children }: { label: string, checked: boolean, onChange: (e: ChangeEvent<HTMLInputElement>) => void, children: React.ReactNode }) => (
-        <div className="space-y-[2px]">
-            <label className="flex items-center gap-2 cursor-pointer py-1">
-                <input type="checkbox" checked={checked} onChange={onChange} className="w-4 h-4 accent-[#0095ff] rounded" />
-                <span className="text-[12px] font-medium text-black">{label}</span>
-            </label>
-            {checked && <div className="pl-1">{children}</div>}
-        </div>
     )
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <div className="relative bg-white rounded-[24px] w-full max-w-[560px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                {/* HEADER FIXO */}
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#FFF7ED] shrink-0">
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center">
                         <Package className="w-4 h-4 text-[#ff7a00]" />
@@ -229,113 +231,113 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                     </button>
                 </div>
 
-                <div className="px-6 pt-5 pb-3 shrink-0">
+                <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
                     <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{isEditing? 'Atualizar Produto' : 'Novo Produto'}</h3>
-                    <div className="flex gap-[2px] mt-4 overflow-auto">
+                    <div className="flex gap-[2px] mt-4 overflow-x-auto no-scrollbar">
                         <TabButton id="obrigatorio" label="Obrigatórios" icon={Info} />
                         <TabButton id="opcional" label="Opcionais" icon={Settings} />
                         <TabButton id="estoque" label="Estoque" icon={Package} />
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="px-6 pb-6 pt-2 overflow-auto flex-1 flex flex-col">
-                    <div className="flex-1">
-                        {tab === 'obrigatorio' && (
-                            <div className="flex flex-col gap-[2px]">
-                                <div className="grid grid-cols-2 gap-[2px]">
-                                    <input required value={form.nome} onChange={(e) => setForm({...form, nome: e.target.value })} placeholder="Nome *"
-                                        className={inputClass} />
-                                    <input required value={form.codigo} onChange={(e) => setForm({...form, codigo: e.target.value })} placeholder="Código *"
-                                        className={inputClass} />
-                                    <input type="number" step="0.01" required value={form.preco_venda} onChange={(e) => setForm({...form, preco_venda: e.target.value })} placeholder="Preço Venda *"
-                                        className={inputClass} />
-                                    <CustomSelect value={form.tipo} onChange={(v) => setForm({...form, tipo: v })} placeholder="Tipo"
-                                        options={TIPOS} />
-                                    <CustomSelect value={form.unidade} onChange={(v) => setForm({...form, unidade: v })} placeholder="Unidade"
-                                        options={UNIDADES.map(u => ({ value: u, label: u }))} />
-                                    <label className="flex items-center gap-2 h-[44px] px-2 border border-gray-200 rounded-[12px] cursor-pointer bg-white">
-                                        <input type="checkbox" checked={form.ativo} onChange={(e) => setForm({...form, ativo: e.target.checked })} className="w-4 h-4 accent-[#0095ff]" />
-                                        <span className="text-[12px] text-black font-medium">Ativo</span>
-                                    </label>
-                                </div>
-                                <ToggleField label="Adicionar Imagem" checked={form.useImagem} onChange={(e) => setForm({...form, useImagem: e.target.checked })}>
-                                    <div className="border border-dashed border-gray-200 rounded-[12px] p-3 bg-white">
-                                        <input type="file" ref={fileInputRef} accept="image/*" onChange={handleImagemChange} className="hidden" />
-                                        {form.imagem_preview? (
-                                            <div className="flex items-center gap-3">
-                                                <img src={form.imagem_preview} alt="Preview" className="w-16 h-16 object-cover rounded-[12px] border" />
-                                                <button type="button" onClick={() => fileInputRef.current?.click()} className="text-[12px] text-[#0095ff] font-medium">Trocar imagem</button>
-                                            </div>
-                                        ) : (
-                                            <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full flex flex-col items-center gap-2 text-gray-500 hover:text-[#0095ff] py-2">
-                                                <Upload className="w-6 h-6" /><span className="text-[12px] text-black">Selecionar imagem</span>
-                                            </button>
-                                        )}
-                                    </div>
-                                </ToggleField>
-                            </div>
-                        )}
-                        {tab === 'opcional' && (
-                            <div className="flex flex-col gap-[2px]">
-                                <ToggleField label="Código de Barras" checked={form.useCodigoBarras} onChange={(e) => setForm({...form, useCodigoBarras: e.target.checked })}>
-                                    <input value={form.codigo_barras} onChange={(e) => setForm({...form, codigo_barras: e.target.value })} placeholder="Código de Barras" className={inputClass} />
-                                </ToggleField>
-                                <ToggleField label="Código QR" checked={form.useCodigoQR} onChange={(e) => setForm({...form, useCodigoQR: e.target.checked })}>
-                                    <input value={form.codigo_qr} onChange={(e) => setForm({...form, codigo_qr: e.target.value })} placeholder="Código QR" className={inputClass} />
-                                </ToggleField>
-                                <ToggleField label="Descrição" checked={form.useDescricao} onChange={(e) => setForm({...form, useDescricao: e.target.checked })}>
-                                    <textarea value={form.descricao} onChange={(e) => setForm({...form, descricao: e.target.value })} rows={3} placeholder="Descrição" className="w-full bg-white border border-gray-200 rounded-[12px] px-2 py-2 text-[13.5px] text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20" />
-                                </ToggleField>
-                                <ToggleField label="Categoria" checked={form.useCategoria} onChange={(e) => setForm({...form, useCategoria: e.target.checked })}>
-                                    <input value={form.categoria} onChange={(e) => setForm({...form, categoria: e.target.value })} placeholder="Categoria - Ex: Bebidas" className={inputClass} />
-                                </ToggleField>
-                                <ToggleField label="Peso" checked={form.usePeso} onChange={(e) => setForm({...form, usePeso: e.target.checked })}>
-                                    <input type="number" step="0.01" value={form.peso} onChange={(e) => setForm({...form, peso: e.target.value })} placeholder="Peso em KG" className={inputClass} />
-                                </ToggleField>
-                                <div className="grid grid-cols-2 gap-[2px] pt-[2px]">
-                                    <input type="number" step="0.01" value={form.preco_custo} onChange={(e) => setForm({...form, preco_custo: e.target.value })} placeholder="Preço Custo" className={inputClass} />
-                                    <ToggleField label="Aplicar IVA" checked={form.useIva} onChange={(e) => setForm({...form, useIva: e.target.checked })}>
-                                        <input type="number" step="0.1" value={form.iva} onChange={(e) => setForm({...form, iva: e.target.value })} placeholder="IVA %" className={inputClass} />
-                                    </ToggleField>
-                                </div>
-                            </div>
-                        )}
-                        {tab === 'estoque' && (
-                            <div className="flex flex-col gap-[2px]">
-                                <label className="flex items-center gap-2 h-[44px] px-2 border border-gray-200 rounded-[12px] cursor-pointer bg-white">
-                                    <input type="checkbox" checked={form.controlar_stock} onChange={(e) => setForm({...form, controlar_stock: e.target.checked })} className="w-4 h-4 accent-[#0095ff]" />
-                                    <span className="text-[12px] text-black font-medium">Controlar Estoque</span>
-                                </label>
-                                {form.controlar_stock? (
-                                    <input type="number" step="0.01" value={form.stock_minimo} onChange={(e) => setForm({...form, stock_minimo: e.target.value })} placeholder="Estoque Mínimo" className={inputClass} />
-                                ) : (
-                                    <p className="text-[12px] text-gray-500 bg-gray-50 p-3 rounded-[12px] border">Para serviços ou produtos sem controle de estoque.</p>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                {/* CONTEUDO COM SCROLL INVISIVEL */}
+                <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-4">
+                    <style>{`
+                       .no-scrollbar::-webkit-scrollbar { display: none; }
+                       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                    `}</style>
 
-                    <div className="flex gap-[2px] mt-8 pt-4 border-t border-gray-100">
-                        <div className="flex gap-[2px] flex-1">
-                            {tab!== 'obrigatorio' && (
-                                <button type="button" onClick={() => setTab(tab === 'estoque'? 'opcional' : 'obrigatorio')} className="h-11 w-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 shrink-0">
-                                    <ChevronLeft className="w-4 h-4 text-gray-600" />
-                                </button>
+                    {tab === 'obrigatorio' && (
+                        <div className="flex flex-col gap-[2px]">
+                            <div className="grid grid-cols-2 gap-[2px]">
+                                <input required value={form.nome} onChange={(e) => setForm({...form, nome: e.target.value })} placeholder="Nome *" className={inputClass} />
+                                <input required value={form.codigo} onChange={(e) => setForm({...form, codigo: e.target.value })} placeholder="Código *" className={inputClass} />
+                                <input type="number" step="0.01" required value={form.preco_venda} onChange={(e) => setForm({...form, preco_venda: e.target.value })} placeholder="Preço Venda *" className={inputClass} />
+                                <CustomSelect value={form.tipo} onChange={(v) => setForm({...form, tipo: v })} placeholder="Tipo" options={TIPOS} />
+                                <CustomSelect value={form.unidade} onChange={(v) => setForm({...form, unidade: v })} placeholder="Unidade" options={UNIDADES.map(u => ({ value: u, label: u }))} />
+                                <label className={checkBoxCard}>
+                                    <input type="checkbox" checked={form.ativo} onChange={(e) => setForm({...form, ativo: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
+                                    <span className="text-[12px] text-black font-medium">Ativo</span>
+                                </label>
+                            </div>
+
+                            <label className={checkBoxCard}>
+                                <input type="checkbox" checked={form.useImagem} onChange={(e) => setForm({...form, useImagem: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
+                                <span className="text-[12px] text-black font-medium">Adicionar Imagem</span>
+                            </label>
+                            {form.useImagem && (
+                                <div className="border border-gray-200 rounded-[12px] p-3 bg-white mt-[2px]">
+                                    <input type="file" ref={fileInputRef} accept="image/*" onChange={handleImagemChange} className="hidden" />
+                                    {form.imagem_preview? (
+                                        <div className="flex items-center gap-3">
+                                            <img src={form.imagem_preview} alt="Preview" className="w-16 h-16 object-cover rounded-[12px] border" />
+                                            <button type="button" onClick={() => fileInputRef.current?.click()} className="text-[12px] text-[#0095ff] font-medium">Trocar imagem</button>
+                                        </div>
+                                    ) : (
+                                        <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full flex flex-col items-center gap-2 text-gray-500 hover:text-[#0095ff] py-2">
+                                            <Upload className="w-6 h-6" /><span className="text-[12px] text-black">Selecionar imagem</span>
+                                        </button>
+                                    )}
+                                </div>
                             )}
-                            {tab!== 'estoque' && (
-                                <button type="button" onClick={() => setTab(tab === 'obrigatorio'? 'opcional' : 'estoque')} className="h-11 w-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 shrink-0">
-                                    <ChevronRight className="w-4 h-4 text-gray-600" />
-                                </button>
-                            )}
-                            <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50">
-                                <X className="w-4 h-4 text-gray-600" />
-                            </button>
                         </div>
-                        <button type="submit" disabled={loading} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50">
-                            {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
-                        </button>
-                    </div>
-                </form>
+                    )}
+
+                    {tab === 'opcional' && (
+                        <div className="flex flex-col gap-[2px]">
+                            <label className={checkBoxCard}>
+                                <input type="checkbox" checked={form.useDescricao} onChange={(e) => setForm({...form, useDescricao: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
+                                <span className="text-[12px] text-black font-medium">Descrição</span>
+                            </label>
+                            {form.useDescricao && <textarea value={form.descricao} onChange={(e) => setForm({...form, descricao: e.target.value })} rows={3} placeholder="Descrição" className="w-full bg-white border border-gray-200 rounded-[12px] px-2 py-2 text-[13.5px] text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff]" />}
+
+                            <label className={checkBoxCard}>
+                                <input type="checkbox" checked={form.useCategoria} onChange={(e) => setForm({...form, useCategoria: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
+                                <span className="text-[12px] text-black font-medium">Categoria</span>
+                            </label>
+                            {form.useCategoria && <input value={form.categoria} onChange={(e) => setForm({...form, categoria: e.target.value })} placeholder="Categoria - Ex: Bebidas" className={inputClass} />}
+
+                            <label className={checkBoxCard}>
+                                <input type="checkbox" checked={form.usePeso} onChange={(e) => setForm({...form, usePeso: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
+                                <span className="text-[12px] text-black font-medium">Peso</span>
+                            </label>
+                            {form.usePeso && <input type="number" step="0.01" value={form.peso} onChange={(e) => setForm({...form, peso: e.target.value })} placeholder="Peso em KG" className={inputClass} />}
+
+                            <div className="grid grid-cols-2 gap-[2px]">
+                                <input type="number" step="0.01" value={form.preco_custo} onChange={(e) => setForm({...form, preco_custo: e.target.value })} placeholder="Preço Custo" className={inputClass} />
+                                <label className={checkBoxCard}>
+                                    <input type="checkbox" checked={form.useIva} onChange={(e) => setForm({...form, useIva: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
+                                    <span className="text-[12px] text-black font-medium">Aplicar IVA</span>
+                                </label>
+                            </div>
+                            {form.useIva && <input type="number" step="0.1" value={form.iva} onChange={(e) => setForm({...form, iva: e.target.value })} placeholder="IVA %" className={inputClass} />}
+                        </div>
+                    )}
+
+                    {tab === 'estoque' && (
+                        <div className="flex flex-col gap-[2px]">
+                            <label className={checkBoxCard}>
+                                <input type="checkbox" checked={form.controlar_stock} onChange={(e) => setForm({...form, controlar_stock: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
+                                <span className="text-[12px] text-black font-medium">Controlar Estoque</span>
+                            </label>
+                            {form.controlar_stock? (
+                                <input type="number" step="0.01" value={form.stock_minimo} onChange={(e) => setForm({...form, stock_minimo: e.target.value })} placeholder="Estoque Mínimo" className={inputClass} />
+                            ) : (
+                                <p className="text-[12px] text-gray-500 bg-gray-50 p-3 rounded-[12px] border border-gray-200">Para serviços ou produtos sem controle de estoque.</p>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* FOOTER FIXO */}
+                <div className="shrink-0 px-6 py-4 border-t border-gray-100 bg-white flex gap-[2px]">
+                    <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition">
+                        <X className="w-5 h-5 text-gray-600" />
+                    </button>
+                    <button type="submit" disabled={loading} onClick={handleSubmit as any} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50 transition">
+                        {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
+                    </button>
+                </div>
             </div>
         </div>
     )

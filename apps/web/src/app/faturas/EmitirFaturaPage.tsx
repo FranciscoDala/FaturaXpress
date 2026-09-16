@@ -9,20 +9,29 @@ import TabEmitidas from './components/tab/tab_faturaEmitida'
 export interface Cliente { id: string; nome: string; nif: string; email: string | null; telefone: string | null; endereco: string | null; cidade: string | null; provincia: string | null }
 export type Tab = 'emitir' | 'curso' | 'emitidas'
 
-// AGT Angola - FT oficial com hash, NC com hash negativo, PP proforma
 export const getNumero = (f: any) => f?.numero_nota_credito || f?.numero_fatura || f?.numero_proforma || f?.numero || f?.id?.slice(0, 8) || '---'
 export const getTotal = (f: any) => Number(f?.total_geral ?? f?.total ?? 0)
 export const getData = (f: any) => f?.data_emissao || f?.created_at || f?.data
 export const isFaturaOficial = (f: any) => f?.tipo_documento === 'fatura' && !!f?.hash_agt
 export const isNotaCredito = (f: any) => f?.tipo_documento === 'nota_credito'
 
+const VALID_TABS: Tab[] = ['emitir', 'curso', 'emitidas']
+
 export default function EmitirFaturaPage() {
     const navigate = useNavigate()
-    const [searchParams] = useSearchParams()
+    const [searchParams, setSearchParams] = useSearchParams()
     const clienteId = searchParams.get('cliente_id')
     const [cliente, setCliente] = useState<Cliente | null>(null)
     const [empresa, setEmpresa] = useState<any>(null)
-    const [activeTab, setActiveTab] = useState<Tab>('emitir')
+    const [activeTab, setActiveTab] = useState<Tab>(() => {
+        const tabUrl = searchParams.get('tab') as Tab | null
+        if (tabUrl && VALID_TABS.includes(tabUrl)) return tabUrl
+        if (clienteId) {
+            const saved = localStorage.getItem(`fatura_tab_${clienteId}`) as Tab | null
+            if (saved && VALID_TABS.includes(saved)) return saved
+        }
+        return 'emitir'
+    })
     const [faturasCurso, setFaturasCurso] = useState<any[]>([])
     const [faturasEmitidas, setFaturasEmitidas] = useState<any[]>([])
     const [loadingCounts, setLoadingCounts] = useState(true)
@@ -37,21 +46,46 @@ export default function EmitirFaturaPage() {
         })
     }, [clienteId, navigate])
 
+    // RESTAURA TAB AO DAR REFRESH
+    useEffect(() => {
+        if (!clienteId) return
+        const tabUrl = searchParams.get('tab') as Tab | null
+        if (tabUrl && VALID_TABS.includes(tabUrl)) {
+            setActiveTab(tabUrl)
+            localStorage.setItem(`fatura_tab_${clienteId}`, tabUrl)
+        } else {
+            const saved = localStorage.getItem(`fatura_tab_${clienteId}`) as Tab | null
+            if (saved && VALID_TABS.includes(saved)) {
+                setActiveTab(saved)
+                const newParams = new URLSearchParams(searchParams)
+                newParams.set('tab', saved)
+                setSearchParams(newParams, { replace: true })
+            }
+        }
+    }, [clienteId])
+
+    // SALVA TAB QUANDO MUDA
+    useEffect(() => {
+        if (!clienteId) return
+        localStorage.setItem(`fatura_tab_${clienteId}`, activeTab)
+        const newParams = new URLSearchParams(searchParams)
+        newParams.set('tab', activeTab)
+        if (clienteId) newParams.set('cliente_id', clienteId)
+        setSearchParams(newParams, { replace: true })
+    }, [activeTab])
+
     const fetchFaturas = async () => {
         if (!clienteId) return
         try {
             setLoadingCounts(true)
             const res = await api.get('/api/faturas', { params: { cliente_id: clienteId, limit: 100 } })
             const all = Array.isArray(res.data) ? res.data : (res.data.items || [])
-            // AGT: Em curso = só PP em rascunho/em_curso
             setFaturasCurso(all.filter((f: any) => f.tipo_documento === 'proforma' && ['rascunho', 'pendente', 'em_curso'].includes(f.status)))
-            // Emitidas = FT + NC + concluídas
             setFaturasEmitidas(all.filter((f: any) => f.tipo_documento === 'fatura' || f.tipo_documento === 'nota_credito' || ['concluida', 'emitida', 'cancelada'].includes(f.status)))
         } catch { }
         finally { setLoadingCounts(false) }
     }
 
-    // CORREÇÃO: carrega logo ao abrir, não precisa clicar
     useEffect(() => {
         if (clienteId) fetchFaturas()
     }, [clienteId])
@@ -111,7 +145,7 @@ export default function EmitirFaturaPage() {
                         </div>
                     </div>
                     <style>{`
-                  .bubble {
+                 .bubble {
                             position: absolute;
                             border-radius: 50%;
                             background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%);
@@ -120,12 +154,12 @@ export default function EmitirFaturaPage() {
                             animation: floatBubble 8s infinite ease-in-out;
                             will-change: transform;
                         }
-                  .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
-                  .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
-                  .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
-                  .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
-                  .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
-                  .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
+                 .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
+                 .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
+                 .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
+                 .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
+                 .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
+                 .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
                         @keyframes floatBubble {
                             0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.55; }
                             25% { transform: translateY(-15px) translateX(10px) scale(1.05); opacity: 0.85; }

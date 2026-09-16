@@ -18,7 +18,7 @@ const OPTIONS_PAG = [
   { value: 'credito', label: 'Crédito' },
 ]
 
-export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string; onEmitida: () => void }) {
+export default function TabEmitir({ clienteId, onEmitida }: { clienteId?: string; onEmitida: () => void }) {
     const [produtos, setProdutos] = useState<Produto[]>([])
     const [itens, setItens] = useState<any[]>([])
     const [busca, setBusca] = useState('')
@@ -33,6 +33,13 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
     const ITENS_POR_PAGINA = 5
     const refTipo = useRef<HTMLDivElement>(null)
     const refPag = useRef<HTMLDivElement>(null)
+
+    // avulso
+    const [clienteNome, setClienteNome] = useState('')
+    const [clienteNif, setClienteNif] = useState('999999999')
+    const [clienteTel, setClienteTel] = useState('')
+    const [clienteEmail, setClienteEmail] = useState('')
+    const [salvarComoCliente, setSalvarComoCliente] = useState(false)
 
     useEffect(() => {
         const close = (e: MouseEvent) => {
@@ -73,19 +80,26 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
 
     const emitir = async () => {
         if (!itens.length) return toast.error('Adicione produtos')
+        if (!clienteId &&!clienteNome) return toast.error('Informe nome do cliente avulso')
         try {
             setLoadingEmit(true)
-            const { data } = await api.post('/api/faturas', {
-                cliente_id: clienteId,
+            const payload: any = {
+                cliente_id: clienteId || undefined,
+                cliente_nome: clienteId? undefined : clienteNome,
+                cliente_nif: clienteId? undefined : (clienteNif || '999999999'),
+                cliente_telefone: clienteId? undefined : (clienteTel || undefined),
+                cliente_email: clienteId? undefined : (clienteEmail || undefined),
+                salvar_como_cliente:!clienteId && salvarComoCliente,
                 tipo_documento: tipoDoc,
                 forma_pagamento: formaPagamento,
                 desconto_percent: 0,
                 validade_dias: 15,
                 observacoes: observacoes || undefined,
                 itens: itens.map(i => ({ produto_id: i.produto_id, quantidade: i.quantidade, preco_unit: i.preco_unit }))
-            })
+            }
+            const { data } = await api.post('/api/faturas', payload)
             toast.success(tipoDoc==='fatura'? `FT ${data.numero_fatura} emitida com Hash AGT!` : `PP ${data.numero_proforma} emitida`)
-            setItens([]); setObservacoes(''); setOpenConfirm(false); onEmitida()
+            setItens([]); setObservacoes(''); setClienteNome(''); setClienteNif('999999999'); setClienteTel(''); setClienteEmail(''); setOpenConfirm(false); onEmitida()
         } catch (e: any) { toast.error(e.response?.data?.detail || 'Erro') } finally { setLoadingEmit(false) }
     }
 
@@ -98,10 +112,25 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
                 ))}
             </div>
 
+            {!clienteId && (
+            <div className="bg-[#F0F7FF] border border-blue-100 rounded-[22px] p-5 mb-4">
+                <p className="text-[12px] font-bold mb-3">Cliente Avulso (sem cadastro)</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input value={clienteNome} onChange={e=>setClienteNome(e.target.value)} placeholder="Nome * obrigatório" className="h-[44px] border border-gray-200 rounded-full px-4 text-[13px] bg-white" />
+                    <input value={clienteNif} onChange={e=>setClienteNif(e.target.value)} placeholder="NIF (999999999 = Consumidor Final)" className="h-[44px] border border-gray-200 rounded-full px-4 text-[13px] bg-white" />
+                    <input value={clienteTel} onChange={e=>setClienteTel(e.target.value)} placeholder="Telefone (opcional)" className="h-[44px] border border-gray-200 rounded-full px-4 text-[13px] bg-white" />
+                    <input value={clienteEmail} onChange={e=>setClienteEmail(e.target.value)} placeholder="Email (opcional)" className="h-[44px] border border-gray-200 rounded-full px-4 text-[13px] bg-white" />
+                </div>
+                <label className="flex items-center gap-2 mt-3 text-[12px] cursor-pointer">
+                    <input type="checkbox" checked={salvarComoCliente} onChange={e=>setSalvarComoCliente(e.target.checked)} className="rounded" />
+                    Salvar este cliente para próximas faturas
+                </label>
+            </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_1fr] gap-4 w-full">
                 <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 p-6">
                     <div className="flex gap-2 mb-4">
-                        {/* SELECT TIPO DOC - ESTILO CARD */}
                         <div ref={refTipo} className="relative flex-1 z-20">
                             <button onClick={() => setOpenTipo(!openTipo)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[12px] font-semibold">
                                 <span className="text-gray-900 truncate">{OPTIONS_TIPO.find(o => o.value === tipoDoc)?.label}</span>
@@ -151,9 +180,6 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
                 </div>
 
                 <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 p-6 h-fit">
-                    {/* <h3 className="text-[13px] font-bold text-gray-900 mb-4">Resumo AGT</h3> */}
-
-                    {/* SELECT FORMA PAG - ESTILO CARD */}
                     <div ref={refPag} className="relative w-full z-10 mb-3">
                         <button onClick={() => setOpenPag(!openPag)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[12px] font-medium">
                             <span className="text-gray-900">{OPTIONS_PAG.find(o => o.value === formaPagamento)?.label}</span>
@@ -192,7 +218,7 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
                         <div className="flex justify-between font-bold text-[15px] text-gray-900 border-t border-gray-100 pt-3"><span>Total</span><span>{(subtotal + totalIva).toFixed(2)} KZ</span></div>
                         {tipoDoc==='fatura' && <p className="text-[10px] text-green-600 bg-green-50 border border-green-200 rounded-full px-3 py-1 text-center mt-2">FT vai gerar Hash AGT + QR automático</p>}
                         {tipoDoc==='proforma' && <p className="text-[10px] text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-3 py-1 text-center mt-2">PP sem valor fiscal - pode converter depois</p>}
-                        <button onClick={()=>{ if(!itens.length) return toast.error('Adicione produtos'); setOpenConfirm(true) }} className="w-full mt-4 bg-[#0095ff] text-white h-[46px] rounded-full font-semibold text-[13px] shadow-[0_4px_12px_rgba(0,149,255,0.25)] hover:bg-[#0085e6] transition">{tipoDoc==='fatura'? 'Emitir FT Oficial' : 'Emitir Proforma PP'}</button>
+                        <button onClick={()=>{ if(!itens.length) return toast.error('Adicione produtos'); if(!clienteId &&!clienteNome) return toast.error('Nome cliente obrigatório'); setOpenConfirm(true) }} className="w-full mt-4 bg-[#0095ff] text-white h-[46px] rounded-full font-semibold text-[13px] shadow-[0_4px_12px_rgba(0,149,255,0.25)] hover:bg-[#0085e6] transition">{tipoDoc==='fatura'? 'Emitir FT Oficial' : 'Emitir Proforma PP'}</button>
                     </div>
                 </div>
             </div>

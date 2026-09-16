@@ -20,9 +20,9 @@ type ListView = 'clientes' | 'produtos'
 const NOVO_OPTIONS = [
   { value: 'cliente', label: 'Adicionar Cliente', icon: Users },
   { value: 'produto', label: 'Adicionar Produto', icon: Package },
-  { value: 'emitir', label: 'Emitir Fatura', icon: Receipt },
+  { value: 'emitir', label: 'Emitir Fatura (Avulso)', icon: Receipt },
   { value: 'ver_clientes', label: 'Ver Clientes', icon: Users },
-  { value: 'ver_produtos', label: 'Ver Produtos', icon: Package },
+  { value: 'ver_produtos', label: 'Ver Produtos / Serviços', icon: Package },
   { value: 'saft', label: 'Exportar SAFT-AO AGT', icon: FileDown },
 ]
 
@@ -56,7 +56,6 @@ export default function DashboardPage() {
     const [deleteTarget, setDeleteTarget] = useState<{type:'cliente'|'produto', id:string, nome:string} | null>(null)
     const [deleting, setDeleting] = useState(false)
 
-    // dropdowns refs igual TabEmitidas
     const [openListSelect, setOpenListSelect] = useState(false)
     const [openNovo, setOpenNovo] = useState(false)
     const listWrapperRef = useRef<HTMLDivElement>(null)
@@ -118,7 +117,7 @@ export default function DashboardPage() {
         setOpenNovo(false)
         if (v==='cliente') handleOpenCreateCliente()
         if (v==='produto') handleOpenCreateProduto()
-        if (v==='emitir') { if(clientes[0]) navigate(`/faturas/nova?cliente_id=${clientes[0].id}`); else toast.info('Cria um cliente primeiro') }
+        if (v==='emitir') navigate(`/faturas/nova`)
         if (v==='ver_clientes') setListView('clientes')
         if (v==='ver_produtos') setListView('produtos')
         if (v==='saft') setModalSaftOpen(true)
@@ -165,16 +164,14 @@ export default function DashboardPage() {
                                     </div>
                                     <div className="mt-3 space-y-1 text-[13px] text-[#4a5568] text-left">
                                         <p>Bem-vindo de volta, {companyName}</p>
-                                        <p className="text-[11px] text-gray-500">Gestão AGT - PP + FT</p>
+                                        <p className="text-[11px] text-gray-500">Gestão AGT - PP + FT - Avulso OK</p>
                                     </div>
                                 </div>
-                                {/* SAIR SÓ ICONE CIRCULAR VERMELHO MAIOR */}
                                 <button onClick={handleLogout} className="w-11 h-11 rounded-full bg-white border border-red-200 shadow-[0_2px_12px_rgba(0,0,0,0.06)] flex items-center justify-center text-[#FF3B30] hover:bg-red-50 transition shrink-0">
                                     <Power className="w-5 h-5" />
                                 </button>
                             </div>
 
-                            {/* TABS IGUAL EMITIR: Proforma + Fatura AGT + Novo DROP */}
                             <div className="mt-6 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
                                 <button onClick={() => setTopTab('proforma')} className={`flex-1 py-2 ${topTab === 'proforma'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
                                     <p className="text-[13px] font-bold">{proformas.length}</p>
@@ -193,13 +190,12 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <style>{`
-               .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-               .bubble-1 { width:80px; height:80px; left:10%; top:20%; animation-delay:0s; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; animation-delay:1s; animation-duration:10s; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; animation-delay:2s; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; animation-delay:0.5s; animation-duration:7s; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; animation-delay:1.5s; animation-duration:9s; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; animation-delay:2.5s; }
+              .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+              .bubble-1 { width:80px; height:80px; left:10%; top:20%; animation-delay:0s; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; animation-delay:1s; animation-duration:10s; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; animation-delay:2s; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; animation-delay:0.5s; animation-duration:7s; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; animation-delay:1.5s; animation-duration:9s; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; animation-delay:2.5s; }
                 @keyframes floatBubble { 0%,100%{transform:translateY(0) translateX(0) scale(1); opacity:0.55;} 25%{transform:translateY(-15px) translateX(10px) scale(1.05); opacity:0.85;} 50%{transform:translateY(-25px) translateX(-5px) scale(0.95); opacity:0.45;} 75%{transform:translateY(-10px) translateX(-10px) scale(1.02); opacity:0.7;} }
                     `}</style>
                 </div>
 
-                {/* NOVO DROPDOWN ESTILO SELECT */}
                 {openNovo && (
                     <div data-novo-dropdown style={{ top: novoDropdownPos.top, left: novoDropdownPos.left, width: novoDropdownPos.width }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
                         {NOVO_OPTIONS.map(opt => {
@@ -239,14 +235,13 @@ export default function DashboardPage() {
                         </div>
                     )}
 
-                    {/* CONTEUDO MUDA CONFORME TAB DE CIMA + LIST VIEW */}
                     {topTab === 'proforma' && (
                         <div className="mb-6 bg-[#FFF7CC]/60 border border-[#FFE9A0] rounded-[22px] p-4 shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
                             <div className="flex items-center gap-2 mb-2"><FileText className="w-4 h-4 text-[#8A6D00]" /><p className="text-[13px] font-bold text-[#8A6D00]">Proformas PP - {proformas.length} emitidas</p></div>
                             <div className="flex gap-3 overflow-x-auto snap-x pb-2 [&::-webkit-scrollbar]:hidden">
                                 {proformas.length===0? <p className="text-[12px] text-gray-500">Nenhuma proforma ainda</p> : proformas.slice(0,6).map((f:any)=> (
                                     <div key={f.id} className="min-w-[220px] snap-center bg-white rounded-[16px] border border-gray-100 p-3 shadow-sm">
-                                        <p className="text-[11px] font-bold truncate">{f.numero_proforma || f.numero || f.id.slice(0,8)}</p>
+                                        <p className="text-[11px] font-bold truncate">{f.numero_proforma || f.numero || f.id.slice(0,8)} - {f.cliente_nome || ''}</p>
                                         <p className="text-[11px] text-gray-500 truncate">{Number(f.total_geral||f.total||0).toFixed(2)} KZ • {f.status}</p>
                                     </div>
                                 ))}
@@ -260,7 +255,7 @@ export default function DashboardPage() {
                             <div className="flex gap-3 overflow-x-auto snap-x pb-2 [&::-webkit-scrollbar]:hidden">
                                 {faturasAgt.length===0? <p className="text-[12px] text-gray-500">Nenhuma FT ainda</p> : faturasAgt.slice(0,6).map((f:any)=> (
                                     <div key={f.id} className="min-w-[220px] snap-center bg-white rounded-[16px] border border-gray-100 p-3 shadow-sm">
-                                        <p className="text-[11px] font-bold truncate">{f.numero_fatura || f.numero || f.id.slice(0,8)}</p>
+                                        <p className="text-[11px] font-bold truncate">{f.numero_fatura || f.numero || f.id.slice(0,8)} - {f.cliente_nome || ''}</p>
                                         <p className="text-[11px] text-gray-500 truncate">{Number(f.total_geral||f.total||0).toFixed(2)} KZ • {f.status} • {f.hash_agt? 'AGT OK':''}</p>
                                     </div>
                                 ))}

@@ -8,13 +8,12 @@ import FaturaFolhaView from '../../components/pdf/FaturaFolhaView'
 
 const formatEstado = (s: string) => (s || 'em_curso').replace(/_/g, ' ').toUpperCase()
 
-// só limpa o que já vem com PROFORMA / PP para não duplicar
 const cleanNumero = (raw: string) => {
     if (!raw) return '---'
     return raw.replace(/PROFORMA/gi, '').replace(/\bPP\b/gi, '').replace(/\s+/g, ' ').trim()
 }
 
-export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { faturas: any[]; cliente: any; empresa: any; onRefresh: () => void }) {
+export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { faturas: any[]; cliente?: any; empresa: any; onRefresh: () => void }) {
     const [deleteTarget, setDeleteTarget] = useState<any>(null)
     const [viewFatura, setViewFatura] = useState<any>(null)
 
@@ -33,13 +32,20 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
     const handleCancelar = async (id: string) => { try { await api.post(`/api/faturas/${id}/cancelar`); toast.success('Proforma cancelada'); onRefresh() } catch { toast.error('Erro') } }
     const handleApagar = async () => { try { await api.delete(`/api/faturas/${deleteTarget.id}`); toast.success('Proforma apagada'); setDeleteTarget(null); onRefresh() } catch { toast.error('Erro') } }
 
+    const getClienteDisplay = (f: any) => {
+        if (cliente?.nome) return cliente.nome
+        if (f.cliente_nome) return `${f.cliente_nome} ${f.cliente_nif? `• ${f.cliente_nif}` : ''} (Avulso)`
+        return 'Cliente Avulso'
+    }
+
     if (viewFatura) {
-        return <FaturaFolhaView fatura={viewFatura} cliente={cliente} empresa={empresa} onVoltar={() => setViewFatura(null)} />
+        const cliView = cliente || { nome: viewFatura.cliente_nome || 'Cliente Avulso', nif: viewFatura.cliente_nif || '999999999', telefone: viewFatura.cliente_telefone, email: viewFatura.cliente_email, endereco: viewFatura.cliente_endereco }
+        return <FaturaFolhaView fatura={viewFatura} cliente={cliView} empresa={empresa} onVoltar={() => setViewFatura(null)} />
     }
 
     return (
         <div className="-full px-4 sm:px-0 lg:px-0 mt-0">
-            {faturas.length === 0 ? (
+            {faturas.length === 0? (
                 <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma proforma em curso</p>
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -60,8 +66,9 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
                                 </div>
                                 <div className="pt-14 px-5 pb-4">
                                     <h3 className="font-bold text-[15px] text-gray-900 leading-tight truncate">{total.toFixed(2)} KZ</h3>
+                                    <p className="text-[11px] font-semibold text-gray-800 truncate mt-1">{getClienteDisplay(f)}</p>
                                     <div className="mt-2 flex flex-col gap-0.5">
-                                        <p className="text-[11px] text-gray-500 truncate">{f.forma_pagamento} • Validade: {f.validade_proforma ? new Date(f.validade_proforma).toLocaleDateString('pt-AO') : '15 dias'}</p>
+                                        <p className="text-[11px] text-gray-500 truncate">{f.forma_pagamento} • Validade: {f.validade_proforma? new Date(f.validade_proforma).toLocaleDateString('pt-AO') : '15 dias'}</p>
                                         <p className="text-[10px] text-gray-400 truncate">Sem valor fiscal - AGT • {estado}</p>
                                     </div>
                                     <button onClick={() => handleConverter(f.id)} className="mt-3 w-full bg-[#0095ff] text-white h-[38px] rounded-full text-[12px] font-bold flex items-center justify-center gap-1 hover:bg-[#0080e0]">
@@ -78,7 +85,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
                     })}
                 </div>
             )}
-            <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget ? `PROFORMA PP ${cleanNumero(getNumero(deleteTarget))}` : ''} onClose={() => setDeleteTarget(null)} onConfirm={handleApagar} title="Apagar proforma?" description="Proforma PP pode ser apagada. FT oficial só cancela - regra AGT." />
+            <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget? `PROFORMA PP ${cleanNumero(getNumero(deleteTarget))}` : ''} onClose={() => setDeleteTarget(null)} onConfirm={handleApagar} title="Apagar proforma?" description="Proforma PP pode ser apagada. FT oficial só cancela - regra AGT." />
         </div>
     )
 }

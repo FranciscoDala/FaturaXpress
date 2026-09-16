@@ -21,8 +21,6 @@ from app.modules.fatura.models import Fatura
 from app.modules.auth.models import Company
 from app.modules.clients.models import Cliente
 
-
-
 router = APIRouter(prefix="/faturas", tags=["Faturas"])
 
 @router.post("", response_model=FaturaResponse, status_code=201)
@@ -56,7 +54,9 @@ def listar(
             Fatura.numero_fatura.ilike(like),
             Fatura.numero_proforma.ilike(like),
             Fatura.numero_nota_credito.ilike(like),
-            Fatura.hash_agt.ilike(like)
+            Fatura.hash_agt.ilike(like),
+            Fatura.cliente_nome.ilike(like),
+            Fatura.cliente_nif.ilike(like)
         ))
     return q.order_by(Fatura.created_at.desc()).offset((page-1)*limit).limit(limit).all()
 
@@ -72,8 +72,6 @@ def stats(cliente_id: Optional[uuid.UUID] = None, db: Session = Depends(get_db),
         "canceladas": base.filter(Fatura.status == 'cancelada').count(),
         "total": base.count(),
     }
-
-
 
 @router.get("/saf-t")
 def gerar_saft(
@@ -192,6 +190,21 @@ def gerar_saft(
 
         ET.SubElement(cust, "SelfBillingIndicator").text = "0"
 
+    # clientes avulsos - sem cliente_id, usa snapshot
+    for f in faturas:
+        if not f.cliente_id:
+            cust = ET.SubElement(mf, "Customer")
+            ET.SubElement(cust, "CustomerID").text = f"AVULSO-{str(f.id)[:8]}"
+            ET.SubElement(cust, "AccountID").text = "Desconhecido"
+            ET.SubElement(cust, "CustomerTaxID").text = (f.cliente_nif or "999999999")
+            ET.SubElement(cust, "CompanyName").text = (f.cliente_nome or "Consumidor Final")[:60]
+            baddr = ET.SubElement(cust, "BillingAddress")
+            ET.SubElement(baddr, "AddressDetail").text = (f.cliente_endereco or "Luanda")
+            ET.SubElement(baddr, "City").text = "Luanda"
+            ET.SubElement(baddr, "PostalCode").text = "0000"
+            ET.SubElement(baddr, "Country").text = "AO"
+            ET.SubElement(cust, "SelfBillingIndicator").text = "0"
+
     produtos_seen = {}
     for f in faturas:
         for it in f.itens:
@@ -227,7 +240,7 @@ def gerar_saft(
         ds = ET.SubElement(inv, "DocumentStatus")
         ET.SubElement(ds, "InvoiceStatus").text = "N"
         ET.SubElement(ds, "InvoiceStatusDate").text = f.data_emissao.strftime("%Y-%m-%dT%H:%M:%S")
-        ET.SubElement(ds, "SourceID").text = str(f.cliente_id)
+        ET.SubElement(ds, "SourceID").text = str(f.cliente_id) if f.cliente_id else f"AVULSO-{str(f.id)[:8]}"
         ET.SubElement(ds, "SourceBilling").text = "P"
         ET.SubElement(inv, "Hash").text = f.hash_agt or ""
         ET.SubElement(inv, "HashControl").text = "1"
@@ -236,7 +249,7 @@ def gerar_saft(
         ET.SubElement(inv, "InvoiceType").text = "FT" if f.tipo_documento == "fatura" else "NC"
         ET.SubElement(inv, "SelfBillingIndicator").text = "0"
         ET.SubElement(inv, "SystemEntryDate").text = f.created_at.strftime("%Y-%m-%dT%H:%M:%S") if f.created_at else f.data_emissao.strftime("%Y-%m-%dT%H:%M:%S")
-        ET.SubElement(inv, "CustomerID").text = str(f.cliente_id)
+        ET.SubElement(inv, "CustomerID").text = str(f.cliente_id) if f.cliente_id else f"AVULSO-{str(f.id)[:8]}"
 
         for idx, item in enumerate(f.itens, 1):
             line = ET.SubElement(inv, "Line")
@@ -276,7 +289,6 @@ def gerar_saft(
         media_type="application/xml",
         headers={"Content-Disposition": f"attachment; filename=SAFT-AO-{ano_int}-{mes_int:02d}.xml"},
     )
-
 
 @router.get("/numero/{numero}", response_model=FaturaResponse)
 def por_numero(numero: str, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):

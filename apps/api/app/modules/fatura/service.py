@@ -6,6 +6,7 @@ from fastapi import HTTPException
 import hashlib
 from app.modules.fatura.models import Fatura, FaturaItem
 from app.modules.products.models import Produto
+from app.modules.clients.models import Cliente
 
 # AGT: hash cadeia inclui FT e NC
 def get_ultimo_hash(db: Session, company_id):
@@ -115,13 +116,49 @@ def criar_fatura(db: Session, company_id, dados):
     desconto = float(dados.desconto_percent or 0)
     total_geral = (subtotal + total_iva) * (1 - desconto / 100)
 
+    # Resolve cliente: com ID ou avulso
+    cliente_id_final = dados.cliente_id
+    c_nome = dados.cliente_nome
+    c_nif = (dados.cliente_nif or "999999999") if hasattr(dados, 'cliente_nif') else "999999999"
+    c_email = dados.cliente_email if hasattr(dados, 'cliente_email') else None
+    c_tel = dados.cliente_telefone if hasattr(dados, 'cliente_telefone') else None
+    c_end = dados.cliente_endereco if hasattr(dados, 'cliente_endereco') else None
+
+    if cliente_id_final:
+        cli = db.query(Cliente).filter(Cliente.id == cliente_id_final, Cliente.company_id == company_id).first()
+        if cli:
+            c_nome = c_nome or cli.nome
+            c_nif = getattr(cli, 'nif', None) or c_nif
+            c_email = c_email or getattr(cli, 'email', None)
+            c_tel = c_tel or getattr(cli, 'telefone', None)
+            c_end = c_end or getattr(cli, 'endereco', None) or getattr(cli, 'address', None)
+    else:
+        if hasattr(dados, 'salvar_como_cliente') and dados.salvar_como_cliente and c_nome:
+            novo_cli = Cliente(
+                id=uuid.uuid4(),
+                company_id=company_id,
+                nome=c_nome,
+                nif=c_nif,
+                email=c_email,
+                telefone=c_tel,
+                endereco=c_end
+            )
+            db.add(novo_cli)
+            db.flush()
+            cliente_id_final = novo_cli.id
+
     try:
         if dados.tipo_documento == 'proforma':
             numero = gerar_numero(db, company_id, 'proforma')
             fatura = Fatura(
                 id=uuid.uuid4(),
                 company_id=company_id,
-                cliente_id=dados.cliente_id,
+                cliente_id=cliente_id_final,
+                cliente_nome=c_nome,
+                cliente_nif=c_nif,
+                cliente_email=c_email,
+                cliente_telefone=c_tel,
+                cliente_endereco=c_end,
                 tipo_documento='proforma',
                 status='em_curso',
                 numero_proforma=numero,
@@ -141,7 +178,12 @@ def criar_fatura(db: Session, company_id, dados):
             fatura = Fatura(
                 id=uuid.uuid4(),
                 company_id=company_id,
-                cliente_id=dados.cliente_id,
+                cliente_id=cliente_id_final,
+                cliente_nome=c_nome,
+                cliente_nif=c_nif,
+                cliente_email=c_email,
+                cliente_telefone=c_tel,
+                cliente_endereco=c_end,
                 tipo_documento='fatura',
                 status='emitida',
                 numero_fatura=numero,
@@ -247,6 +289,11 @@ def converter_proforma_para_fatura(db: Session, proforma_id, company_id):
             id=uuid.uuid4(),
             company_id=company_id,
             cliente_id=proforma.cliente_id,
+            cliente_nome=proforma.cliente_nome,
+            cliente_nif=proforma.cliente_nif,
+            cliente_email=proforma.cliente_email,
+            cliente_telefone=proforma.cliente_telefone,
+            cliente_endereco=proforma.cliente_endereco,
             tipo_documento='fatura',
             status='emitida',
             numero_fatura=numero_novo,
@@ -299,6 +346,11 @@ def duplicar_fatura(db: Session, fatura_id, company_id):
         id=uuid.uuid4(),
         company_id=company_id,
         cliente_id=orig.cliente_id,
+        cliente_nome=orig.cliente_nome,
+        cliente_nif=orig.cliente_nif,
+        cliente_email=orig.cliente_email,
+        cliente_telefone=orig.cliente_telefone,
+        cliente_endereco=orig.cliente_endereco,
         tipo_documento='proforma',
         status='em_curso',
         numero_proforma=gerar_numero(db, company_id, 'proforma'),
@@ -375,6 +427,11 @@ def criar_nota_credito(db: Session, company_id, fatura_id, motivo: str, observac
             id=uuid.uuid4(),
             company_id=company_id,
             cliente_id=original.cliente_id,
+            cliente_nome=original.cliente_nome,
+            cliente_nif=original.cliente_nif,
+            cliente_email=original.cliente_email,
+            cliente_telefone=original.cliente_telefone,
+            cliente_endereco=original.cliente_endereco,
             tipo_documento='nota_credito',
             status='emitida',
             numero_nota_credito=numero_nc,

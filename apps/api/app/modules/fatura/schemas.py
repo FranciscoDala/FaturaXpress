@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import List, Optional, Literal
 from datetime import datetime
 from uuid import UUID
@@ -9,7 +9,13 @@ class ItemCreate(BaseModel):
     preco_unit: Optional[float] = Field(None, ge=0)
 
 class FaturaCreate(BaseModel):
-    cliente_id: UUID
+    cliente_id: Optional[UUID] = None
+    cliente_nome: Optional[str] = Field(None, max_length=255)
+    cliente_nif: Optional[str] = Field(None, max_length=20)
+    cliente_email: Optional[str] = None
+    cliente_telefone: Optional[str] = None
+    cliente_endereco: Optional[str] = None
+    salvar_como_cliente: bool = False
     tipo_documento: Literal['proforma', 'fatura'] = 'proforma'
     itens: List[ItemCreate] = Field(..., min_length=1, description="Mínimo 1 item")
     forma_pagamento: Literal['dinheiro', 'transferencia', 'multicaixa', 'credito'] = 'dinheiro'
@@ -24,6 +30,12 @@ class FaturaCreate(BaseModel):
         if v not in ['proforma', 'fatura']:
             raise ValueError("tipo_documento deve ser 'proforma' ou 'fatura'")
         return v
+
+    @model_validator(mode='after')
+    def valida_cliente(self):
+        if not self.cliente_id and not self.cliente_nome:
+            raise ValueError("Informe cliente_id ou cliente_nome para cliente avulso")
+        return self
 
 class FaturaUpdate(BaseModel):
     cliente_id: Optional[UUID] = None
@@ -72,7 +84,12 @@ class FaturaResponse(BaseModel):
     motivo_credito: Optional[str] = None
     motivo_isencao: Optional[str] = None
 
-    cliente_id: UUID
+    cliente_id: Optional[UUID] = None
+    cliente_nome: Optional[str] = None
+    cliente_nif: Optional[str] = None
+    cliente_telefone: Optional[str] = None
+    cliente_email: Optional[str] = None
+    cliente_endereco: Optional[str] = None
     proforma_origem_id: Optional[UUID] = None
     fatura_origem_id: Optional[UUID] = None
     data_emissao: datetime
@@ -101,7 +118,8 @@ class FaturaListResponse(BaseModel):
     tipo_documento: str
     status: str
     numero: str
-    cliente_id: UUID
+    cliente_id: Optional[UUID] = None
+    cliente_nome: Optional[str] = None
     total_geral: float
     created_at: datetime
     class Config:

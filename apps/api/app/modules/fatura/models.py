@@ -18,7 +18,14 @@ class Fatura(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=False)
-    cliente_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clientes.id", ondelete="RESTRICT"), index=True, nullable=False)
+    cliente_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("clientes.id", ondelete="RESTRICT"), index=True, nullable=True)
+
+    # Snapshot cliente avulso - permite emitir sem cadastro
+    cliente_nome: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    cliente_nif: Mapped[str | None] = mapped_column(String(20), nullable=True, default="999999999")
+    cliente_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    cliente_telefone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    cliente_endereco: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # AGT Angola: PP | FT | NC | ND
     tipo_documento: Mapped[str] = mapped_column(String(20), default='proforma', nullable=False)

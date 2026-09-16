@@ -14,7 +14,7 @@ const OPTIONS = [
     { value: 'cancelada', label: 'Canceladas' },
 ]
 
-export default function TabEmitidas({ faturas, cliente, empresa, onRefresh }: { faturas: any[]; cliente?: any; empresa: any; onRefresh: () => void }) {
+export default function TabEmitidas({ faturas, cliente, empresa, onRefresh }: { faturas: any[]; cliente?: any | null; empresa: any; onRefresh: () => void }) {
     const [filtro, setFiltro] = useState('todos')
     const [viewFatura, setViewFatura] = useState<any>(null)
     const [search, setSearch] = useState('')
@@ -147,12 +147,12 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh }: { 
     )
 }
 
-function FaturaCard({ fatura, clienteProp, onView, onOpenNC }: { fatura: any; clienteProp?: any; onView: (f: any) => void; onOpenNC: (f: any) => void }) {
+function FaturaCard({ fatura, clienteProp, onView, onOpenNC }: { fatura: any; clienteProp?: any | null; onView: (f: any) => void; onOpenNC: (f: any) => void }) {
     const isCancel = fatura.status === 'cancelada'
     const isNC = isNotaCredito(fatura)
     const initials = isNC? 'NC' : getNumero(fatura)?.slice(0, 2).toUpperCase() || 'FT'
-    const nomeCliente = clienteProp?.nome || fatura.cliente_nome || 'Cliente Avulso'
-    const nifCliente = clienteProp?.nif || fatura.cliente_nif || ''
+    const nomeCliente = fatura.cliente_nome || clienteProp?.nome || 'Cliente Avulso'
+    const nifCliente = fatura.cliente_nif || clienteProp?.nif || ''
 
     return (
         <div className="min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">

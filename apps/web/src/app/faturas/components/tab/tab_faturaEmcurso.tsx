@@ -13,7 +13,7 @@ const cleanNumero = (raw: string) => {
     return raw.replace(/PROFORMA/gi, '').replace(/\bPP\b/gi, '').replace(/\s+/g, ' ').trim()
 }
 
-export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { faturas: any[]; cliente?: any; empresa: any; onRefresh: () => void }) {
+export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { faturas: any[]; cliente?: any | null; empresa: any; onRefresh: () => void }) {
     const [deleteTarget, setDeleteTarget] = useState<any>(null)
     const [viewFatura, setViewFatura] = useState<any>(null)
 
@@ -33,8 +33,8 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
     const handleApagar = async () => { try { await api.delete(`/api/faturas/${deleteTarget.id}`); toast.success('Proforma apagada'); setDeleteTarget(null); onRefresh() } catch { toast.error('Erro') } }
 
     const getClienteDisplay = (f: any) => {
+        if (f.cliente_nome) return `${f.cliente_nome} ${f.cliente_nif? `• ${f.cliente_nif}` : ''} ${!f.cliente_id? '(Avulso)' : ''}`
         if (cliente?.nome) return cliente.nome
-        if (f.cliente_nome) return `${f.cliente_nome} ${f.cliente_nif? `• ${f.cliente_nif}` : ''} (Avulso)`
         return 'Cliente Avulso'
     }
 
@@ -44,7 +44,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh }: { fat
     }
 
     return (
-        <div className="-full px-4 sm:px-0 lg:px-0 mt-0">
+        <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
             {faturas.length === 0? (
                 <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma proforma em curso</p>
             ) : (

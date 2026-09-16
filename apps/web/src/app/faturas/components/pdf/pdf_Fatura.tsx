@@ -2,12 +2,12 @@ import { useMemo } from 'react'
 import { getNumero, isNotaCredito } from '../../EmitirFaturaPage'
 
 interface Props {
-  fatura: any;
-  empresa: any;
-  cliente: any;
-  onClose?: () => void;
-  isFullscreen?: boolean;
-  setIsFullscreen?: React.Dispatch<React.SetStateAction<boolean>>;
+    fatura: any;
+    empresa: any;
+    cliente?: any | null;
+    onClose?: () => void;
+    isFullscreen?: boolean;
+    setIsFullscreen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const LogoDefault = ({ nome, size = 'small' }: { nome?: string; size?: 'small' | 'large' }) => {
@@ -30,12 +30,23 @@ const LogoDefault = ({ nome, size = 'small' }: { nome?: string; size?: 'small' |
 export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
     const itensRaw = fatura?.itens || fatura?.items || []
 
+    const clienteSafe = cliente || {
+        nome: fatura?.cliente_nome || 'Consumidor Final',
+        nif: fatura?.cliente_nif || '999999999',
+        endereco: fatura?.cliente_endereco || '',
+        cidade: fatura?.cliente_cidade || '',
+        telefone: fatura?.cliente_telefone || '',
+        email: fatura?.cliente_email || '',
+        codigo: fatura?.cliente_id?.slice(0, 8) || 'AVULSO',
+        id: fatura?.cliente_id || null
+    }
+
     const { itens, totais } = useMemo(() => {
         const parsed = itensRaw.map((it: any) => {
-            const qtd = Number(it.quantidade?? it.qtd?? it.qty?? 1)
-            const preco = Number(it.preco_unit_snapshot?? it.preco_unit?? it.preco?? 0)
-            const descPerc = Number(it.desconto_perc?? it.desconto?? 0)
-            const ivaPerc = Number(it.taxa_iva?? it.iva?? it.iva_percent?? it.taxa?? 0)
+            const qtd = Number(it.quantidade ?? it.qtd ?? it.qty ?? 1)
+            const preco = Number(it.preco_unit_snapshot ?? it.preco_unit ?? it.preco ?? 0)
+            const descPerc = Number(it.desconto_perc ?? it.desconto ?? 0)
+            const ivaPerc = Number(it.taxa_iva ?? it.iva ?? it.iva_percent ?? it.taxa ?? 0)
             const bruto = qtd * preco
             const vDesc = bruto * (descPerc / 100)
             const base = bruto - vDesc
@@ -52,7 +63,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                 taxa_iva: ivaPerc,
                 subtotal_base: base,
                 valor_iva: vIva,
-                subtotal_linha: Number(it.subtotal_linha?? it.subtotal?? total),
+                subtotal_linha: Number(it.subtotal_linha ?? it.subtotal ?? total),
             }
         })
         let liquido = 0, totalIva = 0, totalDesc = 0
@@ -71,8 +82,8 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
     }, [itensRaw])
 
     const fmt = (n: number) => Number(n).toLocaleString('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    const fmtData = (d: any) => d? new Date(d).toLocaleDateString('pt-AO') : '---'
-    const fmtDataHora = (d: any) => d? new Date(d).toLocaleString('pt-AO') : '---'
+    const fmtData = (d: any) => d ? new Date(d).toLocaleDateString('pt-AO') : '---'
+    const fmtDataHora = (d: any) => d ? new Date(d).toLocaleString('pt-AO') : '---'
 
     const emp = {
         nome: empresa?.nome || '',
@@ -86,55 +97,54 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
         iban: empresa?.iban || '',
         conta: empresa?.conta_bancaria || '',
     }
-    const hasLogo =!!emp.logo
-    const mask = (v: string) => v && v.trim()!== ''? v : '---'
+    const hasLogo = !!emp.logo
+    const mask = (v: string) => v && v.trim() !== '' ? v : '---'
     const isOficial = fatura?.tipo_documento === 'fatura'
     const isNC = isNotaCredito(fatura)
 
-    // QR AGT Angola oficial Decreto 123/19 - formato fiscal
     const dataEmissao = fatura?.data_emissao || fatura?.created_at
-    const numeroDoc = isNC? fatura.numero_nota_credito : fatura?.numero_fatura || getNumero(fatura)
-    const dataISO = dataEmissao? new Date(dataEmissao).toISOString().split('T')[0] : ''
-    const tipoDoc = isNC? 'NC' : 'FT'
-    const nifCliente = cliente?.nif || '999999999'
+    const numeroDoc = isNC ? fatura.numero_nota_credito : fatura?.numero_fatura || getNumero(fatura)
+    const dataISO = dataEmissao ? new Date(dataEmissao).toISOString().split('T')[0] : ''
+    const tipoDoc = isNC ? 'NC' : 'FT'
+    const nifCliente = clienteSafe?.nif || '999999999'
     const totalGeral = Number(fatura?.total_geral || totais.pagar || 0).toFixed(2)
     const totalIva = Number(fatura?.total_iva || totais.iva || 0).toFixed(2)
     const totalBase = Number(fatura?.subtotal || totais.liquido || 0).toFixed(2)
 
     const qrContent = (isOficial || isNC)
-      ? `A:${(emp.nif||'').toString().padStart(10,'0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco||'Luanda').slice(0,35)}*L1:${emp.cidade||'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior||''}`
+        ? `A:${(emp.nif || '').toString().padStart(10, '0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco || 'Luanda').slice(0, 35)}*L1:${emp.cidade || 'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior || ''}`
         : `${getNumero(fatura)}|${fatura?.id}`
 
-    const tituloDoc = isNC? 'NOTA DE CRÉDITO' : isOficial? 'FACTURA' : 'FACTURA PROFORMA'
-    const corHeader = isNC? 'bg-[#FFEBEB]' : 'bg-[rgba(255,255,255,0.40)]'
+    const tituloDoc = isNC ? 'NOTA DE CRÉDITO' : isOficial ? 'FACTURA' : 'FACTURA PROFORMA'
+    const corHeader = isNC ? 'bg-[#FFEBEB]' : 'bg-[rgba(255,255,255,0.40)]'
 
     const FolhaTela = () => (
         <div id="fatura-pdf" className="relative bg-white text-black w-[210mm] min-w-[210mm] min-h-[297mm] p-[10mm] flex flex-col border border-gray-200 overflow-hidden mx-auto" style={{ fontFamily: "var(--fonte-principal)" }}>
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                {hasLogo? <img src={emp.logo} alt="marca" className="w-[650px] h-[650px] object-contain opacity-[0.10]" /> : <LogoDefault nome={emp.nome} size="large" />}
+                {hasLogo ? <img src={emp.logo} alt="marca" className="w-[650px] h-[650px] object-contain opacity-[0.10]" /> : <LogoDefault nome={emp.nome} size="large" />}
             </div>
             <div className="relative z-10 flex flex-col flex-1">
                 <div className="flex gap-3">
-                    {hasLogo? <img src={emp.logo} className="w-[110px] h-[90px] object-contain shrink-0" alt="logo" /> : <LogoDefault nome={emp.nome} />}
+                    {hasLogo ? <img src={emp.logo} className="w-[110px] h-[90px] object-contain shrink-0" alt="logo" /> : <LogoDefault nome={emp.nome} />}
                     <div className="text-[11px] leading-[15px]"><p className="font-bold text-[14px]">{mask(emp.nome)}</p><p>NIF: {mask(emp.nif)}</p><p>Endereço: {mask(emp.endereco)}</p><p>Contactos: {mask(emp.telefone)}</p><p>Email: {mask(emp.email)}</p><p>{mask(emp.cidade)}</p></div>
                 </div>
 
-                <div className={`flex justify-between items-start mt-6 border-b border-dotted border-gray-300 pb-3 ${isNC? 'bg-[#FFF0F0]' : ''}`}>
+                <div className={`flex justify-between items-start mt-6 border-b border-dotted border-gray-300 pb-3 ${isNC ? 'bg-[#FFF0F0]' : ''}`}>
                     <div className="text-[9px] leading-[13px] max-w-[300px]">
-                        <p className={`font-bold text-[12px] ${isNC? 'text-red-600' : ''}`}>{tituloDoc}</p>
+                        <p className={`font-bold text-[12px] ${isNC ? 'text-red-600' : ''}`}>{tituloDoc}</p>
                         <p className="mt-1">Forma Pag: {fatura?.forma_pagamento || 'dinheiro'}</p>
                         <p>Moeda: AKZ</p>
                         {isNC && <p className="mt-1"><b>Motivo:</b> {fatura?.motivo_credito || '---'}</p>}
                         {isNC && fatura?.fatura_origem_id && <p><b>Ref FT:</b> {fatura.fatura_origem_id.slice(0, 8)}</p>}
                         {(isOficial || isNC) && <p className="mt-1 break-all"><b>Hash:</b> {fatura?.hash_agt || '---'}</p>}
                         {(isOficial || isNC) && fatura?.hash_agt_anterior && <p className="break-all"><b>Hash Ant:</b> {fatura.hash_agt_anterior.slice(0, 30)}...</p>}
-                        {(isOficial || isNC) && <p>Comunicado AGT: {fatura?.comunicado_agt? 'Sim' : 'Não'}</p>}
+                        {(isOficial || isNC) && <p>Comunicado AGT: {fatura?.comunicado_agt ? 'Sim' : 'Não'}</p>}
                     </div>
                     <div className="flex gap-3 items-start">
                         <div className="text-right leading-[14px]">
-                            <p className={`font-bold text-[15px] ${isNC? 'text-red-600' : ''}`}>{numeroDoc || 'PROFORMA'}</p>
-                            <p className="text-[#777] text-[11px] mt-1">{isNC? 'Anula FT' : isOficial? 'Regime Geral' : 'Sem valor fiscal'}</p>
-                            <p className="font-bold text-[12px] mt-1">{isNC? 'CÓPIA NC' : isOficial? 'Original' : 'Proforma'}</p>
+                            <p className={`font-bold text-[15px] ${isNC ? 'text-red-600' : ''}`}>{numeroDoc || 'PROFORMA'}</p>
+                            <p className="text-[#777] text-[11px] mt-1">{isNC ? 'Anula FT' : isOficial ? 'Regime Geral' : 'Sem valor fiscal'}</p>
+                            <p className="font-bold text-[12px] mt-1">{isNC ? 'CÓPIA NC' : isOficial ? 'Original' : 'Proforma'}</p>
                             <p className="text-[10px] mt-1">Emissão: {fmtDataHora(dataEmissao)}</p>
                             <p className="text-[10px]">Venc: {fmtData(fatura?.data_vencimento || fatura?.validade_proforma)}</p>
                         </div>
@@ -147,10 +157,10 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                 <div className="mt-6 flex justify-between">
                     <div className="w-[60%] text-[12px] leading-[16px]">
                         <p className="font-bold text-[13px]">Cliente:</p>
-                        <p className="font-bold">{cliente?.nome || 'Consumidor Final'}</p>
-                        <p>NIF: {cliente?.nif || '999999999'}</p>
-                        <p>{cliente?.endereco || ''} - {cliente?.cidade || ''}</p>
-                        <p>{cliente?.telefone || ''} | {cliente?.email || ''}</p>
+                        <p className="font-bold">{clienteSafe?.nome || 'Consumidor Final'}</p>
+                        <p>NIF: {clienteSafe?.nif || '999999999'}</p>
+                        <p>{clienteSafe?.endereco || ''} - {clienteSafe?.cidade || ''}</p>
+                        <p>{clienteSafe?.telefone || ''} | {clienteSafe?.email || ''}</p>
                     </div>
                     <div className="text-right">
                         <p className="text-[9px] text-[#666]">Processado por programa validado 83/AGT/2019 FaturaXpress</p>
@@ -160,10 +170,10 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
 
                 <div className="mt-4 grid grid-cols-[90px_95px_95px_125px_115px_1fr] gap-[5px]">
                     {[
-                        { k: 'CÓD. CLIENTE', v: cliente?.codigo || cliente?.id?.slice(0, 8) || '---' },
+                        { k: 'CÓD. CLIENTE', v: clienteSafe?.codigo || clienteSafe?.id?.slice(0, 8) || 'AVULSO' },
                         { k: 'DATA EMISSÃO', v: fmtData(dataEmissao) },
                         { k: 'DATA VENC.', v: fmtData(fatura?.data_vencimento) },
-                        { k: 'NIF CLIENTE', v: cliente?.nif || '---' },
+                        { k: 'NIF CLIENTE', v: clienteSafe?.nif || '---' },
                         { k: 'VALIDADE PP', v: fmtData(fatura?.validade_proforma) },
                         { k: 'OPERADOR', v: empresa?.nome?.slice(0, 10) || 'Sistema' },
                     ].map(b => (
@@ -177,7 +187,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                         <thead><tr className="bg-[rgba(194,194,194,0.65)] text-[9px] font-bold"><th className="border border-[#999] py-[6px] px-1 text-left">REFERÊNCIA</th><th className="border border-[#999] py-[6px] px-1 text-left">PRODUTO / SERVIÇO</th><th className="border border-[#999] py-[6px]">QTD.</th><th className="border border-[#999] py-[6px]">UN.</th><th className="border border-[#999] py-[6px]">PREÇO UNIT.</th><th className="border border-[#999] py-[6px]">DESCONTO</th><th className="border border-[#999] py-[6px]">TAXA</th><th className="border border-[#999] py-[6px] text-right">VALOR (AKZ)</th></tr></thead>
                         <tbody>
                             {itens.map((it: any, i: number) => (
-                                <tr key={i} className="text-[10px] h-[24px]"><td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate">{it.referencia}</td><td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate">{it.nome_snapshot}</td><td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.quantidade}</td><td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.unidade}</td><td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{fmt(it.preco_unit_snapshot)}</td><td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{it.desconto_perc > 0? fmt(it.desconto_valor) : ''}</td><td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.taxa_iva}%{it.taxa_iva === 0? '*' : ''}</td><td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)] font-semibold">{fmt(it.subtotal_linha)}</td></tr>
+                                <tr key={i} className="text-[10px] h-[24px]"><td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate">{it.referencia}</td><td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate">{it.nome_snapshot}</td><td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.quantidade}</td><td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.unidade}</td><td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{fmt(it.preco_unit_snapshot)}</td><td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{it.desconto_perc > 0 ? fmt(it.desconto_valor) : ''}</td><td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.taxa_iva}%{it.taxa_iva === 0 ? '*' : ''}</td><td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)] font-semibold">{fmt(it.subtotal_linha)}</td></tr>
                             ))}
                             {Array.from({ length: Math.max(0, 8 - itens.length) }).map((_, k) => (<tr key={k} className="h-[26px]"><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td></tr>))}
                         </tbody>
@@ -188,18 +198,18 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                     <div className="flex-1 border border-[#999]">
                         <div className="flex bg-[rgba(194,194,194,0.65)] text-[9px] font-bold"><div className="flex-1 border-r border-[#999] py-[5px] px-1">IMPOSTO</div><div className="w-[50px] border-r border-[#999] py-[5px] text-center">TAXA</div><div className="w-[80px] border-r border-[#999] py-[5px] text-center">INCIDÊNCIA</div><div className="w-[80px] py-[5px] text-center">VALOR</div></div>
                         {Object.entries(totais.ivaPorTaxa).map(([taxa, d]: any) => (
-                            <div key={taxa} className="flex text-[9px]"><div className="flex-1 border-r border-[#999] py-[5px] px-1 bg-[rgba(255,255,255,0.40)]">{Number(taxa.replace('%', '')) === 0? '*M04 Isento' : `IVA ${taxa}`}</div><div className="w-[50px] border-r border-[#999] py-[5px] text-center bg-[rgba(255,255,255,0.40)]">{taxa}</div><div className="w-[80px] border-r border-[#999] py-[5px] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{fmt(d.incidencia)}</div><div className="w-[80px] py-[5px] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{fmt(d.valor)}</div></div>
+                            <div key={taxa} className="flex text-[9px]"><div className="flex-1 border-r border-[#999] py-[5px] px-1 bg-[rgba(255,255,255,0.40)]">{Number(taxa.replace('%', '')) === 0 ? '*M04 Isento' : `IVA ${taxa}`}</div><div className="w-[50px] border-r border-[#999] py-[5px] text-center bg-[rgba(255,255,255,0.40)]">{taxa}</div><div className="w-[80px] border-r border-[#999] py-[5px] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{fmt(d.incidencia)}</div><div className="w-[80px] py-[5px] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{fmt(d.valor)}</div></div>
                         ))}
                     </div>
                     <div className="w-[240px] shrink-0">
                         <div className="flex bg-[rgba(194,194,194,0.65)] text-[10px] border border-[#999]"><div className="flex-1 py-[6px] px-1 text-right">Total Líquido</div><div className="w-[90px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[6px] text-right pr-1">{fmt(totais.liquido)}</div></div>
                         <div className="flex bg-[rgba(194,194,194,0.65)] text-[10px] border border-[#999] border-t-0"><div className="flex-1 py-[6px] px-1 text-right">Total Desconto</div><div className="w-[90px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[6px] text-right pr-1">{fmt(totais.desconto)}</div></div>
                         <div className="flex bg-[rgba(194,194,194,0.65)] text-[10px] border border-[#999] border-t-0"><div className="flex-1 py-[6px] px-1 text-right">Total IVA</div><div className="w-[90px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[6px] text-right pr-1">{fmt(totais.iva)}</div></div>
-                        <div className={`flex text-[11px] font-bold border border-[#999] border-t-0 ${isNC? 'bg-[#FFD6D6]' : 'bg-[rgba(194,194,194,0.75)]'}`}><div className="flex-1 py-[6px] px-1 text-right">TOTAL A PAGAR (AKZ)</div><div className="w-[90px] bg-[rgba(255,255,255,0.65)] border-l border-[#999] py-[6px] text-right pr-1 font-bold">{fmt(totais.pagar)}</div></div>
+                        <div className={`flex text-[11px] font-bold border border-[#999] border-t-0 ${isNC ? 'bg-[#FFD6D6]' : 'bg-[rgba(194,194,194,0.75)]'}`}><div className="flex-1 py-[6px] px-1 text-right">TOTAL A PAGAR (AKZ)</div><div className="w-[90px] bg-[rgba(255,255,255,0.65)] border-l border-[#999] py-[6px] text-right pr-1 font-bold">{fmt(totais.pagar)}</div></div>
                     </div>
                 </div>
 
-                <div className="mt-4 bg-[rgba(255,255,255,0.40)] p-1 text-[10px]"><p className="font-bold">Coordenadas Bancárias:</p><p>Banco {mask(emp.banco)} {emp.conta? `nº ${emp.conta} / ` : ''}IBAN {emp.iban? emp.iban : '---'}</p></div>
+                <div className="mt-4 bg-[rgba(255,255,255,0.40)] p-1 text-[10px]"><p className="font-bold">Coordenadas Bancárias:</p><p>Banco {mask(emp.banco)} {emp.conta ? `nº ${emp.conta} / ` : ''}IBAN {emp.iban ? emp.iban : '---'}</p></div>
                 {fatura?.observacoes && <div className="mt-2 text-[10px]"><b>Observações:</b> {fatura.observacoes}</div>}
                 <div className="mt-auto border-t border-black flex justify-between items-center bg-[rgba(255,255,255,0.40)] px-1 pt-3"><span className="text-[9px] font-bold">Licenciado a: {mask(emp.nome)} | NIF: {mask(emp.nif)} | {mask(emp.endereco)} | Hash AGT validado</span><span className="text-[9px] font-bold">Pág. 1 de 1</span></div>
             </div>

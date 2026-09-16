@@ -5,6 +5,16 @@ import { getNumero, isNotaCredito } from '../../EmitirFaturaPage'
 export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: any) {
     const [isFullscreen, setIsFullscreen] = useState(false)
 
+    const clienteView = cliente || {
+        nome: fatura?.cliente_nome || 'Consumidor Final',
+        nif: fatura?.cliente_nif || '999999999',
+        telefone: fatura?.cliente_telefone || '',
+        email: fatura?.cliente_email || '',
+        endereco: fatura?.cliente_endereco || '',
+        cidade: fatura?.cliente_cidade || '',
+        id: fatura?.cliente_id || null
+    }
+
     const handlePrint = () => {
         const el = document.getElementById('fatura-pdf')
         if (!el) return
@@ -72,7 +82,7 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
             </div>
             <div className="flex-1 w-full px-4 sm:px-8 lg:px-12 py-6 flex justify-center overflow-x-hidden overflow-y-auto">
                 <div className="shadow-2xl w-full max-w-[210mm] overflow-hidden">
-                    <FaturaPDF fatura={fatura} cliente={cliente} empresa={empresa} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} />
+                    <FaturaPDF fatura={fatura} cliente={clienteView} empresa={empresa} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} />
                 </div>
             </div>
         </div>

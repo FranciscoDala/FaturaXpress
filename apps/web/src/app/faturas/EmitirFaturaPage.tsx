@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { EmitirFaturaSkeleton } from '../../components/EmitirFaturaSkeleton'
 import { useRealtime } from '../../hooks/useRealtime'
@@ -19,15 +19,38 @@ export const isNotaCredito = (f: any) => f?.tipo_documento === 'nota_credito'
 
 const VALID_TABS: Tab[] = ['emitir', 'curso', 'emitidas']
 
+// lê cliente_id de qualquer lugar (antes do # ou depois do #)
+function getClienteIdFromUrl(): string | null {
+    const outer = new URLSearchParams(window.location.search).get('cliente_id')
+    if (outer) return outer
+    const hash = window.location.hash
+    if (hash.includes('?')) {
+        const qs = hash.split('?')[1]
+        return new URLSearchParams(qs).get('cliente_id')
+    }
+    return null
+}
+function getTabFromUrl(): Tab | null {
+    const hash = window.location.hash
+    if (hash.includes('tab=')) {
+        const qs = hash.split('?')[1] || ''
+        const t = new URLSearchParams(qs).get('tab') as Tab | null
+        if (t && VALID_TABS.includes(t)) return t
+    }
+    const outer = new URLSearchParams(window.location.search).get('tab') as Tab | null
+    if (outer && VALID_TABS.includes(outer)) return outer
+    return null
+}
+
 export default function EmitirFaturaPage() {
     const navigate = useNavigate()
-    const [searchParams, setSearchParams] = useSearchParams()
-    const clienteId = searchParams.get('cliente_id')
+    const clienteId = getClienteIdFromUrl()
+
     const [cliente, setCliente] = useState<Cliente | null>(null)
     const [empresa, setEmpresa] = useState<any>(null)
     const [activeTab, setActiveTab] = useState<Tab>(() => {
-        const tabUrl = searchParams.get('tab') as Tab | null
-        if (tabUrl && VALID_TABS.includes(tabUrl)) return tabUrl
+        const tabUrl = getTabFromUrl()
+        if (tabUrl) return tabUrl
         if (clienteId) {
             const saved = localStorage.getItem(`fatura_tab_${clienteId}`) as Tab | null
             if (saved && VALID_TABS.includes(saved)) return saved
@@ -93,28 +116,17 @@ export default function EmitirFaturaPage() {
         })
     }, [clienteId])
 
-    // salva tab no localStorage e na URL sem causar loop #310
+    // só guarda no localStorage, NÃO mexe mais na URL (resolve #310)
     useEffect(() => {
         if (!clienteId) return
         localStorage.setItem(`fatura_tab_${clienteId}`, activeTab)
-        const currentTab = searchParams.get('tab')
-        if (currentTab!== activeTab) {
-            setSearchParams(prev => {
-                const p = new URLSearchParams(prev)
-                p.set('tab', activeTab)
-                p.set('cliente_id', clienteId)
-                return p
-            }, { replace: true })
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab])
+    }, [activeTab, clienteId])
 
     useEffect(() => {
         if (clienteId) fetchFaturas()
     }, [clienteId, fetchFaturas])
 
     const isInitialLoading = loadingEmpresa &&!empresa
-
     if (isInitialLoading) {
         return (
             <div className="min-h-screen bg-white">
@@ -182,27 +194,14 @@ export default function EmitirFaturaPage() {
                         </div>
                     </div>
                     <style>{`
-        .bubble {
-                            position: absolute;
-                            border-radius: 50%;
-                            background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%);
-                            border: 1px solid rgba(0,149,255,0.14);
-                            box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10);
-                            animation: floatBubble 8s infinite ease-in-out;
-                            will-change: transform;
-                        }
-        .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
-        .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
-        .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
-        .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
-        .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
-        .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
-                        @keyframes floatBubble {
-                            0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.55; }
-                            25% { transform: translateY(-15px) translateX(10px) scale(1.05); opacity: 0.85; }
-                            50% { transform: translateY(-25px) translateX(-5px) scale(0.95); opacity: 0.45; }
-                            75% { transform: translateY(-10px) translateX(-10px) scale(1.02); opacity: 0.7; }
-                        }
+       .bubble { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border: 1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+       .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
+       .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
+       .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
+       .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
+       .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
+       .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
+        @keyframes floatBubble { 0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.55; } 25% { transform: translateY(-15px) translateX(10px) scale(1.05); opacity: 0.85; } 50% { transform: translateY(-25px) translateX(-5px) scale(0.95); opacity: 0.45; } 75% { transform: translateY(-10px) translateX(-10px) scale(1.02); opacity: 0.7; } }
                     `}</style>
                 </div>
                 <div className="w-full py-6">

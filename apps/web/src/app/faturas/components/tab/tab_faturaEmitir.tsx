@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { Plus, Trash2, Search, Star, ChevronDown, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../../../../lib/api'
+import ModalConfirmEmit from '../../../dashboard/components/modals/modal_ConfirmEmit'
 
 interface Produto { id: string; nome: string; preco: number; iva: number; quantidade: number }
 
@@ -27,6 +28,8 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
     const [openTipo, setOpenTipo] = useState(false)
     const [openPag, setOpenPag] = useState(false)
     const [pagina, setPagina] = useState(1)
+    const [openConfirm, setOpenConfirm] = useState(false)
+    const [loadingEmit, setLoadingEmit] = useState(false)
     const ITENS_POR_PAGINA = 5
     const refTipo = useRef<HTMLDivElement>(null)
     const refPag = useRef<HTMLDivElement>(null)
@@ -71,6 +74,7 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
     const emitir = async () => {
         if (!itens.length) return toast.error('Adicione produtos')
         try {
+            setLoadingEmit(true)
             const { data } = await api.post('/api/faturas', {
                 cliente_id: clienteId,
                 tipo_documento: tipoDoc,
@@ -81,8 +85,8 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
                 itens: itens.map(i => ({ produto_id: i.produto_id, quantidade: i.quantidade, preco_unit: i.preco_unit }))
             })
             toast.success(tipoDoc==='fatura'? `FT ${data.numero_fatura} emitida com Hash AGT!` : `PP ${data.numero_proforma} emitida`)
-            setItens([]); setObservacoes(''); onEmitida()
-        } catch (e: any) { toast.error(e.response?.data?.detail || 'Erro') }
+            setItens([]); setObservacoes(''); setOpenConfirm(false); onEmitida()
+        } catch (e: any) { toast.error(e.response?.data?.detail || 'Erro') } finally { setLoadingEmit(false) }
     }
 
     return (
@@ -188,10 +192,12 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
                         <div className="flex justify-between font-bold text-[15px] text-gray-900 border-t border-gray-100 pt-3"><span>Total</span><span>{(subtotal + totalIva).toFixed(2)} KZ</span></div>
                         {tipoDoc==='fatura' && <p className="text-[10px] text-green-600 bg-green-50 border border-green-200 rounded-full px-3 py-1 text-center mt-2">FT vai gerar Hash AGT + QR automático</p>}
                         {tipoDoc==='proforma' && <p className="text-[10px] text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-3 py-1 text-center mt-2">PP sem valor fiscal - pode converter depois</p>}
-                        <button onClick={emitir} className="w-full mt-4 bg-[#0095ff] text-white h-[46px] rounded-full font-semibold text-[13px] shadow-[0_4px_12px_rgba(0,149,255,0.25)] hover:bg-[#0085e6] transition">{tipoDoc==='fatura'? 'Emitir FT Oficial' : 'Emitir Proforma PP'}</button>
+                        <button onClick={()=>{ if(!itens.length) return toast.error('Adicione produtos'); setOpenConfirm(true) }} className="w-full mt-4 bg-[#0095ff] text-white h-[46px] rounded-full font-semibold text-[13px] shadow-[0_4px_12px_rgba(0,149,255,0.25)] hover:bg-[#0085e6] transition">{tipoDoc==='fatura'? 'Emitir FT Oficial' : 'Emitir Proforma PP'}</button>
                     </div>
                 </div>
             </div>
+
+            <ModalConfirmEmit open={openConfirm} tipoDoc={tipoDoc} total={subtotal+totalIva} qtdItens={itens.length} loading={loadingEmit} onClose={()=>setOpenConfirm(false)} onConfirm={emitir} />
         </div>
     )
 }

@@ -33,6 +33,28 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh }: { 
         return matchFiltro && matchSearch
     })
 
+    const updatePosition = () => {
+        if (btnRef.current) {
+            const rect = btnRef.current.getBoundingClientRect()
+            setDropdownPos({ top: rect.bottom + 8, left: rect.left, width: rect.width })
+        }
+    }
+
+    useEffect(() => {
+        if (openSelect) updatePosition()
+    }, [openSelect])
+
+    useEffect(() => {
+        if (!openSelect) return
+        const handle = () => updatePosition()
+        window.addEventListener('scroll', handle, true)
+        window.addEventListener('resize', handle)
+        return () => {
+            window.removeEventListener('scroll', handle, true)
+            window.removeEventListener('resize', handle)
+        }
+    }, [openSelect])
+
     useEffect(() => {
         const close = (e: MouseEvent) => {
             if (wrapperRef.current &&!wrapperRef.current.contains(e.target as Node) &&!(e.target as HTMLElement).closest('[data-select-dropdown]')) {
@@ -42,19 +64,6 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh }: { 
         document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
     }, [])
-
-    useEffect(() => {
-        if (openSelect && btnRef.current) {
-            const rect = btnRef.current.getBoundingClientRect()
-            setDropdownPos({ top: rect.bottom + 8, left: rect.left, width: rect.width })
-        }
-    }, [openSelect])
-
-    useEffect(() => {
-        const onScroll = () => { if (openSelect) setOpenSelect(false) }
-        window.addEventListener('scroll', onScroll, true)
-        return () => window.removeEventListener('scroll', onScroll, true)
-    }, [openSelect])
 
     const handleOpenNC = (fatura: any) => {
       setSelectedFatura(fatura)

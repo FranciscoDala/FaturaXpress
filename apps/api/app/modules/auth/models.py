@@ -3,7 +3,7 @@ from sqlalchemy import String, DateTime, ForeignKey, Boolean, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
-from app.db.base import Base # Gaveta A
+from app.db.base import Base
 
 class Company(Base):
     __tablename__ = "companies"

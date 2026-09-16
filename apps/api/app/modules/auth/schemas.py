@@ -35,5 +35,13 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     company_id: uuid.UUID
-    company_name: str # <- ADICIONEI. Bate com o router
-    # user_id: uuid.UUID <- REMOVI pq login não usa mais user
+    company_name: str
+
+class UpdateCompanyRequest(BaseModel):
+    companyName: Optional[str] = None
+    nif: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    province: Optional[str] = None

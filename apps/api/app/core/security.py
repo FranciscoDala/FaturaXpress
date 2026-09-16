@@ -1,12 +1,9 @@
 import uuid
-from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
-from jose import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
-from app.core.config import settings # <- pega do config
-from app.core.jwt import decode_access_token
+from app.core.jwt import decode_access_token, create_access_token
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -19,14 +16,6 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifica se a senha bate com o hash"""
     return pwd_context.verify(plain_password, hashed_password)
-
-def create_access_token(data: dict) -> str:
-    """Cria o JWT com company_id dentro"""
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM) # <- usa settings
-    return encoded_jwt
 
 def generate_id() -> str:
     return str(uuid.uuid4())

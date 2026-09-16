@@ -1,9 +1,21 @@
-import { useEffect, useState } from 'react'
-import { Plus, Trash2, Search, Star } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
+import { Plus, Trash2, Search, Star, ChevronDown, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../../../../lib/api'
 
 interface Produto { id: string; nome: string; preco: number; iva: number }
+
+const OPTIONS_TIPO = [
+  { value: 'proforma', label: 'PP - Proforma (sem fiscal)' },
+  { value: 'fatura', label: 'FT - Fatura Oficial (com hash AGT)' },
+]
+
+const OPTIONS_PAG = [
+  { value: 'dinheiro', label: 'Dinheiro' },
+  { value: 'transferencia', label: 'Transferência' },
+  { value: 'multicaixa', label: 'Multicaixa' },
+  { value: 'credito', label: 'Crédito' },
+]
 
 export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string; onEmitida: () => void }) {
     const [produtos, setProdutos] = useState<Produto[]>([])
@@ -12,6 +24,19 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
     const [tipoDoc, setTipoDoc] = useState<'proforma'|'fatura'>('proforma')
     const [formaPagamento, setFormaPagamento] = useState('dinheiro')
     const [observacoes, setObservacoes] = useState('')
+    const [openTipo, setOpenTipo] = useState(false)
+    const [openPag, setOpenPag] = useState(false)
+    const refTipo = useRef<HTMLDivElement>(null)
+    const refPag = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        const close = (e: MouseEvent) => {
+            if (refTipo.current &&!refTipo.current.contains(e.target as Node)) setOpenTipo(false)
+            if (refPag.current &&!refPag.current.contains(e.target as Node)) setOpenPag(false)
+        }
+        document.addEventListener('mousedown', close)
+        return () => document.removeEventListener('mousedown', close)
+    }, [])
 
     useEffect(() => {
         api.get('/api/produtos', { params: { search: busca, limit: 40 } }).then(r => {
@@ -60,10 +85,23 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
             <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_1fr] gap-4 w-full">
                 <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 p-6">
                     <div className="flex gap-2 mb-4">
-                        <select value={tipoDoc} onChange={e=>setTipoDoc(e.target.value as any)} className="flex-1 h-[40px] border border-gray-200 rounded-full px-3 text-[12px] font-semibold">
-                            <option value="proforma">PP - Proforma (sem fiscal)</option>
-                            <option value="fatura">FT - Fatura Oficial (com hash AGT)</option>
-                        </select>
+                        {/* SELECT TIPO DOC - ESTILO CARD */}
+                        <div ref={refTipo} className="relative flex-1 z-20">
+                            <button onClick={() => setOpenTipo(!openTipo)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[12px] font-semibold">
+                                <span className="text-gray-900 truncate">{OPTIONS_TIPO.find(o => o.value === tipoDoc)?.label}</span>
+                                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ml-2 ${openTipo? 'rotate-180' : ''}`} />
+                            </button>
+                            {openTipo && (
+                                <div className="absolute top-[54px] left-0 w-full bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
+                                    {OPTIONS_TIPO.map(opt => (
+                                        <button key={opt.value} onClick={() => { setTipoDoc(opt.value as any); setOpenTipo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[12px] flex items-center justify-between transition ${tipoDoc === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                            {opt.label}
+                                            {tipoDoc === opt.value && <Check className="w-4 h-4 text-[#0095ff]" />}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                     <div className="relative mb-4">
                         <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -81,10 +119,26 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId: string;
 
                 <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 p-6 h-fit">
                     <h3 className="text-[13px] font-bold text-gray-900 mb-4">Resumo AGT</h3>
-                    <select value={formaPagamento} onChange={e=>setFormaPagamento(e.target.value)} className="w-full h-[40px] border border-gray-200 rounded-full px-3 text-[12px] mb-3">
-                        <option value="dinheiro">Dinheiro</option><option value="transferencia">Transferência</option><option value="multicaixa">Multicaixa</option><option value="credito">Crédito</option>
-                    </select>
-                    <textarea value={observacoes} onChange={e=>setObservacoes(e.target.value)} placeholder="Observações (opcional - vai na FT)" className="w-full h-[70px] border border-gray-200 rounded-[16px] p-3 text-[12px] mb-3" />
+
+                    {/* SELECT FORMA PAG - ESTILO CARD */}
+                    <div ref={refPag} className="relative w-full z-10 mb-3">
+                        <button onClick={() => setOpenPag(!openPag)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[12px] font-medium">
+                            <span className="text-gray-900">{OPTIONS_PAG.find(o => o.value === formaPagamento)?.label}</span>
+                            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openPag? 'rotate-180' : ''}`} />
+                        </button>
+                        {openPag && (
+                            <div className="absolute top-[54px] left-0 w-full bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
+                                {OPTIONS_PAG.map(opt => (
+                                    <button key={opt.value} onClick={() => { setFormaPagamento(opt.value); setOpenPag(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[12px] flex items-center justify-between transition ${formaPagamento === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                        {opt.label}
+                                        {formaPagamento === opt.value && <Check className="w-4 h-4 text-[#0095ff]" />}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <textarea value={observacoes} onChange={e=>setObservacoes(e.target.value)} placeholder="Observações (opcional - vai na FT)" className="w-full h-[70px] border border-gray-200 rounded-[16px] p-3 text-[12px] mb-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
                     {itens.length === 0? (
                         <p className="text-[12px] text-gray-400 py-4 text-center">Nenhum item adicionado</p>
                     ) : (

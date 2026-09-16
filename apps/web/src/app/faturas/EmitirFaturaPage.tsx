@@ -74,7 +74,7 @@ export default function EmitirFaturaPage() {
         api.get('/auth/me').then(r => {
             const comp = r.data.company || r.data
             setEmpresa({
-             ...comp,
+            ...comp,
                 nome: comp.nome || comp.companyName,
                 endereco: comp.endereco || comp.address,
                 cidade: comp.cidade || comp.city,
@@ -193,7 +193,7 @@ export default function EmitirFaturaPage() {
                         </div>
                     </div>
                     <style>{`
-            .bubble {
+           .bubble {
                             position: absolute;
                             border-radius: 50%;
                             background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%);
@@ -202,12 +202,12 @@ export default function EmitirFaturaPage() {
                             animation: floatBubble 8s infinite ease-in-out;
                             will-change: transform;
                         }
-            .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
-            .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
-            .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
-            .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
-            .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
-            .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
+           .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
+           .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
+           .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
+           .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
+           .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
+           .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
                         @keyframes floatBubble {
                             0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.55; }
                             25% { transform: translateY(-15px) translateX(10px) scale(1.05); opacity: 0.85; }

@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Wrench, Pencil, X, LogOut } from 'lucide-react'
+import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Wrench, Pencil, X } from 'lucide-react'
 import { toast } from 'sonner'
 import ClienteModal from './components/modals/modal_Cliente'
 import ProdutoModal from './components/modals/modal_Produto'
 import ModalConfirmDelete from './components/modals/modal_ConfirmDelete'
 import ModalSaftAO from './components/modals/modal_SaftAO'
+import ModalConfirmSair from './components/modals/modal_ConfirmSair'
 import TabelaClientes from './components/tables/tabela_Cliente'
 import CardsProdutos from './components/cards/cards_Produto'
 import TabEmitir from '../faturas/components/tab/tab_faturaEmitir'
@@ -24,37 +25,6 @@ const LIST_OPTIONS = [
     { value: 'clientes', label: 'Clientes' },
     { value: 'produtos', label: 'Produtos / Serviços' },
 ]
-
-function ModalConfirmSair({ open, companyName, onClose, onConfirm }: { open: boolean, companyName: string, onClose: () => void, onConfirm: () => void }) {
-    if (!open) return null
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white rounded-[24px] w-full max-w-[400px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
-                <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#FFF1F1]">
-                    <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center">
-                        <LogOut className="w-4 h-4 text-[#FF3B30]" />
-                    </div>
-                    <button onClick={onClose} className="w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center hover:bg-gray-50">
-                        <X className="w-4 h-4 text-gray-500" />
-                    </button>
-                </div>
-                <div className="px-6 pt-5 pb-6">
-                    <h3 className="text-[18px] font-bold text-gray-900 leading-tight">Sair da conta?</h3>
-                    <p className="text-[13.5px] text-gray-500 mt-3 leading-relaxed">
-                        Tens a certeza que queres encerrar a sessão de <span className="font-bold text-gray-800 uppercase">{companyName}</span>?
-                    </p>
-                    <div className="flex gap-3 mt-8">
-                        <button onClick={onClose} className="flex-1 h-11 rounded-full border border-gray-200 bg-white text-[14px] font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
-                        <button onClick={onConfirm} className="flex-1 h-11 rounded-full bg-[#FF3B30] text-white text-[14px] font-semibold hover:bg-[#e6362c] shadow-[0_6px_20px_rgba(255,59,48,0.35)] flex items-center justify-center gap-2">
-                            <LogOut className="w-4 h-4" /> Sair
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    )
-}
 
 export default function DashboardPage() {
     const navigate = useNavigate()
@@ -105,9 +75,9 @@ export default function DashboardPage() {
         try {
             setLoadingFaturas(true)
             const res = await api.get('/api/faturas', { params: { limit: 500 } })
-            const all = Array.isArray(res.data) ? res.data : (res.data.items || [])
+            const all = Array.isArray(res.data)? res.data : (res.data.items || [])
             setFaturasCurso(all.filter((f: any) => f.tipo_documento === 'proforma'))
-            setFaturasEmitidas(all.filter((f: any) => f.tipo_documento === 'fatura' || f.tipo_documento === 'nota_credito' || !!f.hash_agt))
+            setFaturasEmitidas(all.filter((f: any) => f.tipo_documento === 'fatura' || f.tipo_documento === 'nota_credito' ||!!f.hash_agt))
         } catch { } finally { setLoadingFaturas(false) }
     }
 
@@ -160,7 +130,7 @@ export default function DashboardPage() {
         if (listBtnRef.current) {
             const r = listBtnRef.current.getBoundingClientRect()
             const isMobile = window.innerWidth < 768
-            setListDropdownPos({ top: r.bottom + 8, left: isMobile ? 16 : r.left, width: isMobile ? window.innerWidth - 32 : r.width })
+            setListDropdownPos({ top: r.bottom + 8, left: isMobile? 16 : r.left, width: isMobile? window.innerWidth - 32 : r.width })
         }
     }
     const updateNovoPos = () => {
@@ -168,14 +138,14 @@ export default function DashboardPage() {
             const r = novoBtnRef.current.getBoundingClientRect()
             const width = 320
             const isMobile = window.innerWidth < 768
-            const left = isMobile ? window.innerWidth - width - 16 : r.right - width
+            const left = isMobile? window.innerWidth - width - 16 : r.right - width
             setNovoDropdownPos({ top: r.bottom + 8, left: Math.max(16, left), width })
         }
     }
     useEffect(() => { if (openListSelect) updateListPos() }, [openListSelect])
     useEffect(() => { if (openNovo) updateNovoPos() }, [openNovo])
     useEffect(() => {
-        if (!openListSelect && !openNovo) return
+        if (!openListSelect &&!openNovo) return
         const handle = () => { if (openListSelect) updateListPos(); if (openNovo) updateNovoPos() }
         window.addEventListener('scroll', handle, true)
         window.addEventListener('resize', handle)
@@ -183,8 +153,8 @@ export default function DashboardPage() {
     }, [openListSelect, openNovo])
     useEffect(() => {
         const close = (e: MouseEvent) => {
-            if (listWrapperRef.current && !listWrapperRef.current.contains(e.target as Node) && !(e.target as HTMLElement).closest('[data-list-dropdown]')) setOpenListSelect(false)
-            if (novoWrapperRef.current && !novoWrapperRef.current.contains(e.target as Node) && !(e.target as HTMLElement).closest('[data-novo-dropdown]')) setOpenNovo(false)
+            if (listWrapperRef.current &&!listWrapperRef.current.contains(e.target as Node) &&!(e.target as HTMLElement).closest('[data-list-dropdown]')) setOpenListSelect(false)
+            if (novoWrapperRef.current &&!novoWrapperRef.current.contains(e.target as Node) &&!(e.target as HTMLElement).closest('[data-novo-dropdown]')) setOpenNovo(false)
         }
         document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
@@ -235,12 +205,12 @@ export default function DashboardPage() {
     }
 
     const ProdutoModalAny = ProdutoModal as any
-    const produtosFiltrados = listView === 'servicos' ? produtos.filter(p => p.tipo === 'servico') : listView === 'produtos' ? produtos.filter(p => p.tipo !== 'servico') : produtos
+    const produtosFiltrados = listView === 'servicos'? produtos.filter(p => p.tipo === 'servico') : listView === 'produtos'? produtos.filter(p => p.tipo!== 'servico') : produtos
 
     return (
         <div className="min-h-screen bg-white">
-            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => { toast.success(clienteSelecionado ? 'Atualizado' : 'Criado'); fetchClientes() }} />
-            <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => { toast.success(produtoSelecionado ? 'Produto atualizado' : 'Produto criado'); fetchProdutos() }} />
+            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => { toast.success(clienteSelecionado? 'Atualizado' : 'Criado'); fetchClientes() }} />
+            <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => { toast.success(produtoSelecionado? 'Produto atualizado' : 'Produto criado'); fetchProdutos() }} />
             <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget?.nome} loading={deleting} onClose={() => setDeleteTarget(null)} onConfirm={handleConfirmDelete} />
             <ModalSaftAO open={modalSaftOpen} onClose={() => setModalSaftOpen(false)} />
             <ModalConfirmSair open={modalSairOpen} companyName={companyName} onClose={() => setModalSairOpen(false)} onConfirm={handleConfirmLogout} />
@@ -253,18 +223,18 @@ export default function DashboardPage() {
                             <button onClick={() => setModalEmpresaOpen(false)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"><X className="w-4 h-4" /></button>
                         </div>
                         <div className="grid grid-cols-1 gap-3">
-                            <div><label className="text-[11px] text-gray-500">Nome da empresa</label><input value={formEmpresa.companyName} onChange={e => setFormEmpresa({ ...formEmpresa, companyName: e.target.value })} className="w-full h-11 border rounded-xl px-3 text-[14px]" /></div>
+                            <div><label className="text-[11px] text-gray-500">Nome da empresa</label><input value={formEmpresa.companyName} onChange={e => setFormEmpresa({...formEmpresa, companyName: e.target.value })} className="w-full h-11 border rounded-xl px-3 text-[14px]" /></div>
                             <div className="grid grid-cols-2 gap-3">
-                                <div><label className="text-[11px] text-gray-500">NIF</label><input value={formEmpresa.nif} onChange={e => setFormEmpresa({ ...formEmpresa, nif: e.target.value })} className="w-full h-11 border rounded-xl px-3 text-[14px]" /></div>
-                                <div><label className="text-[11px] text-gray-500">Telefone</label><input value={formEmpresa.phone} onChange={e => setFormEmpresa({ ...formEmpresa, phone: e.target.value })} className="w-full h-11 border rounded-xl px-3 text-[14px]" /></div>
+                                <div><label className="text-[11px] text-gray-500">NIF</label><input value={formEmpresa.nif} onChange={e => setFormEmpresa({...formEmpresa, nif: e.target.value })} className="w-full h-11 border rounded-xl px-3 text-[14px]" /></div>
+                                <div><label className="text-[11px] text-gray-500">Telefone</label><input value={formEmpresa.phone} onChange={e => setFormEmpresa({...formEmpresa, phone: e.target.value })} className="w-full h-11 border rounded-xl px-3 text-[14px]" /></div>
                             </div>
-                            <div><label className="text-[11px] text-gray-500">Email</label><input value={formEmpresa.email} onChange={e => setFormEmpresa({ ...formEmpresa, email: e.target.value })} className="w-full h-11 border rounded-xl px-3 text-[14px]" /></div>
-                            <div><label className="text-[11px] text-gray-500">Endereço</label><input value={formEmpresa.address} onChange={e => setFormEmpresa({ ...formEmpresa, address: e.target.value })} className="w-full h-11 border rounded-xl px-3 text-[14px]" /></div>
+                            <div><label className="text-[11px] text-gray-500">Email</label><input value={formEmpresa.email} onChange={e => setFormEmpresa({...formEmpresa, email: e.target.value })} className="w-full h-11 border rounded-xl px-3 text-[14px]" /></div>
+                            <div><label className="text-[11px] text-gray-500">Endereço</label><input value={formEmpresa.address} onChange={e => setFormEmpresa({...formEmpresa, address: e.target.value })} className="w-full h-11 border rounded-xl px-3 text-[14px]" /></div>
                             <div className="grid grid-cols-2 gap-3">
-                                <div><label className="text-[11px] text-gray-500">Cidade</label><input value={formEmpresa.city} onChange={e => setFormEmpresa({ ...formEmpresa, city: e.target.value })} className="w-full h-11 border rounded-xl px-3 text-[14px]" /></div>
-                                <div><label className="text-[11px] text-gray-500">Província</label><input value={formEmpresa.province} onChange={e => setFormEmpresa({ ...formEmpresa, province: e.target.value })} className="w-full h-11 border rounded-xl px-3 text-[14px]" /></div>
+                                <div><label className="text-[11px] text-gray-500">Cidade</label><input value={formEmpresa.city} onChange={e => setFormEmpresa({...formEmpresa, city: e.target.value })} className="w-full h-11 border rounded-xl px-3 text-[14px]" /></div>
+                                <div><label className="text-[11px] text-gray-500">Província</label><input value={formEmpresa.province} onChange={e => setFormEmpresa({...formEmpresa, province: e.target.value })} className="w-full h-11 border rounded-xl px-3 text-[14px]" /></div>
                             </div>
-                            <button disabled={savingEmpresa} onClick={handleSaveEmpresa} className="mt-2 h-12 rounded-full bg-[#0095ff] text-white font-bold text-[14px] disabled:opacity-60">{savingEmpresa ? 'A salvar...' : 'Salvar alterações'}</button>
+                            <button disabled={savingEmpresa} onClick={handleSaveEmpresa} className="mt-2 h-12 rounded-full bg-[#0095ff] text-white font-bold text-[14px] disabled:opacity-60">{savingEmpresa? 'A salvar...' : 'Salvar alterações'}</button>
                         </div>
                     </div>
                 </div>
@@ -280,7 +250,7 @@ export default function DashboardPage() {
                             <div className="w-full h-full rounded-full overflow-hidden bg-gray-200 border-[6px] border-white shadow-sm">
                                 <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(companyName || 'FX')}&background=E5E7EB&color=374151&size=132}`} className="w-full h-full object-cover" alt={companyName} />
                             </div>
-                            <div className="absolute bottom-1 right-1 w-5 h-5 rounded-full border-[3px] border-white shadow" style={{ background: empresa?.is_active === false ? '#ef4444' : '#22c55e' }}></div>
+                            <div className="absolute bottom-1 right-1 w-5 h-5 rounded-full border-[3px] border-white shadow" style={{ background: empresa?.is_active === false? '#ef4444' : '#22c55e' }}></div>
                             <button onClick={() => setModalEmpresaOpen(true)} className="absolute -top-1 -right-1 w-8 h-8 rounded-full bg-white border shadow flex items-center justify-center hover:bg-gray-50">
                                 <Pencil className="w-4 h-4 text-gray-700" />
                             </button>
@@ -299,9 +269,9 @@ export default function DashboardPage() {
                                     </div>
 
                                     <div className="mt-5 space-y-1">
-                                        <p className="text-[11px] text-gray-500">Total de faturas emitidas, PP, FT - {loadingFaturas ? '...' : `${totalDocs} docs`}</p>
+                                        <p className="text-[11px] text-gray-500">Total de faturas emitidas, PP, FT - {loadingFaturas? '...' : `${totalDocs} docs`}</p>
                                         <p className="text-[11px] text-gray-500">
-                                            Total Faturado FT - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas ? '...' : `${totalFaturado.toFixed(2)} KZ`}</span>
+                                            Total Faturado FT - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas? '...' : `${totalFaturado.toFixed(2)} KZ`}</span>
                                         </p>
                                     </div>
                                 </div>
@@ -311,16 +281,16 @@ export default function DashboardPage() {
                             </div>
 
                             <div className="mt-6 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
-                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className={`flex-1 py-2 ${homeView === 'faturas' && faturaTab === 'curso' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                    <p className="text-[13px] font-bold">{loadingFaturas ? '...' : faturasCurso.length}</p>
+                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className={`flex-1 py-2 ${homeView === 'faturas' && faturaTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                    <p className="text-[13px] font-bold">{loadingFaturas? '...' : faturasCurso.length}</p>
                                     <p className="text-[11px] text-gray-500">Proforma PP</p>
                                 </button>
-                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('emitidas') }} className={`flex-1 py-2 border-l ${homeView === 'faturas' && faturaTab === 'emitidas' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                    <p className="text-[13px] font-bold">{loadingFaturas ? '...' : faturasEmitidas.length}</p>
+                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('emitidas') }} className={`flex-1 py-2 border-l ${homeView === 'faturas' && faturaTab === 'emitidas'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                    <p className="text-[13px] font-bold">{loadingFaturas? '...' : faturasEmitidas.length}</p>
                                     <p className="text-[11px] text-gray-500">Fatura AGT FT</p>
                                 </button>
                                 <div ref={novoWrapperRef} className="flex-[0.6] border-l relative">
-                                    <button ref={novoBtnRef} onClick={() => setOpenNovo(!openNovo)} className={`w-full h-full flex items-center justify-center ${openNovo ? 'bg-[#0095ff] text-white' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
+                                    <button ref={novoBtnRef} onClick={() => setOpenNovo(!openNovo)} className={`w-full h-full flex items-center justify-center ${openNovo? 'bg-[#0095ff] text-white' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
                                         <Menu className="w-5 h-5" />
                                     </button>
                                 </div>
@@ -328,8 +298,8 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <style>{`
-       .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-       .bubble-1 { width:80px; height:80px; left:10%; top:20%; animation-delay:0s; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; animation-delay:1s; animation-duration:10s; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; animation-delay:2s; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; animation-delay:0.5s; animation-duration:7s; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; animation-delay:1.5s; animation-duration:9s; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; animation-delay:2.5s; }
+      .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+      .bubble-1 { width:80px; height:80px; left:10%; top:20%; animation-delay:0s; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; animation-delay:1s; animation-duration:10s; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; animation-delay:2s; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; animation-delay:0.5s; animation-duration:7s; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; animation-delay:1.5s; animation-duration:9s; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; animation-delay:2.5s; }
             @keyframes floatBubble { 0%,100%{transform:translateY(0) translateX(0) scale(1); opacity:0.55;} 25%{transform:translateY(-15px) translateX(10px) scale(1.05); opacity:0.85;} 50%{transform:translateY(-25px) translateX(-5px) scale(0.95); opacity:0.45;} 75%{transform:translateY(-10px) translateX(-10px) scale(1.02); opacity:0.7;} }
                     `}</style>
                 </div>
@@ -337,16 +307,16 @@ export default function DashboardPage() {
                 {openNovo && (
                     <div data-novo-dropdown style={{ top: novoDropdownPos.top, left: novoDropdownPos.left, width: novoDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
                         <p className="px-4 pt-2 pb-1 text-[10px] font-bold text-gray-400 tracking-widest">VISUALIZAR</p>
-                        <button onClick={() => handleNovoAction('ver_faturas')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'faturas' ? 'bg-[#E6F0FF] font-semibold text-gray-900' : 'hover:bg-gray-50 text-gray-700'}`}>
+                        <button onClick={() => handleNovoAction('ver_faturas')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'faturas'? 'bg-[#E6F0FF] font-semibold text-gray-900' : 'hover:bg-gray-50 text-gray-700'}`}>
                             <Receipt className="w-4 h-4 text-[#0095ff]" /> Ver Faturas PP/FT
                         </button>
-                        <button onClick={() => handleNovoAction('ver_clientes')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao' && listView === 'clientes' ? 'bg-[#E6F0FF] font-semibold text-gray-900' : 'hover:bg-gray-50 text-gray-700'}`}>
+                        <button onClick={() => handleNovoAction('ver_clientes')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao' && listView === 'clientes'? 'bg-[#E6F0FF] font-semibold text-gray-900' : 'hover:bg-gray-50 text-gray-700'}`}>
                             <Users className="w-4 h-4 text-gray-500" /> Ver Clientes
                         </button>
-                        <button onClick={() => handleNovoAction('ver_produtos')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao' && listView === 'produtos' ? 'bg-[#E6F0FF] font-semibold text-gray-900' : 'hover:bg-gray-50 text-gray-700'}`}>
+                        <button onClick={() => handleNovoAction('ver_produtos')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao' && listView === 'produtos'? 'bg-[#E6F0FF] font-semibold text-gray-900' : 'hover:bg-gray-50 text-gray-700'}`}>
                             <Package className="w-4 h-4 text-gray-500" /> Ver Produtos
                         </button>
-                        <button onClick={() => handleNovoAction('ver_servicos')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao' && listView === 'servicos' ? 'bg-[#E6F0FF] font-semibold text-gray-900' : 'hover:bg-gray-50 text-gray-700'}`}>
+                        <button onClick={() => handleNovoAction('ver_servicos')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao' && listView === 'servicos'? 'bg-[#E6F0FF] font-semibold text-gray-900' : 'hover:bg-gray-50 text-gray-700'}`}>
                             <Wrench className="w-4 h-4 text-gray-500" /> Ver Serviços
                         </button>
                         <div className="h-[1px] bg-gray-100 my-2 mx-2" />
@@ -379,27 +349,27 @@ export default function DashboardPage() {
                             <div className="flex gap-4 overflow-x-auto pb-3 mb-4 items-center">
                                 <div ref={listWrapperRef} className="relative min-w-[200px] max-w-[320px] flex-shrink-0 z-40">
                                     <button ref={listBtnRef} onClick={() => setOpenListSelect(!openListSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
-                                        <span className="text-gray-900 capitalize">{listView === 'servicos' ? 'Serviços' : LIST_OPTIONS.find(o => o.value === listView)?.label || listView}</span>
-                                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openListSelect ? 'rotate-180' : ''}`} />
+                                        <span className="text-gray-900 capitalize">{listView === 'servicos'? 'Serviços' : LIST_OPTIONS.find(o => o.value === listView)?.label || listView}</span>
+                                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openListSelect? 'rotate-180' : ''}`} />
                                     </button>
                                 </div>
                                 <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className="h-[46px] px-6 rounded-full bg-gray-900 text-white text-[13px] font-bold shrink-0">← Voltar para Faturas</button>
                             </div>
                             {openListSelect && (
                                 <div data-list-dropdown style={{ top: listDropdownPos.top, left: listDropdownPos.left, width: listDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
-                                    <button onClick={() => { setListView('clientes'); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === 'clientes' ? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                    <button onClick={() => { setListView('clientes'); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === 'clientes'? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
                                         Clientes {listView === 'clientes' && <Check className="w-4 h-4 text-[#0095ff]" />}
                                     </button>
-                                    <button onClick={() => { setListView('produtos'); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === 'produtos' ? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                    <button onClick={() => { setListView('produtos'); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === 'produtos'? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
                                         Produtos {listView === 'produtos' && <Check className="w-4 h-4 text-[#0095ff]" />}
                                     </button>
-                                    <button onClick={() => { setListView('servicos'); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === 'servicos' ? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                    <button onClick={() => { setListView('servicos'); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === 'servicos'? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
                                         Serviços {listView === 'servicos' && <Check className="w-4 h-4 text-[#0095ff]" />}
                                     </button>
                                 </div>
                             )}
                             <div id="tabela">
-                                {listView === 'clientes' ? (
+                                {listView === 'clientes'? (
                                     <TabelaClientes clientes={clientes} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditCliente} onDelete={handleRequestDeleteCliente} onEmitirFatura={handleEmitirFatura} />
                                 ) : (
                                     <CardsProdutos produtos={produtosFiltrados} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditProduto} onDelete={handleRequestDeleteProduto} />

@@ -36,6 +36,23 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
     const btnRef = useRef<HTMLButtonElement>(null)
     const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 320 })
 
+    if (loading) {
+        return (
+            <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+                <div className="flex gap-4 overflow-x-auto pb-3 mb-4 [&::-webkit-scrollbar]:hidden">
+                    <div className="min-w-full md:min-w-[320px] md:max-w-[320px] h-[46px] bg-gray-100 animate-pulse rounded-full" />
+                    <div className="min-w-full md:min-w-[320px] md:max-w-[320px] h-[46px] bg-gray-100 animate-pulse rounded-full" />
+                </div>
+                <TabEmitidasSkeleton />
+            </div>
+        )
+    }
+
+    if (viewFatura) {
+        const cliView = cliente || { nome: viewFatura.cliente_nome || 'Cliente Avulso', nif: viewFatura.cliente_nif || '999999999', telefone: viewFatura.cliente_telefone, email: viewFatura.cliente_email, endereco: viewFatura.cliente_endereco }
+        return <FaturaFolhaView fatura={viewFatura} cliente={cliView} empresa={empresa} onVoltar={() => setViewFatura(null)} />
+    }
+
     const filtradas = faturas.filter(f => {
         const matchFiltro = filtro === 'todos'? true : filtro === 'nota_credito'? f.tipo_documento === 'nota_credito' : f.status === filtro
         const matchSearch = search === ''? true : getNumero(f).toLowerCase().includes(search.toLowerCase()) || (f.hash_agt || '').toLowerCase().includes(search.toLowerCase()) || (f.cliente_nome || '').toLowerCase().includes(search.toLowerCase()) || (f.cliente_nif || '').toLowerCase().includes(search.toLowerCase())
@@ -98,23 +115,6 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
         } finally {
             setLoadingNC(false)
         }
-    }
-
-    if (viewFatura) {
-        const cliView = cliente || { nome: viewFatura.cliente_nome || 'Cliente Avulso', nif: viewFatura.cliente_nif || '999999999', telefone: viewFatura.cliente_telefone, email: viewFatura.cliente_email, endereco: viewFatura.cliente_endereco }
-        return <FaturaFolhaView fatura={viewFatura} cliente={cliView} empresa={empresa} onVoltar={() => setViewFatura(null)} />
-    }
-
-    if (loading) {
-        return (
-            <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
-                <div className="flex gap-4 overflow-x-auto pb-3 mb-4 [&::-webkit-scrollbar]:hidden">
-                    <div className="min-w-full md:min-w-[320px] md:max-w-[320px] h-[46px] bg-gray-100 animate-pulse rounded-full" />
-                    <div className="min-w-full md:min-w-[320px] md:max-w-[320px] h-[46px] bg-gray-100 animate-pulse rounded-full" />
-                </div>
-                <TabEmitidasSkeleton />
-            </div>
-        )
     }
 
     return (

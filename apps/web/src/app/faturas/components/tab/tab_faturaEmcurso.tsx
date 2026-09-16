@@ -26,6 +26,15 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
     const [deleteTarget, setDeleteTarget] = useState<any>(null)
     const [viewFatura, setViewFatura] = useState<any>(null)
 
+    if (loading) {
+        return <TabCursoSkeleton />
+    }
+
+    if (viewFatura) {
+        const cliView = cliente || { nome: viewFatura.cliente_nome || 'Cliente Avulso', nif: viewFatura.cliente_nif || '999999999', telefone: viewFatura.cliente_telefone, email: viewFatura.cliente_email, endereco: viewFatura.cliente_endereco }
+        return <FaturaFolhaView fatura={viewFatura} cliente={cliView} empresa={empresa} onVoltar={() => setViewFatura(null)} />
+    }
+
     const handleConverter = async (id: string) => {
         try {
             const t = toast.loading('A gerar FT com hash AGT...')
@@ -45,15 +54,6 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
         if (f.cliente_nome) return `${f.cliente_nome} ${f.cliente_nif? `• ${f.cliente_nif}` : ''} ${!f.cliente_id? '(Avulso)' : ''}`
         if (cliente?.nome) return cliente.nome
         return 'Cliente Avulso'
-    }
-
-    if (viewFatura) {
-        const cliView = cliente || { nome: viewFatura.cliente_nome || 'Cliente Avulso', nif: viewFatura.cliente_nif || '999999999', telefone: viewFatura.cliente_telefone, email: viewFatura.cliente_email, endereco: viewFatura.cliente_endereco }
-        return <FaturaFolhaView fatura={viewFatura} cliente={cliView} empresa={empresa} onVoltar={() => setViewFatura(null)} />
-    }
-
-    if (loading) {
-        return <TabCursoSkeleton />
     }
 
     return (

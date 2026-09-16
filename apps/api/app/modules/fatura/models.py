@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import String, Numeric, Boolean, ForeignKey, DateTime, Text, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -10,23 +10,28 @@ class Fatura(Base):
     __table_args__ = (
         UniqueConstraint('company_id', 'numero_fatura', name='uq_company_numero_fatura', deferrable=True),
         UniqueConstraint('company_id', 'numero_proforma', name='uq_company_numero_proforma', deferrable=True),
+        UniqueConstraint('company_id', 'numero_nota_credito', name='uq_company_numero_nc', deferrable=True),
         Index('ix_faturas_company_tipo_ano', 'company_id', 'tipo_documento', 'created_at'),
         Index('ix_faturas_company_status', 'company_id', 'status'),
+        Index('ix_faturas_hash', 'company_id', 'hash_agt'),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=False)
     cliente_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clientes.id", ondelete="RESTRICT"), index=True, nullable=False)
 
-    # PP = Proforma / FT = Fatura / FR = Recibo (futuro)
-    tipo_documento: Mapped[str] = mapped_column(String(20), default='proforma', nullable=False) # proforma | fatura
-    status: Mapped[str] = mapped_column(String(20), default='rascunho', nullable=False) # rascunho | em_curso | emitida | concluida | cancelada | apagada
+    # AGT Angola: PP | FT | NC | ND
+    tipo_documento: Mapped[str] = mapped_column(String(20), default='proforma', nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default='em_curso', nullable=False) # em_curso | emitida | concluida | cancelada | apagada
 
-    numero_proforma: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True) # PP 2025/00001
-    numero_fatura: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True) # FT 2025/00001
+    numero_proforma: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True) # PP 2026/00001
+    numero_fatura: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True) # FT 2026/00001
+    numero_nota_credito: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True) # NC 2026/00001
+
     proforma_origem_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("faturas.id", ondelete="SET NULL"), nullable=True)
+    fatura_origem_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("faturas.id", ondelete="SET NULL"), nullable=True) # FT que originou NC
 
-    data_emissao: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    data_emissao: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     data_vencimento: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     validade_proforma: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -36,18 +41,21 @@ class Fatura(Base):
     desconto_percent: Mapped[float] = mapped_column(Numeric(5,2), default=0, nullable=False)
     forma_pagamento: Mapped[str] = mapped_column(String(20), default='dinheiro', nullable=False)
 
-    # AGT Angola
-    hash_agt: Mapped[str | None] = mapped_column(String(500), nullable=True) # só para fatura real
-    hash_agt_anterior: Mapped[str | None] = mapped_column(String(500), nullable=True) # cadeia de hash
+    # AGT Angola - Campos Obrigatórios
+    hash_agt: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    hash_agt_anterior: Mapped[str | None] = mapped_column(String(500), nullable=True)
     comunicado_agt: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     qr_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    motivo_credito: Mapped[str | None] = mapped_column(String(200), nullable=True) # Motivo AGT para NC
+    motivo_isencao: Mapped[str | None] = mapped_column(String(100), nullable=True) # M04, M10, etc
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     itens: Mapped[list["FaturaItem"]] = relationship("FaturaItem", back_populates="fatura", cascade="all, delete-orphan", lazy="selectin")
     proforma_origem: Mapped["Fatura | None"] = relationship("Fatura", remote_side=[id], foreign_keys=[proforma_origem_id])
+    fatura_origem: Mapped["Fatura | None"] = relationship("Fatura", remote_side=[id], foreign_keys=[fatura_origem_id])
 
 class FaturaItem(Base):
     __tablename__ = "fatura_itens"
@@ -65,5 +73,6 @@ class FaturaItem(Base):
     iva_percent: Mapped[float] = mapped_column(Numeric(5,2), default=14, nullable=False)
     iva_valor: Mapped[float] = mapped_column(Numeric(12,2), default=0, nullable=False)
     subtotal_linha: Mapped[float] = mapped_column(Numeric(12,2), default=0, nullable=False)
+    motivo_isencao: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     fatura: Mapped["Fatura"] = relationship("Fatura", back_populates="itens")

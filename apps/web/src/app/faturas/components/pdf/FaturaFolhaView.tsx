@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import FaturaPDF from './pdf_Fatura'
-import { getNumero } from '../../EmitirFaturaPage'
+import { getNumero, isNotaCredito } from '../../EmitirFaturaPage'
 
 export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: any) {
     const [isFullscreen, setIsFullscreen] = useState(false)
@@ -13,7 +13,7 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
         if (!w) return
         w.document.write(`
           <html><head>
-            <title>${fatura?.numero_fatura || getNumero(fatura) || ''}</title>
+            <title>${fatura?.numero_nota_credito || fatura?.numero_fatura || getNumero(fatura) || ''}</title>
             <link href="https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
             <script src="https://cdn.tailwindcss.com"></script>
             <style>
@@ -31,6 +31,8 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
         handlePrint()
     }
 
+    const labelTipo = isNotaCredito(fatura)? `NC ${fatura.numero_nota_credito} (Nota de Crédito)` : fatura?.tipo_documento === 'fatura'? `${fatura?.numero_fatura} (FT - Oficial AGT)` : `${getNumero(fatura)} (PP - Proforma)`
+
     return (
         <div className="bg-[#525659] min-h-screen flex flex-col overflow-x-hidden">
             <div className="bg-white border-b border-gray-200 py-2 px-4 sm:px-8 lg:px-12 flex items-center justify-between sticky top-0 z-20 w-full" style={{ fontFamily: "var(--fonte-principal)" }}>
@@ -41,7 +43,7 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
                             <line x1="6" y1="6" x2="18" y2="18" />
                         </svg>
                     </button>
-                    <span className="ml-2 text-[12px] font-bold">{fatura?.numero_fatura || fatura?.numero_proforma} {fatura?.tipo_documento==='fatura'?'(FT - Oficial AGT)':'(PP - Proforma)'}</span>
+                    <span className="ml-2 text-[12px] font-bold">{labelTipo}</span>
                 </div>
                 <div className="flex items-center">
                     <button onClick={handleBaixar} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 text-black" title="Baixar PDF">

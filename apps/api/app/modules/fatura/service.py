@@ -7,24 +7,37 @@ import hashlib
 from app.modules.fatura.models import Fatura, FaturaItem
 from app.modules.products.models import Produto
 
+# AGT: hash cadeia inclui FT e NC
 def get_ultimo_hash(db: Session, company_id):
     ultima = db.query(Fatura).filter(
         Fatura.company_id == company_id,
-        Fatura.tipo_documento == 'fatura',
+        Fatura.tipo_documento.in_(['fatura','nota_credito']),
         Fatura.hash_agt.is_not(None)
     ).order_by(Fatura.created_at.desc()).first()
     return ultima.hash_agt if ultima else None
 
 def gerar_hash_agt(fatura: Fatura, hash_anterior: str | None):
+    # Padrão AGT Angola: Data;Numero;Total;HashAnterior
     data_str = fatura.data_emissao.strftime("%Y-%m-%dT%H:%M:%S") if fatura.data_emissao else datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     total_str = f"{float(fatura.total_geral):.2f}"
-    numero = fatura.numero_fatura or fatura.numero_proforma or ""
+    numero = fatura.numero_fatura or fatura.numero_nota_credito or fatura.numero_proforma or ""
     base = f"{data_str};{numero};{total_str};{hash_anterior or ''}"
     return hashlib.sha256(base.encode('utf-8')).hexdigest().upper()
 
 def gerar_numero(db: Session, company_id, tipo: str):
     ano = datetime.now().year
-    tipo_db = 'fatura' if tipo == 'fatura' else 'proforma'
+    if tipo == 'fatura':
+        tipo_db = 'fatura'
+        prefix = 'FT'
+        campo = 'numero_fatura'
+    elif tipo == 'nota_credito':
+        tipo_db = 'nota_credito'
+        prefix = 'NC'
+        campo = 'numero_nota_credito'
+    else:
+        tipo_db = 'proforma'
+        prefix = 'PP'
+        campo = 'numero_proforma'
 
     ultimo = db.query(Fatura).filter(
         Fatura.company_id == company_id,
@@ -34,11 +47,11 @@ def gerar_numero(db: Session, company_id, tipo: str):
 
     seq = 0
     if ultimo:
-        num_str = ultimo.numero_fatura if tipo == 'fatura' else ultimo.numero_proforma
+        num_str = getattr(ultimo, campo)
         if num_str and '/' in num_str:
             try:
                 seq = int(num_str.split('/')[-1])
-            except (ValueError, AttributeError):
+            except:
                 seq = db.query(Fatura).filter(
                     Fatura.company_id == company_id,
                     Fatura.tipo_documento == tipo_db,
@@ -52,10 +65,7 @@ def gerar_numero(db: Session, company_id, tipo: str):
             ).count()
 
     novo_seq = seq + 1
-    if tipo == 'proforma':
-        return f"PP {ano}/{novo_seq:05d}"
-    else:
-        return f"FT {ano}/{novo_seq:05d}"
+    return f"{prefix} {ano}/{novo_seq:05d}"
 
 def calcular_itens(db: Session, company_id, itens_in):
     subtotal = 0.0
@@ -80,6 +90,10 @@ def calcular_itens(db: Session, company_id, itens_in):
         subtotal += sub_linha
         total_iva += iva_valor
 
+        motivo_isencao = None
+        if iva_percent == 0:
+            motivo_isencao = "M04 - Isento"
+
         objs.append(FaturaItem(
             id=uuid.uuid4(),
             produto_id=prod.id,
@@ -88,7 +102,8 @@ def calcular_itens(db: Session, company_id, itens_in):
             preco_unit_snapshot=preco,
             iva_percent=iva_percent,
             iva_valor=iva_valor,
-            subtotal_linha=sub_linha
+            subtotal_linha=sub_linha,
+            motivo_isencao=motivo_isencao
         ))
     return subtotal, total_iva, objs
 
@@ -116,6 +131,7 @@ def criar_fatura(db: Session, company_id, dados):
                 desconto_percent=desconto,
                 forma_pagamento=dados.forma_pagamento,
                 observacoes=dados.observacoes,
+                motivo_isencao=dados.motivo_isencao,
                 comunicado_agt=False,
                 itens=itens_objs
             )
@@ -133,6 +149,7 @@ def criar_fatura(db: Session, company_id, dados):
                 desconto_percent=desconto,
                 forma_pagamento=dados.forma_pagamento,
                 observacoes=dados.observacoes,
+                motivo_isencao=dados.motivo_isencao,
                 comunicado_agt=True,
                 data_emissao=datetime.now(timezone.utc),
                 hash_agt_anterior=hash_anterior,
@@ -140,6 +157,7 @@ def criar_fatura(db: Session, company_id, dados):
             )
             hash_gerado = gerar_hash_agt(fatura, hash_anterior)
             fatura.hash_agt = hash_gerado
+            # QR AGT: NIF*Numero*Data*Total*Hash
             fatura.qr_code = f"{numero}|{total_geral:.2f}|{hash_gerado[:20]}"
 
             for item in itens_objs:
@@ -162,8 +180,8 @@ def criar_fatura(db: Session, company_id, dados):
         raise e
 
 def atualizar_fatura(db: Session, fatura: Fatura, company_id, dados):
-    if fatura.tipo_documento == 'fatura' and fatura.status in ['emitida', 'concluida']:
-        raise HTTPException(400, "Fatura oficial não pode ser editada - faça Nota de Crédito")
+    if fatura.tipo_documento in ['fatura','nota_credito'] and fatura.hash_agt and fatura.status in ['emitida', 'concluida']:
+        raise HTTPException(400, "Documento AGT oficial não pode ser editado - faça Nota de Crédito")
 
     if dados.itens is not None:
         db.query(FaturaItem).filter(FaturaItem.fatura_id == fatura.id).delete()
@@ -196,7 +214,7 @@ def converter_proforma_para_fatura(db: Session, proforma_id, company_id):
 
     if not proforma:
         raise HTTPException(404, "Proforma não encontrada")
-    if proforma.status in ['concluida', 'cancelada']:
+    if proforma.status in ['concluida', 'cancelada', 'apagada']:
         raise HTTPException(400, "Proforma já convertida/cancelada")
 
     try:
@@ -213,7 +231,8 @@ def converter_proforma_para_fatura(db: Session, proforma_id, company_id):
                 preco_unit_snapshot=item.preco_unit_snapshot,
                 iva_percent=item.iva_percent,
                 iva_valor=item.iva_valor,
-                subtotal_linha=item.subtotal_linha
+                subtotal_linha=item.subtotal_linha,
+                motivo_isencao=item.motivo_isencao
             ))
 
         for item in itens_novos:
@@ -238,6 +257,7 @@ def converter_proforma_para_fatura(db: Session, proforma_id, company_id):
             desconto_percent=proforma.desconto_percent,
             forma_pagamento=proforma.forma_pagamento,
             observacoes=proforma.observacoes,
+            motivo_isencao=proforma.motivo_isencao,
             comunicado_agt=True,
             data_emissao=datetime.now(timezone.utc),
             hash_agt_anterior=hash_anterior,
@@ -271,7 +291,8 @@ def duplicar_fatura(db: Session, fatura_id, company_id):
             preco_unit_snapshot=item.preco_unit_snapshot,
             iva_percent=item.iva_percent,
             iva_valor=item.iva_valor,
-            subtotal_linha=item.subtotal_linha
+            subtotal_linha=item.subtotal_linha,
+            motivo_isencao=item.motivo_isencao
         ))
 
     nova = Fatura(
@@ -289,6 +310,7 @@ def duplicar_fatura(db: Session, fatura_id, company_id):
         desconto_percent=orig.desconto_percent,
         forma_pagamento=orig.forma_pagamento,
         observacoes=orig.observacoes,
+        motivo_isencao=orig.motivo_isencao,
         comunicado_agt=False,
         itens=itens_novos
     )
@@ -296,3 +318,89 @@ def duplicar_fatura(db: Session, fatura_id, company_id):
     db.commit()
     db.refresh(nova)
     return nova
+
+def criar_nota_credito(db: Session, company_id, fatura_id, motivo: str, observacoes: str | None = None):
+    original = db.query(Fatura).filter(
+        Fatura.id == fatura_id,
+        Fatura.company_id == company_id,
+        Fatura.tipo_documento == 'fatura'
+    ).with_for_update().first()
+
+    if not original:
+        raise HTTPException(404, "Fatura original não encontrada")
+    if original.status == 'cancelada':
+        raise HTTPException(400, "Fatura já cancelada - não pode gerar NC")
+
+    nc_existente = db.query(Fatura).filter(
+        Fatura.fatura_origem_id == fatura_id,
+        Fatura.tipo_documento == 'nota_credito',
+        Fatura.status != 'apagada'
+    ).first()
+    if nc_existente:
+        raise HTTPException(400, f"Já existe NC {nc_existente.numero_nota_credito} para esta FT")
+
+    try:
+        numero_nc = gerar_numero(db, company_id, 'nota_credito')
+        hash_anterior = get_ultimo_hash(db, company_id)
+
+        itens_nc = []
+        for item in original.itens:
+            qtd = float(item.quantidade or 0)
+            preco = float(item.preco_unit_snapshot or 0)
+            iva_val = float(item.iva_valor or 0)
+            sub_linha = float(item.subtotal_linha or 0)
+
+            itens_nc.append(FaturaItem(
+                id=uuid.uuid4(),
+                produto_id=item.produto_id,
+                nome_snapshot=f"[NC] {item.nome_snapshot}",
+                quantidade=qtd,
+                preco_unit_snapshot=preco,
+                iva_percent=float(item.iva_percent or 0),
+                iva_valor=-abs(iva_val),
+                subtotal_linha=-abs(sub_linha),
+                motivo_isencao=item.motivo_isencao
+            ))
+            # Repõe stock com check None-safe
+            prod = db.query(Produto).filter(Produto.id == item.produto_id).with_for_update().first()
+            if prod is None:
+                continue
+            if getattr(prod, "controlar_stock", True):
+                stock_atual = float(prod.stock_atual or 0)
+                prod.stock_atual = stock_atual + qtd
+
+        total_geral_original = float(original.total_geral or 0)
+
+        nc = Fatura(
+            id=uuid.uuid4(),
+            company_id=company_id,
+            cliente_id=original.cliente_id,
+            tipo_documento='nota_credito',
+            status='emitida',
+            numero_nota_credito=numero_nc,
+            numero_fatura=numero_nc,
+            fatura_origem_id=original.id,
+            subtotal=-abs(float(original.subtotal or 0)),
+            total_iva=-abs(float(original.total_iva or 0)),
+            total_geral=-abs(total_geral_original),
+            desconto_percent=float(original.desconto_percent or 0),
+            forma_pagamento=original.forma_pagamento,
+            motivo_credito=motivo,
+            observacoes=observacoes or f"Nota de Crédito referente a FT {original.numero_fatura} - {motivo}",
+            motivo_isencao=original.motivo_isencao,
+            comunicado_agt=True,
+            data_emissao=datetime.now(timezone.utc),
+            hash_agt_anterior=hash_anterior,
+            itens=itens_nc
+        )
+        hash_gerado = gerar_hash_agt(nc, hash_anterior)
+        nc.hash_agt = hash_gerado
+        nc.qr_code = f"{numero_nc}|{float(nc.total_geral or 0):.2f}|{hash_gerado[:20]}"
+
+        db.add(nc)
+        db.commit()
+        db.refresh(nc)
+        return nc
+    except Exception as e:
+        db.rollback()
+        raise e

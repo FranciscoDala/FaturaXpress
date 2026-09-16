@@ -16,6 +16,7 @@ class FaturaCreate(BaseModel):
     desconto_percent: float = Field(0, ge=0, le=100)
     observacoes: Optional[str] = Field(None, max_length=1000)
     validade_dias: int = Field(15, ge=1, le=90)
+    motivo_isencao: Optional[str] = None
 
     @field_validator('tipo_documento')
     @classmethod
@@ -31,6 +32,10 @@ class FaturaUpdate(BaseModel):
     desconto_percent: Optional[float] = Field(None, ge=0, le=100)
     itens: Optional[List[ItemCreate]] = None
 
+class NotaCreditoCreate(BaseModel):
+    motivo: str = Field(..., description="01-Devolução, 02-Desconto, 03-Erro, 04-Anulação, 05-Outros")
+    observacoes: Optional[str] = None
+
 class ItemResponse(BaseModel):
     id: UUID
     produto_id: Optional[UUID] = None
@@ -40,6 +45,7 @@ class ItemResponse(BaseModel):
     subtotal_linha: float
     iva_percent: float
     iva_valor: float = 0
+    motivo_isencao: Optional[str] = None
     class Config:
         from_attributes = True
 
@@ -49,7 +55,8 @@ class FaturaResponse(BaseModel):
     status: str
     numero_proforma: Optional[str] = None
     numero_fatura: Optional[str] = None
-    numero: Optional[str] = None # FT ou PP unificado pro front
+    numero_nota_credito: Optional[str] = None
+    numero: Optional[str] = None
 
     subtotal: float
     total_iva: float
@@ -62,9 +69,12 @@ class FaturaResponse(BaseModel):
     hash_agt_anterior: Optional[str] = None
     qr_code: Optional[str] = None
     comunicado_agt: bool = False
+    motivo_credito: Optional[str] = None
+    motivo_isencao: Optional[str] = None
 
     cliente_id: UUID
     proforma_origem_id: Optional[UUID] = None
+    fatura_origem_id: Optional[UUID] = None
     data_emissao: datetime
     data_vencimento: Optional[datetime] = None
     validade_proforma: Optional[datetime] = None
@@ -77,21 +87,18 @@ class FaturaResponse(BaseModel):
     @field_validator('numero', mode='before')
     @classmethod
     def set_numero(cls, v, info):
-        # Pega do objeto original se não vier no payload
-        values = info.data
-        if v is None:
-            return values.get('numero_fatura') or values.get('numero_proforma')
+        values = info.data if hasattr(info, 'data') else {}
+        if isinstance(values, dict):
+            return v or values.get('numero_fatura') or values.get('numero_nota_credito') or values.get('numero_proforma')
         return v
 
     class Config:
         from_attributes = True
-        # Isso faz o @property funcionar no from_attributes
         populate_by_name = True
 
-# Resposta extra para o front listar
 class FaturaListResponse(BaseModel):
     id: UUID
-    tipo_documento: Literal['proforma', 'fatura']
+    tipo_documento: str
     status: str
     numero: str
     cliente_id: UUID

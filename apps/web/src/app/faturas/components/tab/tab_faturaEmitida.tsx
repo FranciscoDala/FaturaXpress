@@ -110,17 +110,6 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
 
     return (
         <>
-            {viewFatura && (
-                <div className="fixed inset-0 z-[9999] bg-white overflow-y-auto">
-                    <FaturaFolhaView
-                        fatura={viewFatura}
-                        cliente={cliente || { nome: viewFatura.cliente_nome || 'Cliente Avulso', nif: viewFatura.cliente_nif || '999999999', telefone: viewFatura.cliente_telefone, email: viewFatura.cliente_email, endereco: viewFatura.cliente_endereco }}
-                        empresa={empresa}
-                        onVoltar={() => setViewFatura(null)}
-                    />
-                </div>
-            )}
-
             <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     <div ref={wrapperRef} className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-40">
@@ -153,6 +142,17 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
                         {filtradas.map(f => (
                             <FaturaCard key={f.id} fatura={f} clienteProp={cliente} onView={setViewFatura} onOpenNC={handleOpenNC} />
                         ))}
+                    </div>
+                )}
+
+                {viewFatura && (
+                    <div className="mt-6 bg-white rounded-[20px] border border-gray-200 shadow-sm overflow-hidden">
+                        <FaturaFolhaView
+                            fatura={viewFatura}
+                            cliente={cliente || { nome: viewFatura.cliente_nome || 'Cliente Avulso', nif: viewFatura.cliente_nif || '999999999', telefone: viewFatura.cliente_telefone, email: viewFatura.cliente_email, endereco: viewFatura.cliente_endereco }}
+                            empresa={empresa}
+                            onVoltar={() => setViewFatura(null)}
+                        />
                     </div>
                 )}
             </div>

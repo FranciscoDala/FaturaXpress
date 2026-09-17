@@ -108,24 +108,23 @@ def get_preco_teste(plan_id: str, preco_original: int) -> int:
 
 # ===== ROTA QUE VOCÊ USA PARA INSERIR PLANOS - NÃO APAGUEI MAIS =====
 @router.post("/admin/seed-planos")
-def seed_planos(db: Session = Depends(get_db), _admin=Depends(is_admin)):
-    """Insere/atualiza planos no DB. Chama 1x para criar os 4 planos com valores de TESTE 1,2,3 Kz"""
+def seed_planos(db: Session = Depends(get_db)): # TIREI o _admin=Depends(is_admin) temporario
     planos_teste = [
-        {"id": "free", "name": "FREE", "sub": "Para começar", "price": 0, "price_label": "0", "popular": False, "features": ["1 empresa", "5 faturas/mês", "Suporte por email"], "is_active": True},
-        {"id": "plus", "name": "PLUS", "sub": "Mais popular", "price": 1, "price_label": "1,00", "popular": False, "features": ["3 empresas", "100 faturas/mês", "Suporte prioritário"], "is_active": True},
-        {"id": "premium", "name": "PREMIUM", "sub": "Para crescer", "price": 2, "price_label": "2,00", "popular": True, "features": ["10 empresas", "500 faturas/mês", "Suporte 24h", "API liberada"], "is_active": True},
-        {"id": "diamond", "name": "DIAMOND", "sub": "Ilimitado", "price": 3, "price_label": "3,00", "popular": False, "features": ["Empresas ilimitadas", "Faturas ilimitadas", "Suporte VIP", "White label"], "is_active": True},
+        {"id": "free", "name": "FREE", "sub": "Para começar", "price": 0, "price_label": "0", "popular": False, "features": ["1 empresa", "5 faturas/mês"], "is_active": True},
+        {"id": "plus", "name": "PLUS", "sub": "Mais popular", "price": 1, "price_label": "1,00", "popular": False, "features": ["3 empresas", "100 faturas/mês"], "is_active": True},
+        {"id": "premium", "name": "PREMIUM", "sub": "Para crescer", "price": 2, "price_label": "2,00", "popular": True, "features": ["10 empresas", "500 faturas/mês"], "is_active": True},
+        {"id": "diamond", "name": "DIAMOND", "sub": "Ilimitado", "price": 3, "price_label": "3,00", "popular": False, "features": ["Ilimitado"], "is_active": True},
     ]
-
     for p_data in planos_teste:
         existing = db.query(Plan).filter(Plan.id == p_data["id"]).first()
         if existing:
-            for k, v in p_data.items():
-                setattr(existing, k, v)
+            for k, v in p_data.items(): setattr(existing, k, v)
         else:
             db.add(Plan(**p_data))
     db.commit()
-    return {"ok": True, "msg": "Planos de teste 1,00 / 2,00 / 3,00 Kz inseridos", "planos": planos_teste}
+    return {"ok": True, "msg": "Planos 1,2,3 Kz inseridos"}
+
+
 
 @router.post("/admin/seed-planos-producao")
 def seed_planos_producao(db: Session = Depends(get_db), _admin=Depends(is_admin)):

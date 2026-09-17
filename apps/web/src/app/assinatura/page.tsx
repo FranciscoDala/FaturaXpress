@@ -1,9 +1,26 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Rocket, Crown, Gem, Check, ArrowLeft } from 'lucide-react'
+import { Rocket, Crown, Gem, Check, ArrowLeft, Gift } from 'lucide-react'
 import { toast } from 'sonner'
 
 const PLANS = [
+  {
+    id: 'free',
+    name: 'FREE',
+    sub: 'Para testar grátis',
+    price: '0',
+    suffix: 'Kz /mês',
+    icon: Gift,
+    features: [
+      '05 Faturas por mês',
+      'Biblioteca Básica',
+      '1 Empresa',
+      'Suporte por email',
+      'Acesso imediato',
+    ],
+    color: 'pink',
+    check: 'bg-white/20',
+  },
   {
     id: 'plus',
     name: 'PLUS',
@@ -61,10 +78,19 @@ const PLANS = [
 export default function AssinaturaPage() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState<string | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setTimeout(() => {
+        const el = document.getElementById('card-1')
+        el?.scrollIntoView({ behavior: 'auto', inline: 'center', block: 'nearest' })
+      }, 120)
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-white relative overflow-hidden">
-      {/* FUNDO BRANCO + EFEITO BIBLIOTECA ROXO */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 bg-gradient-to-br from-[#f8f5ff] via-white to-[#fff5f8]" />
         <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[80%] h-[70%] bg-gradient-to-b from-[#ff00c8]/10 via-[#7a00ff]/10 to-transparent rounded-full blur-[100px]" />
@@ -75,12 +101,11 @@ export default function AssinaturaPage() {
         <div className="bubble bubble-3" />
       </div>
 
-      <div className="relative z-10 max-w-[1150px] mx-auto px-4 sm:px-8 py-6">
-        <button onClick={() => navigate('/app/dashboard')} className="flex items-center gap-2 text-gray-500 hover:text-black text-[13px] mb-6">
+      <div className="relative z-10 max-w-[1200px] mx-auto px-4 sm:px-8 py-6">
+        <button onClick={() => navigate('/app/dashboard')} className="flex items-center gap-2 bg-[#FF3B30] hover:bg-[#e6352b] text-white px-4 py-2 rounded-full text-[13px] font-medium mb-6 shadow-[0_2px_10px_rgba(255,59,48,0.3)] transition">
           <ArrowLeft className="w-4 h-4" /> Voltar
         </button>
 
-        {/* HEADER IGUAL IMAGEM */}
         <div className="text-center max-w-[600px] mx-auto mb-10">
           <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full border border-[#ff2d87]/20 bg-black text-white text-[11px] mb-8">
             <span className="w-6 h-6 rounded bg-[#ff2d87] flex items-center justify-center">◧</span>
@@ -96,12 +121,12 @@ export default function AssinaturaPage() {
           </p>
         </div>
 
-        {/* CARDS - 1 NO MOBILE COM SWIPE */}
-        <div className="flex md:grid md:grid-cols-3 gap-5 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-8 -mx-4 px-4 md:mx-0 md:px-0 md:overflow-visible [&::-webkit-scrollbar]:hidden">
-          {PLANS.map((plan) => {
+        <div ref={scrollRef} className="flex md:grid md:grid-cols-4 gap-[2px] overflow-x-auto snap-x snap-mandatory scroll-smooth pb-8 -mx-4 px-4 md:mx-0 md:px-0 md:overflow-visible [&::-webkit-scrollbar]:hidden [scrollbar-width:none] [-ms-overflow-style:none]">
+          {PLANS.map((plan, idx) => {
             const Icon = plan.icon
             return (
               <div
+                id={`card-${idx}`}
                 key={plan.id}
                 className={`snap-center shrink-0 w-[88%] md:w-auto relative rounded-[28px] bg-[#0f0f0f] border p-6 sm:p-7 flex flex-col min-h-[520px] transition-all duration-300 hover:-translate-y-1
                   ${plan.popular? 'border-[#ff2d87]/50 shadow-[0_20px_60px_rgba(255,45,135,0.25)] md:scale-[1.03]' : 'border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.1)]'}
@@ -118,7 +143,7 @@ export default function AssinaturaPage() {
                 <div className="mt-7 flex items-baseline justify-center gap-1">
                   <span className="text-[11px] text-white/60">Kz</span>
                   <span className="text-[38px] font-extrabold text-[#ff2d87] leading-none">{plan.price}</span>
-                  <span className="text-[11px] text-white/50">/{plan.suffix.split('/')[1] || 'mês'}</span>
+                  <span className="text-[11px] text-white/50">/mês</span>
                 </div>
 
                 <div className="mt-8 space-y-4 flex-1">
@@ -160,10 +185,10 @@ export default function AssinaturaPage() {
       </div>
 
       <style>{`
-       .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(255,0,200,0.15), rgba(122,0,255,0.04) 65%); border:1px solid rgba(255,0,200,0.1); box-shadow: inset 0 0 10px rgba(255,255,255,0.5), 0 2px 20px rgba(255,0,200,0.08); animation: floatBubble 9s infinite ease-in-out; }
-       .bubble-1 { width:80px; height:80px; left:10%; top:20%; }
-       .bubble-2 { width:120px; height:120px; left:70%; top:15%; animation-delay:1s; }
-       .bubble-3 { width:60px; height:60px; left:40%; top:60%; animation-delay:2s; }
+    .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(255,0,200,0.15), rgba(122,0,255,0.04) 65%); border:1px solid rgba(255,0,200,0.1); box-shadow: inset 0 0 10px rgba(255,255,255,0.5), 0 2px 20px rgba(255,0,200,0.08); animation: floatBubble 9s infinite ease-in-out; }
+    .bubble-1 { width:80px; height:80px; left:10%; top:20%; }
+    .bubble-2 { width:120px; height:120px; left:70%; top:15%; animation-delay:1s; }
+    .bubble-3 { width:60px; height:60px; left:40%; top:60%; animation-delay:2s; }
         @keyframes floatBubble { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-20px);} }
       `}</style>
     </div>

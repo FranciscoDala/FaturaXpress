@@ -106,7 +106,7 @@ export default function AssinaturaPage() {
                     <ArrowLeft className="w-4 h-4" /> Voltar
                 </button>
 
-                
+
 
                 {/* CARDS BRANCOS - GAP 5PX */}
                 <div ref={scrollRef} className="flex md:grid md:grid-cols-4 gap-[5px] overflow-x-auto snap-x snap-mandatory scroll-smooth pb-8 -mx-4 px-4 md:mx-0 md:px-0 md:overflow-visible [&::-webkit-scrollbar]:hidden [scrollbar-width:none] [-ms-overflow-style:none]">
@@ -166,9 +166,7 @@ export default function AssinaturaPage() {
 
                 <div className="text-center mt-1">
                     <p className="text-[10px] tracking-[0.2em] text-gray-400 uppercase">Assinatura mensal / Cancele quando quiser</p>
-                    <button className="mt-5 h-[42px] px-6 rounded-full bg-gradient-to-r from-[#ff0055] to-[#c800ff] text-white text-[12px] font-bold inline-flex items-center gap-2">
-                        Assine e torne-se membro agora <Crown className="w-4 h-4" />
-                    </button>
+                    
                 </div>
             </div>
 

@@ -14,7 +14,7 @@ from app.modules.auth.models import Company, User
 from app.modules.clients.models import Cliente
 from app.modules.products.models import Produto
 from app.modules.fatura.models import Fatura, FaturaItem
-
+from app.modules.assinatura.models import Plan, Subscription
 config = context.config
 
 if config.config_file_name is not None:

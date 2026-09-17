@@ -12,6 +12,7 @@ from app.modules.clients.router import router as cliente_router
 from app.modules.products.router import router as produto_router
 from app.modules.fatura.router import router as fatura_router
 from app.modules.realtime.router import router as realtime_router
+from app.modules.assinatura.router import router as assinatura_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ def import_all_models():
         import app.modules.clients.models
         import app.modules.products.models
         import app.modules.fatura.models
+        import app.modules.assinatura.models
         logger.info(f"Models: {list(Base.metadata.tables.keys())}")
     except Exception as e:
         logger.error(f"Erro import models: {e}\n{traceback.format_exc()}")
@@ -56,7 +58,8 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(cliente_router, prefix="/api")
 app.include_router(produto_router, prefix="/api")
 app.include_router(fatura_router, prefix="/api")
-app.include_router(realtime_router, prefix="/api") # já tem /ws/realtime com token
+app.include_router(realtime_router, prefix="/api")
+app.include_router(assinatura_router, prefix="/api")
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):

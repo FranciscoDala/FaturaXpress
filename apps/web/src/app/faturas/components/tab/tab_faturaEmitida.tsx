@@ -111,7 +111,7 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
     return (
         <>
             {viewFatura && (
-                <div className="fixed inset-0 z-[9999] bg-white overflow-y-auto">
+                <div className="fixed inset-0 z-[9999] bg-white overflow-y-auto overflow-x-hidden overscroll-contain">
                     <FaturaFolhaView
                         fatura={viewFatura}
                         cliente={cliente || { nome: viewFatura.cliente_nome || 'Cliente Avulso', nif: viewFatura.cliente_nif || '999999999', telefone: viewFatura.cliente_telefone, email: viewFatura.cliente_email, endereco: viewFatura.cliente_endereco }}

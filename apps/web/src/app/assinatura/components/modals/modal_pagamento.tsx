@@ -19,6 +19,9 @@ interface Props {
 
 type AnalysisState = 'idle' | 'analyzing' | 'valid' | 'invalid'
 
+const MSG_INVALIDO = 'Comprovativo inválido'
+const MSG_INVALIDO_DETALHE = 'Este comprovativo não é válido.'
+
 export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess, apiBase }: Props) {
     const [file, setFile] = useState<File | null>(null)
     const [loading, setLoading] = useState(false)
@@ -57,35 +60,29 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
     }
 
     const validateContent = (rawText: string, fileName: string): { ok: boolean, msg: string } => {
-        if (!checkoutInfo) return { ok: false, msg: 'Checkout inválido' }
+        if (!checkoutInfo) return { ok: false, msg: MSG_INVALIDO_DETALHE }
         const text = rawText.toLowerCase()
-        const refFull = checkoutInfo.subscription.reference.toLowerCase() // fx-premium-5e8f47de
-        const refShort = refFull.split('-').pop() || '' // 5e8f47de
-        const amount = checkoutInfo.subscription.amount // 8500
+        const refFull = checkoutInfo.subscription.reference.toLowerCase()
+        const refShort = refFull.split('-').pop() || ''
+        const amount = checkoutInfo.subscription.amount
 
-        // 1. BLOQUEIA FATURA - isso barra o FACTURA CAWISSA que tu mandaste
+        // 1. BLOQUEIA FATURA
         if (text.includes('factura') || text.includes('fatura') || text.includes('proforma') || text.includes('nota de encomenda')) {
-            return { ok: false, msg: 'Isso é uma FATURA, não comprovativo bancário' }
+            return { ok: false, msg: MSG_INVALIDO_DETALHE }
         }
 
-        // 2. Verifica valor
-        const amountVariants = [
-            amount.toString(),
-            amount.toLocaleString('pt-AO').toLowerCase(), // 8.500
-            amount.toString().replace('.', ','),
-            `${(amount/1000).toFixed(3)}`, // 8.500
-        ]
-        const hasAmount = amountVariants.some(v => text.includes(v)) || text.includes('8.500') || text.includes('8500')
+        // 2. Verifica valor - sem expor
+        const hasAmount = text.includes(amount.toString()) || text.includes(amount.toString().replace('.', ' '))
 
-        // 3. Verifica referência - pode estar na Mensagem (Xpress) ou Descrição (Caixa)
+        // 3. Verifica referência
         const hasRef = text.includes(refFull) || (refShort.length >= 6 && text.includes(refShort))
 
-        // 4. Verifica beneficiário - Xpress usa telefone, Caixa usa IBAN/nome
+        // 4. Verifica beneficiário
         const hasBenef = text.includes('0420') || text.includes('0423') || text.includes('1532') || text.includes('dala') || text.includes('958462694') || text.includes('925 886 593') || text.includes('131331201')
 
-        if (!hasAmount) return { ok: false, msg: `Valor ${amount.toLocaleString()} Kz não encontrado no PDF` }
-        if (!hasRef) return { ok: false, msg: `Referência ${checkoutInfo.subscription.reference} não encontrada. Escreve na Mensagem/Descrição do banco` }
-        if (!hasBenef) return { ok: false, msg: `Beneficiário Francisco Dala / IBAN não encontrado no PDF` }
+        if (!hasAmount ||!hasRef ||!hasBenef) {
+            return { ok: false, msg: MSG_INVALIDO_DETALHE }
+        }
 
         return { ok: true, msg: 'ok' }
     }
@@ -93,21 +90,22 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
     const handleFileSelect = async (f: File | null) => {
         if (!f) return
 
-        // Validação básica de ficheiro
         if (f.type!== 'application/pdf') {
-            setErrorMsg('Só aceitamos PDF original do banco')
+            setErrorMsg(MSG_INVALIDO_DETALHE)
             setAnalysis('invalid')
-            toast.error('Só é permitido PDF', { position: 'top-center' })
+            toast.error(MSG_INVALIDO, { position: 'top-center' })
             return
         }
         if (f.size > 5 * 1024 * 1024) {
-            setErrorMsg('Arquivo muito grande (max 5MB)')
+            setErrorMsg(MSG_INVALIDO_DETALHE)
             setAnalysis('invalid')
+            toast.error(MSG_INVALIDO, { position: 'top-center' })
             return
         }
         if (f.size < 5 * 1024) {
-            setErrorMsg('PDF inválido ou corrompido')
+            setErrorMsg(MSG_INVALIDO_DETALHE)
             setAnalysis('invalid')
+            toast.error(MSG_INVALIDO, { position: 'top-center' })
             return
         }
 
@@ -121,11 +119,11 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
             const rawText = await extractTextFromPdf(f)
             setProgress(75)
 
-            // Se PDF for escaneado (sem texto) - avisa mas não deixa passar como válido
             if (rawText.trim().length < 20) {
-                setErrorMsg('PDF escaneado sem texto. O servidor vai analisar manualmente')
+                setErrorMsg(MSG_INVALIDO_DETALHE)
                 setAnalysis('invalid')
                 setProgress(100)
+                toast.error(MSG_INVALIDO, { position: 'top-center' })
                 return
             }
 
@@ -139,13 +137,14 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
             } else {
                 setErrorMsg(result.msg)
                 setAnalysis('invalid')
-                toast.error(result.msg, { position: 'top-center' })
+                toast.error(MSG_INVALIDO, { position: 'top-center' })
             }
         } catch (err) {
             console.error(err)
-            setErrorMsg('Não foi possível ler o conteúdo do PDF')
+            setErrorMsg(MSG_INVALIDO_DETALHE)
             setAnalysis('invalid')
             setProgress(100)
+            toast.error(MSG_INVALIDO, { position: 'top-center' })
         }
     }
 
@@ -182,8 +181,8 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
             onClose()
         } catch (e: any) {
             setAnalysis('invalid')
-            setErrorMsg(e?.response?.data?.detail || 'Comprovativo rejeitado')
-            toast.error(e?.response?.data?.detail || 'Comprovativo falso', { position: 'top-center' })
+            setErrorMsg(MSG_INVALIDO_DETALHE)
+            toast.error(MSG_INVALIDO, { position: 'top-center' })
         } finally {
             setLoading(false)
         }
@@ -249,7 +248,7 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
                             {analysis === 'analyzing' && (
                                 <div className="w-full min-h-[80px] bg-white border border-gray-200 rounded-[12px] px-4 py-4 flex flex-col items-center justify-center gap-2">
                                     <Loader2 className="w-6 h-6 text-[#0095ff] animate-spin" />
-                                    <span className="text-[13px] font-medium text-black">Lendo conteúdo do PDF... {Math.min(progress, 100)}%</span>
+                                    <span className="text-[13px] font-medium text-black">Validando comprovativo... {Math.min(progress, 100)}%</span>
                                     <span className="text-[11px] text-gray-600 truncate max-w-[260px]">{file?.name}</span>
                                     <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mt-1">
                                         <div className="h-full bg-[#0095ff] transition-all duration-200" style={{ width: `${Math.min(progress, 100)}%` }} />
@@ -261,7 +260,7 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
                                 <div className="w-full bg-[#EAFBF0] border border-[#B6F0C8] rounded-[12px] px-4 py-3 flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-full bg-[#22c55e] flex items-center justify-center shrink-0"><ShieldCheck className="w-5 h-5 text-white" /></div>
                                     <div className="flex flex-col">
-                                        <span className="text-[13px] font-bold text-[#16a34a]">PDF válido</span>
+                                        <span className="text-[13px] font-bold text-[#16a34a]">Comprovativo válido</span>
                                         <span className="text-[11px] text-[#15803d] truncate max-w-[200px]">{file?.name}</span>
                                     </div>
                                     <button type="button" onClick={resetInput} className="ml-auto text-[11px] text-[#16a34a] underline">Trocar</button>
@@ -273,8 +272,8 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
                                     <div className="w-full bg-[#FEF2F2] border border-[#FECACA] rounded-[12px] px-4 py-3 flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-full bg-[#ef4444] flex items-center justify-center shrink-0"><AlertTriangle className="w-5 h-5 text-white" /></div>
                                         <div className="flex flex-col">
-                                            <span className="text-[13px] font-bold text-[#dc2626]">PDF inválido</span>
-                                            <span className="text-[11px] text-[#991b1b]">{errorMsg || 'Só aceitamos PDF original'}</span>
+                                            <span className="text-[13px] font-bold text-[#dc2626]">Comprovativo inválido</span>
+                                            <span className="text-[11px] text-[#991b1b]">{errorMsg || MSG_INVALIDO_DETALHE}</span>
                                         </div>
                                     </div>
                                     <label className="w-full h-[44px] bg-white border border-dashed border-red-300 rounded-[12px] px-3 flex items-center justify-center gap-2 cursor-pointer hover:bg-red-50 transition">
@@ -286,7 +285,7 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
                             )}
                         </div>
 
-                        <p className="text-[10px] text-gray-500 text-center">Validamos valor + referência + beneficiário dentro do PDF</p>
+                        <p className="text-[10px] text-gray-500 text-center">Validamos o comprovativo automaticamente</p>
                     </div>
                 </div>
 

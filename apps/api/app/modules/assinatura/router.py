@@ -34,16 +34,17 @@ MAX_FILE_SIZE = 5 * 1024 * 1024
 ALLOWED_MIMES = {"application/pdf"}
 ADMIN_COMPANY_IDS = [s.strip() for s in os.getenv("ADMIN_COMPANY_IDS", "").split(",") if s.strip()]
 
+MSG_INVALIDO = "Comprovativo inválido"
+MSG_INVALIDO_DETALHE = "Este comprovativo não é válido."
+
 def is_admin(company_id: uuid.UUID = Depends(get_current_company_id), user_id: uuid.UUID = Depends(get_current_user_id)):
     if ADMIN_COMPANY_IDS:
         if str(company_id) not in ADMIN_COMPANY_IDS:
             raise HTTPException(status_code=403, detail="Acesso admin negado")
     return {"company_id": company_id, "user_id": user_id}
 
-# --- VERSÃO SEM DEPENDÊNCIA EXTERNA - NUNCA QUEBRA IMPORT ---
 def extract_text_from_file(content: bytes, mime: str, filename: str) -> str:
     text = (filename or "").lower() + "\n"
-    # Tenta pypdf se tiver, se não, lê cru
     try:
         import io as _io
         try:
@@ -62,7 +63,6 @@ def extract_text_from_file(content: bytes, mime: str, filename: str) -> str:
                     if t:
                         text += t + "\n"
             except ImportError:
-                # Fallback sem lib: decodifica PDF cru
                 raw = content.decode('latin-1', errors='ignore')
                 text += raw[:20000]
     except Exception as e:
@@ -79,9 +79,10 @@ def validar_comprovativo_automatico(sub: Subscription, file_text: str) -> tuple[
     ref_curta = ref.split("-")[-1].lower() if "-" in ref else ref
     amount = int(sub.amount)
 
-    # Bloqueia fatura - só se for fatura mesmo
+    # Bloqueia fatura - não vaza detalhe pro cliente
     if "cawissa" in low or "factura proforma" in low or "proforma" in low:
-        return False, "FATURA não é comprovativo"
+        logger.info(f"BLOQUEADO {ref} é fatura/proforma")
+        return False, MSG_INVALIDO
 
     valores = []
     for m in re.findall(r'(\d{1,3}(?:[.\s]\d{3})+|\d{4,6})', low):
@@ -96,14 +97,16 @@ def validar_comprovativo_automatico(sub: Subscription, file_text: str) -> tuple[
     tem_ref = ref in low or (len(ref_curta) >= 6 and ref_curta in low)
     tem_benef = any(x in low for x in ["0420", "0423", "1532", "dala", "francisco", "958462694", "925 886 593"])
 
+    # Log interno DETALHADO (só servidor vê)
     logger.info(f"Validando {ref} amount={amount} valores={valores} ref={tem_ref} valor={tem_valor} benef={tem_benef}")
 
     if tem_ref and tem_valor and tem_benef:
-        return True, f"Auto-aprovado: ref + valor + benef"
+        return True, "validado"
     if tem_ref and tem_valor:
-        return True, f"Auto-aprovado: ref + valor"
+        return True, "validado"
 
-    return False, f"Para revisão: ref={tem_ref} valor={tem_valor} benef={tem_benef}"
+    # Para cliente SEMPRE genérico
+    return False, MSG_INVALIDO
 
 @router.get("/plans", response_model=list[PlanOut])
 def list_plans(db: Session = Depends(get_db)):
@@ -141,11 +144,12 @@ def enviar_comprovativo(subscription_id: uuid.UUID, file: UploadFile = File(...)
     if not sub: raise HTTPException(status_code=404, detail="Assinatura não encontrada")
     if sub.status not in ("pending", "awaiting_review"): raise HTTPException(status_code=400, detail=f"Assinatura já está {sub.status}")
     content = file.file.read()
-    if len(content) > MAX_FILE_SIZE: raise HTTPException(status_code=400, detail="Arquivo muito grande (max 5MB)")
-    if len(content) < 5 * 1024: raise HTTPException(status_code=400, detail="PDF muito pequeno ou corrompido")
+    if len(content) > MAX_FILE_SIZE: raise HTTPException(status_code=400, detail=MSG_INVALIDO)
+    if len(content) < 5 * 1024: raise HTTPException(status_code=400, detail=MSG_INVALIDO)
+    if len(content) == 0: raise HTTPException(status_code=400, detail=MSG_INVALIDO)
     mime = file.content_type or mimetypes.guess_type(file.filename or "")[0] or ""
     if mime not in ALLOWED_MIMES and not (file.filename or "").lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail=f"Só aceitamos PDF original do banco. Enviado: {mime}")
+        raise HTTPException(status_code=400, detail=MSG_INVALIDO)
     file_hash = hashlib.sha256(content).hexdigest()
     dup = db.query(Subscription).filter(Subscription.comprovativo_hash == file_hash).first()
     if dup and str(dup.id)!= str(sub.id): raise HTTPException(status_code=400, detail="Este comprovativo já foi usado")
@@ -166,11 +170,14 @@ def enviar_comprovativo(subscription_id: uuid.UUID, file: UploadFile = File(...)
             company.subscription_plan = sub.plan_id # type: ignore
             company.subscription_status = "active" # type: ignore
         db.commit()
-        return {"ok": True, "status": "paid", "msg": f"Pagamento validado! {motivo}"}
+        logger.info(f"AUTO-APROVADO {sub.reference}")
+        return {"ok": True, "status": "paid", "msg": "Pagamento validado! Plano liberado."}
     else:
         sub.status = "awaiting_review" # type: ignore
         db.commit()
-        return {"ok": True, "status": "awaiting_review", "msg": "Comprovativo recebido, validação manual em até 30min"}
+        logger.info(f"AWAITING_REVIEW {sub.reference} motivo interno: {motivo}")
+        # Cliente só vê genérico
+        return {"ok": True, "status": "awaiting_review", "msg": MSG_INVALIDO_DETALHE}
 
 @router.get("/me")
 def my_subscription(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
@@ -225,7 +232,7 @@ async def webhook_paypay(request: Request, db: Session = Depends(get_db), x_sign
     if sub and sub.status!= "paid":
         try: amount_paypay = int(float(payload.get("total_amount", sub.amount)))
         except: amount_paypay = int(sub.amount)
-        if amount_paypay < int(sub.amount): raise HTTPException(status_code=400, detail="Valor pago menor que o plano")
+        if amount_paypay < int(sub.amount): raise HTTPException(status_code=400, detail=MSG_INVALIDO)
         sub.status = "paid" # type: ignore
         sub.paid_at = datetime.now(timezone.utc) # type: ignore
         company = db.query(Company).filter(Company.id == sub.company_id).first()

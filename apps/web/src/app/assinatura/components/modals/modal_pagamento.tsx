@@ -2,6 +2,10 @@ import { useEffect, useState, useRef } from 'react'
 import { X, Check, Copy, Upload, CreditCard, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../../../../lib/api'
+import * as pdfjsLib from 'pdfjs-dist'
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
 
 interface PagamentoManual { nome: string; paypay: string; kwik: string; iban: string; banco: string }
 interface Subscription { id: string; reference: string; amount: number; status: string; plan_id: string; provider: string }
@@ -26,7 +30,7 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
     useEffect(() => {
         if (open) {
             document.body.style.overflow = 'hidden'
-            const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !loading && analysis !== 'analyzing') onClose() }
+            const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' &&!loading && analysis!== 'analyzing') onClose() }
             window.addEventListener('keydown', onKey)
             return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey) }
         }
@@ -38,57 +42,111 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
         }
     }, [open])
 
-    useEffect(() => {
-        if (analysis !== 'analyzing') return
-        setProgress(0)
-        const interval = setInterval(() => {
-            setProgress(p => {
-                if (p >= 100) { clearInterval(interval); return 100 }
-                return p + Math.floor(Math.random() * 12) + 4
-            })
-        }, 180)
-        return () => clearInterval(interval)
-    }, [analysis])
-
-    useEffect(() => {
-        if (analysis === 'analyzing' && progress >= 100) {
-            validateFile()
+    const extractTextFromPdf = async (f: File): Promise<string> => {
+        const buffer = await f.arrayBuffer()
+        const pdf = await pdfjsLib.getDocument({ data: buffer }).promise
+        let fullText = ''
+        const pages = Math.min(pdf.numPages, 2)
+        for (let i = 1; i <= pages; i++) {
+            const page = await pdf.getPage(i)
+            const content = await page.getTextContent()
+            const strings = (content.items as any[]).map((it: any) => it.str).join(' ')
+            fullText += '\n' + strings
         }
-    }, [progress])
+        return fullText
+    }
 
-    const validateFile = async () => {
-        if (!file) { setAnalysis('idle'); return }
+    const validateContent = (rawText: string, fileName: string): { ok: boolean, msg: string } => {
+        if (!checkoutInfo) return { ok: false, msg: 'Checkout inválido' }
+        const text = rawText.toLowerCase()
+        const refFull = checkoutInfo.subscription.reference.toLowerCase() // fx-premium-5e8f47de
+        const refShort = refFull.split('-').pop() || '' // 5e8f47de
+        const amount = checkoutInfo.subscription.amount // 8500
 
-        const allowed = ["application/pdf"]
-        if (!allowed.includes(file.type)) {
-            setErrorMsg('Formato inválido. Só aceitamos PDF original do banco')
+        // 1. BLOQUEIA FATURA - isso barra o FACTURA CAWISSA que tu mandaste
+        if (text.includes('factura') || text.includes('fatura') || text.includes('proforma') || text.includes('nota de encomenda')) {
+            return { ok: false, msg: 'Isso é uma FATURA, não comprovativo bancário' }
+        }
+
+        // 2. Verifica valor
+        const amountVariants = [
+            amount.toString(),
+            amount.toLocaleString('pt-AO').toLowerCase(), // 8.500
+            amount.toString().replace('.', ','),
+            `${(amount/1000).toFixed(3)}`, // 8.500
+        ]
+        const hasAmount = amountVariants.some(v => text.includes(v)) || text.includes('8.500') || text.includes('8500')
+
+        // 3. Verifica referência - pode estar na Mensagem (Xpress) ou Descrição (Caixa)
+        const hasRef = text.includes(refFull) || (refShort.length >= 6 && text.includes(refShort))
+
+        // 4. Verifica beneficiário - Xpress usa telefone, Caixa usa IBAN/nome
+        const hasBenef = text.includes('0420') || text.includes('0423') || text.includes('1532') || text.includes('dala') || text.includes('958462694') || text.includes('925 886 593') || text.includes('131331201')
+
+        if (!hasAmount) return { ok: false, msg: `Valor ${amount.toLocaleString()} Kz não encontrado no PDF` }
+        if (!hasRef) return { ok: false, msg: `Referência ${checkoutInfo.subscription.reference} não encontrada. Escreve na Mensagem/Descrição do banco` }
+        if (!hasBenef) return { ok: false, msg: `Beneficiário Francisco Dala / IBAN não encontrado no PDF` }
+
+        return { ok: true, msg: 'ok' }
+    }
+
+    const handleFileSelect = async (f: File | null) => {
+        if (!f) return
+
+        // Validação básica de ficheiro
+        if (f.type!== 'application/pdf') {
+            setErrorMsg('Só aceitamos PDF original do banco')
             setAnalysis('invalid')
             toast.error('Só é permitido PDF', { position: 'top-center' })
             return
         }
-        if (file.size > 5 * 1024 * 1024) {
+        if (f.size > 5 * 1024 * 1024) {
             setErrorMsg('Arquivo muito grande (max 5MB)')
             setAnalysis('invalid')
             return
         }
-        if (file.size < 10 * 1024) {
+        if (f.size < 5 * 1024) {
             setErrorMsg('PDF inválido ou corrompido')
             setAnalysis('invalid')
-            toast.error('PDF inválido', { position: 'top-center' })
             return
         }
 
-        await new Promise(r => setTimeout(r, 600))
-        setAnalysis('valid')
-        setErrorMsg('')
-    }
-
-    const handleFileSelect = (f: File | null) => {
-        if (!f) return
         setFile(f)
         setAnalysis('analyzing')
-        setProgress(0)
+        setProgress(15)
         setErrorMsg('')
+
+        try {
+            setProgress(30)
+            const rawText = await extractTextFromPdf(f)
+            setProgress(75)
+
+            // Se PDF for escaneado (sem texto) - avisa mas não deixa passar como válido
+            if (rawText.trim().length < 20) {
+                setErrorMsg('PDF escaneado sem texto. O servidor vai analisar manualmente')
+                setAnalysis('invalid')
+                setProgress(100)
+                return
+            }
+
+            const result = validateContent(rawText, f.name)
+            setProgress(100)
+            await new Promise(r => setTimeout(r, 400))
+
+            if (result.ok) {
+                setAnalysis('valid')
+                setErrorMsg('')
+            } else {
+                setErrorMsg(result.msg)
+                setAnalysis('invalid')
+                toast.error(result.msg, { position: 'top-center' })
+            }
+        } catch (err) {
+            console.error(err)
+            setErrorMsg('Não foi possível ler o conteúdo do PDF')
+            setAnalysis('invalid')
+            setProgress(100)
+        }
     }
 
     const resetInput = () => {
@@ -99,7 +157,7 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
         if (fileInputRef.current) fileInputRef.current.value = ''
     }
 
-    if (!open || !checkoutInfo) return null
+    if (!open ||!checkoutInfo) return null
 
     const copy = async (text: string) => {
         await navigator.clipboard.writeText(text)
@@ -107,7 +165,7 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
     }
 
     const handleSend = async () => {
-        if (!file || analysis !== 'valid') return
+        if (!file || analysis!== 'valid') return
         setLoading(true)
         try {
             const fd = new FormData()
@@ -124,7 +182,7 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
             onClose()
         } catch (e: any) {
             setAnalysis('invalid')
-            setErrorMsg(e?.response?.data?.detail || 'Comprovativo rejeitado: possível duplicado ou editado')
+            setErrorMsg(e?.response?.data?.detail || 'Comprovativo rejeitado')
             toast.error(e?.response?.data?.detail || 'Comprovativo falso', { position: 'top-center' })
         } finally {
             setLoading(false)
@@ -174,11 +232,11 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
 
                         <div className="p-3 bg-amber-50 border border-amber-200 rounded-[12px] text-[11.5px] text-amber-900 leading-relaxed">
                             Titular: <b className="text-black">{checkoutInfo.pagamento_manual.nome}</b><br />
-                            Coloca a referência <b className="text-black">{checkoutInfo.subscription.reference}</b> na descrição
+                            No Xpress / Caixa escreve a ref <b className="text-black">{checkoutInfo.subscription.reference}</b> na descrição/mensagem
                         </div>
 
                         <div className="mt-2 flex flex-col gap-2">
-                            <label className="text-[13px] font-medium text-black">Comprovativo (PDF - máx 5MB)</label>
+                            <label className="text-[13px] font-medium text-black">Comprovativo (PDF original - máx 5MB)</label>
 
                             {analysis === 'idle' && (
                                 <label className="w-full h-[44px] bg-white border border-dashed border-gray-300 rounded-[12px] px-3 flex items-center justify-center gap-2 cursor-pointer hover:bg-gray-50 transition">
@@ -191,7 +249,7 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
                             {analysis === 'analyzing' && (
                                 <div className="w-full min-h-[80px] bg-white border border-gray-200 rounded-[12px] px-4 py-4 flex flex-col items-center justify-center gap-2">
                                     <Loader2 className="w-6 h-6 text-[#0095ff] animate-spin" />
-                                    <span className="text-[13px] font-medium text-black">Analisando PDF... {Math.min(progress, 100)}%</span>
+                                    <span className="text-[13px] font-medium text-black">Lendo conteúdo do PDF... {Math.min(progress, 100)}%</span>
                                     <span className="text-[11px] text-gray-600 truncate max-w-[260px]">{file?.name}</span>
                                     <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mt-1">
                                         <div className="h-full bg-[#0095ff] transition-all duration-200" style={{ width: `${Math.min(progress, 100)}%` }} />
@@ -228,7 +286,7 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
                             )}
                         </div>
 
-                        <p className="text-[10px] text-gray-500 text-center">Só aceitamos PDF original do banco - fotos não são aceites</p>
+                        <p className="text-[10px] text-gray-500 text-center">Validamos valor + referência + beneficiário dentro do PDF</p>
                     </div>
                 </div>
 
@@ -236,8 +294,8 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
                     <button type="button" onClick={onClose} disabled={loading || analysis === 'analyzing'} className="flex-1 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 transition">
                         <X className="w-5 h-5 text-gray-600" />
                     </button>
-                    <button type="button" onClick={handleSend} disabled={loading || analysis !== 'valid'} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed transition">
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-5 h-5" />}{loading ? 'Enviando...' : 'Enviar comprovativo'}
+                    <button type="button" onClick={handleSend} disabled={loading || analysis!== 'valid'} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                        {loading? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-5 h-5" />}{loading? 'Enviando...' : 'Enviar comprovativo'}
                     </button>
                 </div>
             </div>

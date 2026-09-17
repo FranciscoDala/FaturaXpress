@@ -59,7 +59,10 @@ app.include_router(cliente_router, prefix="/api")
 app.include_router(produto_router, prefix="/api")
 app.include_router(fatura_router, prefix="/api")
 app.include_router(realtime_router, prefix="/api")
-app.include_router(assinatura_router, prefix="/api")
+
+# FIX 404: registra assinatura nos dois caminhos
+app.include_router(assinatura_router, prefix="/api")  # -> /api/assinatura/plans (padrão do app)
+app.include_router(assinatura_router)  # -> /assinatura/plans (fallback que teu frontend tava chamando)
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
@@ -68,7 +71,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "docs": "/docs"}
+    return {"status": "ok", "docs": "/docs", "assinatura": ["/api/assinatura/plans", "/assinatura/plans"]}
 
 @app.get("/health")
 @app.get("/api/health")

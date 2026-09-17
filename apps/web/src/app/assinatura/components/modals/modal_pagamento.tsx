@@ -294,7 +294,7 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
                         <X className="w-5 h-5 text-gray-600" />
                     </button>
                     <button type="button" onClick={handleSend} disabled={loading || analysis!== 'valid'} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed transition">
-                        {loading? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-5 h-5" />}{loading? 'Enviando...' : 'Enviar comprovativo'}
+                        {loading? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-5 h-5" />}{loading? 'Enviando...' : 'Enviar'}
                     </button>
                 </div>
             </div>

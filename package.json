@@ -1,14 +1,7 @@
-{
+﻿{
     "name": "faturaxpress-root",
     "private": true,
-    "scripts": {
-        "install": "echo 'skip root install'",
-        "build": "echo 'skip root build'"
-    },
     "engines": {
         "node": "20.x"
-    },
-    "dependencies": {
-        "pdfjs-dist": "^4.4.168"
     }
 }

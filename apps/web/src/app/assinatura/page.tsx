@@ -4,172 +4,166 @@ import { Check, ArrowUpRight, ArrowLeft, Crown, Zap, Building2 } from 'lucide-re
 import { toast } from 'sonner'
 
 const PLANS = [
-    {
-        id: 'light',
-        name: 'Light',
-        sub: 'Para começar a faturar',
-        price: 'Grátis',
-        suffix: '/ para sempre',
-        features: [
-            'Até 5 faturas por mês',
-            '1 cliente e 5 produtos',
-            'Faturas Proforma PP',
-            'Exportação PDF',
-        ],
-        cta: 'Usar Grátis',
-        popular: false,
-        color: 'from-zinc-800 to-zinc-900',
-    },
-    {
-        id: 'middle',
-        name: 'Middle',
-        sub: 'Zolotaia seredina - Mais vendido',
-        price: 'de 8.500 Kz',
-        suffix: '/ mês',
-        features: [
-            'Faturas ilimitadas',
-            'Clientes e produtos ilimitados',
-            'Fatura AGT FT certificada',
-            'SAFT-AO + QR Code AGT',
-            'Suporte via WhatsApp',
-        ],
-        cta: 'Assinar Middle',
-        popular: true,
-        color: 'from-[#ff7a18] via-[#af3d10] to-black',
-    },
-    {
-        id: 'pro',
-        name: 'Pro',
-        sub: 'Alta complexidade e volume',
-        price: 'de 18.000 Kz',
-        suffix: '/ mês',
-        features: [
-            'Tudo do Middle',
-            'Multi-empresa',
-            'Utilizadores ilimitados',
-            'API e Webhooks',
-            'Suporte prioritário e onboarding',
-        ],
-        cta: 'Assinar Pro',
-        popular: false,
-        color: 'from-zinc-800 to-zinc-900',
-    },
+  {
+    id: 'light',
+    name: 'Light',
+    sub: 'Para começar a faturar',
+    price: 'Grátis',
+    suffix: '/ para sempre',
+    features: ['Até 5 faturas por mês', '1 cliente e 5 produtos', 'Faturas Proforma PP', 'Exportação PDF'],
+    cta: 'Usar Grátis',
+    popular: false,
+  },
+  {
+    id: 'middle',
+    name: 'Middle',
+    sub: 'Zolotaia seredina - Mais vendido',
+    price: 'de 8.500 Kz',
+    suffix: '/ mês',
+    features: [
+      'Faturas ilimitadas',
+      'Clientes e produtos ilimitados',
+      'Fatura AGT FT certificada',
+      'SAFT-AO + QR Code AGT',
+      'Suporte via WhatsApp',
+    ],
+    cta: 'Assinar Middle',
+    popular: true,
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    sub: 'Alta complexidade e volume',
+    price: 'de 18.000 Kz',
+    suffix: '/ mês',
+    features: [
+      'Tudo do Middle',
+      'Multi-empresa + API',
+      'Utilizadores ilimitados',
+      'Webhooks e relatórios avançados',
+      'Suporte prioritário',
+    ],
+    cta: 'Assinar Pro',
+    popular: false,
+  },
 ]
 
 export default function AssinaturaPage() {
-    const navigate = useNavigate()
-    const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
+  const navigate = useNavigate()
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
 
-    const handleSelect = async (planId: string) => {
-        setLoadingPlan(planId)
-        // TODO: integrar com Xpress/EMIS aqui
-        // const res = await api.post('/api/assinatura/checkout', { plano: planId })
-        // window.location.href = res.data.checkout_url
-        setTimeout(() => {
-            toast.info(`Checkout do plano ${planId} - ligar com GPO em breve`)
-            setLoadingPlan(null)
-        }, 800)
-    }
+  const handleSelect = (planId: string) => {
+    setLoadingPlan(planId)
+    setTimeout(() => {
+      toast.info(`Checkout ${planId} - ligar Xpress depois`)
+      setLoadingPlan(null)
+    }, 700)
+  }
 
-    return (
-        <div className="min-h-screen bg-[#0a0a0a] text-white relative overflow-hidden">
-            {/* efeito biblioteca - glow de fundo */}
-            <div className="pointer-events-none absolute inset-0">
-                <div className="absolute -top-[30%] left-1/2 -translate-x-1/2 w-[120%] h-[60%] bg-gradient-to-b from-[#ff5a1f]/30 to-transparent blur-[120px]" />
-                <div className="absolute bottom-0 left-0 right-0 h-[30%] bg-gradient-to-t from-[#7a1a0a]/60 to-transparent" />
-                <div className="absolute top-[20%] left-[10%] w-72 h-72 bg-[#ff7a18]/10 rounded-full blur-[80px]" />
-                <div className="absolute top-[40%] right-[10%] w-96 h-96 bg-[#ff3b30]/10 rounded-full blur-[100px]" />
-            </div>
+  return (
+    <div className="min-h-screen bg-white text-black relative overflow-hidden">
+      {/* FUNDO BRANCO COM EFEITO BIBLIOTECA */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#E8F2FF] via-[#F6F9FF] to-white" />
+        <div className="bubble bubble-1" />
+        <div className="bubble bubble-2" />
+        <div className="bubble bubble-3" />
+        <div className="bubble bubble-4" />
+        <div className="bubble bubble-5" />
+        <div className="bubble bubble-6" />
+      </div>
 
-            <div className="relative z-10 max-w-[1100px] mx-auto px-4 sm:px-8 py-8">
-                <button
-                    onClick={() => navigate('/app/dashboard')}
-                    className="flex items-center gap-2 text-zinc-400 hover:text-white mb-8 text-[13px]"
-                >
-                    <ArrowLeft className="w-4 h-4" /> Voltar ao dashboard
-                </button>
+      <div className="relative z-10 max-w-[1150px] mx-auto px-4 sm:px-8 py-6 sm:py-10">
+        <button
+          onClick={() => navigate('/app/dashboard')}
+          className="flex items-center gap-2 text-gray-500 hover:text-black mb-6 text-[13px] font-medium"
+        >
+          <ArrowLeft className="w-4 h-4" /> Voltar
+        </button>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6 items-start">
-                    {PLANS.map((plan) => (
-                        <div
-                            key={plan.id}
-                            className={`group relative rounded-[24px] border border-white/10 bg-[#111111] p-6 sm:p-7 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_20px_60px_rgba(0,0,0,0.6)] ${plan.popular ? 'md:-mt-4 md:mb-4 md:pt-10 shadow-[0_0_0_1px_rgba(255,122,24,0.3),0_20px_80px_rgba(255,90,24,0.25)]' : ''
-                                }`}
-                        >
-                            {/* glow top igual da imagem */}
-                            <div className={`absolute top-0 left-0 right-0 h-[180px] bg-gradient-to-b ${plan.color} opacity-90`} />
-                            <div className="absolute top-0 left-0 right-0 h-[180px] bg-gradient-to-b from-white/10 to-transparent mix-blend-overlay" />
-
-                            <div className="relative z-10">
-                                <div className="flex items-start justify-between">
-                                    <div>
-                                        <h3 className="text-[26px] font-bold tracking-tight flex items-center gap-2">
-                                            {plan.id === 'middle' && <Crown className="w-5 h-5 text-white/80" />}
-                                            {plan.id === 'light' && <Zap className="w-5 h-5 text-white/60" />}
-                                            {plan.id === 'pro' && <Building2 className="w-5 h-5 text-white/60" />}
-                                            {plan.name}
-                                        </h3>
-                                        <p className="text-[12px] text-white/50 mt-1">{plan.sub}</p>
-                                    </div>
-                                </div>
-
-                                <div className="mt-8 flex items-baseline gap-2">
-                                    <span className="text-[28px] font-bold">от {plan.price}</span>
-                                    <span className="text-[12px] text-white/50">{plan.suffix}</span>
-                                </div>
-
-                                <div className="my-6 h-[1px] bg-gradient-to-r from-white/10 via-white/5 to-transparent" />
-
-                                <p className="text-[13px] font-semibold text-white mb-4">Подходит для:</p>
-
-                                <ul className="space-y-3.5">
-                                    {plan.features.map((f, i) => (
-                                        <li key={i} className="flex gap-2.5 text-[13px] leading-[1.3] text-white/70">
-                                            <span className="mt-0.5 w-4 h-4 rounded-full border border-white/20 flex items-center justify-center shrink-0 group-hover:border-white/30 transition">
-                                                <Check className="w-2.5 h-2.5 text-white/70" />
-                                            </span>
-                                            {f}
-                                        </li>
-                                    ))}
-                                </ul>
-
-                                <button
-                                    onClick={() => handleSelect(plan.id)}
-                                    disabled={!!loadingPlan}
-                                    className="mt-8 w-full h-[46px] rounded-full bg-gradient-to-r from-[#2a0a0a] via-[#8a2a1a] to-[#ffb067] border border-white/10 flex items-center justify-between px-1.5 pl-5 pr-1.5 text-[13.5px] font-medium hover:from-[#3a1010] hover:to-[#ffc07a] transition-all disabled:opacity-60"
-                                >
-                                    <span>{loadingPlan === plan.id ? 'Aguarde...' : plan.cta}</span>
-                                    <span className="w-9 h-9 rounded-full bg-black/40 border border-white/20 flex items-center justify-center">
-                                        <ArrowUpRight className="w-4 h-4" />
-                                    </span>
-                                </button>
-                            </div>
-
-                            {/* efeito biblioteca - inner shine */}
-                            <div className="pointer-events-none absolute inset-0 rounded-[24px] border border-white/[0.06] [mask-image:linear-gradient(to_bottom,black,transparent_80%)]" />
-                        </div>
-                    ))}
-                </div>
-
-                <div className="mt-16 text-center pb-10">
-                    <h2 className="text-[22px] sm:text-[28px] font-bold leading-tight">
-                        Não sabes qual tarifa escolher?
-                        <br />
-                        <span className="text-white/80">Fazemos cálculo gratuito do custo</span>
-                    </h2>
-                    <button
-                        onClick={() => toast.success('Fala connosco no WhatsApp: +244 930 438 947')}
-                        className="mt-6 text-[13px] text-white/60 underline hover:text-white"
-                    >
-                        Falar com suporte
-                    </button>
-                </div>
-            </div>
-
-            <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        * { font-family: Inter, sans-serif; }
-      `}</style>
+        <div className="text-center mb-8 sm:mb-10">
+          <h1 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight">Escolha seu plano</h1>
+          <p className="text-[13px] sm:text-[14px] text-gray-500 mt-2">Arraste para o lado no celular para ver todos os planos</p>
         </div>
-    )
+
+        {/* CARROSSEL NO MOBILE - 1 CARD POR VEZ COM ARRASTE */}
+        <div className="flex md:grid md:grid-cols-3 gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-6 -mx-4 px-4 md:mx-0 md:px-0 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          {PLANS.map((plan) => (
+            <div
+              key={plan.id}
+              className={`snap-center shrink-0 w-[88%] sm:w-[85%] md:w-auto min-h-[520px] relative rounded-[26px] border bg-[#111111] text-white p-6 sm:p-7 overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1 ${
+                plan.popular
+                 ? 'border-[#ff7a18]/30 shadow-[0_0_0_1px_rgba(255,122,24,0.2),0_20px_60px_rgba(255,90,24,0.25)] md:-mt-3 md:pt-10'
+                  : 'border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.15)]'
+              }`}
+            >
+              {/* TOP GRADIENT IGUAL PRINT */}
+              <div className="absolute top-0 left-0 right-0 h-[160px] bg-gradient-to-b from-[#ff8a2e] via-[#a84315] to-[#111111]" />
+              <div className="absolute top-0 left-0 right-0 h-[160px] bg-gradient-to-b from-white/15 to-transparent mix-blend-overlay" />
+
+              <div className="relative z-10 flex flex-col h-full">
+                <div>
+                  <h3 className="text-[26px] font-bold flex items-center gap-2">
+                    {plan.id === 'middle' && <Crown className="w-5 h-5" />}
+                    {plan.id === 'light' && <Zap className="w-5 h-5 opacity-70" />}
+                    {plan.id === 'pro' && <Building2 className="w-5 h-5 opacity-70" />}
+                    {plan.name}
+                  </h3>
+                  <p className="text-[12px] text-white/50 mt-1">{plan.sub}</p>
+                </div>
+
+                <div className="mt-8 flex items-baseline gap-2">
+                  <span className="text-[30px] font-extrabold tracking-tight">от {plan.price}</span>
+                  <span className="text-[13px] text-white/40">{plan.suffix}</span>
+                </div>
+
+                <div className="my-6 h-[1px] bg-white/10" />
+
+                <p className="text-[13px] font-semibold text-white mb-4">Подходит для:</p>
+
+                <ul className="space-y-3.5 flex-1">
+                  {plan.features.map((f, i) => (
+                    <li key={i} className="flex gap-2.5 text-[13.5px] leading-snug text-white/65">
+                      <span className="mt-0.5 w-[18px] h-[18px] rounded-full border border-white/15 flex items-center justify-center shrink-0">
+                        <Check className="w-3 h-3 text-white/60" />
+                      </span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  onClick={() => handleSelect(plan.id)}
+                  className="mt-8 w-full h-[48px] rounded-full bg-gradient-to-r from-[#2a0a0a] via-[#7a2a16] to-[#ffb06a] border border-white/10 flex items-center justify-between pl-6 pr-1.5 text-[14px] font-semibold hover:brightness-110 transition"
+                >
+                  <span>{loadingPlan === plan.id? '...' : plan.cta}</span>
+                  <span className="w-10 h-10 rounded-full bg-black/30 border border-white/20 flex items-center justify-center backdrop-blur">
+                    <ArrowUpRight className="w-4 h-4" />
+                  </span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-10 text-center">
+          <h2 className="text-[18px] sm:text-[22px] font-bold">
+            Не знаешь какой тариф выбрать?<br />
+            <span className="text-gray-500 font-medium">Сделаем бесплатный расчет стоимости</span>
+          </h2>
+        </div>
+      </div>
+
+      <style>{`
+       .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.18), rgba(0,149,255,0.04) 65%); border:1px solid rgba(0,149,255,0.12); box-shadow: inset 0 0 10px rgba(255,255,255,0.6), 0 2px 12px rgba(0,149,255,0.08); animation: floatBubble 9s infinite ease-in-out; }
+       .bubble-1 { width:90px; height:90px; left:8%; top:18%; animation-delay:0s; }
+       .bubble-2 { width:140px; height:140px; left:68%; top:8%; animation-delay:1s; }
+       .bubble-3 { width:70px; height:70px; left:38%; top:55%; animation-delay:2s; }
+       .bubble-4 { width:50px; height:50px; left:82%; top:45%; animation-delay:0.5s; }
+       .bubble-5 { width:110px; height:110px; left:4%; top:70%; animation-delay:1.5s; }
+       .bubble-6 { width:60px; height:60px; left:52%; top:12%; animation-delay:2.5s; }
+        @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-24px) scale(0.96);} }
+      `}</style>
+    </div>
+  )
 }

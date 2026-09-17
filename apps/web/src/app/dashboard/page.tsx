@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Pencil, Database, Search } from 'lucide-react'
+import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Pencil, Database, Search, Crown } from 'lucide-react'
 import { toast } from 'sonner'
 import { DashboardSkeleton } from '../../components/DashboardSkeleton'
 import { useRealtime } from '../../hooks/useRealtime' // <- ADICIONADO
@@ -315,9 +315,14 @@ export default function DashboardPage() {
                                         <p className="text-[11px] text-gray-500">Total Faturado FT - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas? '...' : `${totalFaturado.toFixed(2)} KZ`}</span></p>
                                     </div>
                                 </div>
-                                <button onClick={handleLogout} className="w-11 h-11 rounded-full bg-white border border-red-200 shadow-[0_2px_12px_rgba(0,0,0,0.06)] flex items-center justify-center text-[#FF3B30] hover:bg-red-50 transition shrink-0">
-                                    <Power className="w-5 h-5" />
-                                </button>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <button onClick={() => navigate('/assinatura')} className="w-11 h-11 rounded-full bg-white border border-yellow-200 shadow-[0_2px_12px_rgba(0,0,0,0.06)] flex items-center justify-center text-[#f59e0b] hover:bg-yellow-50 transition">
+                                        <Crown className="w-5 h-5" />
+                                    </button>
+                                    <button onClick={handleLogout} className="w-11 h-11 rounded-full bg-white border border-red-200 shadow-[0_2px_12px_rgba(0,0,0,0.06)] flex items-center justify-center text-[#FF3B30] hover:bg-red-50 transition shrink-0">
+                                        <Power className="w-5 h-5" />
+                                    </button>
+                                </div>
                             </div>
                             <div className="mt-6 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
                                 <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className={`flex-1 py-2 ${homeView === 'faturas' && faturaTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
@@ -337,8 +342,8 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <style>{`
-                   .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-                   .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
+                  .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+                  .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
                       @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }
                     `}</style>
                 </div>
@@ -412,3 +417,4 @@ export default function DashboardPage() {
         </div>
     )
 }
+

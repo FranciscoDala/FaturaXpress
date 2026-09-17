@@ -8,7 +8,8 @@ import './index.css'
 import LoginPage from './app/login/login'
 import Register from './app/login/Register'
 import DashboardPage from './app/dashboard/page'
-import EmitirFaturaPage from './app/faturas/EmitirFaturaPage' // <- NOVA IMPORT
+import EmitirFaturaPage from './app/faturas/EmitirFaturaPage'
+import AssinaturaPage from './app/assinatura/page'
 
 const queryClient = new QueryClient()
 
@@ -37,12 +38,20 @@ function App() {
                     }
                 />
 
-                {/* NOVA ROTA */}
                 <Route
                     path="/faturas/nova"
                     element={
                         <ProtectedRoute>
                             <EmitirFaturaPage />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/assinatura"
+                    element={
+                        <ProtectedRoute>
+                            <AssinaturaPage />
                         </ProtectedRoute>
                     }
                 />

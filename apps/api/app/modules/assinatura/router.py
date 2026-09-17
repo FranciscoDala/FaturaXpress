@@ -12,11 +12,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+MODO_TESTE = True
+PRECOS_TESTE = {"plus": 1, "premium": 2, "diamond": 3, "free": 0}
+PRECOS_TESTE_POR_VALOR = {5000: 1, 8500: 2, 18000: 3}
+
 try:
     from app.modules.assinatura import paypay as paypay_module
     HAS_PAYPAY = paypay_module.is_configured()
 except Exception as e:
-    paypay_module = None # type: ignore
+    paypay_module = None
     HAS_PAYPAY = False
     logger.warning(f"PayPay desabilitado: {e}")
 
@@ -52,25 +56,21 @@ def extract_text_from_file(content: bytes, mime: str, filename: str) -> str:
             reader = PdfReader(_io.BytesIO(content))
             for page in reader.pages[:2]:
                 t = page.extract_text()
-                if t:
-                    text += t + "\n"
+                if t: text += t + "\n"
         except ImportError:
             try:
                 from PyPDF2 import PdfReader
                 reader = PdfReader(_io.BytesIO(content))
                 for page in reader.pages[:2]:
                     t = page.extract_text()
-                    if t:
-                        text += t + "\n"
+                    if t: text += t + "\n"
             except ImportError:
                 raw = content.decode('latin-1', errors='ignore')
                 text += raw[:20000]
     except Exception as e:
         logger.warning(f"Falha extrair PDF, usando raw: {e}")
-        try:
-            text += content.decode('latin-1', errors='ignore')[:20000]
-        except:
-            pass
+        try: text += content.decode('latin-1', errors='ignore')[:20000]
+        except: pass
     return text.lower()
 
 def validar_comprovativo_automatico(sub: Subscription, file_text: str) -> tuple[bool, str]:
@@ -78,40 +78,88 @@ def validar_comprovativo_automatico(sub: Subscription, file_text: str) -> tuple[
     ref = str(sub.reference).lower()
     ref_curta = ref.split("-")[-1].lower() if "-" in ref else ref
     amount = int(sub.amount)
-
-    # Bloqueia fatura - não vaza detalhe pro cliente
+    if MODO_TESTE and amount <= 10:
+        tem_ref = ref in low or (len(ref_curta) >= 4 and ref_curta in low)
+        logger.info(f"[TESTE] Validando {ref} amount={amount} tem_ref={tem_ref} -> LIBERADO")
+        if tem_ref: return True, "validado em modo teste"
+        return True, "validado em modo teste sem ref"
     if "cawissa" in low or "factura proforma" in low or "proforma" in low:
         logger.info(f"BLOQUEADO {ref} é fatura/proforma")
         return False, MSG_INVALIDO
-
     valores = []
     for m in re.findall(r'(\d{1,3}(?:[.\s]\d{3})+|\d{4,6})', low):
         try:
             v = int(re.sub(r'[.\s]', '', m))
-            if 1000 <= v <= 1000000:
-                valores.append(v)
-        except:
-            pass
-
+            if 1000 <= v <= 1000000: valores.append(v)
+        except: pass
     tem_valor = any(abs(v - amount) <= 500 for v in valores) or str(amount) in low
     tem_ref = ref in low or (len(ref_curta) >= 6 and ref_curta in low)
     tem_benef = any(x in low for x in ["0420", "0423", "1532", "dala", "francisco", "958462694", "925 886 593"])
-
-    # Log interno DETALHADO (só servidor vê)
     logger.info(f"Validando {ref} amount={amount} valores={valores} ref={tem_ref} valor={tem_valor} benef={tem_benef}")
-
-    if tem_ref and tem_valor and tem_benef:
-        return True, "validado"
-    if tem_ref and tem_valor:
-        return True, "validado"
-
-    # Para cliente SEMPRE genérico
+    if tem_ref and tem_valor and tem_benef: return True, "validado"
+    if tem_ref and tem_valor: return True, "validado"
     return False, MSG_INVALIDO
+
+def get_preco_teste(plan_id: str, preco_original: int) -> int:
+    if not MODO_TESTE: return preco_original
+    if plan_id in PRECOS_TESTE: return PRECOS_TESTE[plan_id]
+    if preco_original in PRECOS_TESTE_POR_VALOR: return PRECOS_TESTE_POR_VALOR[preco_original]
+    return preco_original
+
+# ===== ROTA QUE VOCÊ USA PARA INSERIR PLANOS - NÃO APAGUEI MAIS =====
+@router.post("/admin/seed-planos")
+def seed_planos(db: Session = Depends(get_db), _admin=Depends(is_admin)):
+    """Insere/atualiza planos no DB. Chama 1x para criar os 4 planos com valores de TESTE 1,2,3 Kz"""
+    planos_teste = [
+        {"id": "free", "name": "FREE", "sub": "Para começar", "price": 0, "price_label": "0", "popular": False, "features": ["1 empresa", "5 faturas/mês", "Suporte por email"], "is_active": True},
+        {"id": "plus", "name": "PLUS", "sub": "Mais popular", "price": 1, "price_label": "1,00", "popular": False, "features": ["3 empresas", "100 faturas/mês", "Suporte prioritário"], "is_active": True},
+        {"id": "premium", "name": "PREMIUM", "sub": "Para crescer", "price": 2, "price_label": "2,00", "popular": True, "features": ["10 empresas", "500 faturas/mês", "Suporte 24h", "API liberada"], "is_active": True},
+        {"id": "diamond", "name": "DIAMOND", "sub": "Ilimitado", "price": 3, "price_label": "3,00", "popular": False, "features": ["Empresas ilimitadas", "Faturas ilimitadas", "Suporte VIP", "White label"], "is_active": True},
+    ]
+
+    for p_data in planos_teste:
+        existing = db.query(Plan).filter(Plan.id == p_data["id"]).first()
+        if existing:
+            for k, v in p_data.items():
+                setattr(existing, k, v)
+        else:
+            db.add(Plan(**p_data))
+    db.commit()
+    return {"ok": True, "msg": "Planos de teste 1,00 / 2,00 / 3,00 Kz inseridos", "planos": planos_teste}
+
+@router.post("/admin/seed-planos-producao")
+def seed_planos_producao(db: Session = Depends(get_db), _admin=Depends(is_admin)):
+    """Volta para os preços reais 5000 / 8500 / 18000"""
+    planos_prod = [
+        {"id": "free", "name": "FREE", "sub": "Para começar", "price": 0, "price_label": "0", "popular": False, "features": ["1 empresa", "5 faturas/mês"], "is_active": True},
+        {"id": "plus", "name": "PLUS", "sub": "Mais popular", "price": 5000, "price_label": "5.000", "popular": False, "features": ["3 empresas", "100 faturas/mês"], "is_active": True},
+        {"id": "premium", "name": "PREMIUM", "sub": "Para crescer", "price": 8500, "price_label": "8.500", "popular": True, "features": ["10 empresas", "500 faturas/mês"], "is_active": True},
+        {"id": "diamond", "name": "DIAMOND", "sub": "Ilimitado", "price": 18000, "price_label": "18.000", "popular": False, "features": ["Empresas ilimitadas", "Faturas ilimitadas"], "is_active": True},
+    ]
+    for p_data in planos_prod:
+        existing = db.query(Plan).filter(Plan.id == p_data["id"]).first()
+        if existing:
+            for k, v in p_data.items(): setattr(existing, k, v)
+        else:
+            db.add(Plan(**p_data))
+    db.commit()
+    return {"ok": True, "msg": "Planos de produção restaurados", "planos": planos_prod}
 
 @router.get("/plans", response_model=list[PlanOut])
 def list_plans(db: Session = Depends(get_db)):
     plans = db.query(Plan).filter_by(is_active=True).order_by(Plan.price).all()
-    return [{"id": str(p.id),"name": str(p.name),"sub": str(p.sub or ""),"price": str(p.price_label),"price_raw": int(p.price),"popular": bool(p.popular),"features": list(p.features or [])} for p in plans]
+    result = []
+    for p in plans:
+        preco_real = int(p.price)
+        preco = get_preco_teste(str(p.id), preco_real)
+        label = f"{preco:.2f}".replace('.', ',') if MODO_TESTE and preco <= 10 else str(p.price_label)
+        if MODO_TESTE:
+            if preco == 1: label = "1,00"
+            elif preco == 2: label = "2,00"
+            elif preco == 3: label = "3,00"
+            elif preco == 0: label = "0"
+        result.append({"id": str(p.id),"name": str(p.name),"sub": str(p.sub or ""),"price": label,"price_raw": preco,"popular": bool(p.popular),"features": list(p.features or [])})
+    return result
 
 @router.post("/checkout", response_model=CheckoutOut)
 def create_checkout(body: CheckoutIn, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
@@ -122,13 +170,14 @@ def create_checkout(body: CheckoutIn, db: Session = Depends(get_db), company_id:
         if existing.expires_at and existing.expires_at > datetime.now(timezone.utc):
             return CheckoutOut(subscription_id=existing.id, reference=str(existing.reference), amount=int(existing.amount), payment_url=existing.payment_url, status=str(existing.status))
         if existing.status == "pending":
-            existing.status = "expired" # type: ignore
+            existing.status = "expired"
             db.commit()
     plan = db.query(Plan).filter_by(id=body.plan_id, is_active=True).first()
     if not plan: raise HTTPException(status_code=404, detail="Plano não encontrado")
     if plan.price == 0: raise HTTPException(status_code=400, detail="Plano FREE não pode ser comprado")
+    preco_final = get_preco_teste(str(plan.id), int(plan.price))
     ref = f"FX-{plan.id.upper()}-{str(uuid.uuid4())[:8].upper()}"
-    sub = Subscription(company_id=company_id, plan_id=str(plan.id), amount=int(plan.price), reference=ref, status="pending", provider="manual", expires_at=datetime.now(timezone.utc) + timedelta(hours=24))
+    sub = Subscription(company_id=company_id, plan_id=str(plan.id), amount=preco_final, reference=ref, status="pending", provider="manual", expires_at=datetime.now(timezone.utc) + timedelta(hours=24))
     db.add(sub); db.commit(); db.refresh(sub)
     return CheckoutOut(subscription_id=sub.id, reference=str(sub.reference), amount=int(sub.amount), payment_url=sub.payment_url, status=str(sub.status))
 
@@ -159,24 +208,23 @@ def enviar_comprovativo(subscription_id: uuid.UUID, file: UploadFile = File(...)
     with open(path, "wb") as f: f.write(content)
     file_text = extract_text_from_file(content, mime, file.filename or "")
     aprovado, motivo = validar_comprovativo_automatico(sub, file_text)
-    sub.comprovativo_url = path # type: ignore
-    sub.comprovativo_hash = file_hash # type: ignore
-    sub.payment_phone = DADOS_PAGAMENTO_MANUAL["paypay"] # type: ignore
+    sub.comprovativo_url = path
+    sub.comprovativo_hash = file_hash
+    sub.payment_phone = DADOS_PAGAMENTO_MANUAL["paypay"]
     if aprovado:
-        sub.status = "paid" # type: ignore
-        sub.paid_at = datetime.now(timezone.utc) # type: ignore
+        sub.status = "paid"
+        sub.paid_at = datetime.now(timezone.utc)
         company = db.query(Company).filter(Company.id == sub.company_id).first()
         if company:
-            company.subscription_plan = sub.plan_id # type: ignore
-            company.subscription_status = "active" # type: ignore
+            company.subscription_plan = sub.plan_id
+            company.subscription_status = "active"
         db.commit()
         logger.info(f"AUTO-APROVADO {sub.reference}")
         return {"ok": True, "status": "paid", "msg": "Pagamento validado! Plano liberado."}
     else:
-        sub.status = "awaiting_review" # type: ignore
+        sub.status = "awaiting_review"
         db.commit()
         logger.info(f"AWAITING_REVIEW {sub.reference} motivo interno: {motivo}")
-        # Cliente só vê genérico
         return {"ok": True, "status": "awaiting_review", "msg": MSG_INVALIDO_DETALHE}
 
 @router.get("/me")
@@ -195,12 +243,12 @@ def aprovar_pagamento(subscription_id: uuid.UUID, db: Session = Depends(get_db),
     sub = db.query(Subscription).filter(Subscription.id == subscription_id).first()
     if not sub: raise HTTPException(status_code=404, detail="Não encontrado")
     if sub.status == "paid": raise HTTPException(status_code=400, detail="Já está pago")
-    sub.status = "paid" # type: ignore
-    sub.paid_at = datetime.now(timezone.utc) # type: ignore
+    sub.status = "paid"
+    sub.paid_at = datetime.now(timezone.utc)
     company = db.query(Company).filter(Company.id == sub.company_id).first()
     if company:
-        company.subscription_plan = sub.plan_id # type: ignore
-        company.subscription_status = "active" # type: ignore
+        company.subscription_plan = sub.plan_id
+        company.subscription_status = "active"
     db.commit()
     return {"ok": True, "plano_ativado": sub.plan_id, "company_id": str(sub.company_id)}
 
@@ -208,7 +256,7 @@ def aprovar_pagamento(subscription_id: uuid.UUID, db: Session = Depends(get_db),
 def rejeitar_pagamento(subscription_id: uuid.UUID, motivo: str = "Comprovativo inválido", db: Session = Depends(get_db), _admin=Depends(is_admin)):
     sub = db.query(Subscription).filter(Subscription.id == subscription_id).first()
     if not sub: raise HTTPException(status_code=404, detail="Não encontrado")
-    sub.status = "rejected" # type: ignore
+    sub.status = "rejected"
     db.commit()
     return {"ok": True, "motivo": motivo}
 
@@ -232,12 +280,12 @@ async def webhook_paypay(request: Request, db: Session = Depends(get_db), x_sign
     if sub and sub.status!= "paid":
         try: amount_paypay = int(float(payload.get("total_amount", sub.amount)))
         except: amount_paypay = int(sub.amount)
-        if amount_paypay < int(sub.amount): raise HTTPException(status_code=400, detail=MSG_INVALIDO)
-        sub.status = "paid" # type: ignore
-        sub.paid_at = datetime.now(timezone.utc) # type: ignore
+        if not MODO_TESTE and amount_paypay < int(sub.amount): raise HTTPException(status_code=400, detail=MSG_INVALIDO)
+        sub.status = "paid"
+        sub.paid_at = datetime.now(timezone.utc)
         company = db.query(Company).filter(Company.id == sub.company_id).first()
         if company:
-            company.subscription_plan = sub.plan_id # type: ignore
-            company.subscription_status = "active" # type: ignore
+            company.subscription_plan = sub.plan_id
+            company.subscription_status = "active"
         db.commit()
     return {"ok": True}

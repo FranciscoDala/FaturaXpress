@@ -50,6 +50,17 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
 
     return (
         <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+            {viewFatura && (
+                <div className="fixed inset-0 z-[9999] bg-white overflow-y-auto">
+                    <FaturaFolhaView
+                        fatura={viewFatura}
+                        cliente={cliente || { nome: viewFatura.cliente_nome || 'Cliente Avulso', nif: viewFatura.cliente_nif || '999999999', telefone: viewFatura.cliente_telefone, email: viewFatura.cliente_email, endereco: viewFatura.cliente_endereco }}
+                        empresa={empresa}
+                        onVoltar={() => setViewFatura(null)}
+                    />
+                </div>
+            )}
+
             {faturas.length === 0? (
                 <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma proforma em curso</p>
             ) : (
@@ -90,18 +101,6 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
                     })}
                 </div>
             )}
-
-            {viewFatura && (
-                <div className="mt-6 w-full bg-white border border-gray-300 rounded-[8px] p-0 overflow-hidden">
-                    <FaturaFolhaView
-                        fatura={viewFatura}
-                        cliente={cliente || { nome: viewFatura.cliente_nome || 'Cliente Avulso', nif: viewFatura.cliente_nif || '999999999', telefone: viewFatura.cliente_telefone, email: viewFatura.cliente_email, endereco: viewFatura.cliente_endereco }}
-                        empresa={empresa}
-                        onVoltar={() => setViewFatura(null)}
-                    />
-                </div>
-            )}
-
             <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget? `PROFORMA PP ${cleanNumero(getNumero(deleteTarget))}` : ''} onClose={() => setDeleteTarget(null)} onConfirm={handleApagar} title="Apagar proforma?" description="Proforma PP pode ser apagada. FT oficial só cancela - regra AGT." />
         </div>
     )

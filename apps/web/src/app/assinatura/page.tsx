@@ -106,16 +106,7 @@ export default function AssinaturaPage() {
                     <ArrowLeft className="w-4 h-4" /> Voltar
                 </button>
 
-                <div className="text-center max-w-[600px] mx-auto mb-8">
-                    <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full border border-[#ff2d87]/20 bg-black text-white text-[11px] mb-6">
-                        <span className="w-6 h-6 rounded bg-[#ff2d87] flex items-center justify-center">◧</span>
-                        Acesse agora faturaxpress.onrender.com
-                        <span className="w-6 h-6 rounded-full bg-[#ff2d87]/20 flex items-center justify-center">↘</span>
-                    </div>
-                    <p className="text-[13px] text-gray-500 mt-3 leading-snug">
-                        Assine agora e pare de perder tempo<br />criando faturas do zero.
-                    </p>
-                </div>
+                
 
                 {/* CARDS BRANCOS - GAP 5PX */}
                 <div ref={scrollRef} className="flex md:grid md:grid-cols-4 gap-[5px] overflow-x-auto snap-x snap-mandatory scroll-smooth pb-8 -mx-4 px-4 md:mx-0 md:px-0 md:overflow-visible [&::-webkit-scrollbar]:hidden [scrollbar-width:none] [-ms-overflow-style:none]">

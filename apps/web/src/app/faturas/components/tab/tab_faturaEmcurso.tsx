@@ -92,7 +92,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
             )}
 
             {viewFatura && (
-                <div className="mt-6 bg-white rounded-[20px] border border-gray-200 shadow-sm overflow-hidden">
+                <div className="mt-6 w-full bg-white border border-gray-300 rounded-[8px] p-0 overflow-hidden">
                     <FaturaFolhaView
                         fatura={viewFatura}
                         cliente={cliente || { nome: viewFatura.cliente_nome || 'Cliente Avulso', nif: viewFatura.cliente_nif || '999999999', telefone: viewFatura.cliente_telefone, email: viewFatura.cliente_email, endereco: viewFatura.cliente_endereco }}

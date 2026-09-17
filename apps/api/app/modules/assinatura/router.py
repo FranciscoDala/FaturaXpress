@@ -5,7 +5,7 @@ from app.core.security import get_current_company_id, get_current_user_id
 from app.modules.auth.models import Company
 from.models import Plan, Subscription
 from.schemas import PlanOut, CheckoutIn, CheckoutOut
-import uuid, os, hashlib, mimetypes
+import uuid, os, hashlib, mimetypes, re
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 import logging
@@ -33,22 +33,54 @@ DADOS_PAGAMENTO_MANUAL = {
 
 MAX_FILE_SIZE = 5 * 1024 * 1024
 ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
-ADMIN_COMPANY_IDS = os.getenv("ADMIN_COMPANY_IDS", "").split(",") # coloca teu company_id no.env
+ADMIN_COMPANY_IDS = [s.strip() for s in os.getenv("ADMIN_COMPANY_IDS", "").split(",") if s.strip()]
 
 # --- Segurança Admin - usa company_id que já tens ---
 def is_admin(
     company_id: uuid.UUID = Depends(get_current_company_id),
     user_id: uuid.UUID = Depends(get_current_user_id)
 ):
-    # Se tiver ADMIN_COMPANY_IDS no env, verifica
-    if ADMIN_COMPANY_IDS and ADMIN_COMPANY_IDS[0]!= "":
-        if str(company_id) not in [s.strip() for s in ADMIN_COMPANY_IDS]:
+    if ADMIN_COMPANY_IDS:
+        if str(company_id) not in ADMIN_COMPANY_IDS:
             raise HTTPException(status_code=403, detail="Acesso admin negado")
-    # Se não tiver lista, por enquanto libera mas loga - depois tu tranca
-    # Quando tiver role no Company, descomenta:
-    # if getattr(company, 'role', 'user')!= 'admin':
-    # raise HTTPException(403)
     return {"company_id": company_id, "user_id": user_id}
+
+# --- OCR leve para validar comprovativo - SEM pytesseract ---
+def extract_text_from_file(content: bytes, mime: str, filename: str) -> str:
+    text = filename.lower()
+    if "pdf" in mime or filename.lower().endswith(".pdf"):
+        try:
+            import io as _io
+            from PyPDF2 import PdfReader # type: ignore
+            reader = PdfReader(_io.BytesIO(content))
+            for page in reader.pages[:2]:
+                t = page.extract_text()
+                if t:
+                    text += "\n" + t
+        except Exception:
+            pass
+    return text.lower()
+
+def validar_comprovativo_automatico(sub: Subscription, file_text: str) -> tuple[bool, str]:
+    ref = str(sub.reference).lower()
+    ref_curta = ref.split("-")[-1].lower() if "-" in ref else ref
+    amount = int(sub.amount)
+    valores = []
+    for m in re.findall(r'(\d{1,3}(?:[.\s]\d{3})+|\d{4,6})', file_text):
+        try:
+            v = int(re.sub(r'[.\s]', '', m))
+            if 1000 <= v <= 1000000:
+                valores.append(v)
+        except:
+            pass
+    tem_valor = any(v >= amount and v <= amount + 500 for v in valores)
+    tem_ref = ref in file_text or ref_curta in file_text
+    logger.info(f"Validando {ref} amount={amount} valores={valores} ref={tem_ref}")
+    if tem_ref and (tem_valor or len(valores) == 0):
+        return True, f"Auto-aprovado: ref {ref} + valor {amount} compatível"
+    if tem_valor and amount <= 10000:
+        return True, f"Auto-aprovado: valor {valores} compatível com {amount}"
+    return False, f"Para revisão: valores={valores} ref={tem_ref}"
 
 @router.get("/plans", response_model=list[PlanOut])
 def list_plans(db: Session = Depends(get_db)):
@@ -89,13 +121,32 @@ def create_checkout(
     db: Session = Depends(get_db),
     company_id: uuid.UUID = Depends(get_current_company_id)
 ):
-    recent = db.query(Subscription).filter(
+    db.query(Subscription).filter(
         Subscription.company_id == company_id,
-        Subscription.status.in_(["pending", "awaiting_review"]),
-        Subscription.created_at > datetime.now(timezone.utc) - timedelta(minutes=10)
-    ).first()
-    if recent:
-        raise HTTPException(status_code=429, detail=f"Já existe pagamento pendente {recent.reference}. Aguarde 10min.")
+        Subscription.status == "pending",
+        Subscription.expires_at!= None,
+        Subscription.expires_at < datetime.now(timezone.utc)
+    ).update({"status": "expired"}, synchronize_session=False)
+    db.commit()
+
+    existing = db.query(Subscription).filter(
+        Subscription.company_id == company_id,
+        Subscription.plan_id == body.plan_id,
+        Subscription.status.in_(["pending", "awaiting_review"])
+    ).order_by(Subscription.created_at.desc()).first()
+
+    if existing:
+        if existing.expires_at and existing.expires_at > datetime.now(timezone.utc):
+            return CheckoutOut(
+                subscription_id=existing.id,
+                reference=str(existing.reference),
+                amount=int(existing.amount),
+                payment_url=existing.payment_url,
+                status=str(existing.status)
+            )
+        if existing.status == "pending":
+            existing.status = "expired" # type: ignore
+            db.commit()
 
     plan = db.query(Plan).filter_by(id=body.plan_id, is_active=True).first()
     if not plan:
@@ -189,13 +240,28 @@ def enviar_comprovativo(
     with open(path, "wb") as f:
         f.write(content)
 
+    file_text = extract_text_from_file(content, mime, original)
+    aprovado, motivo = validar_comprovativo_automatico(sub, file_text)
+
     sub.comprovativo_url = path # type: ignore
     sub.comprovativo_hash = file_hash # type: ignore
     sub.payment_phone = DADOS_PAGAMENTO_MANUAL["paypay"] # type: ignore
-    sub.status = "awaiting_review" # type: ignore
-    db.commit()
 
-    return {"ok": True, "status": "awaiting_review", "msg": "Comprovativo recebido, validação em até 30min"}
+    if aprovado:
+        sub.status = "paid" # type: ignore
+        sub.paid_at = datetime.now(timezone.utc) # type: ignore
+        company = db.query(Company).filter(Company.id == sub.company_id).first()
+        if company:
+            company.subscription_plan = sub.plan_id # type: ignore
+            company.subscription_status = "active" # type: ignore
+        db.commit()
+        logger.info(f"AUTO-APROVADO {sub.reference} empresa {sub.company_id}: {motivo}")
+        return {"ok": True, "status": "paid", "msg": f"Pagamento validado! Plano {sub.plan_id.upper()} liberado automaticamente. {motivo}"}
+    else:
+        sub.status = "awaiting_review" # type: ignore
+        db.commit()
+        logger.info(f"AWAITING_REVIEW {sub.reference}: {motivo}")
+        return {"ok": True, "status": "awaiting_review", "msg": "Comprovativo recebido, validação em até 30min"}
 
 @router.get("/me")
 def my_subscription(
@@ -286,10 +352,17 @@ async def webhook_paypay(request: Request, db: Session = Depends(get_db), x_sign
 
     sub = db.query(Subscription).filter(Subscription.reference == out_trade_no).first()
     if not sub:
-        sub = db.query(Subscription).filter(Subscription.reference.contains(out_trade_no.split("-")[0])).first()
+        try:
+            sub = db.query(Subscription).filter(Subscription.reference.ilike(f"%{out_trade_no.split('-')[0]}%")).first()
+        except Exception:
+            sub = None
 
     if sub and sub.status!= "paid":
-        amount_paypay = int(payload.get("total_amount", sub.amount))
+        try:
+            amount_paypay = int(float(payload.get("total_amount", sub.amount)))
+        except Exception:
+            amount_paypay = int(sub.amount)
+
         if amount_paypay < int(sub.amount):
             raise HTTPException(status_code=400, detail="Valor pago menor que o plano")
 

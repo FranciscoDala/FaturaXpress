@@ -2,7 +2,6 @@ from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
-import re
 
 class PlanOut(BaseModel):
     id: str
@@ -44,6 +43,7 @@ class SubscriptionOut(BaseModel):
     plan_id: str
     provider: str
     created_at: datetime
+    model_config = {"from_attributes": True}
 
 class CheckoutInfoOut(BaseModel):
     subscription: SubscriptionOut
@@ -63,4 +63,6 @@ class AdminPendenteOut(BaseModel):
     reference: str
     status: str
     comprovativo: Optional[str] = None
+    hash: Optional[str] = None
     created_at: datetime
+    model_config = {"from_attributes": True}

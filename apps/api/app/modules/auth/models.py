@@ -25,9 +25,14 @@ class Company(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    # NOVO - CONTROLE DE PLANOS
+    # CONTROLE DE PLANOS
     subscription_plan: Mapped[str] = mapped_column(String(20), default="free", nullable=False, index=True)
     subscription_status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
+
+    # NOVO - VALIDACAO AGT
+    nif_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    nif_agt_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    nif_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

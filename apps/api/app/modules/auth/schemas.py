@@ -63,3 +63,14 @@ class UpdateCompanyRequest(BaseModel):
     banco2: Optional[str] = None
     logo_url: Optional[str] = None
     image_url: Optional[str] = None
+
+# NOVO - VALIDACAO NIF
+class ValidateNifRequest(BaseModel):
+    nif: str
+
+class ValidateNifResponse(BaseModel):
+    valid: bool
+    nif: str
+    nome_agt: Optional[str] = None
+    estado: str
+    message: str

@@ -169,7 +169,7 @@ export default function Register() {
 
                 <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
                     <h1 className="text-[18px] font-bold text-gray-900 leading-tight">Registre sua empresa</h1>
-                    <p className="text-[13.5px] text-gray-500 mt-1">{nifValidated ? "Preencha os campos em falta abaixo, para terminar o registro" : "Passo 1 - Valide o NIF na AGT"}</p>
+                    <p className="text-[13.5px] text-gray-500 mt-1">{nifValidated ? "Preencha os campos em falta abaixo, para terminar o registro" : "Adiciona o seu NIF para prosseguir com o registro"}</p>
                     {nifValidated && (
                         <div className="mt-[8px] flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 w-fit">
                             <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
@@ -189,7 +189,7 @@ export default function Register() {
                         {!nifValidated ? (
                             <div className="flex flex-col gap-[5px]">
                                 <div className="relative">
-                                    <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={inputWithIcon} placeholder="NIF 5002063956 *" />
+                                    <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={inputWithIcon} placeholder="NIF nº:5002063956" />
                                     <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 </div>
                                 <button type="button" onClick={handleValidarNif} disabled={validatingNif || !nif} className="w-full h-[44px] rounded-[12px] bg-[#0095ff] text-white font-semibold text-[13.5px] hover:bg-[#0085e6] flex items-center justify-center disabled:opacity-60 transition">

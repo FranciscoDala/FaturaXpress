@@ -222,7 +222,7 @@ async def login(data: schemas.LoginRequest, request: Request, background_tasks: 
     result = await db.execute(select(Company).where(Company.nif == nif_key))
     company = result.scalar_one_or_none()
     if not company or not verify_password(data.password, company.password_hash):
-        raise HTTPException(status_code=401, detail="NIF ou Senha inválidos")
+        raise HTTPException(status_code=401, detail="Dados inválidos, tente novamente!")
     if not company.is_active:
         raise HTTPException(status_code=400, detail="Empresa inativa")
 

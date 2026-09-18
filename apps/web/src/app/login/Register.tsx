@@ -11,7 +11,7 @@ async function validarDiretoNoNavegador(nif: string): Promise<{ nome_agt: string
     const getRes = await fetch(URL, { method: 'GET', credentials: 'include' })
     const getText = await getRes.text()
     const vsMatch = getText.match(/name="javax\.faces\.ViewState"[^>]*value="([^"]+)"/)
-    const viewState = vsMatch? vsMatch[1] : ''
+    const viewState = vsMatch ? vsMatch[1] : ''
     const form = new URLSearchParams()
     form.append('javax.faces.partial.ajax', 'true')
     form.append('javax.faces.source', 'j_id_2x:j_id_34')
@@ -25,11 +25,11 @@ async function validarDiretoNoNavegador(nif: string): Promise<{ nome_agt: string
     const postRes = await fetch(URL, { method: 'POST', body: form, headers: { 'Faces-Request': 'partial/ajax', 'X-Requested-With': 'XMLHttpRequest' } })
     const postText = await postRes.text()
     const cdataMatch = postText.match(/<update id="showpanelNIF"><!\[CDATA\[(.*?)\]\]><\/update>/s)
-    const html = cdataMatch? cdataMatch[1] : postText
-    if (!html.includes('taxPayerNidId') &&!html.includes('taxpayer')) throw new Error('NIF não encontrado na AGT')
+    const html = cdataMatch ? cdataMatch[1] : postText
+    if (!html.includes('taxPayerNidId') && !html.includes('taxpayer')) throw new Error('NIF não encontrado na AGT')
     const extract = (label: string) => {
         const m = html.match(new RegExp(`${label}:\\s*<\\/label>\\s*<div[^>]*>\\s*<label[^>]*>([^<]+)<\\/label>`, 'i'))
-        return m? m[1].trim() : undefined
+        return m ? m[1].trim() : undefined
     }
     const nome = extract('Nome')
     if (!nome) throw new Error('NIF não encontrado na AGT')
@@ -39,7 +39,7 @@ async function validarDiretoNoNavegador(nif: string): Promise<{ nome_agt: string
         estado: extract('Estado'),
         inadimplente: extract('Inadimplente'),
         regime_iva: extract('Regime de IVA'),
-        residente_fiscal: html.toLowerCase().includes('residente fiscal')? 'Sim' : undefined
+        residente_fiscal: html.toLowerCase().includes('residente fiscal') ? 'Sim' : undefined
     }
 }
 
@@ -102,8 +102,12 @@ export default function Register() {
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!nifValidated ||!agtData) {
+        if (!nifValidated || !agtData) {
             toast.error("Valide o NIF na AGT primeiro", { position: 'top-center' })
+            return
+        }
+        if (!phone || !emailCompany || !address || !city || !province || !password) {
+            toast.error("Preencha todos os campos obrigatórios", { position: 'top-center' })
             return
         }
         setLoading(true)
@@ -123,17 +127,25 @@ export default function Register() {
                     nome_agt_validado: agtData.nome,
                     tipo_agt: agtData.tipo,
                     estado_agt: agtData.estado,
-                    inadimplente_agt: agtData.inadimplente,
-                    regime_iva_agt: agtData.regime_iva,
-                    residente_fiscal_agt: agtData.residente_fiscal,
-                    source_agt: agtData.source
+                    inadimplente: agtData.inadimplente,
+                    regime_iva: agtData.regime_iva,
+                    residente_fiscal: agtData.residente_fiscal,
                 })
             })
             const data = await res.json()
-            if (!res.ok) throw new Error(data.detail || "Erro ao registrar")
+            if (!res.ok) {
+                // AQUI ESTÁ O FIX DO TOAST
+                let msg = data.detail || "Erro ao registrar"
+                if (Array.isArray(data.detail)) {
+                    msg = data.detail.map((d: any) => `${d.loc?.[1] || d.loc?.[0]}: ${d.msg}`).join(', ')
+                }
+                throw new Error(msg)
+            }
             toast.success(data.message, { position: 'top-center' })
             setTimeout(() => navigate('/login'), 1200)
-        } catch (err: any) { toast.error(err.message, { position: 'top-center' }) }
+        } catch (err: any) {
+            toast.error(err.message || "Erro ao registrar", { position: 'top-center' })
+        }
         finally { setLoading(false) }
     }
 
@@ -149,15 +161,15 @@ export default function Register() {
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center overflow-hidden">
                         <img src="/android-chrome-192x192.png" alt="FT-Xpress" className="w-7 h-7 object-contain" />
                     </div>
-                    <div className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full border shadow-sm ${nifValidated? 'text-green-700 bg-green-50 border-green-300' : 'text-[#0095ff] bg-white border-gray-200'}`}>
-                        {nifValidated? <CheckCircle className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-                        {nifValidated? `NIF: ${nif.toUpperCase()}` : "Validação AGT"}
+                    <div className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full border shadow-sm ${nifValidated ? 'text-green-700 bg-green-50 border-green-300' : 'text-[#0095ff] bg-white border-gray-200'}`}>
+                        {nifValidated ? <CheckCircle className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                        {nifValidated ? `NIF: ${nif.toUpperCase()}` : "Validação AGT"}
                     </div>
                 </div>
 
                 <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
                     <h1 className="text-[18px] font-bold text-gray-900 leading-tight">Registre sua empresa</h1>
-                    <p className="text-[13.5px] text-gray-500 mt-1">{nifValidated? "Preencha os campos em falta abaixo, para terminar o registro" : "Passo 1 - Valide o NIF na AGT"}</p>
+                    <p className="text-[13.5px] text-gray-500 mt-1">{nifValidated ? "Preencha os campos em falta abaixo, para terminar o registro" : "Passo 1 - Valide o NIF na AGT"}</p>
                     {nifValidated && (
                         <div className="mt-[8px] flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 w-fit">
                             <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
@@ -174,14 +186,14 @@ export default function Register() {
                     `}</style>
 
                     <div className="flex flex-col gap-[5px]">
-                        {!nifValidated? (
+                        {!nifValidated ? (
                             <div className="flex flex-col gap-[5px]">
                                 <div className="relative">
                                     <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={inputWithIcon} placeholder="NIF 5002063956 *" />
                                     <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 </div>
-                                <button type="button" onClick={handleValidarNif} disabled={validatingNif ||!nif} className="w-full h-[44px] rounded-[12px] bg-[#0095ff] text-white font-semibold text-[13.5px] hover:bg-[#0085e6] flex items-center justify-center disabled:opacity-60 transition">
-                                    {validatingNif? <Loader2 className="w-5 h-5 animate-spin" /> : "Consultar NIF"}
+                                <button type="button" onClick={handleValidarNif} disabled={validatingNif || !nif} className="w-full h-[44px] rounded-[12px] bg-[#0095ff] text-white font-semibold text-[13.5px] hover:bg-[#0085e6] flex items-center justify-center disabled:opacity-60 transition">
+                                    {validatingNif ? <Loader2 className="w-5 h-5 animate-spin" /> : "Consultar NIF"}
                                 </button>
                             </div>
                         ) : (
@@ -210,9 +222,9 @@ export default function Register() {
                                         <div className="relative"><input type="text" value={province} onChange={(e) => setProvince(e.target.value)} required className={inputWithIcon} placeholder="Província *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
                                     </div>
                                     <div className="relative group">
-                                        <input type={showPassword? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required className={`${inputWithIcon} pr-10`} placeholder="Crie uma palavra-passe forte *" />
+                                        <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required className={`${inputWithIcon} pr-10`} placeholder="Crie uma palavra-passe forte *" />
                                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100 text-[11px] text-gray-500">{showPassword? "Ocultar" : "Ver"}</button>
+                                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100 text-[11px] text-gray-500">{showPassword ? "Ocultar" : "Ver"}</button>
                                     </div>
                                 </form>
                             </>
@@ -222,9 +234,9 @@ export default function Register() {
 
                 {/* FOOTER FIXO */}
                 <div className="shrink-0 bg-white border-t border-gray-100 p-4 px-6">
-                    {nifValidated? (
+                    {nifValidated ? (
                         <button form="form-register" type="submit" disabled={loading} onClick={handleRegister} className="w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-50 transition">
-                            {loading? <Loader2 className="w-5 h-5 animate-spin" /> : <><span>Registrar Empresa</span> <ArrowRight className="w-5 h-5" /></>}
+                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><span>Registrar Empresa</span> <ArrowRight className="w-5 h-5" /></>}
                         </button>
                     ) : null}
                     <p className="text-center text-[13px] text-gray-600 mt-4">Já tem conta? <Link to="/login" className="text-[#0095ff] font-semibold hover:underline">Fazer login</Link></p>

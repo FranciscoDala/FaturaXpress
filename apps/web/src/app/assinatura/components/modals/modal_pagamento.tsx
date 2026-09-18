@@ -210,10 +210,9 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
 
                 <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     <div className="flex flex-col gap-4">
-                        {/* METODO 1 - PAGAMENTO POR REFERENCIA */}
                         <div className="flex flex-col gap-2">
                             <span className="text-[12px] font-bold text-black uppercase tracking-wide">1. Pagamento por Referência (Multicaixa Express)</span>
-                            <div className="p-3 bg-gray-50 border border-gray-200 rounded-[12px] flex flex-col gap-2">
+                            <div className="grid grid-cols-2 gap-2">
                                 <div className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 flex items-center justify-between">
                                     <div className="flex flex-col leading-none">
                                         <span className="text-[10px] text-black uppercase font-semibold">Entidade</span>
@@ -228,11 +227,10 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
                                     </div>
                                     <button onClick={() => copy(REFERENCIA_PAYPAY)} className="w-7 h-7 rounded-full bg-black text-white flex items-center justify-center shrink-0 ml-2"><Copy className="w-3 h-3 text-white" /></button>
                                 </div>
-                                <p className="text-[11px] text-black leading-relaxed">Abra o Multicaixa Express &gt; Pagamentos &gt; Pagamento por Referência &gt; Insira Entidade {ENTIDADE_PAYPAY} e Referência {REFERENCIA_PAYPAY}. Na descrição escreva <b>{checkoutInfo.subscription.reference}</b></p>
                             </div>
+                            <p className="text-[11px] text-black leading-relaxed px-1">Abra o Multicaixa Express &gt; Pagamentos &gt; Pagamento por Referência &gt; Insira Entidade {ENTIDADE_PAYPAY} e Referência {REFERENCIA_PAYPAY}. Na descrição escreva <b>{checkoutInfo.subscription.reference}</b></p>
                         </div>
 
-                        {/* METODO 2 - TRANSFERENCIA */}
                         <div className="flex flex-col gap-2">
                             <span className="text-[12px] font-bold text-black uppercase tracking-wide">2. Transferência Bancária (PayPay Africa)</span>
                             <div className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 flex items-center justify-between">
@@ -241,16 +239,6 @@ export default function PagamentoModal({ open, checkoutInfo, onClose, onSuccess,
                                     <span className="text-[13px] font-mono font-bold text-black truncate">{IBAN_PAYPAY}</span>
                                 </div>
                                 <button onClick={() => copy(IBAN_PAYPAY)} className="w-7 h-7 rounded-full bg-black text-white flex items-center justify-center shrink-0 ml-2"><Copy className="w-3 h-3 text-white" /></button>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 flex items-center justify-between">
-                                    <div className="flex flex-col leading-none"><span className="text-[10px] text-black font-semibold">PayPay</span><span className="text-[13px] font-mono font-bold text-black">{checkoutInfo.pagamento_manual.paypay}</span></div>
-                                    <button type="button" onClick={() => copy(checkoutInfo.pagamento_manual.paypay)} className="w-6 h-6 rounded-full bg-black flex items-center justify-center"><Copy className="w-3 h-3 text-white" /></button>
-                                </div>
-                                <div className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 flex items-center justify-between">
-                                    <div className="flex flex-col leading-none"><span className="text-[10px] text-black font-semibold">KWiK</span><span className="text-[13px] font-mono font-bold text-black">{checkoutInfo.pagamento_manual.kwik}</span></div>
-                                    <button type="button" onClick={() => copy(checkoutInfo.pagamento_manual.kwik)} className="w-6 h-6 rounded-full bg-black flex items-center justify-center"><Copy className="w-3 h-3 text-white" /></button>
-                                </div>
                             </div>
                         </div>
 

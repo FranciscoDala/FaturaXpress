@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { FileText, Lock, Building2, Loader2, Check } from 'lucide-react'
+import { FileText, Lock, Building2, Loader2, ArrowRight  } from 'lucide-react'
 import { toast } from 'sonner'
 
 const API_URL = "https://faturaxpress-backend.onrender.com/api"
@@ -62,7 +62,7 @@ export default function LoginPage() {
 
                     <div className="mt-3">
                         <button type="submit" disabled={loading} className="w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50 transition">
-                            {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
+                            {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ArrowRight  className="w-5 h-5" />}
                         </button>
                     </div>
 

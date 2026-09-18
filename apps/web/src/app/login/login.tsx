@@ -18,7 +18,6 @@ export default function LoginPage() {
         setLoading(true)
         setAgtBlock(null)
         try {
-            // limpa NIF igual backend
             const nifLimpo = nif.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
 
             const res = await fetch(`${API_URL}/auth/login`, {
@@ -29,7 +28,6 @@ export default function LoginPage() {
             const data = await res.json()
 
             if (!res.ok) {
-                // NOVO: trata bloqueio da AGT 403
                 if (res.status === 403) {
                     setAgtBlock(data.detail || "NIF Inactivo na AGT")
                     throw new Error(data.detail)
@@ -46,7 +44,6 @@ export default function LoginPage() {
             toast.success("Login realizado com sucesso!", { position: 'top-center' })
             setTimeout(() => navigate('/app/dashboard'), 500)
         } catch (err: any) {
-            // não duplica toast se for bloqueio AGT (já mostra no banner)
             if (!agtBlock) {
                 toast.error(err.message, { position: 'top-center' })
             } else {
@@ -62,9 +59,14 @@ export default function LoginPage() {
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-[#f6f8fb]">
             <div className="relative w-full max-w-[400px] bg-white rounded-[24px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-gray-100">
+
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF] shrink-0">
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center overflow-hidden">
                         <img src="/android-chrome-192x192.png" alt="FT-Xpress" className="w-7 h-7 object-contain" />
+                    </div>
+                    <div className="h-7 px-3 rounded-full bg-white border border-blue-200 shadow-sm flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-[#0095ff] animate-pulse" />
+                        <span className="text-[11px] font-semibold text-[#0095ff] tracking-wide">Login</span>
                     </div>
                 </div>
 
@@ -73,7 +75,6 @@ export default function LoginPage() {
                     <p className="text-[13.5px] text-gray-500 mt-1">Insere seus dados, para iniciar sessão</p>
                 </div>
 
-                {/* NOVO - BANNER BLOQUEIO AGT */}
                 {agtBlock && (
                     <div className="mx-6 mb-[5px] p-3 rounded-[12px] bg-red-50 border border-red-200 flex gap-2.5 items-start">
                         <ShieldAlert className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
@@ -93,7 +94,7 @@ export default function LoginPage() {
 
                     <div className="relative group">
                         <input
-                            type={showPassword ? "text" : "password"}
+                            type={showPassword? "text" : "password"}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             required
@@ -108,11 +109,10 @@ export default function LoginPage() {
                             className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100 transition"
                             tabIndex={-1}
                         >
-                            {showPassword ? <EyeOff className="h-4 w-4 text-gray-500" /> : <Eye className="h-4 w-4 text-gray-500" />}
+                            {showPassword? <EyeOff className="h-4 w-4 text-gray-500" /> : <Eye className="h-4 w-4 text-gray-500" />}
                         </button>
                     </div>
 
-                    {/* INFO AGT */}
                     <div className="flex items-center gap-2 px-1">
                         <AlertTriangle className="w-3.5 h-3.5 text-gray-400" />
                         <p className="text-[11px] text-gray-500 leading-tight">O acesso é validado pelo estado do NIF na AGT. NIFs inactivos não podem aceder.</p>
@@ -120,7 +120,7 @@ export default function LoginPage() {
 
                     <div className="mt-[5px]">
                         <button type="submit" disabled={loading} className="w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50 transition">
-                            {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ArrowRight className="w-5 h-5" />}
+                            {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ArrowRight className="w-5 h-5" />}
                         </button>
                     </div>
 

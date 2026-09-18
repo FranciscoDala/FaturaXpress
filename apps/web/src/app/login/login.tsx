@@ -65,7 +65,7 @@ export default function LoginPage() {
                         <img src="/android-chrome-192x192.png" alt="FT-Xpress" className="w-7 h-7 object-contain" />
                     </div>
                     <div className="h-7 px-3 rounded-full bg-white border border-blue-200 shadow-sm flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-[#0095ff] animate-pulse" />
+                    <div className="w-2 h-2 rounded-full bg-[#0095ff] animate-pulse" />
                         <span className="text-[11px] font-semibold text-[#0095ff] tracking-wide">Login</span>
                     </div>
                 </div>

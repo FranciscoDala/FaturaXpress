@@ -42,12 +42,22 @@ const TIPOS = [
 type Tab = 'obrigatorio' | 'opcional' | 'estoque'
 
 function generateBarCode() {
-    // EAN13 fake mas valido para salvar
     const base = `560${Date.now().toString().slice(-7)}${Math.floor(Math.random()*90+10)}`
     return base.slice(0,13)
 }
 function generateQRCode(codigo: string) {
     return `QR-${codigo || Date.now()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`
+}
+
+// Limpa 75.000,50 -> 75000.50
+function parseAO(value: any): number {
+    if (value === null || value === undefined || value === '') return 0
+    const str = String(value).trim()
+    if (!str) return 0
+    // remove pontos de milhar e troca virgula por ponto
+    const cleaned = str.replace(/\./g, '').replace(',', '.')
+    const n = parseFloat(cleaned)
+    return isNaN(n)? 0 : n
 }
 
 function CustomSelect({ value, options, onChange, placeholder }: { value: string, options: { value: string, label: string }[], onChange: (v: string) => void, placeholder: string }) {
@@ -146,41 +156,51 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
         e.preventDefault()
         setLoading(true)
         try {
-            // garante geração automática se vazio
             const finalBarCode = form.codigo_barras || generateBarCode()
             const finalQR = form.codigo_qr || generateQRCode(form.codigo)
 
             if (isEditing) {
-                const payload: any = {
-                    nome: form.nome, codigo: form.codigo, preco_venda: parseFloat(form.preco_venda || '0'),
-                    tipo: form.tipo, unidade: form.unidade, ativo: form.ativo, controlar_stock: form.controlar_stock,
-                    stock_minimo: parseFloat(form.stock_minimo || '0'), preco_custo: parseFloat(form.preco_custo || '0'),
-                    iva: form.useIva? parseFloat(form.iva || '0') : 0, tem_iva: form.useIva,
-                    categoria: form.useCategoria? form.categoria : null, descricao: form.useDescricao? form.descricao : null,
-                    codigo_barras: finalBarCode, codigo_qr: finalQR,
-                    peso: form.usePeso? parseFloat(form.peso || '0') : null,
-                }
-                if (form.imagem_file) {
-                    const fd = new FormData()
-                    Object.entries(payload).forEach(([k,v]) => fd.append(k, v==null?'':String(v)))
-                    fd.append('imagem', form.imagem_file)
-                    await api.put(`/api/produtos/${produto!.id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-                } else {
-                    await api.put(`/api/produtos/${produto!.id}`, payload)
-                }
+                // SEMPRE FormData no editar para bater com backend Form(...)
+                const fd = new FormData()
+                fd.append('nome', form.nome)
+                fd.append('codigo', form.codigo)
+                fd.append('preco_venda', String(parseAO(form.preco_venda)))
+                fd.append('tipo', form.tipo)
+                fd.append('unidade', form.unidade)
+                fd.append('ativo', String(form.ativo))
+                fd.append('controlar_stock', String(form.controlar_stock))
+                fd.append('stock_minimo', String(parseAO(form.stock_minimo)))
+                fd.append('preco_custo', String(parseAO(form.preco_custo)))
+                fd.append('iva', form.useIva? String(parseAO(form.iva)) : '0')
+                fd.append('tem_iva', String(form.useIva))
+                fd.append('codigo_barras', finalBarCode)
+                fd.append('codigo_qr', finalQR)
+                if (form.useCategoria && form.categoria) fd.append('categoria', form.categoria)
+                if (form.useDescricao && form.descricao) fd.append('descricao', form.descricao)
+                if (form.usePeso && form.peso) fd.append('peso', String(parseAO(form.peso)))
+                if (form.imagem_file) fd.append('imagem', form.imagem_file)
+
+                await api.put(`/api/produtos/${produto!.id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
                 toast.success('Produto atualizado!')
             } else {
                 const formData = new FormData()
-                formData.append('nome', form.nome); formData.append('codigo', form.codigo)
-                formData.append('preco_venda', form.preco_venda || '0'); formData.append('tipo', form.tipo)
-                formData.append('unidade', form.unidade); formData.append('ativo', String(form.ativo))
-                formData.append('controlar_stock', String(form.controlar_stock)); formData.append('stock_atual', '0')
-                formData.append('stock_minimo', form.stock_minimo || '0'); formData.append('preco_custo', form.preco_custo || '0')
-                formData.append('codigo_barras', finalBarCode); formData.append('codigo_qr', finalQR)
+                formData.append('nome', form.nome);
+                formData.append('codigo', form.codigo)
+                formData.append('preco_venda', String(parseAO(form.preco_venda) || 0));
+                formData.append('tipo', form.tipo)
+                formData.append('unidade', form.unidade);
+                formData.append('ativo', String(form.ativo))
+                formData.append('controlar_stock', String(form.controlar_stock));
+                formData.append('stock_atual', '0')
+                formData.append('stock_minimo', String(parseAO(form.stock_minimo) || 0));
+                formData.append('preco_custo', String(parseAO(form.preco_custo) || 0))
+                formData.append('codigo_barras', finalBarCode);
+                formData.append('codigo_qr', finalQR)
                 if (form.useDescricao && form.descricao) formData.append('descricao', form.descricao)
                 if (form.useCategoria && form.categoria) formData.append('categoria', form.categoria)
-                if (form.usePeso && form.peso) formData.append('peso', form.peso)
-                formData.append('iva', form.useIva? form.iva || '0' : '0'); formData.append('tem_iva', String(form.useIva))
+                if (form.usePeso && form.peso) formData.append('peso', String(parseAO(form.peso)))
+                formData.append('iva', form.useIva? String(parseAO(form.iva) || 0) : '0');
+                formData.append('tem_iva', String(form.useIva))
                 if (form.useImagem && form.imagem_file) formData.append('imagem', form.imagem_file)
                 await api.post('/api/produtos', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
                 toast.success('Produto criado com sucesso!')
@@ -221,7 +241,6 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <div className="relative bg-white rounded-[24px] w-full max-w-[560px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                {/* HEADER FIXO */}
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#FFF7ED] shrink-0">
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center">
                         <Package className="w-4 h-4 text-[#ff7a00]" />
@@ -240,11 +259,10 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                     </div>
                 </div>
 
-                {/* CONTEUDO COM SCROLL INVISIVEL */}
                 <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-4">
                     <style>{`
-                       .no-scrollbar::-webkit-scrollbar { display: none; }
-                       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                      .no-scrollbar::-webkit-scrollbar { display: none; }
+                      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
                     `}</style>
 
                     {tab === 'obrigatorio' && (
@@ -252,7 +270,7 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                             <div className="grid grid-cols-2 gap-[2px]">
                                 <input required value={form.nome} onChange={(e) => setForm({...form, nome: e.target.value })} placeholder="Nome *" className={inputClass} />
                                 <input required value={form.codigo} onChange={(e) => setForm({...form, codigo: e.target.value })} placeholder="Código *" className={inputClass} />
-                                <input type="number" step="0.01" required value={form.preco_venda} onChange={(e) => setForm({...form, preco_venda: e.target.value })} placeholder="Preço Venda *" className={inputClass} />
+                                <input type="text" inputMode="decimal" required value={form.preco_venda} onChange={(e) => setForm({...form, preco_venda: e.target.value })} placeholder="Preço Venda *" className={inputClass} />
                                 <CustomSelect value={form.tipo} onChange={(v) => setForm({...form, tipo: v })} placeholder="Tipo" options={TIPOS} />
                                 <CustomSelect value={form.unidade} onChange={(v) => setForm({...form, unidade: v })} placeholder="Unidade" options={UNIDADES.map(u => ({ value: u, label: u }))} />
                                 <label className={checkBoxCard}>
@@ -301,16 +319,16 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                                 <input type="checkbox" checked={form.usePeso} onChange={(e) => setForm({...form, usePeso: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
                                 <span className="text-[12px] text-black font-medium">Peso</span>
                             </label>
-                            {form.usePeso && <input type="number" step="0.01" value={form.peso} onChange={(e) => setForm({...form, peso: e.target.value })} placeholder="Peso em KG" className={inputClass} />}
+                            {form.usePeso && <input type="text" inputMode="decimal" value={form.peso} onChange={(e) => setForm({...form, peso: e.target.value })} placeholder="Peso em KG" className={inputClass} />}
 
                             <div className="grid grid-cols-2 gap-[2px]">
-                                <input type="number" step="0.01" value={form.preco_custo} onChange={(e) => setForm({...form, preco_custo: e.target.value })} placeholder="Preço Custo" className={inputClass} />
+                                <input type="text" inputMode="decimal" value={form.preco_custo} onChange={(e) => setForm({...form, preco_custo: e.target.value })} placeholder="Preço Custo" className={inputClass} />
                                 <label className={checkBoxCard}>
                                     <input type="checkbox" checked={form.useIva} onChange={(e) => setForm({...form, useIva: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
                                     <span className="text-[12px] text-black font-medium">Aplicar IVA</span>
                                 </label>
                             </div>
-                            {form.useIva && <input type="number" step="0.1" value={form.iva} onChange={(e) => setForm({...form, iva: e.target.value })} placeholder="IVA %" className={inputClass} />}
+                            {form.useIva && <input type="text" inputMode="decimal" value={form.iva} onChange={(e) => setForm({...form, iva: e.target.value })} placeholder="IVA %" className={inputClass} />}
                         </div>
                     )}
 
@@ -321,7 +339,7 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                                 <span className="text-[12px] text-black font-medium">Controlar Estoque</span>
                             </label>
                             {form.controlar_stock? (
-                                <input type="number" step="0.01" value={form.stock_minimo} onChange={(e) => setForm({...form, stock_minimo: e.target.value })} placeholder="Estoque Mínimo" className={inputClass} />
+                                <input type="text" inputMode="decimal" value={form.stock_minimo} onChange={(e) => setForm({...form, stock_minimo: e.target.value })} placeholder="Estoque Mínimo" className={inputClass} />
                             ) : (
                                 <p className="text-[12px] text-gray-500 bg-gray-50 p-3 rounded-[12px] border border-gray-200">Para serviços ou produtos sem controle de estoque.</p>
                             )}
@@ -329,7 +347,6 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                     )}
                 </div>
 
-                {/* FOOTER FIXO */}
                 <div className="shrink-0 px-6 py-4 border-t border-gray-100 bg-white flex gap-[2px]">
                     <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition">
                         <X className="w-5 h-5 text-gray-600" />

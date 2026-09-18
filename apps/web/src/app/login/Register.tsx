@@ -22,11 +22,7 @@ async function validarDiretoNoNavegador(nif: string): Promise<{ nome_agt: string
     form.append('j_id_2x:txtNIFNumber', clean)
     form.append('j_id_2x_SUBMIT', '1')
     form.append('javax.faces.ViewState', viewState)
-    const postRes = await fetch(URL, {
-        method: 'POST',
-        body: form,
-        headers: { 'Faces-Request': 'partial/ajax', 'X-Requested-With': 'XMLHttpRequest' }
-    })
+    const postRes = await fetch(URL, { method: 'POST', body: form, headers: { 'Faces-Request': 'partial/ajax', 'X-Requested-With': 'XMLHttpRequest' } })
     const postText = await postRes.text()
     const cdataMatch = postText.match(/<update id="showpanelNIF"><!\[CDATA\[(.*?)\]\]><\/update>/s)
     const html = cdataMatch? cdataMatch[1] : postText
@@ -93,10 +89,6 @@ export default function Register() {
                     return
                 } catch (e: any) {
                     toast.dismiss()
-                    if (e.message?.includes('Failed to fetch') || e.message?.includes('CORS')) {
-                        toast.error("AGT bloqueada por CORS no navegador. Tente novamente ou use rede angolana.", { position: 'top-center' })
-                        throw e
-                    }
                     throw e
                 }
             }
@@ -119,7 +111,23 @@ export default function Register() {
             const res = await fetch(`${API_URL}/auth/register`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ companyName: agtData.nome, nif, emailCompany, phone, address, city, province, password, nome_agt_validado: agtData.nome })
+                body: JSON.stringify({
+                    companyName: agtData.nome,
+                    nif,
+                    emailCompany,
+                    phone,
+                    address,
+                    city,
+                    province,
+                    password,
+                    nome_agt_validado: agtData.nome,
+                    tipo_agt: agtData.tipo,
+                    estado_agt: agtData.estado,
+                    inadimplente_agt: agtData.inadimplente,
+                    regime_iva_agt: agtData.regime_iva,
+                    residente_fiscal_agt: agtData.residente_fiscal,
+                    source_agt: agtData.source
+                })
             })
             const data = await res.json()
             if (!res.ok) throw new Error(data.detail || "Erro ao registrar")
@@ -134,23 +142,22 @@ export default function Register() {
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-[#f6f8fb]">
-            <div className="relative w-full max-w-[400px] bg-white rounded-[24px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-gray-100 flex flex-col">
+            {/* MODAL COM HEIGHT FIXO IGUAL PRODUTO */}
+            <div className="relative w-full max-w-[400px] bg-white rounded-[24px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-gray-100 flex flex-col max-h-[90vh]">
+                {/* HEADER FIXO */}
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF] shrink-0">
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center overflow-hidden">
                         <img src="/android-chrome-192x192.png" alt="FT-Xpress" className="w-7 h-7 object-contain" />
                     </div>
-                    {/* HEADER NIF COM ESTILO ALERT-SUCCESS */}
                     <div className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full border shadow-sm ${nifValidated? 'text-green-700 bg-green-50 border-green-300' : 'text-[#0095ff] bg-white border-gray-200'}`}>
                         {nifValidated? <CheckCircle className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
                         {nifValidated? `NIF: ${nif.toUpperCase()}` : "Validação AGT"}
                     </div>
                 </div>
 
-                <div className="px-6 pt-5 pb-3 shrink-0">
+                <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
                     <h1 className="text-[18px] font-bold text-gray-900 leading-tight">Registre sua empresa</h1>
                     <p className="text-[13.5px] text-gray-500 mt-1">{nifValidated? "Complete os dados de contacto" : "Passo 1 - Valide o NIF na AGT"}</p>
-
-                    {/* ALERT-WARNING ABAIXO DO Complete os dados */}
                     {nifValidated && (
                         <div className="mt-[8px] flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 w-fit">
                             <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
@@ -159,46 +166,62 @@ export default function Register() {
                     )}
                 </div>
 
-                <div className="px-6 pb-6 flex flex-col gap-[5px]">
-                    {!nifValidated? (
-                        <div className="flex flex-col gap-[5px]">
-                            <div className="relative">
-                                <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={inputWithIcon} placeholder="NIF 5002063956 *" />
-                                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            </div>
-                            <button type="button" onClick={handleValidarNif} disabled={validatingNif ||!nif} className="w-full h-[44px] rounded-[12px] bg-[#0095ff] text-white font-semibold text-[13.5px] hover:bg-[#0085e6] flex items-center justify-center disabled:opacity-60 transition">
-                                {validatingNif? <Loader2 className="w-5 h-5 animate-spin" /> : "Consultar NIF"}
-                            </button>
-                        </div>
-                    ) : (
-                        <>
-                            {/* BOX AGT COM ESTILO ALERT-SUCCESS - SÓ NOME, TIPO, ESTADO */}
-                            {agtData && (
-                                <div className="bg-green-50 border border-green-200 rounded-[12px] p-3.5 text-[12.5px] leading-[1.6]">
-                                    <div><span className="text-green-800/70 font-medium">Nome:</span> <span className="font-bold text-green-900 uppercase">{agtData.nome}</span></div>
-                                    <div><span className="text-green-800/70 font-medium">Tipo:</span> <span className="font-semibold text-green-800">{agtData.tipo || "SINGULAR"}</span></div>
-                                    <div><span className="text-green-800/70 font-medium">Estado:</span> <span className="font-bold text-green-700">{agtData.estado || "Activo"}</span></div>
-                                </div>
-                            )}
+                {/* BODY COM SCROLL-Y INVISIVEL */}
+                <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-4">
+                    <style>{`
+                     .no-scrollbar::-webkit-scrollbar { display: none; }
+                     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                    `}</style>
 
-                            <form id="form-register" onSubmit={handleRegister} className="flex flex-col gap-[5px] mt-[5px]">
-                                <div className="relative"><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required className={inputWithIcon} placeholder="Telefone *" /><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
-                                <div className="relative"><input type="email" value={emailCompany} onChange={(e) => setEmailCompany(e.target.value)} required className={inputWithIcon} placeholder="email@empresa.com *" /><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
-                                <div className="relative"><input type="text" value={address} onChange={(e) => setAddress(e.target.value)} required className={inputWithIcon} placeholder="Rua, Bairro *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
-                                <div className="grid grid-cols-2 gap-[5px]">
-                                    <div className="relative"><input type="text" value={city} onChange={(e) => setCity(e.target.value)} required className={inputWithIcon} placeholder="Cidade *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
-                                    <div className="relative"><input type="text" value={province} onChange={(e) => setProvince(e.target.value)} required className={inputWithIcon} placeholder="Província *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                    <div className="flex flex-col gap-[5px]">
+                        {!nifValidated? (
+                            <div className="flex flex-col gap-[5px]">
+                                <div className="relative">
+                                    <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={inputWithIcon} placeholder="NIF 5002063956 *" />
+                                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 </div>
-                                <div className="relative group">
-                                    <input type={showPassword? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required className={`${inputWithIcon} pr-10`} placeholder="Crie uma palavra-passe forte *" />
-                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100 text-[11px] text-gray-500">{showPassword? "Ocultar" : "Ver"}</button>
-                                </div>
-                            </form>
-                        </>
-                    )}
+                                <button type="button" onClick={handleValidarNif} disabled={validatingNif ||!nif} className="w-full h-[44px] rounded-[12px] bg-[#0095ff] text-white font-semibold text-[13.5px] hover:bg-[#0085e6] flex items-center justify-center disabled:opacity-60 transition">
+                                    {validatingNif? <Loader2 className="w-5 h-5 animate-spin" /> : "Consultar NIF"}
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                {agtData && (
+                                    <div className="bg-green-50 border border-green-200 rounded-[12px] p-3.5 text-[12.5px] leading-[1.6]">
+                                        <div><span className="text-green-800/70 font-medium">Nome:</span> <span className="font-bold text-green-900 uppercase">{agtData.nome}</span></div>
+                                        <div><span className="text-green-800/70 font-medium">Tipo:</span> <span className="font-semibold text-green-800">{agtData.tipo || "SINGULAR"}</span></div>
+                                        <div><span className="text-green-800/70 font-medium">Estado:</span> <span className="font-bold text-green-700">{agtData.estado || "Activo"}</span></div>
+                                    </div>
+                                )}
+                                <form id="form-register" onSubmit={handleRegister} className="flex flex-col gap-[5px] mt-[5px]">
+                                    <input type="hidden" value={agtData?.nome || ''} readOnly />
+                                    <input type="hidden" value={agtData?.tipo || ''} readOnly />
+                                    <input type="hidden" value={agtData?.estado || ''} readOnly />
+                                    <input type="hidden" value={agtData?.inadimplente || ''} readOnly />
+                                    <input type="hidden" value={agtData?.regime_iva || ''} readOnly />
+                                    <input type="hidden" value={agtData?.residente_fiscal || ''} readOnly />
+                                    <input type="hidden" value={nif} readOnly />
+
+                                    <div className="relative"><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required className={inputWithIcon} placeholder="Telefone *" /><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                                    <div className="relative"><input type="email" value={emailCompany} onChange={(e) => setEmailCompany(e.target.value)} required className={inputWithIcon} placeholder="email@empresa.com *" /><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                                    <div className="relative"><input type="text" value={address} onChange={(e) => setAddress(e.target.value)} required className={inputWithIcon} placeholder="Rua, Bairro *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                                    <div className="grid grid-cols-2 gap-[5px]">
+                                        <div className="relative"><input type="text" value={city} onChange={(e) => setCity(e.target.value)} required className={inputWithIcon} placeholder="Cidade *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                                        <div className="relative"><input type="text" value={province} onChange={(e) => setProvince(e.target.value)} required className={inputWithIcon} placeholder="Província *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                                    </div>
+                                    <div className="relative group">
+                                        <input type={showPassword? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required className={`${inputWithIcon} pr-10`} placeholder="Crie uma palavra-passe forte *" />
+                                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100 text-[11px] text-gray-500">{showPassword? "Ocultar" : "Ver"}</button>
+                                    </div>
+                                </form>
+                            </>
+                        )}
+                    </div>
                 </div>
-                <div className="bg-white border-t border-gray-100 p-4 px-6">
+
+                {/* FOOTER FIXO */}
+                <div className="shrink-0 bg-white border-t border-gray-100 p-4 px-6">
                     {nifValidated? (
                         <button form="form-register" type="submit" disabled={loading} onClick={handleRegister} className="w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-50 transition">
                             {loading? <Loader2 className="w-5 h-5 animate-spin" /> : <><span>Registrar Empresa</span> <ArrowRight className="w-5 h-5" /></>}

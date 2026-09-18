@@ -1,359 +1,233 @@
-import { useState, useRef, ChangeEvent, useEffect } from 'react'
-import { X, Check, Package, Settings, Info, Upload, ChevronDown } from 'lucide-react'
-import { api } from '../../../../lib/api'
+import { useState } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
+import { Mail, Lock, Phone, MapPin, FileText, ArrowRight, ShieldCheck, Loader2, CheckCircle, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 
-interface Produto {
-    id?: string
-    nome: string
-    codigo: string
-    codigo_barras?: string | null
-    codigo_qr?: string | null
-    descricao?: string | null
-    categoria?: string | null
-    imagem_url?: string | null
-    preco_custo?: number | string | null
-    preco_venda: number | string
-    iva?: number
-    tem_iva?: boolean
-    tipo?: string
-    stock_atual?: number
-    stock_minimo?: number
-    controlar_stock?: boolean
-    unidade?: string
-    peso?: number | null
-    ativo?: boolean
+const API_URL = "https://faturaxpress-backend.onrender.com/api"
+
+async function validarDiretoNoNavegador(nif: string): Promise<{ nome_agt: string, tipo?: string, estado?: string, inadimplente?: string, regime_iva?: string, residente_fiscal?: string }> {
+    const clean = nif.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+    const URL = 'https://portaldocontribuinte.minfin.gov.ao/consultar-nif-do-contribuinte'
+    const getRes = await fetch(URL, { method: 'GET', credentials: 'include' })
+    const getText = await getRes.text()
+    const vsMatch = getText.match(/name="javax\.faces\.ViewState"[^>]*value="([^"]+)"/)
+    const viewState = vsMatch? vsMatch[1] : ''
+    const form = new URLSearchParams()
+    form.append('javax.faces.partial.ajax', 'true')
+    form.append('javax.faces.source', 'j_id_2x:j_id_34')
+    form.append('javax.faces.partial.execute', 'j_id_2x')
+    form.append('javax.faces.partial.render', 'showpanelNIF')
+    form.append('j_id_2x:j_id_34', 'j_id_2x:j_id_34')
+    form.append('j_id_2x', 'j_id_2x')
+    form.append('j_id_2x:txtNIFNumber', clean)
+    form.append('j_id_2x_SUBMIT', '1')
+    form.append('javax.faces.ViewState', viewState)
+    const postRes = await fetch(URL, { method: 'POST', body: form, headers: { 'Faces-Request': 'partial/ajax', 'X-Requested-With': 'XMLHttpRequest' } })
+    const postText = await postRes.text()
+    const cdataMatch = postText.match(/<update id="showpanelNIF"><!\[CDATA\[(.*?)\]\]><\/update>/s)
+    const html = cdataMatch? cdataMatch[1] : postText
+    if (!html.includes('taxPayerNidId') &&!html.includes('taxpayer')) throw new Error('NIF não encontrado na AGT')
+    const extract = (label: string) => {
+        const m = html.match(new RegExp(`${label}:\\s*<\\/label>\\s*<div[^>]*>\\s*<label[^>]*>([^<]+)<\\/label>`, 'i'))
+        return m? m[1].trim() : undefined
+    }
+    const nome = extract('Nome')
+    if (!nome) throw new Error('NIF não encontrado na AGT')
+    return {
+        nome_agt: nome.toUpperCase(),
+        tipo: extract('Tipo'),
+        estado: extract('Estado'),
+        inadimplente: extract('Inadimplente'),
+        regime_iva: extract('Regime de IVA'),
+        residente_fiscal: html.toLowerCase().includes('residente fiscal')? 'Sim' : undefined
+    }
 }
 
-interface Props {
-    open: boolean
-    produto?: Produto | null
-    onClose: () => void
-    onSuccess: () => void
-}
-
-const UNIDADES = ['UN', 'KG', 'L', 'M', 'CX', 'PCT', 'PAR', 'DZ']
-const TIPOS = [
-    { value: 'produto', label: 'Produto' },
-    { value: 'servico', label: 'Serviço' },
-    { value: 'kit', label: 'Kit' }
-]
-
-type Tab = 'obrigatorio' | 'opcional' | 'estoque'
-
-function generateBarCode() {
-    const base = `560${Date.now().toString().slice(-7)}${Math.floor(Math.random()*90+10)}`
-    return base.slice(0,13)
-}
-function generateQRCode(codigo: string) {
-    return `QR-${codigo || Date.now()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`
-}
-
-// Limpa 75.000,50 -> 75000.50
-function parseAO(value: any): number {
-    if (value === null || value === undefined || value === '') return 0
-    const str = String(value).trim()
-    if (!str) return 0
-    // remove pontos de milhar e troca virgula por ponto
-    const cleaned = str.replace(/\./g, '').replace(',', '.')
-    const n = parseFloat(cleaned)
-    return isNaN(n)? 0 : n
-}
-
-function CustomSelect({ value, options, onChange, placeholder }: { value: string, options: { value: string, label: string }[], onChange: (v: string) => void, placeholder: string }) {
-    const [open, setOpen] = useState(false)
-    const ref = useRef<HTMLDivElement>(null)
-    useEffect(() => {
-        const h = (e: MouseEvent) => { if (ref.current &&!ref.current.contains(e.target as Node)) setOpen(false) }
-        document.addEventListener('mousedown', h)
-        return () => document.removeEventListener('mousedown', h)
-    }, [])
-    const selected = options.find(o => o.value === value)
-    return (
-        <div ref={ref} className="relative w-full">
-            <button type="button" onClick={() => setOpen(!open)} className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-2 text-[13.5px] text-black flex items-center justify-between focus:outline-none focus:border-[#0095ff]">
-                <span className={selected? 'text-black' : 'text-black/60'}>{selected? selected.label : placeholder}</span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open? 'rotate-180' : ''}`} />
-            </button>
-            {open && (
-                <div className="absolute z-50 top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5">
-                    {options.map(o => (
-                        <button key={o.value} type="button" onClick={() => { onChange(o.value); setOpen(false) }} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[13px] flex items-center justify-between transition ${value === o.value? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-50 text-gray-700'}`}>
-                            {o.label} {value === o.value && <Check className="w-4 h-4 text-[#0095ff]" />}
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
-    )
-}
-
-export default function ProdutoModal({ open, produto, onClose, onSuccess }: Props) {
-    const [tab, setTab] = useState<Tab>('obrigatorio')
+export default function Register() {
     const [loading, setLoading] = useState(false)
-    const fileInputRef = useRef<HTMLInputElement>(null)
-    const isEditing =!!produto?.id
+    const [showPassword, setShowPassword] = useState(false)
+    const navigate = useNavigate()
+    const [nifValidated, setNifValidated] = useState(false)
+    const [validatingNif, setValidatingNif] = useState(false)
+    const [agtData, setAgtData] = useState<{ nome: string, tipo?: string, estado?: string, inadimplente?: string, regime_iva?: string, residente_fiscal?: string, source?: string } | null>(null)
+    const [nif, setNif] = useState('')
+    const [emailCompany, setEmailCompany] = useState('')
+    const [phone, setPhone] = useState('')
+    const [address, setAddress] = useState('')
+    const [city, setCity] = useState('')
+    const [province, setProvince] = useState('')
+    const [password, setPassword] = useState('')
 
-    const [form, setForm] = useState({
-        nome: '', codigo: '', preco_venda: '', tipo: 'produto',
-        useImagem: false, imagem_file: null as File | null, imagem_preview: '',
-        codigo_barras: '', codigo_qr: '',
-        useDescricao: false, descricao: '',
-        useCategoria: false, categoria: '',
-        usePeso: false, peso: '',
-        preco_custo: '0', iva: '14', useIva: true, unidade: 'UN', ativo: true,
-        controlar_stock: true, stock_minimo: '0'
-    })
-
-    useEffect(() => {
-        if (!open) return
-        if (produto) {
-            if (form.imagem_preview && form.imagem_file) URL.revokeObjectURL(form.imagem_preview)
-            setForm({
-                nome: produto.nome || '',
-                codigo: produto.codigo || '',
-                preco_venda: String(produto.preco_venda?? ''),
-                tipo: produto.tipo || 'produto',
-                useImagem:!!produto.imagem_url,
-                imagem_file: null,
-                imagem_preview: produto.imagem_url || '',
-                codigo_barras: produto.codigo_barras || generateBarCode(),
-                codigo_qr: produto.codigo_qr || generateQRCode(produto.codigo),
-                useDescricao:!!produto.descricao,
-                descricao: produto.descricao || '',
-                useCategoria:!!produto.categoria,
-                categoria: produto.categoria || '',
-                usePeso:!!produto.peso,
-                peso: String(produto.peso?? ''),
-                preco_custo: String(produto.preco_custo?? '0'),
-                iva: String(produto.iva?? '14'),
-                useIva: produto.tem_iva?? true,
-                unidade: produto.unidade || 'UN',
-                ativo: produto.ativo?? true,
-                controlar_stock: produto.controlar_stock?? true,
-                stock_minimo: String(produto.stock_minimo?? '0')
+    const handleValidarNif = async () => {
+        const nifClean = nif.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+        if (!nifClean || nifClean.length < 9) {
+            toast.error("Digite NIF ex: 5002063956", { position: 'top-center' })
+            return
+        }
+        setValidatingNif(true)
+        try {
+            const res = await fetch(`${API_URL}/auth/validar-nif`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nif: nifClean })
             })
-            setTab('obrigatorio')
-        } else {
-            resetForm()
-        }
-    }, [produto, open])
-
-    useEffect(() => {
-        return () => {
-            if (form.imagem_preview && form.imagem_file) URL.revokeObjectURL(form.imagem_preview)
-        }
-    }, [])
-
-    const handleImagemChange = (e: ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file) return
-        if (form.imagem_preview && form.imagem_file) URL.revokeObjectURL(form.imagem_preview)
-        setForm({...form, imagem_file: file, imagem_preview: URL.createObjectURL(file), useImagem: true })
+            const data = await res.json()
+            if (res.ok && data.valid && data.nome_agt) {
+                setAgtData({ nome: data.nome_agt, tipo: data.tipo, estado: data.estado, inadimplente: data.inadimplente, regime_iva: data.regime_iva, residente_fiscal: data.residente_fiscal, source: data.source })
+                setNifValidated(true)
+                toast.success(`NIF validado: ${data.nome_agt}`, { position: 'top-center' })
+                return
+            }
+            if (data.estado === "AGT_Offline") {
+                toast.loading("AGT offline no servidor, tentando validar no seu navegador...", { position: 'top-center' })
+                try {
+                    const direto = await validarDiretoNoNavegador(nifClean)
+                    setAgtData({ nome: direto.nome_agt, tipo: direto.tipo, estado: direto.estado || "Activo", inadimplente: direto.inadimplente, regime_iva: direto.regime_iva, residente_fiscal: direto.residente_fiscal, source: "browser" })
+                    setNifValidated(true)
+                    toast.dismiss()
+                    toast.success(`Nif validado.Activo - ${direto.nome_agt}`, { position: 'top-center' })
+                    return
+                } catch (e: any) {
+                    toast.dismiss()
+                    throw e
+                }
+            }
+            if (!res.ok) throw new Error(data.detail || "NIF inválido ou não encontrado na AGT")
+        } catch (err: any) {
+            toast.error(err.message || "NIF não encontrado na AGT", { position: 'top-center' })
+            setNifValidated(false)
+            setAgtData(null)
+        } finally { setValidatingNif(false) }
     }
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!nifValidated ||!agtData) {
+            toast.error("Valide o NIF na AGT primeiro", { position: 'top-center' })
+            return
+        }
         setLoading(true)
         try {
-            const finalBarCode = form.codigo_barras || generateBarCode()
-            const finalQR = form.codigo_qr || generateQRCode(form.codigo)
-
-            if (isEditing) {
-                // SEMPRE FormData no editar para bater com backend Form(...)
-                const fd = new FormData()
-                fd.append('nome', form.nome)
-                fd.append('codigo', form.codigo)
-                fd.append('preco_venda', String(parseAO(form.preco_venda)))
-                fd.append('tipo', form.tipo)
-                fd.append('unidade', form.unidade)
-                fd.append('ativo', String(form.ativo))
-                fd.append('controlar_stock', String(form.controlar_stock))
-                fd.append('stock_minimo', String(parseAO(form.stock_minimo)))
-                fd.append('preco_custo', String(parseAO(form.preco_custo)))
-                fd.append('iva', form.useIva? String(parseAO(form.iva)) : '0')
-                fd.append('tem_iva', String(form.useIva))
-                fd.append('codigo_barras', finalBarCode)
-                fd.append('codigo_qr', finalQR)
-                if (form.useCategoria && form.categoria) fd.append('categoria', form.categoria)
-                if (form.useDescricao && form.descricao) fd.append('descricao', form.descricao)
-                if (form.usePeso && form.peso) fd.append('peso', String(parseAO(form.peso)))
-                if (form.imagem_file) fd.append('imagem', form.imagem_file)
-
-                await api.put(`/api/produtos/${produto!.id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-                toast.success('Produto atualizado!')
-            } else {
-                const formData = new FormData()
-                formData.append('nome', form.nome);
-                formData.append('codigo', form.codigo)
-                formData.append('preco_venda', String(parseAO(form.preco_venda) || 0));
-                formData.append('tipo', form.tipo)
-                formData.append('unidade', form.unidade);
-                formData.append('ativo', String(form.ativo))
-                formData.append('controlar_stock', String(form.controlar_stock));
-                formData.append('stock_atual', '0')
-                formData.append('stock_minimo', String(parseAO(form.stock_minimo) || 0));
-                formData.append('preco_custo', String(parseAO(form.preco_custo) || 0))
-                formData.append('codigo_barras', finalBarCode);
-                formData.append('codigo_qr', finalQR)
-                if (form.useDescricao && form.descricao) formData.append('descricao', form.descricao)
-                if (form.useCategoria && form.categoria) formData.append('categoria', form.categoria)
-                if (form.usePeso && form.peso) formData.append('peso', String(parseAO(form.peso)))
-                formData.append('iva', form.useIva? String(parseAO(form.iva) || 0) : '0');
-                formData.append('tem_iva', String(form.useIva))
-                if (form.useImagem && form.imagem_file) formData.append('imagem', form.imagem_file)
-                await api.post('/api/produtos', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-                toast.success('Produto criado com sucesso!')
-            }
-            onSuccess(); onClose(); if (!isEditing) resetForm()
-        } catch (err: any) {
-            const detail = err.response?.data?.detail
-            let message = 'Erro ao salvar produto'
-            if (Array.isArray(detail)) message = detail.map((e: any) => `${e.loc?.[1] || ''}: ${e.msg}`).join(', ')
-            else if (typeof detail === 'string') message = detail
-            toast.error(message)
-        } finally { setLoading(false) }
+            const res = await fetch(`${API_URL}/auth/register`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    companyName: agtData.nome,
+                    nif,
+                    emailCompany,
+                    phone,
+                    address,
+                    city,
+                    province,
+                    password,
+                    nome_agt_validado: agtData.nome,
+                    tipo_agt: agtData.tipo,
+                    estado_agt: agtData.estado,
+                    inadimplente_agt: agtData.inadimplente,
+                    regime_iva_agt: agtData.regime_iva,
+                    residente_fiscal_agt: agtData.residente_fiscal,
+                    source_agt: agtData.source
+                })
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.detail || "Erro ao registrar")
+            toast.success(data.message, { position: 'top-center' })
+            setTimeout(() => navigate('/login'), 1200)
+        } catch (err: any) { toast.error(err.message, { position: 'top-center' }) }
+        finally { setLoading(false) }
     }
 
-    const resetForm = () => {
-        if (form.imagem_preview && form.imagem_file) URL.revokeObjectURL(form.imagem_preview)
-        setForm({
-            nome: '', codigo: '', preco_venda: '', tipo: 'produto', useImagem: false, imagem_file: null, imagem_preview: '',
-            codigo_barras: generateBarCode(), codigo_qr: generateQRCode(''),
-            useDescricao: false, descricao: '', useCategoria: false, categoria: '',
-            usePeso: false, peso: '', preco_custo: '0', iva: '14', useIva: true, unidade: 'UN', ativo: true, controlar_stock: true, stock_minimo: '0'
-        })
-        setTab('obrigatorio')
-    }
-
-    if (!open) return null
-
-    const inputClass = "w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-2 text-[13.5px] text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition outline-none"
-    const checkBoxCard = "flex items-center gap-2 h-[44px] px-2 border border-gray-200 rounded-[12px] cursor-pointer bg-white hover:bg-gray-50 transition shrink-0 w-full"
-
-    const TabButton = ({ id, label, icon: Icon }: { id: Tab, label: string, icon: any }) => (
-        <button type="button" onClick={() => setTab(id)} className={`flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium rounded-full transition border shrink-0 ${tab === id? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff]' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-            <Icon className="w-4 h-4" /> {label}
-        </button>
-    )
+    const inputClass = "w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black placeholder:text-black/40 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition"
+    const inputWithIcon = `${inputClass} pl-10`
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <div className="relative bg-white rounded-[24px] w-full max-w-[560px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#FFF7ED] shrink-0">
-                    <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center">
-                        <Package className="w-4 h-4 text-[#ff7a00]" />
+        <div className="min-h-screen flex items-center justify-center p-4 bg-[#f6f8fb]">
+            {/* MODAL COM HEIGHT FIXO IGUAL PRODUTO */}
+            <div className="relative w-full max-w-[400px] bg-white rounded-[24px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-gray-100 flex flex-col max-h-[90vh]">
+                {/* HEADER FIXO */}
+                <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF] shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center overflow-hidden">
+                        <img src="/android-chrome-192x192.png" alt="FT-Xpress" className="w-7 h-7 object-contain" />
                     </div>
-                    <button onClick={onClose} className="w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center hover:bg-gray-50">
-                        <X className="w-4 h-4 text-gray-500" />
-                    </button>
+                    <div className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full border shadow-sm ${nifValidated? 'text-green-700 bg-green-50 border-green-300' : 'text-[#0095ff] bg-white border-gray-200'}`}>
+                        {nifValidated? <CheckCircle className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                        {nifValidated? `NIF: ${nif.toUpperCase()}` : "Validação AGT"}
+                    </div>
                 </div>
 
                 <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
-                    <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{isEditing? 'Atualizar Produto' : 'Novo Produto'}</h3>
-                    <div className="flex gap-[2px] mt-4 overflow-x-auto no-scrollbar">
-                        <TabButton id="obrigatorio" label="Obrigatórios" icon={Info} />
-                        <TabButton id="opcional" label="Opcionais" icon={Settings} />
-                        <TabButton id="estoque" label="Estoque" icon={Package} />
+                    <h1 className="text-[18px] font-bold text-gray-900 leading-tight">Registre sua empresa</h1>
+                    <p className="text-[13.5px] text-gray-500 mt-1">{nifValidated? "Complete os dados de contacto" : "Passo 1 - Valide o NIF na AGT"}</p>
+                    {nifValidated && (
+                        <div className="mt-[8px] flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 w-fit">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                            <span className="text-[11px] font-semibold text-amber-700">Nif validado pela AGT</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* BODY COM SCROLL-Y INVISIVEL */}
+                <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-4">
+                    <style>{`
+                     .no-scrollbar::-webkit-scrollbar { display: none; }
+                     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                    `}</style>
+
+                    <div className="flex flex-col gap-[5px]">
+                        {!nifValidated? (
+                            <div className="flex flex-col gap-[5px]">
+                                <div className="relative">
+                                    <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={inputWithIcon} placeholder="NIF 5002063956 *" />
+                                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                </div>
+                                <button type="button" onClick={handleValidarNif} disabled={validatingNif ||!nif} className="w-full h-[44px] rounded-[12px] bg-[#0095ff] text-white font-semibold text-[13.5px] hover:bg-[#0085e6] flex items-center justify-center disabled:opacity-60 transition">
+                                    {validatingNif? <Loader2 className="w-5 h-5 animate-spin" /> : "Consultar NIF"}
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                {agtData && (
+                                    <div className="bg-green-50 border border-green-200 rounded-[12px] p-3.5 text-[12.5px] leading-[1.6]">
+                                        <div><span className="text-green-800/70 font-medium">Nome:</span> <span className="font-bold text-green-900 uppercase">{agtData.nome}</span></div>
+                                        <div><span className="text-green-800/70 font-medium">Tipo:</span> <span className="font-semibold text-green-800">{agtData.tipo || "SINGULAR"}</span></div>
+                                        <div><span className="text-green-800/70 font-medium">Estado:</span> <span className="font-bold text-green-700">{agtData.estado || "Activo"}</span></div>
+                                    </div>
+                                )}
+                                <form id="form-register" onSubmit={handleRegister} className="flex flex-col gap-[5px] mt-[5px]">
+                                    <input type="hidden" value={agtData?.nome || ''} readOnly />
+                                    <input type="hidden" value={agtData?.tipo || ''} readOnly />
+                                    <input type="hidden" value={agtData?.estado || ''} readOnly />
+                                    <input type="hidden" value={agtData?.inadimplente || ''} readOnly />
+                                    <input type="hidden" value={agtData?.regime_iva || ''} readOnly />
+                                    <input type="hidden" value={agtData?.residente_fiscal || ''} readOnly />
+                                    <input type="hidden" value={nif} readOnly />
+
+                                    <div className="relative"><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required className={inputWithIcon} placeholder="Telefone *" /><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                                    <div className="relative"><input type="email" value={emailCompany} onChange={(e) => setEmailCompany(e.target.value)} required className={inputWithIcon} placeholder="email@empresa.com *" /><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                                    <div className="relative"><input type="text" value={address} onChange={(e) => setAddress(e.target.value)} required className={inputWithIcon} placeholder="Rua, Bairro *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                                    <div className="grid grid-cols-2 gap-[5px]">
+                                        <div className="relative"><input type="text" value={city} onChange={(e) => setCity(e.target.value)} required className={inputWithIcon} placeholder="Cidade *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                                        <div className="relative"><input type="text" value={province} onChange={(e) => setProvince(e.target.value)} required className={inputWithIcon} placeholder="Província *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                                    </div>
+                                    <div className="relative group">
+                                        <input type={showPassword? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required className={`${inputWithIcon} pr-10`} placeholder="Crie uma palavra-passe forte *" />
+                                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100 text-[11px] text-gray-500">{showPassword? "Ocultar" : "Ver"}</button>
+                                    </div>
+                                </form>
+                            </>
+                        )}
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-4">
-                    <style>{`
-                      .no-scrollbar::-webkit-scrollbar { display: none; }
-                      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-                    `}</style>
-
-                    {tab === 'obrigatorio' && (
-                        <div className="flex flex-col gap-[2px]">
-                            <div className="grid grid-cols-2 gap-[2px]">
-                                <input required value={form.nome} onChange={(e) => setForm({...form, nome: e.target.value })} placeholder="Nome *" className={inputClass} />
-                                <input required value={form.codigo} onChange={(e) => setForm({...form, codigo: e.target.value })} placeholder="Código *" className={inputClass} />
-                                <input type="text" inputMode="decimal" required value={form.preco_venda} onChange={(e) => setForm({...form, preco_venda: e.target.value })} placeholder="Preço Venda *" className={inputClass} />
-                                <CustomSelect value={form.tipo} onChange={(v) => setForm({...form, tipo: v })} placeholder="Tipo" options={TIPOS} />
-                                <CustomSelect value={form.unidade} onChange={(v) => setForm({...form, unidade: v })} placeholder="Unidade" options={UNIDADES.map(u => ({ value: u, label: u }))} />
-                                <label className={checkBoxCard}>
-                                    <input type="checkbox" checked={form.ativo} onChange={(e) => setForm({...form, ativo: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
-                                    <span className="text-[12px] text-black font-medium">Ativo</span>
-                                </label>
-                            </div>
-
-                            <label className={checkBoxCard}>
-                                <input type="checkbox" checked={form.useImagem} onChange={(e) => setForm({...form, useImagem: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
-                                <span className="text-[12px] text-black font-medium">Adicionar Imagem</span>
-                            </label>
-                            {form.useImagem && (
-                                <div className="border border-gray-200 rounded-[12px] p-3 bg-white mt-[2px]">
-                                    <input type="file" ref={fileInputRef} accept="image/*" onChange={handleImagemChange} className="hidden" />
-                                    {form.imagem_preview? (
-                                        <div className="flex items-center gap-3">
-                                            <img src={form.imagem_preview} alt="Preview" className="w-16 h-16 object-cover rounded-[12px] border" />
-                                            <button type="button" onClick={() => fileInputRef.current?.click()} className="text-[12px] text-[#0095ff] font-medium">Trocar imagem</button>
-                                        </div>
-                                    ) : (
-                                        <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full flex flex-col items-center gap-2 text-gray-500 hover:text-[#0095ff] py-2">
-                                            <Upload className="w-6 h-6" /><span className="text-[12px] text-black">Selecionar imagem</span>
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {tab === 'opcional' && (
-                        <div className="flex flex-col gap-[2px]">
-                            <label className={checkBoxCard}>
-                                <input type="checkbox" checked={form.useDescricao} onChange={(e) => setForm({...form, useDescricao: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
-                                <span className="text-[12px] text-black font-medium">Descrição</span>
-                            </label>
-                            {form.useDescricao && <textarea value={form.descricao} onChange={(e) => setForm({...form, descricao: e.target.value })} rows={3} placeholder="Descrição" className="w-full bg-white border border-gray-200 rounded-[12px] px-2 py-2 text-[13.5px] text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff]" />}
-
-                            <label className={checkBoxCard}>
-                                <input type="checkbox" checked={form.useCategoria} onChange={(e) => setForm({...form, useCategoria: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
-                                <span className="text-[12px] text-black font-medium">Categoria</span>
-                            </label>
-                            {form.useCategoria && <input value={form.categoria} onChange={(e) => setForm({...form, categoria: e.target.value })} placeholder="Categoria - Ex: Bebidas" className={inputClass} />}
-
-                            <label className={checkBoxCard}>
-                                <input type="checkbox" checked={form.usePeso} onChange={(e) => setForm({...form, usePeso: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
-                                <span className="text-[12px] text-black font-medium">Peso</span>
-                            </label>
-                            {form.usePeso && <input type="text" inputMode="decimal" value={form.peso} onChange={(e) => setForm({...form, peso: e.target.value })} placeholder="Peso em KG" className={inputClass} />}
-
-                            <div className="grid grid-cols-2 gap-[2px]">
-                                <input type="text" inputMode="decimal" value={form.preco_custo} onChange={(e) => setForm({...form, preco_custo: e.target.value })} placeholder="Preço Custo" className={inputClass} />
-                                <label className={checkBoxCard}>
-                                    <input type="checkbox" checked={form.useIva} onChange={(e) => setForm({...form, useIva: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
-                                    <span className="text-[12px] text-black font-medium">Aplicar IVA</span>
-                                </label>
-                            </div>
-                            {form.useIva && <input type="text" inputMode="decimal" value={form.iva} onChange={(e) => setForm({...form, iva: e.target.value })} placeholder="IVA %" className={inputClass} />}
-                        </div>
-                    )}
-
-                    {tab === 'estoque' && (
-                        <div className="flex flex-col gap-[2px]">
-                            <label className={checkBoxCard}>
-                                <input type="checkbox" checked={form.controlar_stock} onChange={(e) => setForm({...form, controlar_stock: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
-                                <span className="text-[12px] text-black font-medium">Controlar Estoque</span>
-                            </label>
-                            {form.controlar_stock? (
-                                <input type="text" inputMode="decimal" value={form.stock_minimo} onChange={(e) => setForm({...form, stock_minimo: e.target.value })} placeholder="Estoque Mínimo" className={inputClass} />
-                            ) : (
-                                <p className="text-[12px] text-gray-500 bg-gray-50 p-3 rounded-[12px] border border-gray-200">Para serviços ou produtos sem controle de estoque.</p>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                <div className="shrink-0 px-6 py-4 border-t border-gray-100 bg-white flex gap-[2px]">
-                    <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition">
-                        <X className="w-5 h-5 text-gray-600" />
-                    </button>
-                    <button type="submit" disabled={loading} onClick={handleSubmit as any} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50 transition">
-                        {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
-                    </button>
+                {/* FOOTER FIXO */}
+                <div className="shrink-0 bg-white border-t border-gray-100 p-4 px-6">
+                    {nifValidated? (
+                        <button form="form-register" type="submit" disabled={loading} onClick={handleRegister} className="w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-50 transition">
+                            {loading? <Loader2 className="w-5 h-5 animate-spin" /> : <><span>Registrar Empresa</span> <ArrowRight className="w-5 h-5" /></>}
+                        </button>
+                    ) : null}
+                    <p className="text-center text-[13px] text-gray-600 mt-4">Já tem conta? <Link to="/login" className="text-[#0095ff] font-semibold hover:underline">Fazer login</Link></p>
                 </div>
             </div>
         </div>

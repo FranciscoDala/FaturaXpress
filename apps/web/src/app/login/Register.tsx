@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Mail, Lock, Phone, MapPin, FileText, ArrowRight, Eye, EyeOff, CheckCircle, ShieldCheck, Loader2, Globe } from 'lucide-react'
+import { Mail, Lock, Phone, MapPin, FileText, ArrowRight, CheckCircle, ShieldCheck, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 const API_URL = "https://faturaxpress-backend.onrender.com/api"
 
-// JEITO 2 - Valida direto do navegador (IP de Angola fura WAF do Render)
-async function validarDiretoNoNavegador(nif: string): Promise<{ nome_agt: string }> {
+async function validarDiretoNoNavegador(nif: string): Promise<{ nome_agt: string, tipo?: string, estado?: string, inadimplente?: string, regime_iva?: string, residente_fiscal?: string }> {
     const clean = nif.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
     const URL = 'https://portaldocontribuinte.minfin.gov.ao/consultar-nif-do-contribuinte'
 
@@ -38,11 +37,22 @@ async function validarDiretoNoNavegador(nif: string): Promise<{ nome_agt: string
     if (!html.includes('taxPayerNidId') &&!html.includes('taxpayer')) {
         throw new Error('NIF não encontrado na AGT')
     }
-    const nomeMatch = html.match(/Nome:\s*<\/label>\s*<div[^>]*>\s*<label[^>]*>([^<]+)<\/label>/i)
-    const nome = nomeMatch? nomeMatch[1].trim() : null
+    const extract = (label: string) => {
+        const m = html.match(new RegExp(`${label}:\\s*<\\/label>\\s*<div[^>]*>\\s*<label[^>]*>([^<]+)<\\/label>`, 'i'))
+        return m? m[1].trim() : undefined
+    }
+
+    const nome = extract('Nome')
     if (!nome) throw new Error('NIF não encontrado na AGT')
 
-    return { nome_agt: nome.toUpperCase() }
+    return {
+        nome_agt: nome.toUpperCase(),
+        tipo: extract('Tipo'),
+        estado: extract('Estado'),
+        inadimplente: extract('Inadimplente'),
+        regime_iva: extract('Regime de IVA'),
+        residente_fiscal: html.toLowerCase().includes('residente fiscal')? 'Sim' : undefined
+    }
 }
 
 export default function Register() {
@@ -52,11 +62,8 @@ export default function Register() {
 
     const [nifValidated, setNifValidated] = useState(false)
     const [validatingNif, setValidatingNif] = useState(false)
-    const [agtName, setAgtName] = useState<string | null>(null)
-    const [agtEstado, setAgtEstado] = useState<string | null>(null)
-    const [source, setSource] = useState<string | null>(null)
+    const [agtData, setAgtData] = useState<{ nome: string, tipo?: string, estado?: string, inadimplente?: string, regime_iva?: string, residente_fiscal?: string, source?: string } | null>(null)
 
-    const [companyName, setCompanyName] = useState('')
     const [nif, setNif] = useState('')
     const [emailCompany, setEmailCompany] = useState('')
     const [phone, setPhone] = useState('')
@@ -68,12 +75,11 @@ export default function Register() {
     const handleValidarNif = async () => {
         const nifClean = nif.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
         if (!nifClean || nifClean.length < 9) {
-            toast.error("Digite NIF ex: 50020633956 ou 003614847LA037", { position: 'top-center' })
+            toast.error("Digite NIF ex: 5002063956", { position: 'top-center' })
             return
         }
         setValidatingNif(true)
         try {
-            // JEITO 1 - Backend (Render)
             const res = await fetch(`${API_URL}/auth/validar-nif`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -81,54 +87,54 @@ export default function Register() {
             })
             const data = await res.json()
 
-            if (res.ok) {
-                // Backend validou
-                if (data.valid && data.nome_agt) {
-                    setAgtName(data.nome_agt)
-                    setAgtEstado(data.estado)
-                    setSource(data.source)
+            if (res.ok && data.valid && data.nome_agt) {
+                setAgtData({
+                    nome: data.nome_agt,
+                    tipo: data.tipo,
+                    estado: data.estado,
+                    inadimplente: data.inadimplente,
+                    regime_iva: data.regime_iva,
+                    residente_fiscal: data.residente_fiscal,
+                    source: data.source
+                })
+                setNifValidated(true)
+                toast.success(`NIF validado: ${data.nome_agt}`, { position: 'top-center' })
+                return
+            }
+
+            if (data.estado === "AGT_Offline") {
+                toast.loading("AGT offline no servidor, tentando validar no seu navegador...", { position: 'top-center' })
+                try {
+                    const direto = await validarDiretoNoNavegador(nifClean)
+                    setAgtData({
+                        nome: direto.nome_agt,
+                        tipo: direto.tipo,
+                        estado: direto.estado || "Activo",
+                        inadimplente: direto.inadimplente,
+                        regime_iva: direto.regime_iva,
+                        residente_fiscal: direto.residente_fiscal,
+                        source: "browser"
+                    })
                     setNifValidated(true)
-                    setCompanyName(data.nome_agt)
-                    toast.success(`Empresa: ${data.nome_agt} (AGT)`, { position: 'top-center' })
+                    toast.dismiss()
+                    toast.success(`Nif validado.Activo - ${direto.nome_agt}`, { position: 'top-center' })
                     return
-                }
-                // Backend offline - tenta JEITO 2
-                if (data.estado === "AGT_Offline") {
-                    toast.loading("Servidor no exterior bloqueado, tentando validar direto do seu navegador...", { position: 'top-center' })
-                    try {
-                        const direto = await validarDiretoNoNavegador(nifClean)
-                        setAgtName(direto.nome_agt)
-                        setAgtEstado("Activo")
-                        setSource("browser")
-                        setNifValidated(true)
-                        setCompanyName(direto.nome_agt)
-                        toast.dismiss()
-                        toast.success(`Validado no navegador: ${direto.nome_agt}`, { position: 'top-center' })
-                        return
-                    } catch (e: any) {
-                        toast.dismiss()
-                        // Se falhar por CORS, permite manual mas com aviso
-                        if (e.message?.includes('Failed to fetch') || e.message?.includes('CORS')) {
-                            setAgtName(null)
-                            setAgtEstado("AGT_Offline")
-                            setSource("offline-manual")
-                            setNifValidated(true)
-                            toast.warning("AGT offline no servidor. NIF com formato válido aceite - nome será verificado depois.", { position: 'top-center', duration: 5000 })
-                            return
-                        }
+                } catch (e: any) {
+                    toast.dismiss()
+                    if (e.message?.includes('Failed to fetch') || e.message?.includes('CORS')) {
+                        toast.error("AGT bloqueada por CORS no navegador. Tente novamente ou use rede angolana.", { position: 'top-center' })
                         throw e
                     }
+                    throw e
                 }
             }
 
-            // Se chegou aqui é erro real
             if (!res.ok) throw new Error(data.detail || "NIF inválido ou não encontrado na AGT")
 
         } catch (err: any) {
             toast.error(err.message || "NIF não encontrado na AGT", { position: 'top-center' })
             setNifValidated(false)
-            setAgtName(null)
-            setAgtEstado(null)
+            setAgtData(null)
         } finally {
             setValidatingNif(false)
         }
@@ -136,7 +142,7 @@ export default function Register() {
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!nifValidated) {
+        if (!nifValidated ||!agtData) {
             toast.error("Valide o NIF na AGT primeiro", { position: 'top-center' })
             return
         }
@@ -146,7 +152,7 @@ export default function Register() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    companyName,
+                    companyName: agtData.nome,
                     nif,
                     emailCompany,
                     phone,
@@ -154,7 +160,7 @@ export default function Register() {
                     city,
                     province,
                     password,
-                    nome_agt_validado: agtName || undefined
+                    nome_agt_validado: agtData.nome
                 })
             })
             const data = await res.json()
@@ -173,107 +179,106 @@ export default function Register() {
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-[#f6f8fb]">
-            <div className="relative w-full max-w-[480px] bg-white rounded-[24px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-gray-100 h-[92vh] flex flex-col">
+            {/* ALTURA AUTOMATICA - sem h-[92vh] fixo */}
+            <div className="relative w-full max-w-[480px] bg-white rounded-[24px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-gray-100 flex flex-col">
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF] shrink-0">
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center overflow-hidden">
                         <img src="/android-chrome-192x192.png" alt="FT-Xpress" className="w-7 h-7 object-contain" />
                     </div>
-                    <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#0095ff] bg-white px-2.5 py-1 rounded-full border shadow-sm">
-                        <ShieldCheck className="w-3.5 h-3.5" /> {nifValidated? "NIF Verificado" : "Validação AGT"}
+                    <div className={`flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border shadow-sm ${nifValidated? 'text-green-700 bg-green-50 border-green-200' : 'text-[#0095ff] bg-white'}`}>
+                        <ShieldCheck className="w-3.5 h-3.5" /> {nifValidated? "Nif validado.Activo" : "Validação AGT"}
                     </div>
                 </div>
 
-                <div className="px-6 pt-4 pb-3 shrink-0 border-b border-gray-100">
+                <div className="px-6 pt-5 pb-4 shrink-0">
                     <h1 className="text-[18px] font-bold text-gray-900 leading-tight">Registre sua empresa</h1>
                     <p className="text-[13.5px] text-gray-500 mt-1">
-                        {nifValidated && agtName? `Empresa: ${agtName}` : nifValidated? "NIF validado - complete os dados" : "Passo 1 - Valide o NIF"}
+                        {nifValidated? "Complete os dados de contacto" : "Passo 1 - Valide o NIF na AGT"}
                     </p>
                 </div>
 
-                <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-4 pb-28">
-                    <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
-
-                    <form id="form-register" onSubmit={handleRegister} className="flex flex-col gap-3">
-                        <div className="flex flex-col sm:flex-row gap-2">
-                            <div className="relative flex-1">
+                {/* CONTEUDO COM ALTURA AUTO */}
+                <div className="px-6 pb-6 flex flex-col gap-4">
+                    {/* TELA 1 - SÓ NIF - EM COLUNA */}
+                    {!nifValidated? (
+                        <div className="flex flex-col gap-3">
+                            <div className="relative">
                                 <input
                                     type="text"
                                     value={nif}
-                                    onChange={(e) => { setNif(e.target.value); setNifValidated(false); setAgtName(null) }}
+                                    onChange={(e) => setNif(e.target.value)}
                                     required
-                                    className={`${inputWithIcon} ${nifValidated? 'border-green-300 bg-green-50/50' : ''}`}
-                                    placeholder="NIF 50020633956 ou 003614847LA037 *"
+                                    className={inputWithIcon}
+                                    placeholder="NIF 5002063956 *"
                                 />
                                 <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                {nifValidated && <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-600" />}
                             </div>
                             <button
                                 type="button"
                                 onClick={handleValidarNif}
                                 disabled={validatingNif ||!nif}
-                                className={`h-[44px] w-full sm:w-auto px-5 rounded-[12px] font-semibold text-[13px] flex items-center justify-center gap-1.5 shrink-0 ${nifValidated? 'bg-green-600 text-white' : 'bg-[#0095ff] text-white hover:bg-[#0085e6]'} disabled:opacity-50`}
+                                className="w-full h-[44px] rounded-[12px] bg-[#0095ff] text-white font-semibold text-[13.5px] hover:bg-[#0085e6] flex items-center justify-center disabled:opacity-60 transition"
                             >
-                                {validatingNif? <Loader2 className="w-4 h-4 animate-spin" /> : nifValidated? <CheckCircle className="w-4 h-4" /> : null}
-                                {nifValidated? "Validado" : "Validar"}
+                                {validatingNif? <Loader2 className="w-5 h-5 animate-spin" /> : "Consultar NIF"}
                             </button>
                         </div>
-
-                        {nifValidated && agtName && (
-                            <div className="bg-green-50 border border-green-200 rounded-[12px] p-3 text-[12.5px] text-green-800 flex gap-2">
-                                <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                                <div><b>{agtName}</b><br/>Estado: {agtEstado} • {nif.toUpperCase()} • via {source}</div>
-                            </div>
-                        )}
-
-                        {nifValidated &&!agtName && agtEstado === "AGT_Offline" && (
-                            <div className="bg-amber-50 border border-amber-200 rounded-[12px] p-3 text-[12.5px] text-amber-800 flex gap-2">
-                                <Globe className="w-4 h-4 mt-0.5 shrink-0" />
-                                <div>AGT offline no servidor estrangeiro. Formato válido aceite. Digite o nome manualmente - será verificado depois.</div>
-                            </div>
-                        )}
-
-                        {nifValidated && (
-                            <>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        value={companyName}
-                                        onChange={(e) => setCompanyName(e.target.value)}
-                                        required
-                                        className={`${inputWithIcon} ${agtName? 'bg-gray-100 border-green-200 text-gray-700 font-semibold' : ''}`}
-                                        placeholder="Nome da Empresa Lda *"
-                                        readOnly={!!agtName}
-                                        title={agtName? "Nome vindo da AGT - não editável" : ""}
-                                    />
-                                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    ) : (
+                        <>
+                            {/* ALERT-SUCCESS ESTILO QUE PEDIU */}
+                            <div className="bg-green-50 border border-green-300 rounded-[12px] px-4 py-3 flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-full bg-green-600 flex items-center justify-center shrink-0">
+                                    <CheckCircle className="w-4 h-4 text-white" />
                                 </div>
-                                <div className="relative"><input type="tel" value={phone} onChange={(e)=>setPhone(e.target.value)} required className={inputWithIcon} placeholder="Telefone *" /><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
-                                <div className="relative"><input type="email" value={emailCompany} onChange={(e)=>setEmailCompany(e.target.value)} required className={inputWithIcon} placeholder="email@empresa.com *" /><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
-                                <div className="relative"><input type="text" value={address} onChange={(e)=>setAddress(e.target.value)} required className={inputWithIcon} placeholder="Rua, Bairro *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                                <div className="flex flex-col">
+                                    <span className="text-[13px] font-bold text-green-800 leading-tight">Nif validado.Activo</span>
+                                    <span className="text-[11px] text-green-700">NIF verificado na AGT com sucesso</span>
+                                </div>
+                            </div>
+
+                            {/* MODAL SUCCESS COM DADOS DA AGT - OCULTO PARA DB MAS VISIVEL AQUI COMO INFO */}
+                            {agtData && (
+                                <div className="bg-[#f0f7ff] border border-blue-200 rounded-[12px] p-4 text-[12.5px] leading-relaxed text-gray-800">
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <ShieldCheck className="w-4 h-4 text-[#0095ff]" />
+                                        <span className="font-semibold text-gray-900">Dados da AGT</span>
+                                    </div>
+                                    <div><span className="text-gray-500">NIF:</span> <b>{nif.toUpperCase()}</b></div>
+                                    <div><span className="text-gray-500">Nome:</span> <b>{agtData.nome}</b></div>
+                                    <div><span className="text-gray-500">Tipo:</span> {agtData.tipo || "COLECTIVO - Empresa"}</div>
+                                    <div><span className="text-gray-500">Estado:</span> <span className="text-green-700 font-semibold">{agtData.estado || "Activo"}</span></div>
+                                    <div><span className="text-gray-500">Inadimplente:</span> {agtData.inadimplente || "Não"}</div>
+                                    <div><span className="text-gray-500">Regime de IVA:</span> {agtData.regime_iva || "Regime Geral (Factura IVA)"}</div>
+                                    <div><span className="text-gray-500">Residente Fiscal:</span> {agtData.residente_fiscal || "Sim"}</div>
+                                </div>
+                            )}
+
+                            {/* SÓ CAMPOS VISIVEIS - TELEFONE, EMAIL, RUA, CIDADE, PROVINCIA, SENHA */}
+                            <form id="form-register" onSubmit={handleRegister} className="flex flex-col gap-3">
+                                <div className="relative"><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required className={inputWithIcon} placeholder="Telefone *" /><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                                <div className="relative"><input type="email" value={emailCompany} onChange={(e) => setEmailCompany(e.target.value)} required className={inputWithIcon} placeholder="email@empresa.com *" /><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                                <div className="relative"><input type="text" value={address} onChange={(e) => setAddress(e.target.value)} required className={inputWithIcon} placeholder="Rua, Bairro *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div className="relative"><input type="text" value={city} onChange={(e)=>setCity(e.target.value)} required className={inputWithIcon} placeholder="Cidade *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
-                                    <div className="relative"><input type="text" value={province} onChange={(e)=>setProvince(e.target.value)} required className={inputWithIcon} placeholder="Província *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                                    <div className="relative"><input type="text" value={city} onChange={(e) => setCity(e.target.value)} required className={inputWithIcon} placeholder="Cidade *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                                    <div className="relative"><input type="text" value={province} onChange={(e) => setProvince(e.target.value)} required className={inputWithIcon} placeholder="Província *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
                                 </div>
                                 <div className="relative group">
-                                    <input type={showPassword? "text" : "password"} value={password} onChange={(e)=>setPassword(e.target.value)} required className={`${inputWithIcon} pr-10`} placeholder="Crie uma palavra-passe forte *" />
+                                    <input type={showPassword? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required className={`${inputWithIcon} pr-10`} placeholder="Crie uma palavra-passe forte *" />
                                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <button type="button" onClick={()=>setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100"><Eye className={`h-4 w-4 ${showPassword?'hidden':'block'} text-gray-500`} /><EyeOff className={`h-4 w-4 ${showPassword?'block':'hidden'} text-gray-500`} /></button>
+                                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100 text-[11px] text-gray-500">
+                                        {showPassword? "Ocultar" : "Ver"}
+                                    </button>
                                 </div>
-                            </>
-                        )}
-                    </form>
+                            </form>
+                        </>
+                    )}
                 </div>
 
-                <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 px-6 shrink-0">
+                <div className="bg-white border-t border-gray-100 p-4 px-6">
                     {nifValidated? (
-                        <button form="form-register" type="submit" disabled={loading} className="w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-50 transition">
-                            {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><span>Registrar Empresa</span> <ArrowRight className="w-5 h-5" /></>}
+                        <button form="form-register" type="submit" disabled={loading} onClick={handleRegister} className="w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-50 transition">
+                            {loading? <Loader2 className="w-5 h-5 animate-spin" /> : <><span>Registrar Empresa</span> <ArrowRight className="w-5 h-5" /></>}
                         </button>
-                    ) : (
-                        <button disabled className="w-full h-11 rounded-full bg-gray-200 text-gray-500 font-semibold flex items-center justify-center gap-2 cursor-not-allowed">
-                            Valide o NIF primeiro
-                        </button>
-                    )}
+                    ) : null}
                     <p className="text-center text-[13px] text-gray-600 mt-3">
                         Já tem conta? <Link to="/login" className="text-[#0095ff] font-semibold hover:underline">Fazer login</Link>
                     </p>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { FileText, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react'
+import { FileText, Lock, ArrowRight, Eye, EyeOff, AlertTriangle, ShieldAlert } from 'lucide-react'
 import { toast } from 'sonner'
 
 const API_URL = "https://faturaxpress-backend.onrender.com/api"
@@ -10,26 +10,48 @@ export default function LoginPage() {
     const [password, setPassword] = useState('')
     const [showPassword, setShowPassword] = useState(false)
     const [loading, setLoading] = useState(false)
+    const [agtBlock, setAgtBlock] = useState<string | null>(null)
     const navigate = useNavigate()
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
+        setAgtBlock(null)
         try {
+            // limpa NIF igual backend
+            const nifLimpo = nif.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+
             const res = await fetch(`${API_URL}/auth/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ nif, password })
+                body: JSON.stringify({ nif: nifLimpo, password })
             })
             const data = await res.json()
-            if (!res.ok) throw new Error(data.detail || "Credenciais inválidas")
+
+            if (!res.ok) {
+                // NOVO: trata bloqueio da AGT 403
+                if (res.status === 403) {
+                    setAgtBlock(data.detail || "NIF Inactivo na AGT")
+                    throw new Error(data.detail)
+                }
+                if (res.status === 429) {
+                    throw new Error(data.detail || "Muitas tentativas, aguarde")
+                }
+                throw new Error(data.detail || "Credenciais inválidas")
+            }
+
             localStorage.setItem("access_token", data.access_token)
             localStorage.setItem("company_id", data.company_id)
             localStorage.setItem("company_name", data.company_name)
             toast.success("Login realizado com sucesso!", { position: 'top-center' })
             setTimeout(() => navigate('/app/dashboard'), 500)
         } catch (err: any) {
-            toast.error(err.message, { position: 'top-center' })
+            // não duplica toast se for bloqueio AGT (já mostra no banner)
+            if (!agtBlock) {
+                toast.error(err.message, { position: 'top-center' })
+            } else {
+                toast.error(err.message, { position: 'top-center' })
+            }
         } finally {
             setLoading(false)
         }
@@ -51,13 +73,24 @@ export default function LoginPage() {
                     <p className="text-[13.5px] text-gray-500 mt-1">Insere seus dados, para iniciar sessão</p>
                 </div>
 
+                {/* NOVO - BANNER BLOQUEIO AGT */}
+                {agtBlock && (
+                    <div className="mx-6 mb-3 p-3 rounded-[12px] bg-red-50 border border-red-200 flex gap-2.5 items-start">
+                        <ShieldAlert className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                            <p className="text-[13px] font-semibold text-red-800 leading-tight">Acesso bloqueado pela AGT</p>
+                            <p className="text-[12px] text-red-700 mt-1 leading-snug">{agtBlock}</p>
+                            <p className="text-[11px] text-red-600/80 mt-2">Regularize seu NIF no portal da AGT e contacte suporte.</p>
+                        </div>
+                    </div>
+                )}
+
                 <form onSubmit={handleLogin} className="px-6 pb-6 flex flex-col gap-3">
                     <div className="relative">
                         <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={`${inputClass} pl-10`} placeholder="NIF" disabled={loading} />
                         <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     </div>
 
-                    {/* SENHA COM UX */}
                     <div className="relative group">
                         <input
                             type={showPassword? "text" : "password"}
@@ -77,6 +110,12 @@ export default function LoginPage() {
                         >
                             {showPassword? <EyeOff className="h-4 w-4 text-gray-500" /> : <Eye className="h-4 w-4 text-gray-500" />}
                         </button>
+                    </div>
+
+                    {/* INFO AGT */}
+                    <div className="flex items-center gap-2 px-1">
+                        <AlertTriangle className="w-3.5 h-3.5 text-gray-400" />
+                        <p className="text-[11px] text-gray-500 leading-tight">O acesso é validado pelo estado do NIF na AGT. NIFs inactivos não podem aceder.</p>
                     </div>
 
                     <div className="mt-1">

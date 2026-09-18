@@ -9,11 +9,10 @@ logger = logging.getLogger(__name__)
 
 URL_CONSULTA = "https://portaldocontribuinte.minfin.gov.ao/consultar-nif-do-contribuinte"
 
-# BLINDAGEM: cache em memória 24h + rate limit por NIF
 _CACHE: Dict[str, tuple[float, Dict]] = {}
 _CACHE_TTL = 86400
 _RATE_LIMIT: Dict[str, list[float]] = defaultdict(list)
-_RATE_LIMIT_MAX = 10 # 10 consultas por minuto por NIF
+_RATE_LIMIT_MAX = 10
 _RATE_WINDOW = 60
 
 def _is_rate_limited(nif: str) -> bool:
@@ -27,7 +26,6 @@ def _is_rate_limited(nif: str) -> bool:
 def clean_nif(nif: str) -> str:
     if not nif or not isinstance(nif, str):
         return ""
-    # BLINDAGEM: limita tamanho antes do regex para evitar ReDoS
     nif = nif.strip()[:20]
     return re.sub(r'[^A-Za-z0-9]', '', nif).upper()
 
@@ -35,7 +33,6 @@ def is_valid_format(nif: str) -> bool:
     nif_clean = clean_nif(nif)
     if not nif_clean or len(set(nif_clean)) == 1:
         return False
-    # BLINDAGEM: bloqueia NIFs fake sequenciais 000..., 111..., 123456789
     if re.match(r'^(0{9,}|1{9,}|2{9,}|3{9,}|4{9,}|5{9,}|6{9,}|7{9,}|8{9,}|9{9,}|123456789)$', nif_clean):
         return False
     if nif_clean.isdigit():
@@ -56,9 +53,15 @@ def parse_agt_real(html_cdata: str, nif_consultado: str) -> Optional[Dict]:
         return None
 
     def extract(label: str) -> Optional[str]:
+        # Tenta pegar <label>Tipo:</label><div><label>VALOR</label>
         pattern = rf"{label}:\s*</label>\s*<div[^>]*>\s*<label[^>]*>([^<]+)</label>"
         m = re.search(pattern, html_cdata, re.I)
-        return m.group(1).strip()[:255] if m else None # BLINDAGEM: corta para 255
+        if m:
+            return m.group(1).strip()[:255]
+        # Fallback para casos com espaço
+        pattern2 = rf"{label}\s*:\s*</label>.*?>([^<]+)</label>"
+        m2 = re.search(pattern2, html_cdata, re.I | re.DOTALL)
+        return m2.group(1).strip()[:255] if m2 else None
 
     nif_val = extract("NIF")
     if not nif_val:
@@ -76,28 +79,46 @@ def parse_agt_real(html_cdata: str, nif_consultado: str) -> Optional[Dict]:
                     break
     if not nome:
         return None
+
+    # NOVO: pega os campos que você pediu
+    tipo = extract("Tipo")
+    estado = extract("Estado")
+    inadimplente = extract("Inadimplente")
+    regime_iva = extract("Regime de IVA")
+    residente = None
+    if "residente fiscal" in lower:
+        # Residente Fiscal vem sem valor, só como label presente
+        residente = "Sim" if "residente" in lower else None
+        # tenta pegar valor depois
+        m_res = re.search(r"Residente Fiscal:\s*</label>\s*<div[^>]*>\s*<label[^>]*>([^<]+)</label>", html_cdata, re.I)
+        if m_res:
+            residente = m_res.group(1).strip()[:20]
+        else:
+            residente = "Sim" # se a seção existe, é residente
+
     return {
         "nif": nif_val,
         "nome": nome,
-        "tipo": extract("Tipo") or ("SINGULAR" if "LA" in nif_consultado else "COLECTIVO"),
-        "estado": extract("Estado") or "Activo"
+        "tipo": tipo or ("SINGULAR" if "LA" in nif_consultado else "COLECTIVO"),
+        "estado": estado or "Activo",
+        "inadimplente": inadimplente,
+        "regime_iva": regime_iva,
+        "residente_fiscal": residente
     }
 
 async def validate_nif_agt(nif: str) -> Dict:
     nif_clean = clean_nif(nif)
     if not is_valid_format(nif_clean):
-        return {"valid": False, "nif": nif_clean, "nome_agt": None, "estado": "FormatoInvalido", "tipo": None, "source": "format", "message": "Formato de NIF inválido"}
+        return {"valid": False, "nif": nif_clean, "nome_agt": None, "estado": "FormatoInvalido", "tipo": None, "source": "format", "message": "Formato de NIF inválido", "inadimplente": None, "regime_iva": None, "residente_fiscal": None}
 
-    # BLINDAGEM: cache
     if nif_clean in _CACHE:
         ts, data = _CACHE[nif_clean]
         if time.time() - ts < _CACHE_TTL:
             logger.info(f"AGT cache hit {nif_clean}")
             return data
 
-    # BLINDAGEM: rate limit interno
     if _is_rate_limited(nif_clean):
-        return {"valid": False, "nif": nif_clean, "nome_agt": None, "estado": "AGT_Offline", "tipo": None, "source": "ratelimit", "message": "Muitas tentativas para este NIF, aguarde 1 minuto"}
+        return {"valid": False, "nif": nif_clean, "nome_agt": None, "estado": "AGT_Offline", "tipo": None, "source": "ratelimit", "message": "Muitas tentativas para este NIF, aguarde 1 minuto", "inadimplente": None, "regime_iva": None, "residente_fiscal": None}
 
     async with httpx.AsyncClient(timeout=15.0, follow_redirects=True, verify=False, headers={"User-Agent": "Mozilla/5.0 FaturaXpress"}) as client:
         try:
@@ -124,7 +145,7 @@ async def validate_nif_agt(nif: str) -> Dict:
 
             parsed = parse_agt_real(html_result, nif_clean)
             if parsed is None:
-                res = {"valid": False, "nif": nif_clean, "nome_agt": None, "estado": "NaoEncontrado", "tipo": None, "source": "agt", "message": "NIF não existe na AGT"}
+                res = {"valid": False, "nif": nif_clean, "nome_agt": None, "estado": "NaoEncontrado", "tipo": None, "source": "agt", "message": "NIF não existe na AGT", "inadimplente": None, "regime_iva": None, "residente_fiscal": None}
                 _CACHE[nif_clean] = (time.time(), res)
                 return res
             if parsed.get("bloqueio_ip"):
@@ -137,17 +158,32 @@ async def validate_nif_agt(nif: str) -> Dict:
             estado_raw = parsed.get("estado")
             estado_final = estado_raw[:20] if isinstance(estado_raw, str) else "Activo"
             tipo_raw = parsed.get("tipo")
-            tipo_final = tipo_raw[:20] if isinstance(tipo_raw, str) else None
+            tipo_final = tipo_raw[:100] if isinstance(tipo_raw, str) else None
+
+            inadimplente_raw = parsed.get("inadimplente")
+            regime_raw = parsed.get("regime_iva")
+            residente_raw = parsed.get("residente_fiscal")
 
             if not nome_final:
-                res = {"valid": False, "nif": nif_clean, "nome_agt": None, "estado": "NaoEncontrado", "tipo": None, "source": "agt", "message": "NIF não existe na AGT"}
+                res = {"valid": False, "nif": nif_clean, "nome_agt": None, "estado": "NaoEncontrado", "tipo": None, "source": "agt", "message": "NIF não existe na AGT", "inadimplente": None, "regime_iva": None, "residente_fiscal": None}
                 _CACHE[nif_clean] = (time.time(), res)
                 return res
 
-            final = {"valid": True, "nif": nif_final, "nome_agt": nome_final, "estado": estado_final, "tipo": tipo_final, "source": "agt", "message": f"NIF validado: {nome_final}"}
+            final = {
+                "valid": True,
+                "nif": nif_final,
+                "nome_agt": nome_final,
+                "estado": estado_final,
+                "tipo": tipo_final,
+                "inadimplente": inadimplente_raw[:10] if isinstance(inadimplente_raw, str) else None,
+                "regime_iva": regime_raw[:150] if isinstance(regime_raw, str) else None,
+                "residente_fiscal": residente_raw[:20] if isinstance(residente_raw, str) else None,
+                "source": "agt",
+                "message": f"NIF validado: {nome_final}"
+            }
             _CACHE[nif_clean] = (time.time(), final)
             return final
 
         except Exception as e:
             logger.warning(f"AGT erro/offline para {nif_clean}: {e}")
-            return {"valid": False, "nif": nif_clean, "nome_agt": None, "estado": "AGT_Offline", "tipo": None, "source": "offline", "message": "AGT temporariamente offline ou bloqueada para IP estrangeiro."}
+            return {"valid": False, "nif": nif_clean, "nome_agt": None, "estado": "AGT_Offline", "tipo": None, "source": "offline", "message": "AGT temporariamente offline", "inadimplente": None, "regime_iva": None, "residente_fiscal": None}

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import Optional
 import uuid
+from datetime import datetime
 
 class RegisterRequest(BaseModel):
     companyName: str
@@ -17,7 +18,6 @@ class RegisterRequest(BaseModel):
     banco2: Optional[str] = None
     logo_url: Optional[str] = None
     image_url: Optional[str] = None
-    # NOVO - para quando frontend valida direto no navegador angolano
     nome_agt_validado: Optional[str] = None
 
 class RegisterResponse(BaseModel):
@@ -39,6 +39,14 @@ class CompanyResponse(BaseModel):
     banco2: Optional[str] = None
     logo_url: Optional[str] = None
     image_url: Optional[str] = None
+    # NOVO
+    tipo_agt: Optional[str] = None
+    estado_agt: Optional[str] = None
+    inadimplente: Optional[str] = None
+    regime_iva: Optional[str] = None
+    residente_fiscal: Optional[str] = None
+    nif_verified: Optional[bool] = None
+    nif_agt_name: Optional[str] = None
 
 class LoginRequest(BaseModel):
     nif: str
@@ -66,7 +74,6 @@ class UpdateCompanyRequest(BaseModel):
     logo_url: Optional[str] = None
     image_url: Optional[str] = None
 
-# NOVO - VALIDACAO NIF
 class ValidateNifRequest(BaseModel):
     nif: str
 
@@ -77,3 +84,8 @@ class ValidateNifResponse(BaseModel):
     estado: str
     message: str
     source: Optional[str] = None
+    # NOVO
+    tipo: Optional[str] = None
+    inadimplente: Optional[str] = None
+    regime_iva: Optional[str] = None
+    residente_fiscal: Optional[str] = None

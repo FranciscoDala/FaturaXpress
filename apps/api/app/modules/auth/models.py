@@ -29,10 +29,19 @@ class Company(Base):
     subscription_plan: Mapped[str] = mapped_column(String(20), default="free", nullable=False, index=True)
     subscription_status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
 
-    # NOVO - VALIDACAO AGT
+    # VALIDACAO AGT - ANTIGO
     nif_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     nif_agt_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     nif_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # NOVO - DETALHES COMPLETOS DA AGT
+    tipo_agt: Mapped[str | None] = mapped_column(String(100), nullable=True) # COLECTIVO - Empresa
+    estado_agt: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True) # Activo / Inactivo
+    inadimplente: Mapped[str | None] = mapped_column(String(10), nullable=True) # Sim / Não
+    regime_iva: Mapped[str | None] = mapped_column(String(150), nullable=True) # Regime Geral (Factura IVA)
+    residente_fiscal: Mapped[str | None] = mapped_column(String(20), nullable=True) # Sim / Não
+    ultima_verificacao_agt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    bloqueado_pela_agt: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

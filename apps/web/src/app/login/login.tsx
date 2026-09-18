@@ -46,8 +46,8 @@ export default function LoginPage() {
                 </div>
 
                 <div className="px-6 pt-5 pb-3">
-                    <h1 className="text-[18px] font-bold text-gray-900 leading-tight">FaturaXpress</h1>
-                    <p className="text-[13.5px] text-gray-500 mt-1">Entre com o NIF da empresa</p>
+                    <h1 className="text-[18px] font-bold text-gray-900 leading-tight">FT-Xpress</h1>
+                    <p className="text-[13.5px] text-gray-500 mt-1">Insere seus dados, para iniciar sessão</p>
                 </div>
 
                 <form onSubmit={handleLogin} className="px-6 pb-6 flex flex-col gap-[2px]">

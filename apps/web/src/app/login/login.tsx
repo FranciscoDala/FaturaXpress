@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { FileText, Lock, Building2, Loader2, X, Check } from 'lucide-react'
+import { FileText, Lock, Building2, Loader2, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
 const API_URL = "https://faturaxpress-backend.onrender.com/api"
@@ -60,11 +60,8 @@ export default function LoginPage() {
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     </div>
 
-                    <div className="flex gap-[2px] mt-3">
-                        <Link to="/register" className="flex-1 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition">
-                            <X className="w-5 h-5 text-gray-600" />
-                        </Link>
-                        <button type="submit" disabled={loading} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50 transition">
+                    <div className="mt-3">
+                        <button type="submit" disabled={loading} className="w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50 transition">
                             {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
                         </button>
                     </div>

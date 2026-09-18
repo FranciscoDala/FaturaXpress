@@ -21,21 +21,18 @@ parsed = urlparse(DATABASE_URL)
 query = parse_qs(parsed.query)
 query.pop("sslmode", None)
 query.pop("ssl", None)
-clean_url = urlunparse((
-    parsed.scheme, parsed.netloc, parsed.path,
-    parsed.params, urlencode(query, doseq=True), parsed.fragment
-))
+clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, urlencode(query, doseq=True), parsed.fragment))
 
 engine = create_async_engine(
     clean_url,
     echo=False,
     pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
     connect_args={"ssl": True}
 )
 
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
-# REMOVIDO: Base = declarative_base() <- era isso que tava quebrando
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:

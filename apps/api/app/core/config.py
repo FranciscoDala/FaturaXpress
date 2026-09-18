@@ -11,7 +11,6 @@ def parse_cors(v: str) -> List[str]:
     return [i.strip() for i in v.split(",") if i.strip()]
 
 class Settings(BaseSettings):
-    # SERVER
     PORT: int = 10000
     BASE_URL: str = "https://faturaxpress-backend.onrender.com"
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://faturaxpress.onrender.com"
@@ -20,24 +19,20 @@ class Settings(BaseSettings):
     def ALLOWED_ORIGINS_LIST(self) -> List[str]:
         return parse_cors(self.ALLOWED_ORIGINS)
 
-    # DATABASE - Neon FATURAEXPRESS
     DATABASE_URL: str = ""
-
-    # AUTH - NOME PADRONIZADO
-    SECRET_KEY: str = "troca-essa-chave-super-secreta-em-prod"
+    SECRET_KEY: str = "troca-essa-chave-super-secreta-em-prod-min-32-chars"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080 # 7 dias
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 # BLINDAGEM: era 7 dias, agora 1h
 
-    # CLOUDINARY
     CLOUDINARY_CLOUD_NAME: str = ""
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-        case_sensitive=False
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", case_sensitive=False)
+
+    def model_post_init(self, __context):
+        # BLINDAGEM: não deixa subir com SECRET_KEY fraca em prod
+        if len(self.SECRET_KEY) < 32:
+            raise ValueError("SECRET_KEY muito curta, mínimo 32 chars")
 
 settings = Settings()

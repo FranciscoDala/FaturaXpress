@@ -6,7 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.db.base import Base
 from app.db.database import engine
-
 from app.modules.auth.router import router as auth_router
 from app.modules.clients.router import router as cliente_router
 from app.modules.products.router import router as produto_router
@@ -39,8 +38,9 @@ async def lifespan(app: FastAPI):
         pass
     logger.info("API encerrada")
 
-app = FastAPI(title="FaturaXpress API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="FaturaXpress API", version="1.0.0", lifespan=lifespan, docs_url="/docs", redoc_url=None)
 
+# BLINDAGEM: CORS fechado + headers de segurança
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -50,28 +50,35 @@ app.add_middleware(
     ],
     allow_origin_regex=r"https://.*\.onrender\.com",
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    return response
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(cliente_router, prefix="/api")
 app.include_router(produto_router, prefix="/api")
 app.include_router(fatura_router, prefix="/api")
 app.include_router(realtime_router, prefix="/api")
-
-# FIX 404: registra assinatura nos dois caminhos
-app.include_router(assinatura_router, prefix="/api")  # -> /api/assinatura/plans (padrão do app)
-app.include_router(assinatura_router)  # -> /assinatura/plans (fallback que teu frontend tava chamando)
+app.include_router(assinatura_router, prefix="/api")
+app.include_router(assinatura_router)
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.error(f"Erro 500 em {request.url}: {exc}\n{traceback.format_exc()}")
-    return JSONResponse(status_code=500, content={"detail": "Erro interno"})
+    # BLINDAGEM: não vaza stack trace
+    return JSONResponse(status_code=500, content={"detail": "Erro interno, tente novamente"})
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "docs": "/docs", "assinatura": ["/api/assinatura/plans", "/assinatura/plans"]}
+    return {"status": "ok", "docs": "/docs"}
 
 @app.get("/health")
 @app.get("/api/health")

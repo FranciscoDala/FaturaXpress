@@ -11,7 +11,7 @@ from app.core.security import get_current_company_id
 from app.modules.realtime.manager import manager
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/clientes", tags=["Clientes"]) # <- MUDEI AQUI: tirei /api
+router = APIRouter(prefix="/clientes", tags=["Clientes"])
 
 @router.post("/", response_model=ClienteResponse, status_code=201)
 async def create_cliente(

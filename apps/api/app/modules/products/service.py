@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
+from sqlalchemy import or_
 from fastapi import HTTPException
 from app.modules.products.models import Produto
 from app.modules.products.schemas import ProdutoCreateRequest, ProdutoUpdateRequest
@@ -19,7 +19,6 @@ def get_produto_by_codigo(db: Session, codigo: str, company_id: uuid.UUID):
 
 def get_produtos(db: Session, company_id: uuid.UUID, search: str = "", categoria: str = "", tipo: str = "", ativo: bool | None = None, skip: int = 0, limit: int = 10):
     query = db.query(Produto).filter(Produto.company_id == company_id)
-
     if ativo is not None:
         query = query.filter(Produto.ativo == ativo)
     if search:
@@ -32,13 +31,12 @@ def get_produtos(db: Session, company_id: uuid.UUID, search: str = "", categoria
         query = query.filter(Produto.categoria == categoria)
     if tipo:
         query = query.filter(Produto.tipo == tipo)
-
     total = query.count()
     items = query.offset(skip).limit(limit).all()
     return items, total
 
 def create_produto(db: Session, produto: ProdutoCreateRequest, company_id: uuid.UUID):
-    exists = get_produto_by_codigo(db, produto.codigo, company_id)
+    exists = db.query(Produto).filter(Produto.company_id == company_id, Produto.codigo == produto.codigo).first()
     if exists:
         raise HTTPException(status_code=400, detail="Já existe um produto com este código")
     db_produto = Produto(**produto.model_dump(), company_id=company_id)
@@ -79,10 +77,3 @@ def get_produtos_stock_baixo(db: Session, company_id: uuid.UUID):
         Produto.company_id == company_id, Produto.ativo == True,
         Produto.controlar_stock == True, Produto.stock_atual <= Produto.stock_minimo
     ).all()
-
-def set_status_produto(db: Session, produto_id: uuid.UUID, company_id: uuid.UUID, status: bool):
-    db_produto = get_produto_by_id(db, produto_id, company_id)
-    db_produto.ativo = status
-    db.commit()
-    db.refresh(db_produto)
-    return db_produto

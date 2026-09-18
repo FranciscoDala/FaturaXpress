@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Trash2, XCircle, Eye, ArrowRight } from 'lucide-react'
+import { Trash2, XCircle, Eye, ArrowRight, Crown } from 'lucide-react'
 import { toast } from 'sonner'
 import { TabCursoSkeleton } from '../../../../components/CardsSkeleton'
 import { api } from '../../../../lib/api'
@@ -27,18 +27,52 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
 
     const handleConverter = async (id: string) => {
         try {
-            const t = toast.loading('A gerar FT com hash AGT...')
+            const t = toast.loading('A gerar FT com hash AGT...', { description: 'Validando com regras do seu plano...' })
             const { data } = await api.post(`/api/faturas/${id}/converter`)
             toast.dismiss(t)
-            toast.success(`FT ${data.numero_fatura} emitida! Hash: ${data.hash_agt?.slice(0, 10)}...`)
+            toast.success(`FT ${data.numero_fatura} emitida!`, {
+                description: `Hash: ${data.hash_agt?.slice(0, 12)}... | PP convertida para FT oficial.`,
+                duration: 5000
+            })
             onRefresh()
         } catch (e: any) {
             toast.dismiss()
-            toast.error(e.response?.data?.detail || 'Erro ao converter para FT')
+            const status = e.response?.status
+            const detail = e.response?.data?.detail || 'Erro ao converter para FT'
+
+            if (status === 403) {
+                toast.error('Limite do plano atingido', {
+                    description: detail,
+                    duration: 6000,
+                    action: {
+                        label: 'Fazer Upgrade',
+                        onClick: () => window.location.hash = '#/assinatura'
+                    }
+                })
+            } else {
+                toast.error('Erro ao converter', { description: detail })
+            }
         }
     }
-    const handleCancelar = async (id: string) => { try { await api.post(`/api/faturas/${id}/cancelar`); toast.success('Proforma cancelada'); onRefresh() } catch { toast.error('Erro') } }
-    const handleApagar = async () => { try { await api.delete(`/api/faturas/${deleteTarget.id}`); toast.success('Proforma apagada'); setDeleteTarget(null); onRefresh() } catch { toast.error('Erro') } }
+    const handleCancelar = async (id: string) => {
+        try {
+            await api.post(`/api/faturas/${id}/cancelar`);
+            toast.success('Proforma cancelada', { description: 'PP marcada como cancelada.' });
+            onRefresh()
+        } catch (e: any) {
+            toast.error('Erro ao cancelar', { description: e.response?.data?.detail || 'Tente novamente.' })
+        }
+    }
+    const handleApagar = async () => {
+        try {
+            await api.delete(`/api/faturas/${deleteTarget.id}`);
+            toast.success('Proforma apagada', { description: 'PP removida com sucesso.' });
+            setDeleteTarget(null);
+            onRefresh()
+        } catch (e: any) {
+            toast.error('Erro ao apagar', { description: e.response?.data?.detail })
+        }
+    }
 
     const getClienteDisplay = (f: any) => {
         if (f.cliente_nome) return `${f.cliente_nome} ${f.cliente_nif? `• ${f.cliente_nif}` : ''} ${!f.cliente_id? '(Avulso)' : ''}`
@@ -62,7 +96,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
             )}
 
             {faturas.length === 0? (
-                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma proforma em curso</p>
+                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma proforma em curso - PP é sempre livre, não conta no limite do plano.</p>
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {faturas.map(f => {
@@ -85,7 +119,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
                                     <p className="text-[11px] font-semibold text-gray-800 truncate mt-1">{getClienteDisplay(f)}</p>
                                     <div className="mt-2 flex flex-col gap-0.5">
                                         <p className="text-[11px] text-gray-500 truncate">{f.forma_pagamento} • Validade: {f.validade_proforma? new Date(f.validade_proforma).toLocaleDateString('pt-AO') : '15 dias'}</p>
-                                        <p className="text-[10px] text-gray-400 truncate">Sem valor fiscal - AGT • {estado}</p>
+                                        <p className="text-[10px] text-gray-400 truncate">Sem valor fiscal - AGT • {estado} • Livre de limite</p>
                                     </div>
                                     <button onClick={() => handleConverter(f.id)} className="mt-3 w-full bg-[#0095ff] text-white h-[38px] rounded-full text-[12px] font-bold flex items-center justify-center gap-1 hover:bg-[#0080e0]">
                                         Converter para FT <ArrowRight className="w-4 h-4" />
@@ -101,7 +135,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
                     })}
                 </div>
             )}
-            <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget? `PROFORMA PP ${cleanNumero(getNumero(deleteTarget))}` : ''} onClose={() => setDeleteTarget(null)} onConfirm={handleApagar} title="Apagar proforma?" description="Proforma PP pode ser apagada. FT oficial só cancela - regra AGT." />
+            <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget? `PROFORMA PP ${cleanNumero(getNumero(deleteTarget))}` : ''} onClose={() => setDeleteTarget(null)} onConfirm={handleApagar} title="Apagar proforma?" description="Proforma PP pode ser apagada. É livre e não conta no limite. FT oficial só cancela - regra AGT." />
         </div>
     )
 }

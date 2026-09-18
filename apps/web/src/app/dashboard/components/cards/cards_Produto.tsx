@@ -35,7 +35,7 @@ export default function CardsProdutos({ produtos, loading, onEdit, onDelete, onV
     }
 
     if (loading) return <CardsProdutosSkeleton />
-    if (produtos.length === 0) return <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhum produto encontrado</p>
+    if (produtos.length === 0) return <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhum produto encontrado. Produtos são ilimitados e não contam no limite de FT do plano.</p>
 
     return (
         <div className="w-full">
@@ -56,7 +56,7 @@ function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
         <div className="min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
             <div className="relative h-[90px] bg-[#E6F0FF]">
                 <div className="absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[12px] font-medium shadow-sm border">
-                    {produto.ativo? 'Ativo' : 'Inativo'} +
+                    {produto.ativo? 'Ativo' : 'Inativo'} + • Ilimitado
                 </div>
                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white border-[4px] border-white flex items-center justify-center shadow-md overflow-hidden">
                     {produto.imagem_url? (
@@ -81,7 +81,7 @@ function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
 
                 <h3 className="font-bold text-[16px] text-gray-900 mt-3 truncate">{produto.nome}</h3>
                 <p className="text-[12.5px] text-gray-500 truncate mt-1">
-                    {produto.categoria || 'Produto'} • {produto.unidade} • {tipo}
+                    {produto.categoria || 'Produto'} • {produto.unidade} • {tipo} • Livre de limite
                 </p>
                 <p className="text-[13px] text-gray-600 truncate mt-1">
                     {produto.codigo} • Kz {formatPrice(produto.preco_venda)}

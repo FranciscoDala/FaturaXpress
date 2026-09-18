@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Pencil, Database, Search, Crown } from 'lucide-react'
+import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Pencil, Database, Search, Crown, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { DashboardSkeleton } from '../../components/DashboardSkeleton'
 import { useRealtime } from '../../hooks/useRealtime'
@@ -39,6 +39,13 @@ const LS_KEYS = {
     view: 'dashboard_homeView',
     ftab: 'dashboard_faturaTab',
     list: 'dashboard_listView',
+}
+
+const PLAN_LIMITS: Record<string, { label: string, max: number | null, color: string }> = {
+    free: { label: 'FREE', max: 5, color: 'bg-gray-100 text-gray-700 border-gray-200' },
+    plus: { label: 'PLUS', max: 100, color: 'bg-blue-50 text-blue-700 border-blue-200' },
+    premium: { label: 'PREMIUM', max: 500, color: 'bg-purple-50 text-purple-700 border-purple-200' },
+    diamond: { label: 'DIAMOND', max: null, color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
 }
 
 function getInitialFromStorage(searchParams: URLSearchParams) {
@@ -106,6 +113,18 @@ export default function DashboardPage() {
     const totalFaturado = faturasEmitidas.reduce((s: any, f: any) => s + Number(f.total_geral || f.total || 0), 0)
     const totalDocs = faturasCurso.length + faturasEmitidas.length
 
+    // NOVO: info de plano
+    const planId = (empresa?.subscription_plan || 'free').toLowerCase()
+    const planInfo = PLAN_LIMITS[planId] || PLAN_LIMITS.free
+    const faturasMes = faturasEmitidas.filter((f: any) => {
+        const d = new Date(f.created_at || f.data_emissao)
+        const now = new Date()
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && f.tipo_documento === 'fatura'
+    }).length
+    const usoPercent = planInfo.max? Math.min(100, (faturasMes / planInfo.max) * 100) : 0
+    const isNearLimit = planInfo.max? usoPercent >= 80 : false
+    const isAtLimit = planInfo.max? faturasMes >= planInfo.max : false
+
     const isInitialLoading =!empresa && (loading || loadingFaturas)
 
     useEffect(() => {
@@ -131,11 +150,11 @@ export default function DashboardPage() {
 
     const fetchClientes = async () => {
         try { setLoading(true); const skip = (page - 1) * limit; const res = await api.get('/api/clientes', { params: { skip, limit, search } }); setClientes(res.data.items); if (listView === 'clientes') setTotal(res.data.total) }
-        catch { toast.error('Erro ao carregar clientes') } finally { setLoading(false) }
+        catch { toast.error('Erro ao carregar clientes', { description: 'Verifique sua conexão.' }) } finally { setLoading(false) }
     }
     const fetchProdutos = async () => {
         try { setLoading(true); const skip = (page - 1) * limit; const res = await api.get('/api/produtos', { params: { skip, limit, search } }); setProdutos(res.data.items); setTotal(res.data.total) }
-        catch { toast.error('Erro ao carregar produtos') } finally { setLoading(false) }
+        catch { toast.error('Erro ao carregar produtos', { description: 'Tente novamente.' }) } finally { setLoading(false) }
     }
 
     const fetchEmpresa = async () => {
@@ -227,7 +246,7 @@ export default function DashboardPage() {
     const handleOpenEditProduto = (p: Produto) => { setProdutoSelecionado(p); setModalProdutoOpen(true) }
     const handleEmitirFatura = (c: Cliente) => navigate(`/faturas/nova?cliente_id=${c.id}`)
     const handleLogout = () => setModalSairOpen(true)
-    const handleConfirmLogout = () => { localStorage.clear(); toast.success("Sessão encerrada"); setModalSairOpen(false); navigate('/login') }
+    const handleConfirmLogout = () => { localStorage.clear(); toast.success("Sessão encerrada", { description: "Até breve!" }); setModalSairOpen(false); navigate('/login') }
 
     const handleNovoAction = (v: string) => {
         setOpenNovo(false)
@@ -245,10 +264,10 @@ export default function DashboardPage() {
         if (!deleteTarget) return
         setDeleting(true)
         try {
-            if (deleteTarget.type === 'cliente') { await api.delete(`/api/clientes/${deleteTarget.id}`); toast.success('Cliente apagado'); fetchClientes(); fetchFaturasGeral() }
-            else { await api.delete(`/api/produtos/${deleteTarget.id}`); toast.success('Produto apagado'); fetchProdutos() }
+            if (deleteTarget.type === 'cliente') { await api.delete(`/api/clientes/${deleteTarget.id}`); toast.success('Cliente apagado', { description: `${deleteTarget.nome} foi removido.` }); fetchClientes(); fetchFaturasGeral() }
+            else { await api.delete(`/api/produtos/${deleteTarget.id}`); toast.success('Produto apagado', { description: `${deleteTarget.nome} foi removido.` }); fetchProdutos() }
             setDeleteTarget(null)
-        } catch { toast.error('Erro ao apagar') } finally { setDeleting(false) }
+        } catch { toast.error('Erro ao apagar', { description: 'Tente novamente em alguns segundos.' }) } finally { setDeleting(false) }
     }
 
     const handleSaveEmpresa = async (data: EmpresaFormFull) => {
@@ -263,11 +282,11 @@ export default function DashboardPage() {
                 companyName: data.companyName, nif: data.nif, email: data.email, phone: data.phone,
                 address: data.address, city: data.city, province: data.province, iban: data.iban, iban2: data.iban2,
             })
-            toast.success('Empresa atualizada')
+            toast.success('Empresa atualizada', { description: 'Dados salvos com sucesso.' })
             setModalEmpresaOpen(false)
             fetchEmpresa()
         }
-        catch (e: any) { toast.error(e?.response?.data?.detail || 'Erro ao atualizar empresa') } finally { setSavingEmpresa(false) }
+        catch (e: any) { toast.error('Erro ao atualizar empresa', { description: e?.response?.data?.detail || 'Verifique os dados.' }) } finally { setSavingEmpresa(false) }
     }
 
     const ProdutoModalAny = ProdutoModal as any
@@ -275,8 +294,8 @@ export default function DashboardPage() {
 
     return (
         <div className="min-h-screen bg-white">
-            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => { toast.success(clienteSelecionado? 'Atualizado' : 'Criado'); fetchClientes() }} />
-            <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => { toast.success(produtoSelecionado? 'Produto atualizado' : 'Produto criado'); fetchProdutos() }} />
+            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => { toast.success(clienteSelecionado? 'Cliente atualizado' : 'Cliente criado', { description: clienteSelecionado? 'Dados atualizados.' : 'Cliente adicionado com sucesso.' }); fetchClientes() }} />
+            <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => { toast.success(produtoSelecionado? 'Produto atualizado' : 'Produto criado', { description: 'Operação concluída.' }); fetchProdutos() }} />
             <ModalEmpresa open={modalEmpresaOpen} initialData={formEmpresa} saving={savingEmpresa} onClose={() => setModalEmpresaOpen(false)} onSave={handleSaveEmpresa} />
             <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget?.nome} loading={deleting} onClose={() => setDeleteTarget(null)} onConfirm={handleConfirmDelete} />
             <ModalSaftAO open={modalSaftOpen} onClose={() => setModalSaftOpen(false)} />
@@ -309,12 +328,46 @@ export default function DashboardPage() {
                                             <p className="break-all text-[11px]"><span className="font-medium text-gray-500">IBAN:</span> {empresa?.iban}{empresa?.iban2? ` | ${empresa?.iban2}` : ''}</p>
                                         )}
                                     </div>
+                                    {/* BANNER DE PLANO NOVO */}
+                                    <div className={`mt-4 w-full max-w-[420px] rounded-xl border px-3 py-2.5 flex items-center gap-3 ${planInfo.color} ${isNearLimit? 'ring-1 ring-amber-300' : ''}`}>
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-white border`}>
+                                            <Crown className="w-4 h-4" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-[11px] font-bold uppercase tracking-wide">Plano {planInfo.label}</p>
+                                                {planInfo.max && (
+                                                    <span className="text-[10px] px-1.5 py-0.5 bg-white/70 rounded-full border">{faturasMes}/{planInfo.max} FT este mês</span>
+                                                )}
+                                                {!planInfo.max && (
+                                                    <span className="text-[10px] px-1.5 py-0.5 bg-white/70 rounded-full border">Ilimitado</span>
+                                                )}
+                                            </div>
+                                            {planInfo.max? (
+                                                <div className="mt-1.5 h-1.5 w-full bg-white/60 rounded-full overflow-hidden">
+                                                    <div className={`h-full rounded-full transition-all ${isAtLimit? 'bg-red-500' : isNearLimit? 'bg-amber-500' : 'bg-[#0095ff]'}`} style={{ width: `${usoPercent}%` }} />
+                                                </div>
+                                            ) : (
+                                                <p className="text-[11px] mt-0.5 opacity-80">Faturas ilimitadas</p>
+                                            )}
+                                        </div>
+                                        {(isNearLimit || isAtLimit) && (
+                                            <button onClick={() => navigate('/assinatura')} className="text-[11px] font-semibold px-3 py-1 rounded-full bg-[#0095ff] text-white hover:bg-[#007acc] shrink-0">
+                                                Upgrade
+                                            </button>
+                                        )}
+                                    </div>
+                                    {isAtLimit && (
+                                        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full max-w-[420px]">
+                                            <AlertTriangle className="w-3.5 h-3.5" />
+                                            Limite atingido. Proformas continuam livres, só FT bloqueada.
+                                        </div>
+                                    )}
                                     <div className="mt-4 space-y-1">
                                         <p className="text-[11px] text-gray-500">Total de faturas emitidas, PP, FT - {loadingFaturas? '...' : `${totalDocs} docs`}</p>
                                         <p className="text-[11px] text-gray-500">Total Faturado FT - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas? '...' : `${totalFaturado.toFixed(2)} KZ`}</span></p>
                                     </div>
                                 </div>
-                                {/* BOTOES DENTRO DO PADDING PADRAO - CORRIGIDO */}
                                 <div className="flex items-center gap-2 shrink-0 pl-2">
                                     <button onClick={() => navigate('/assinatura')} className="w-10 h-10 rounded-full bg-white border border-yellow-200 shadow-[0_2px_12px_rgba(0,0,0,0.06)] flex items-center justify-center text-[#f59e0b] hover:bg-yellow-50 transition shrink-0">
                                         <Crown className="w-[18px] h-[18px]" />
@@ -342,8 +395,8 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <style>{`
-                 .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-                 .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
+                .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+                .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
                       @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }
                     `}</style>
                 </div>

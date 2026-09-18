@@ -20,23 +20,21 @@ class Fatura(Base):
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=False)
     cliente_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("clientes.id", ondelete="RESTRICT"), index=True, nullable=True)
 
-    # Snapshot cliente avulso - permite emitir sem cadastro
     cliente_nome: Mapped[str | None] = mapped_column(String(255), nullable=True)
     cliente_nif: Mapped[str | None] = mapped_column(String(20), nullable=True, default="999999999")
     cliente_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     cliente_telefone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     cliente_endereco: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    # AGT Angola: PP | FT | NC | ND
     tipo_documento: Mapped[str] = mapped_column(String(20), default='proforma', nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default='em_curso', nullable=False) # em_curso | emitida | concluida | cancelada | apagada
+    status: Mapped[str] = mapped_column(String(20), default='em_curso', nullable=False)
 
-    numero_proforma: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True) # PP 2026/00001
-    numero_fatura: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True) # FT 2026/00001
-    numero_nota_credito: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True) # NC 2026/00001
+    numero_proforma: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
+    numero_fatura: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
+    numero_nota_credito: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
 
     proforma_origem_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("faturas.id", ondelete="SET NULL"), nullable=True)
-    fatura_origem_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("faturas.id", ondelete="SET NULL"), nullable=True) # FT que originou NC
+    fatura_origem_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("faturas.id", ondelete="SET NULL"), nullable=True)
 
     data_emissao: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     data_vencimento: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -48,14 +46,13 @@ class Fatura(Base):
     desconto_percent: Mapped[float] = mapped_column(Numeric(5,2), default=0, nullable=False)
     forma_pagamento: Mapped[str] = mapped_column(String(20), default='dinheiro', nullable=False)
 
-    # AGT Angola - Campos Obrigatórios
     hash_agt: Mapped[str | None] = mapped_column(String(500), nullable=True)
     hash_agt_anterior: Mapped[str | None] = mapped_column(String(500), nullable=True)
     comunicado_agt: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     qr_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    motivo_credito: Mapped[str | None] = mapped_column(String(200), nullable=True) # Motivo AGT para NC
-    motivo_isencao: Mapped[str | None] = mapped_column(String(100), nullable=True) # M04, M10, etc
+    motivo_credito: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    motivo_isencao: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)

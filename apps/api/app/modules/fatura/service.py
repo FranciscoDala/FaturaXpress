@@ -7,8 +7,39 @@ import hashlib
 from app.modules.fatura.models import Fatura, FaturaItem
 from app.modules.products.models import Produto
 from app.modules.clients.models import Cliente
+from app.modules.auth.models import Company
+from app.core.plans import get_plan_limit, is_ilimitado
 
-# AGT: hash cadeia inclui FT e NC
+def check_limite_faturas(db: Session, company_id: uuid.UUID):
+    """Verifica se pode emitir FT neste mês de acordo com o plano"""
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    plan_id = getattr(company, 'subscription_plan', 'free') or 'free'
+
+    if is_ilimitado(plan_id):
+        return True
+
+    limits = get_plan_limit(plan_id)
+    max_mes = limits['faturas_mes']
+
+    now = datetime.now(timezone.utc)
+    count_mes = db.query(Fatura).filter(
+        Fatura.company_id == company_id,
+        Fatura.tipo_documento == 'fatura',
+        Fatura.status!= 'apagada',
+        extract('year', Fatura.created_at) == now.year,
+        extract('month', Fatura.created_at) == now.month
+    ).count()
+
+    if count_mes >= max_mes:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Limite do plano {limits['label']} atingido: {count_mes}/{max_mes} faturas este mês. Faça upgrade para continuar."
+        )
+    return True
+
 def get_ultimo_hash(db: Session, company_id):
     ultima = db.query(Fatura).filter(
         Fatura.company_id == company_id,
@@ -18,7 +49,6 @@ def get_ultimo_hash(db: Session, company_id):
     return ultima.hash_agt if ultima else None
 
 def gerar_hash_agt(fatura: Fatura, hash_anterior: str | None):
-    # Padrão AGT Angola: Data;Numero;Total;HashAnterior
     data_str = fatura.data_emissao.strftime("%Y-%m-%dT%H:%M:%S") if fatura.data_emissao else datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     total_str = f"{float(fatura.total_geral):.2f}"
     numero = fatura.numero_fatura or fatura.numero_nota_credito or fatura.numero_proforma or ""
@@ -112,11 +142,14 @@ def criar_fatura(db: Session, company_id, dados):
     if dados.tipo_documento not in ['proforma', 'fatura']:
         raise HTTPException(400, "tipo_documento deve ser 'proforma' ou 'fatura'")
 
+    # TRAVA DE PLANO SÓ PARA FATURA, PROFORMA É LIVRE
+    if dados.tipo_documento == 'fatura':
+        check_limite_faturas(db, company_id)
+
     subtotal, total_iva, itens_objs = calcular_itens(db, company_id, dados.itens)
     desconto = float(dados.desconto_percent or 0)
     total_geral = (subtotal + total_iva) * (1 - desconto / 100)
 
-    # Resolve cliente: com ID ou avulso
     cliente_id_final = dados.cliente_id
     c_nome = dados.cliente_nome
     c_nif = (dados.cliente_nif or "999999999") if hasattr(dados, 'cliente_nif') else "999999999"
@@ -199,7 +232,6 @@ def criar_fatura(db: Session, company_id, dados):
             )
             hash_gerado = gerar_hash_agt(fatura, hash_anterior)
             fatura.hash_agt = hash_gerado
-            # QR AGT: NIF*Numero*Data*Total*Hash
             fatura.qr_code = f"{numero}|{total_geral:.2f}|{hash_gerado[:20]}"
 
             for item in itens_objs:
@@ -248,6 +280,9 @@ def atualizar_fatura(db: Session, fatura: Fatura, company_id, dados):
     return fatura
 
 def converter_proforma_para_fatura(db: Session, proforma_id, company_id):
+    # TAMBÉM TRAVA NA CONVERSÃO
+    check_limite_faturas(db, company_id)
+
     proforma = db.query(Fatura).filter(
         Fatura.id == proforma_id,
         Fatura.company_id == company_id,
@@ -386,7 +421,7 @@ def criar_nota_credito(db: Session, company_id, fatura_id, motivo: str, observac
     nc_existente = db.query(Fatura).filter(
         Fatura.fatura_origem_id == fatura_id,
         Fatura.tipo_documento == 'nota_credito',
-        Fatura.status != 'apagada'
+        Fatura.status!= 'apagada'
     ).first()
     if nc_existente:
         raise HTTPException(400, f"Já existe NC {nc_existente.numero_nota_credito} para esta FT")
@@ -413,7 +448,6 @@ def criar_nota_credito(db: Session, company_id, fatura_id, motivo: str, observac
                 subtotal_linha=-abs(sub_linha),
                 motivo_isencao=item.motivo_isencao
             ))
-            # Repõe stock com check None-safe
             prod = db.query(Produto).filter(Produto.id == item.produto_id).with_for_update().first()
             if prod is None:
                 continue

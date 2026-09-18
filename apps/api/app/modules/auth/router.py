@@ -11,6 +11,7 @@ from app.modules.auth import schemas
 from app.core.security import hash_password, verify_password, get_current_company_id
 from app.core.jwt import create_access_token
 from app.modules.realtime.manager import manager
+from app.core.plans import get_plan_limit
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -37,7 +38,10 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
             iban2=data.iban2,
             logo_url=data.logo_url or data.image_url,
             image_url=data.image_url or data.logo_url,
-            password_hash=password_hash
+            password_hash=password_hash,
+            # AQUI GARANTE FREE AO CRIAR
+            subscription_plan="free",
+            subscription_status="active"
         )
         db.add(company)
         await db.commit()
@@ -81,6 +85,9 @@ async def get_me(db: AsyncSession = Depends(get_db), company_id: uuid.UUID = Dep
     company = result.scalar_one_or_none()
     if not company:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    limits = get_plan_limit(getattr(company, 'subscription_plan', 'free'))
+
     return {
         "company": {
             "id": str(company.id),
@@ -95,10 +102,15 @@ async def get_me(db: AsyncSession = Depends(get_db), company_id: uuid.UUID = Dep
             "iban2": company.iban2,
             "logo_url": company.logo_url,
             "image_url": company.image_url or company.logo_url,
-            "is_active": company.is_active
+            "is_active": company.is_active,
+            "subscription_plan": getattr(company, 'subscription_plan', 'free'),
+            "subscription_status": getattr(company, 'subscription_status', 'active'),
+            "limits": limits
         },
         "id": str(company.id),
-        "companyName": company.companyName
+        "companyName": company.companyName,
+        "subscription_plan": getattr(company, 'subscription_plan', 'free'),
+        "limits": limits
     }
 
 @router.put("/company")
@@ -132,7 +144,6 @@ async def update_company(data: schemas.UpdateCompanyRequest, db: AsyncSession = 
         pass
     return {"message": "Empresa atualizada com sucesso"}
 
-# NOVO - UPLOAD LOGO igual produto
 @router.put("/company/logo")
 async def upload_company_logo(
     logo: UploadFile = File(...),
@@ -167,7 +178,6 @@ async def upload_company_logo(
         "image_url": logo_url
     }
 
-# ALTERNATIVA FormData completo (se quiser editar empresa + logo junto)
 @router.put("/company/full")
 async def update_company_with_logo(
     companyName: Optional[str] = Form(None),

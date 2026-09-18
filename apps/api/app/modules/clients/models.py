@@ -2,7 +2,7 @@ from sqlalchemy import Column, String, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
-from app.db.base import Base # Gaveta A
+from app.db.base import Base
 
 class Cliente(Base):
     __tablename__ = "clientes"
@@ -11,7 +11,7 @@ class Cliente(Base):
     company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
 
     nome = Column(String(255), nullable=False)
-    nif = Column(String(50), nullable=False, index=True) # NIF do cliente
+    nif = Column(String(50), nullable=False, index=True)
     email = Column(String(255), nullable=True)
     telefone = Column(String(50), nullable=True)
     endereco = Column(String(255), nullable=True)
@@ -21,7 +21,6 @@ class Cliente(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    # 1 empresa nao pode ter 2 clientes com mesmo NIF
     __table_args__ = (
         UniqueConstraint('company_id', 'nif', name='uq_cliente_nif_company'),
     )

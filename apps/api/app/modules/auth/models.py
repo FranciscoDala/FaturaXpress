@@ -22,6 +22,11 @@ class Company(Base):
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # NOVO - CONTROLE DE PLANOS
+    subscription_plan: Mapped[str] = mapped_column(String(20), default="free", nullable=False, index=True)
+    subscription_status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
+
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     users: Mapped[list["User"]] = relationship("User", back_populates="company", lazy="selectin", cascade="all, delete-orphan")

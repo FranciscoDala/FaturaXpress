@@ -96,13 +96,13 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
                 motivo: selectedMotivo,
                 observacoes: `NC referente a ${selectedFatura.numero_fatura} - ${selectedMotivo}`
             })
-            toast.success(`NC ${data.numero_nota_credito} emitida!`)
+            toast.success(`NC ${data.numero_nota_credito} emitida!`, { description: 'Nota de Crédito anula a FT original. Stock reposto.' })
             setShowMotivo(false)
             setSelectedFatura(null)
             setSelectedMotivo('')
             onRefresh()
         } catch (e: any) {
-            toast.error(e.response?.data?.detail || 'Erro ao emitir NC')
+            toast.error('Erro ao emitir NC', { description: e.response?.data?.detail || 'Tente novamente.' })
         } finally {
             setLoadingNC(false)
         }
@@ -147,7 +147,7 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
                 )}
 
                 {filtradas.length === 0? (
-                    <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma fatura FT/NC</p>
+                    <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma fatura FT/NC encontrada. Emita FT para contar no limite do seu plano.</p>
                 ) : (
                     <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                         {filtradas.map(f => (
@@ -193,7 +193,7 @@ function FaturaCard({ fatura, clienteProp, onView, onOpenNC }: { fatura: any; cl
                 {isNC? (
                     <p className="text-[10px] text-red-500 truncate">Ref FT: {fatura.fatura_origem_id?.slice(0, 8) || '---'} • Motivo: {fatura.motivo_credito}</p>
                 ) : (
-                    <p className="text-[10px] text-gray-400 truncate">PP origem: {fatura.proforma_origem_id? fatura.proforma_origem_id.slice(0, 8) : 'Direta'}</p>
+                    <p className="text-[10px] text-gray-400 truncate">PP origem: {fatura.proforma_origem_id? fatura.proforma_origem_id.slice(0, 8) : 'Direta'} • Conta no limite do plano</p>
                 )}
                 <div className="mt-2 flex flex-col gap-0.5">
                     <p className={`text-[13px] font-bold truncate ${isNC? 'text-red-600' : 'text-gray-900'}`}>{getTotal(fatura).toFixed(2)} KZ • {fatura.forma_pagamento}</p>

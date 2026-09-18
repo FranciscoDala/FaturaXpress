@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Mail, Lock, Phone, MapPin, FileText, ArrowRight, ShieldCheck, Loader2 } from 'lucide-react'
+import { Mail, Lock, Phone, MapPin, FileText, ArrowRight, ShieldCheck, Loader2, CheckCircle, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 
 const API_URL = "https://faturaxpress-backend.onrender.com/api"
@@ -139,14 +139,26 @@ export default function Register() {
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center overflow-hidden">
                         <img src="/android-chrome-192x192.png" alt="FT-Xpress" className="w-7 h-7 object-contain" />
                     </div>
-                    <div className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border shadow-sm bg-white text-gray-700 border-gray-200">
-                        <ShieldCheck className="w-3.5 h-3.5" /> {nifValidated? `NIF: ${nif.toUpperCase()}` : "Validação AGT"}
+                    {/* HEADER NIF COM ESTILO ALERT-SUCCESS */}
+                    <div className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full border shadow-sm ${nifValidated? 'text-green-700 bg-green-50 border-green-300' : 'text-[#0095ff] bg-white border-gray-200'}`}>
+                        {nifValidated? <CheckCircle className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                        {nifValidated? `NIF: ${nif.toUpperCase()}` : "Validação AGT"}
                     </div>
                 </div>
+
                 <div className="px-6 pt-5 pb-3 shrink-0">
                     <h1 className="text-[18px] font-bold text-gray-900 leading-tight">Registre sua empresa</h1>
                     <p className="text-[13.5px] text-gray-500 mt-1">{nifValidated? "Complete os dados de contacto" : "Passo 1 - Valide o NIF na AGT"}</p>
+
+                    {/* ALERT-WARNING ABAIXO DO Complete os dados */}
+                    {nifValidated && (
+                        <div className="mt-[8px] flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 w-fit">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                            <span className="text-[11px] font-semibold text-amber-700">Nif validado pela AGT</span>
+                        </div>
+                    )}
                 </div>
+
                 <div className="px-6 pb-6 flex flex-col gap-[5px]">
                     {!nifValidated? (
                         <div className="flex flex-col gap-[5px]">
@@ -160,14 +172,15 @@ export default function Register() {
                         </div>
                     ) : (
                         <>
-                            {/* BOX AGT SIMPLIFICADO - SÓ NOME, TIPO E ESTADO */}
+                            {/* BOX AGT COM ESTILO ALERT-SUCCESS - SÓ NOME, TIPO, ESTADO */}
                             {agtData && (
-                                <div className="bg-[#f0f7ff] border border-blue-200 rounded-[12px] p-3.5 text-[12.5px] leading-[1.6] text-gray-800">
-                                    <div className="font-bold text-gray-900 uppercase leading-tight">{agtData.nome}</div>
-                                    <div className="mt-1"><span className="text-gray-500">Tipo:</span> {agtData.tipo || "COLECTIVO - Empresa"}</div>
-                                    <div><span className="text-gray-500">Estado:</span> <span className="text-green-700 font-semibold">{agtData.estado || "Activo"}</span></div>
+                                <div className="bg-green-50 border border-green-200 rounded-[12px] p-3.5 text-[12.5px] leading-[1.6]">
+                                    <div><span className="text-green-800/70 font-medium">Nome:</span> <span className="font-bold text-green-900 uppercase">{agtData.nome}</span></div>
+                                    <div><span className="text-green-800/70 font-medium">Tipo:</span> <span className="font-semibold text-green-800">{agtData.tipo || "SINGULAR"}</span></div>
+                                    <div><span className="text-green-800/70 font-medium">Estado:</span> <span className="font-bold text-green-700">{agtData.estado || "Activo"}</span></div>
                                 </div>
                             )}
+
                             <form id="form-register" onSubmit={handleRegister} className="flex flex-col gap-[5px] mt-[5px]">
                                 <div className="relative"><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required className={inputWithIcon} placeholder="Telefone *" /><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
                                 <div className="relative"><input type="email" value={emailCompany} onChange={(e) => setEmailCompany(e.target.value)} required className={inputWithIcon} placeholder="email@empresa.com *" /><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
@@ -191,7 +204,7 @@ export default function Register() {
                             {loading? <Loader2 className="w-5 h-5 animate-spin" /> : <><span>Registrar Empresa</span> <ArrowRight className="w-5 h-5" /></>}
                         </button>
                     ) : null}
-                    <p className="text-center text-[13px] text-gray-600 mt-[5px]">Já tem conta? <Link to="/login" className="text-[#0095ff] font-semibold hover:underline">Fazer login</Link></p>
+                    <p className="text-center text-[13px] text-gray-600 mt-4">Já tem conta? <Link to="/login" className="text-[#0095ff] font-semibold hover:underline">Fazer login</Link></p>
                 </div>
             </div>
         </div>

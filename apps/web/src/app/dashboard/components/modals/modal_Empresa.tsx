@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { X, Check, Building2, ChevronDown, Upload, Landmark } from 'lucide-react'
+import { X, Check, Building2, ChevronDown, Upload, Landmark, MapPin } from 'lucide-react'
 
 const BANCOS_ANGOLA = [
     "BAI - Banco Angolano de Investimentos",
@@ -21,6 +21,36 @@ const BANCOS_ANGOLA = [
     "BIR - Banco de Investimento Rural",
     "FNB - First National Bank Angola",
 ]
+
+const PROVINCIAS = [
+    "Bengo", "Benguela", "Bié", "Cabinda", "Cuando", "Cubango", "Cuanza-Norte", "Cuanza-Sul",
+    "Cunene", "Huambo", "Huíla", "Icolo e Bengo", "Luanda", "Lunda-Norte", "Lunda-Sul",
+    "Malanje", "Moxico", "Moxico Leste", "Namibe", "Uíge", "Zaire"
+]
+
+const MUNICIPIOS: Record<string, string[]> = {
+    "Bengo": ["Dande", "Ambriz", "Bula Atumba", "Dembos", "Nambuangongo", "Pango Aluquém"],
+    "Benguela": ["Benguela", "Lobito", "Baía Farta", "Balombo", "Bocoio", "Caimbambo", "Catumbela", "Chongorói", "Cubal", "Ganda"],
+    "Bié": ["Kuito", "Andulo", "Camacupa", "Catabola", "Chinguar", "Chitembo", "Cuemba", "Cunhinga", "Nharea"],
+    "Cabinda": ["Cabinda", "Belize", "Buco-Zau", "Cacongo"],
+    "Cuando": ["Mavinga", "Cuito Cuanavale", "Dirico", "Rivungo"],
+    "Cubango": ["Menongue", "Calai", "Cuangar", "Cuchi", "Cuito Cuanavale", "Mavinga"],
+    "Cuanza-Norte": ["Cazengo", "Ambaca", "Banga", "Bolongongo", "Cambambe", "Golungo Alto", "Gonguembo", "Lucala", "Quiculungo", "Samba Caju"],
+    "Cuanza-Sul": ["Sumbe", "Amboim", "Cassongue", "Cela", "Conda", "Ebo", "Libolo", "Mussende", "Porto Amboim", "Quibala", "Quilenda", "Seles"],
+    "Cunene": ["Ondjiva", "Cahama", "Cuanhama", "Curoca", "Cuvelai", "Namacunde", "Ombadja"],
+    "Huambo": ["Huambo", "Bailundo", "Caála", "Catchiungo", "Chicala-Choloanga", "Chinjenje", "Ecunha", "Londuimbali", "Longonjo", "Mungo", "Ucuma"],
+    "Huíla": ["Lubango", "Caconda", "Cacula", "Caluquembe", "Chibia", "Chicomba", "Chipindo", "Cuvango", "Humpata", "Jamba", "Matala", "Quilengues", "Quipungo"],
+    "Icolo e Bengo": ["Catete", "Bom Jesus", "Cabiri", "Caculo Cahango", "Calomboloca"],
+    "Luanda": ["Luanda", "Belas", "Cacuaco", "Cazenga", "Kilamba Kiaxi", "Talatona", "Viana", "Kilamba"],
+    "Lunda-Norte": ["Dundo", "Cambulo", "Capenda-Camulemba", "Caungula", "Cuango", "Cuilo", "Lubalo", "Lucapa", "Xá-Muteba"],
+    "Lunda-Sul": ["Muangueji", "Cassai-Sul", "Cassengo", "Luma-Cassai", "Saurimo", "Cacolo", "Dala", "Muconda"],
+    "Malanje": ["Malanje", "Cacuso", "Cahombo", "Calandula", "Cambundi-Catembo", "Cangandala", "Caombo", "Cuaba Nzoji", "Cunda-Dia-Baze", "Luquembo", "Marimba", "Massango", "Mucari", "Quela", "Quirima"],
+    "Moxico": ["Luena", "Alto Zambeze", "Bundas", "Camanongue", "Léua", "Luau", "Luchazes"],
+    "Moxico Leste": ["Cazombo", "Lago Dilolo", "Lumbala Nguimbo", "Luau"],
+    "Namibe": ["Moçâmedes", "Bibala", "Camucuio", "Tômbwa", "Virei"],
+    "Uíge": ["Uíge", "Alto Cauale", "Ambuila", "Bembe", "Buengas", "Bungo", "Damba", "Milunga", "Mucaba", "Negage", "Puri", "Quimbele", "Quitexe", "Sanza Pombo", "Songo", "Zombo"],
+    "Zaire": ["Mbanza Kongo", "Cuimba", "Nóqui", "Nzeto", "Soyo", "Tomboco"]
+}
 
 interface EmpresaForm {
     companyName: string
@@ -46,12 +76,43 @@ interface Props {
     onSave: (data: EmpresaForm & { logoFile?: File | null }) => void
 }
 
+function CustomSelect({ value, options, onChange, placeholder, disabled, icon: Icon }: { value: string, options: { value: string, label: string }[], onChange: (v: string) => void, placeholder: string, disabled?: boolean, icon?: any }) {
+    const [open, setOpen] = useState(false)
+    const ref = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+        const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+        document.addEventListener('mousedown', h)
+        return () => document.removeEventListener('mousedown', h)
+    }, [])
+    const selected = options.find(o => o.value === value)
+    return (
+        <div ref={ref} className="relative w-full">
+            <button type="button" disabled={disabled} onClick={() => !disabled && setOpen(!open)} className={`w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black flex items-center justify-between focus:outline-none focus:border-[#0095ff] transition ${disabled ? 'opacity-60 bg-gray-50 cursor-not-allowed' : ''}`}>
+                <span className="flex items-center gap-2 truncate">
+                    {Icon && <Icon className="w-4 h-4 text-gray-500 shrink-0" />}
+                    <span className={selected ? 'text-black' : 'text-black/40'}>{selected ? selected.label : placeholder}</span>
+                </span>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+            </button>
+            {open && (
+                <div className="absolute z-50 top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5 max-h-[220px] overflow-y-auto no-scrollbar">
+                    {options.map(o => (
+                        <button key={o.value} type="button" onClick={() => { onChange(o.value); setOpen(false) }} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[13px] flex items-center justify-between transition ${value === o.value ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-50 text-gray-700'}`}>
+                            {o.label} {value === o.value && <Check className="w-4 h-4 text-[#0095ff]" />}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
 function BancoSelect({ value, onChange, placeholder }: { value?: string, onChange: (v: string | undefined) => void, placeholder: string }) {
     const [open, setOpen] = useState(false)
     const ref = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
-        const h = (e: MouseEvent) => { if (ref.current &&!ref.current.contains(e.target as Node)) setOpen(false) }
+        const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
         document.addEventListener('mousedown', h)
         return () => document.removeEventListener('mousedown', h)
     }, [])
@@ -61,14 +122,14 @@ function BancoSelect({ value, onChange, placeholder }: { value?: string, onChang
             <button type="button" onClick={() => setOpen(!open)} className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black flex items-center justify-between focus:outline-none focus:border-[#0095ff] transition">
                 <span className="flex items-center gap-2 truncate">
                     <Landmark className="w-4 h-4 text-gray-500 shrink-0" />
-                    <span className={value? 'text-black' : 'text-black/40'}>{value || placeholder}</span>
+                    <span className={value ? 'text-black' : 'text-black/40'}>{value || placeholder}</span>
                 </span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
             {open && (
                 <div className="absolute z-50 top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5 max-h-[220px] overflow-y-auto no-scrollbar">
                     {BANCOS_ANGOLA.map(b => (
-                        <button key={b} type="button" onClick={() => { onChange(b); setOpen(false) }} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[12.5px] flex items-center justify-between transition ${value === b? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-50 text-gray-700'}`}>
+                        <button key={b} type="button" onClick={() => { onChange(b); setOpen(false) }} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[12.5px] flex items-center justify-between transition ${value === b ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-50 text-gray-700'}`}>
                             {b} {value === b && <Check className="w-4 h-4 text-[#0095ff]" />}
                         </button>
                     ))}
@@ -102,6 +163,12 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
 
     const inputClass = "w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black placeholder:text-black/40 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition"
 
+    const municipiosDisponiveis = form.province ? (MUNICIPIOS[form.province] || []) : []
+
+    const handleProvinceChange = (prov: string) => {
+        setForm(prev => ({ ...prev, province: prov, city: '' }))
+    }
+
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (file) {
@@ -113,7 +180,7 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        onSave({...form, logoFile })
+        onSave({ ...form, logoFile })
     }
 
     return (
@@ -141,7 +208,7 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
                         <div className="flex flex-col gap-[2px]">
                             <div className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-100 rounded-[16px] mb-2">
                                 <div className="w-14 h-14 rounded-[12px] bg-white border flex items-center justify-center overflow-hidden shrink-0">
-                                    {logoPreview? <img src={logoPreview} className="w-full h-full object-cover" /> : <Upload className="w-5 h-5 text-gray-400" />}
+                                    {logoPreview ? <img src={logoPreview} className="w-full h-full object-cover" /> : <Upload className="w-5 h-5 text-gray-400" />}
                                 </div>
                                 <div className="flex-1">
                                     <p className="text-[12px] font-bold text-gray-900">Logotipo da empresa</p>
@@ -153,35 +220,48 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
                                 </label>
                             </div>
 
-                            <input value={form.companyName} onChange={e => setForm({...form, companyName: e.target.value })} placeholder="Nome da empresa *" required className={inputClass} />
+                            <input value={form.companyName} onChange={e => setForm({ ...form, companyName: e.target.value })} placeholder="Nome da empresa *" required className={inputClass} />
 
                             <div className="grid grid-cols-2 gap-[2px]">
-                                <input value={form.nif} onChange={e => setForm({...form, nif: e.target.value })} placeholder="NIF" className={inputClass} />
-                                <input value={form.phone} onChange={e => setForm({...form, phone: e.target.value })} placeholder="Telefone" className={inputClass} />
+                                <input value={form.nif} onChange={e => setForm({ ...form, nif: e.target.value })} placeholder="NIF" className={inputClass} />
+                                <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="Telefone" className={inputClass} />
                             </div>
 
-                            <input value={form.email} type="email" onChange={e => setForm({...form, email: e.target.value })} placeholder="Email" className={inputClass} />
-                            <input value={form.address} onChange={e => setForm({...form, address: e.target.value })} placeholder="Endereço" className={inputClass} />
+                            <input value={form.email} type="email" onChange={e => setForm({ ...form, email: e.target.value })} placeholder="Email" className={inputClass} />
+                            <input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Endereço" className={inputClass} />
 
                             <div className="grid grid-cols-2 gap-[2px]">
-                                <input value={form.city} onChange={e => setForm({...form, city: e.target.value })} placeholder="Cidade" className={inputClass} />
-                                <input value={form.province} onChange={e => setForm({...form, province: e.target.value })} placeholder="Província" className={inputClass} />
+                                <CustomSelect
+                                    value={form.province}
+                                    onChange={handleProvinceChange}
+                                    placeholder="Província"
+                                    options={PROVINCIAS.map(p => ({ value: p, label: p }))}
+                                    icon={MapPin}
+                                />
+                                <CustomSelect
+                                    value={form.city}
+                                    onChange={(v) => setForm({ ...form, city: v })}
+                                    placeholder={form.province ? "Município" : "Selecione província"}
+                                    options={municipiosDisponiveis.map(m => ({ value: m, label: m }))}
+                                    disabled={!form.province}
+                                    icon={MapPin}
+                                />
                             </div>
 
                             <div className="h-[1px] bg-gray-100 my-3" />
                             <p className="text-[11px] font-bold tracking-widest text-black mb-2">DADOS BANCÁRIOS</p>
 
                             <div className="flex flex-col gap-[2px]">
-                                <BancoSelect value={form.banco1} onChange={(v) => setForm({...form, banco1: v, iban: v? form.iban : '' })} placeholder="Selecionar banco 1" />
+                                <BancoSelect value={form.banco1} onChange={(v) => setForm({ ...form, banco1: v, iban: v ? form.iban : '' })} placeholder="Selecionar banco 1" />
                                 {form.banco1 && (
-                                    <input value={form.iban || ''} onChange={e => setForm({...form, iban: e.target.value })} placeholder={`IBAN - ${form.banco1.split('-')[0].trim()}`} className={inputClass} />
+                                    <input value={form.iban || ''} onChange={e => setForm({ ...form, iban: e.target.value })} placeholder={`IBAN - ${form.banco1.split('-')[0].trim()}`} className={inputClass} />
                                 )}
                             </div>
 
                             <div className="flex flex-col gap-[2px] mt-[2px]">
-                                <BancoSelect value={form.banco2} onChange={(v) => setForm({...form, banco2: v, iban2: v? form.iban2 : '' })} placeholder="Selecionar banco 2 (opcional)" />
+                                <BancoSelect value={form.banco2} onChange={(v) => setForm({ ...form, banco2: v, iban2: v ? form.iban2 : '' })} placeholder="Selecionar banco 2 (opcional)" />
                                 {form.banco2 && (
-                                    <input value={form.iban2 || ''} onChange={e => setForm({...form, iban2: e.target.value })} placeholder={`IBAN - ${form.banco2.split('-')[0].trim()}`} className={inputClass} />
+                                    <input value={form.iban2 || ''} onChange={e => setForm({ ...form, iban2: e.target.value })} placeholder={`IBAN - ${form.banco2.split('-')[0].trim()}`} className={inputClass} />
                                 )}
                             </div>
                         </div>
@@ -192,7 +272,7 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
                             <X className="w-5 h-5 text-gray-600" />
                         </button>
                         <button type="submit" disabled={saving} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50">
-                            {saving? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
+                            {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
                         </button>
                     </div>
                 </form>

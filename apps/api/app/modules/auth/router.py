@@ -101,7 +101,6 @@ async def validar_nif_endpoint(data: schemas.ValidateNifRequest, request: Reques
         "source": result.get("source"),
         "message": result["message"]
     }
-
 @router.post("/register", status_code=201, response_model=schemas.RegisterResponse)
 async def register_company(data: schemas.RegisterRequest, request: Request, db: AsyncSession = Depends(get_db)):
     try:
@@ -140,12 +139,14 @@ async def register_company(data: schemas.RegisterRequest, request: Request, db: 
         nif_verified = False
         nif_agt_name = None
 
-        # valores que vamos salvar da AGT
-        tipo_agt_val = agt_result.get("tipo")
-        estado_agt_val = agt_result.get("estado") if agt_result.get("estado")!= "AGT_Offline" else "Activo"
-        inadimplente_val = agt_result.get("inadimplente")
-        regime_iva_val = agt_result.get("regime_iva")
-        residente_val = agt_result.get("residente_fiscal")
+        # valores que vamos salvar da AGT - com fallback do front quando AGT_Offline
+        tipo_agt_val = agt_result.get("tipo") or data.tipo_agt
+        estado_agt_val = agt_result.get("estado")
+        if estado_agt_val == "AGT_Offline":
+            estado_agt_val = data.estado_agt or "Activo"
+        inadimplente_val = agt_result.get("inadimplente") or data.inadimplente
+        regime_iva_val = agt_result.get("regime_iva") or data.regime_iva
+        residente_val = agt_result.get("residente_fiscal") or data.residente_fiscal
 
         if agt_result.get("valid") and agt_result.get("nome_agt"):
             nome_final = sanitize_string(agt_result["nome_agt"], 255) or company_name_sanitized
@@ -156,7 +157,6 @@ async def register_company(data: schemas.RegisterRequest, request: Request, db: 
                 nome_final = nome_agt_front
                 nif_verified = True
                 nif_agt_name = nome_agt_front
-                # quando offline não temos os outros campos, deixa None e verifica depois
 
         password_hash = hash_password(data.password)
 
@@ -180,7 +180,6 @@ async def register_company(data: schemas.RegisterRequest, request: Request, db: 
             nif_verified=nif_verified,
             nif_agt_name=nif_agt_name,
             nif_verified_at=datetime.now(timezone.utc) if nif_verified else None,
-            # NOVO - salva detalhes AGT
             tipo_agt=sanitize_string(tipo_agt_val, 100) if tipo_agt_val else None,
             estado_agt=sanitize_string(estado_agt_val, 20) if estado_agt_val else "Activo",
             inadimplente=sanitize_string(inadimplente_val, 10) if inadimplente_val else None,
@@ -211,6 +210,7 @@ async def register_company(data: schemas.RegisterRequest, request: Request, db: 
         await db.rollback()
         logger.error(f"Erro register: {e}")
         raise HTTPException(status_code=500, detail="Erro ao registrar")
+
 
 @router.post("/login", response_model=schemas.TokenResponse)
 async def login(data: schemas.LoginRequest, request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):

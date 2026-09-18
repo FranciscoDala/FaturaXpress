@@ -157,7 +157,7 @@ export default function Register() {
 
                 <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
                     <h1 className="text-[18px] font-bold text-gray-900 leading-tight">Registre sua empresa</h1>
-                    <p className="text-[13.5px] text-gray-500 mt-1">{nifValidated? "Complete os dados de contacto" : "Passo 1 - Valide o NIF na AGT"}</p>
+                    <p className="text-[13.5px] text-gray-500 mt-1">{nifValidated? "Preencha os campos em falta abaixo, para terminar o registro" : "Passo 1 - Valide o NIF na AGT"}</p>
                     {nifValidated && (
                         <div className="mt-[8px] flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 w-fit">
                             <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />

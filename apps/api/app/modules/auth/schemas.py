@@ -19,7 +19,15 @@ class RegisterRequest(BaseModel):
     logo_url: Optional[str] = None
     image_url: Optional[str] = None
     nome_agt_validado: Optional[str] = None
+    # FALTAVA - mesmos nomes do seu model Company
+    tipo_agt: Optional[str] = None
+    estado_agt: Optional[str] = None
+    inadimplente: Optional[str] = None
+    regime_iva: Optional[str] = None
+    residente_fiscal: Optional[str] = None
+    ultima_verificacao_agt: Optional[datetime] = None
 
+    
 class RegisterResponse(BaseModel):
     message: str
 

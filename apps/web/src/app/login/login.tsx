@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { FileText, Lock, ArrowRight } from 'lucide-react'
+import { FileText, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 
 const API_URL = "https://faturaxpress-backend.onrender.com/api"
@@ -8,6 +8,7 @@ const API_URL = "https://faturaxpress-backend.onrender.com/api"
 export default function LoginPage() {
     const [nif, setNif] = useState('')
     const [password, setPassword] = useState('')
+    const [showPassword, setShowPassword] = useState(false)
     const [loading, setLoading] = useState(false)
     const navigate = useNavigate()
 
@@ -50,23 +51,41 @@ export default function LoginPage() {
                     <p className="text-[13.5px] text-gray-500 mt-1">Insere seus dados, para iniciar sessão</p>
                 </div>
 
-                <form onSubmit={handleLogin} className="px-6 pb-6 flex flex-col gap-[2px]">
+                <form onSubmit={handleLogin} className="px-6 pb-6 flex flex-col gap-3">
                     <div className="relative">
                         <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={`${inputClass} pl-10`} placeholder="NIF" disabled={loading} />
                         <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     </div>
-                    <div className="relative">
-                        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className={`${inputClass} pl-10`} placeholder="Senha" disabled={loading} />
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+
+                    {/* SENHA COM UX */}
+                    <div className="relative group">
+                        <input
+                            type={showPassword? "text" : "password"}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            className={`${inputClass} pl-10 pr-10`}
+                            placeholder="Senha"
+                            disabled={loading}
+                        />
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-[#0095ff] transition" />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100 transition"
+                            tabIndex={-1}
+                        >
+                            {showPassword? <EyeOff className="h-4 w-4 text-gray-500" /> : <Eye className="h-4 w-4 text-gray-500" />}
+                        </button>
                     </div>
 
-                    <div className="mt-3">
+                    <div className="mt-1">
                         <button type="submit" disabled={loading} className="w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50 transition">
                             {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ArrowRight className="w-5 h-5" />}
                         </button>
                     </div>
 
-                    <p className="text-center text-[13px] text-gray-600 mt-4">
+                    <p className="text-center text-[13px] text-gray-600 mt-1">
                         Não tem conta? <Link to="/register" className="text-[#0095ff] font-semibold hover:underline">Registra-se</Link>
                     </p>
                 </form>

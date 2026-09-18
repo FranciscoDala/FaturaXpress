@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Mail, Lock, Phone, MapPin, FileText, ArrowRight } from 'lucide-react'
+import { Mail, Lock, Phone, MapPin, FileText, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 
 const API_URL = "https://faturaxpress-backend.onrender.com/api"
 
 export default function Register() {
     const [loading, setLoading] = useState(false)
+    const [showPassword, setShowPassword] = useState(false)
     const navigate = useNavigate()
 
     const [companyName, setCompanyName] = useState('')
@@ -60,27 +61,48 @@ export default function Register() {
                 <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-4">
                     <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
 
-                    <form onSubmit={handleRegister} className="flex flex-col gap-[2px]">
+                    <form onSubmit={handleRegister} className="flex flex-col gap-3">
                         <div className="relative"><input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required className={inputWithIcon} placeholder="Nome da Empresa Lda *" disabled={loading} /><FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
-                        <div className="grid grid-cols-2 gap-[2px]">
+                        <div className="grid grid-cols-2 gap-3">
                             <div className="relative"><input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={inputWithIcon} placeholder="NIF *" disabled={loading} /><FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
                             <div className="relative"><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required className={inputWithIcon} placeholder="Telefone *" disabled={loading} /><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
                         </div>
                         <div className="relative"><input type="email" value={emailCompany} onChange={(e) => setEmailCompany(e.target.value)} required className={inputWithIcon} placeholder="email@empresa.com *" disabled={loading} /><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
                         <div className="relative"><input type="text" value={address} onChange={(e) => setAddress(e.target.value)} required className={inputWithIcon} placeholder="Rua, Bairro *" disabled={loading} /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
-                        <div className="grid grid-cols-2 gap-[2px]">
+                        <div className="grid grid-cols-2 gap-3">
                             <div className="relative"><input type="text" value={city} onChange={(e) => setCity(e.target.value)} required className={inputWithIcon} placeholder="Cidade *" disabled={loading} /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
                             <div className="relative"><input type="text" value={province} onChange={(e) => setProvince(e.target.value)} required className={inputWithIcon} placeholder="Província *" disabled={loading} /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
                         </div>
-                        <div className="relative"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className={inputWithIcon} placeholder="Palavra-passe *" disabled={loading} /><Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
 
-                        <div className="mt-3">
+                        {/* SENHA COM UX */}
+                        <div className="relative group">
+                            <input
+                                type={showPassword? "text" : "password"}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                className={`${inputWithIcon} pr-10`}
+                                placeholder="Crie uma palavra-passe forte *"
+                                disabled={loading}
+                            />
+                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-[#0095ff] transition" />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100 transition"
+                                tabIndex={-1}
+                            >
+                                {showPassword? <EyeOff className="h-4 w-4 text-gray-500" /> : <Eye className="h-4 w-4 text-gray-500" />}
+                            </button>
+                        </div>
+
+                        <div className="mt-1">
                             <button type="submit" disabled={loading} className="w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50 transition">
                                 {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ArrowRight className="w-5 h-5" />}
                             </button>
                         </div>
 
-                        <p className="text-center text-[13px] text-gray-600 mt-4">
+                        <p className="text-center text-[13px] text-gray-600 mt-1">
                             Já tem conta? <Link to="/login" className="text-[#0095ff] font-semibold hover:underline">Fazer login</Link>
                         </p>
                     </form>

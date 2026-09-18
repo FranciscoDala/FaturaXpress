@@ -94,7 +94,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
         cidade: empresa?.cidade || empresa?.city || '',
         logo: empresa?.logo_url || empresa?.image_url || empresa?.logo || '',
         logo_url: empresa?.logo_url || empresa?.image_url || '',
-        banco: empresa?.banco || empresa?.banco1 || 'BAI',
         banco1: empresa?.banco1 || '',
         banco2: empresa?.banco2 || '',
         iban: empresa?.iban || '',
@@ -116,7 +115,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
     const totalBase = Number(fatura?.subtotal || totais.liquido || 0).toFixed(2)
 
     const qrContent = (isOficial || isNC)
-       ? `A:${(emp.nif || '').toString().padStart(10, '0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco || 'Luanda').slice(0, 35)}*L1:${emp.cidade || 'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior || ''}`
+      ? `A:${(emp.nif || '').toString().padStart(10, '0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco || 'Luanda').slice(0, 35)}*L1:${emp.cidade || 'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior || ''}`
         : `${getNumero(fatura)}|${fatura?.id}`
 
     const tituloDoc = isNC? 'NOTA DE CRÉDITO' : isOficial? 'FACTURA' : 'FACTURA PROFORMA'
@@ -213,10 +212,10 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                     </div>
                 </div>
 
-                <div className="mt-4 bg-[rgba(255,255,255,0.40)] p-1 text-[10px]">
-                    <p className="font-bold">Coordenadas Bancárias:</p>
-                    {emp.iban? <p>{emp.banco1 || emp.banco || 'Banco'} - IBAN: {emp.iban}</p> : <p>IBAN 1: ---</p>}
-                    {emp.iban2? <p>{emp.banco2 || 'Banco'} - IBAN: {emp.iban2}</p> : null}
+                <div className="mt-4 bg-[rgba(255,255,255,0.40)] p-2 text-[10px] border border-dashed border-gray-300 rounded">
+                    <p className="font-bold mb-1">Coordenadas Bancárias:</p>
+                    {emp.iban? <p>{emp.banco1? `${emp.banco1} - IBAN: ${emp.iban}` : `IBAN: ${emp.iban}`}</p> : <p>IBAN 1: ---</p>}
+                    {emp.iban2? <p>{emp.banco2? `${emp.banco2} - IBAN: ${emp.iban2}` : `IBAN 2: ${emp.iban2}`}</p> : null}
                     {!emp.iban &&!emp.iban2 && <p>IBAN ---</p>}
                 </div>
                 {fatura?.observacoes && <div className="mt-2 text-[10px]"><b>Observações:</b> {fatura.observacoes}</div>}

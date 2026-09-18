@@ -13,6 +13,8 @@ class RegisterRequest(BaseModel):
     password: str
     iban: Optional[str] = None
     iban2: Optional[str] = None
+    banco1: Optional[str] = None
+    banco2: Optional[str] = None
     logo_url: Optional[str] = None
     image_url: Optional[str] = None
 
@@ -31,6 +33,8 @@ class CompanyResponse(BaseModel):
     province: Optional[str] = None
     iban: Optional[str] = None
     iban2: Optional[str] = None
+    banco1: Optional[str] = None
+    banco2: Optional[str] = None
     logo_url: Optional[str] = None
     image_url: Optional[str] = None
 
@@ -55,5 +59,7 @@ class UpdateCompanyRequest(BaseModel):
     province: Optional[str] = None
     iban: Optional[str] = None
     iban2: Optional[str] = None
+    banco1: Optional[str] = None
+    banco2: Optional[str] = None
     logo_url: Optional[str] = None
     image_url: Optional[str] = None

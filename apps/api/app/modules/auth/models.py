@@ -18,6 +18,8 @@ class Company(Base):
     province: Mapped[str | None] = mapped_column(String(100), nullable=True)
     iban: Mapped[str | None] = mapped_column(String(100), nullable=True)
     iban2: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    banco1: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    banco2: Mapped[str | None] = mapped_column(String(100), nullable=True)
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)

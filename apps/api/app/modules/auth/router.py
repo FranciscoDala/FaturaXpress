@@ -36,10 +36,11 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
             province=data.province,
             iban=data.iban,
             iban2=data.iban2,
+            banco1=data.banco1,
+            banco2=data.banco2,
             logo_url=data.logo_url or data.image_url,
             image_url=data.image_url or data.logo_url,
             password_hash=password_hash,
-            # AQUI GARANTE FREE AO CRIAR
             subscription_plan="free",
             subscription_status="active"
         )
@@ -100,6 +101,8 @@ async def get_me(db: AsyncSession = Depends(get_db), company_id: uuid.UUID = Dep
             "provincia": company.province,
             "iban": company.iban,
             "iban2": company.iban2,
+            "banco1": getattr(company, 'banco1', None),
+            "banco2": getattr(company, 'banco2', None),
             "logo_url": company.logo_url,
             "image_url": company.image_url or company.logo_url,
             "is_active": company.is_active,
@@ -129,6 +132,8 @@ async def update_company(data: schemas.UpdateCompanyRequest, db: AsyncSession = 
     if data.province is not None: company.province = data.province
     if data.iban is not None: company.iban = data.iban
     if data.iban2 is not None: company.iban2 = data.iban2
+    if data.banco1 is not None: company.banco1 = data.banco1
+    if data.banco2 is not None: company.banco2 = data.banco2
     if data.logo_url is not None:
         company.logo_url = data.logo_url
         company.image_url = data.logo_url
@@ -189,6 +194,8 @@ async def update_company_with_logo(
     province: Optional[str] = Form(None),
     iban: Optional[str] = Form(None),
     iban2: Optional[str] = Form(None),
+    banco1: Optional[str] = Form(None),
+    banco2: Optional[str] = Form(None),
     logo: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
     company_id: uuid.UUID = Depends(get_current_company_id)
@@ -207,6 +214,8 @@ async def update_company_with_logo(
     if province is not None: company.province = province
     if iban is not None: company.iban = iban
     if iban2 is not None: company.iban2 = iban2
+    if banco1 is not None: company.banco1 = banco1
+    if banco2 is not None: company.banco2 = banco2
 
     if logo:
         try:

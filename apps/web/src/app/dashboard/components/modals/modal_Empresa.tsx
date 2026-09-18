@@ -92,6 +92,12 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
         }
     }, [initialData, open])
 
+    useEffect(() => {
+        return () => {
+            if (logoPreview && logoFile) URL.revokeObjectURL(logoPreview)
+        }
+    }, [logoPreview, logoFile])
+
     if (!open) return null
 
     const inputClass = "w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black placeholder:text-black/40 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition"
@@ -99,6 +105,7 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (file) {
+            if (logoPreview && logoFile) URL.revokeObjectURL(logoPreview)
             setLogoFile(file)
             setLogoPreview(URL.createObjectURL(file))
         }
@@ -113,7 +120,6 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <div className="relative bg-white rounded-[24px] w-full max-w-[560px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-h-[92vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                {/* HEADER FIXO */}
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF] shrink-0">
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center">
                         <Building2 className="w-4 h-4 text-[#0095ff]" />
@@ -129,12 +135,10 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
-                    {/* CONTEUDO COM SCROLL INVISIVEL */}
                     <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-4">
                         <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
 
                         <div className="flex flex-col gap-[2px]">
-                            {/* LOGO */}
                             <div className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-100 rounded-[16px] mb-2">
                                 <div className="w-14 h-14 rounded-[12px] bg-white border flex items-center justify-center overflow-hidden shrink-0">
                                     {logoPreview? <img src={logoPreview} className="w-full h-full object-cover" /> : <Upload className="w-5 h-5 text-gray-400" />}
@@ -167,7 +171,6 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
                             <div className="h-[1px] bg-gray-100 my-3" />
                             <p className="text-[11px] font-bold tracking-widest text-black mb-2">DADOS BANCÁRIOS</p>
 
-                            {/* BANCO 1 */}
                             <div className="flex flex-col gap-[2px]">
                                 <BancoSelect value={form.banco1} onChange={(v) => setForm({...form, banco1: v, iban: v? form.iban : '' })} placeholder="Selecionar banco 1" />
                                 {form.banco1 && (
@@ -175,7 +178,6 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
                                 )}
                             </div>
 
-                            {/* BANCO 2 */}
                             <div className="flex flex-col gap-[2px] mt-[2px]">
                                 <BancoSelect value={form.banco2} onChange={(v) => setForm({...form, banco2: v, iban2: v? form.iban2 : '' })} placeholder="Selecionar banco 2 (opcional)" />
                                 {form.banco2 && (
@@ -185,7 +187,6 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
                         </div>
                     </div>
 
-                    {/* FOOTER FIXO */}
                     <div className="shrink-0 px-6 py-4 border-t border-gray-100 bg-white flex gap-[2px]">
                         <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50">
                             <X className="w-5 h-5 text-gray-600" />

@@ -75,7 +75,7 @@ export default function LoginPage() {
 
                 {/* NOVO - BANNER BLOQUEIO AGT */}
                 {agtBlock && (
-                    <div className="mx-6 mb-3 p-3 rounded-[12px] bg-red-50 border border-red-200 flex gap-2.5 items-start">
+                    <div className="mx-6 mb-[5px] p-3 rounded-[12px] bg-red-50 border border-red-200 flex gap-2.5 items-start">
                         <ShieldAlert className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
                         <div className="flex-1">
                             <p className="text-[13px] font-semibold text-red-800 leading-tight">Acesso bloqueado pela AGT</p>
@@ -85,7 +85,7 @@ export default function LoginPage() {
                     </div>
                 )}
 
-                <form onSubmit={handleLogin} className="px-6 pb-6 flex flex-col gap-3">
+                <form onSubmit={handleLogin} className="px-6 pb-6 flex flex-col gap-[5px]">
                     <div className="relative">
                         <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={`${inputClass} pl-10`} placeholder="NIF" disabled={loading} />
                         <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -118,13 +118,13 @@ export default function LoginPage() {
                         <p className="text-[11px] text-gray-500 leading-tight">O acesso é validado pelo estado do NIF na AGT. NIFs inactivos não podem aceder.</p>
                     </div>
 
-                    <div className="mt-1">
+                    <div className="mt-[5px]">
                         <button type="submit" disabled={loading} className="w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50 transition">
                             {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ArrowRight className="w-5 h-5" />}
                         </button>
                     </div>
 
-                    <p className="text-center text-[13px] text-gray-600 mt-1">
+                    <p className="text-center text-[13px] text-gray-600 mt-[5px]">
                         Não tem conta? <Link to="/register" className="text-[#0095ff] font-semibold hover:underline">Registra-se</Link>
                     </p>
                 </form>

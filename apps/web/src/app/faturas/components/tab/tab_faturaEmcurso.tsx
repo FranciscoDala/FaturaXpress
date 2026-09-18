@@ -96,7 +96,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
             )}
 
             {faturas.length === 0? (
-                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma proforma em curso - PP é sempre livre, não conta no limite do plano.</p>
+                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma fatura proforma (FT/PP)</p>
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {faturas.map(f => {

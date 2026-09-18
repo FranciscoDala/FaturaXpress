@@ -32,7 +32,7 @@ export default function TabelaClientes({ clientes, loading, onEdit, onDelete, on
     }
 
     if (clientes.length === 0) {
-        return <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhum cliente cadastrado. Clientes são ilimitados e não contam no limite do plano FREE/PLUS/PREMIUM.</p>
+        return <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhum cliente cadastrado!</p>
     }
 
     return (

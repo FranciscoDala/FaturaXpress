@@ -188,7 +188,7 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
                 )}
 
                 {filtradas.length === 0? (
-                    <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma fatura FT/NC encontrada. Emita FT para contar no limite do seu plano.</p>
+                    <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma fatura emita ( FT/NC)</p>
                 ) : (
                     <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                         {filtradas.map(f => {

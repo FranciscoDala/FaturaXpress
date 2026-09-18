@@ -18,7 +18,7 @@ from app.core.agt_validator import validate_nif_agt, clean_nif
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-# NOVO ENDPOINT - VALIDA NIF ANTES DE CADASTRAR
+# VALIDA NIF ANTES DE CADASTRAR - SUPORTA 003614847LA037 e 50020633956
 @router.post("/validar-nif", response_model=schemas.ValidateNifResponse)
 async def validar_nif_endpoint(data: schemas.ValidateNifRequest):
     result = await validate_nif_agt(data.nif)
@@ -32,7 +32,6 @@ async def validar_nif_endpoint(data: schemas.ValidateNifRequest):
     if result["estado"] == "Inactivo":
         raise HTTPException(status_code=400, detail="Este NIF está Inactivo na AGT. Não pode ser usado.")
 
-    # Se for AGT_Offline deixa passar mas avisa
     return {
         "valid": result["valid"],
         "nif": result["nif"],
@@ -44,13 +43,15 @@ async def validar_nif_endpoint(data: schemas.ValidateNifRequest):
 @router.post("/register", status_code=201, response_model=schemas.RegisterResponse)
 async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Depends(get_db)):
     try:
+        nif_limpo = clean_nif(data.nif)
+
         # 1. Verifica duplicado
-        result = await db.execute(select(Company).where(or_(Company.nif == clean_nif(data.nif), Company.email == data.emailCompany)))
+        result = await db.execute(select(Company).where(or_(Company.nif == nif_limpo, Company.email == data.emailCompany)))
         exists = result.scalar_one_or_none()
         if exists:
             raise HTTPException(status_code=400, detail="NIF ou Email já cadastrado")
 
-        # 2. NOVO - VALIDA NIF NA AGT ANTES DE CADASTRAR
+        # 2. VALIDA NIF NA AGT ANTES DE CADASTRAR
         agt_result = await validate_nif_agt(data.nif)
 
         if agt_result["estado"] == "FormatoInvalido":
@@ -64,9 +65,14 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
 
         password_hash = hash_password(data.password)
 
+        # Se veio nome da AGT usa ele, senão usa o digitado
+        nome_final = data.companyName
+        if agt_result.get("nome_agt"):
+            nome_final = agt_result["nome_agt"]
+
         company = Company(
-            companyName=data.companyName if not agt_result.get("nome_agt") else agt_result["nome_agt"] if agt_result["nome_agt"] else data.companyName,
-            nif=clean_nif(data.nif),
+            companyName=nome_final,
+            nif=nif_limpo,
             email=data.emailCompany,
             phone=data.phone,
             address=data.address,
@@ -168,7 +174,7 @@ async def update_company(data: schemas.UpdateCompanyRequest, db: AsyncSession = 
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
 
     if data.companyName is not None: company.companyName = data.companyName
-    if data.nif is not None: company.nif = data.nif
+    if data.nif is not None: company.nif = clean_nif(data.nif)
     if data.email is not None: company.email = data.email
     if data.phone is not None: company.phone = data.phone
     if data.address is not None: company.address = data.address
@@ -250,7 +256,7 @@ async def update_company_with_logo(
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
 
     if companyName is not None: company.companyName = companyName
-    if nif is not None: company.nif = nif
+    if nif is not None: company.nif = clean_nif(nif)
     if email is not None: company.email = email
     if phone is not None: company.phone = phone
     if address is not None: company.address = address

@@ -10,7 +10,6 @@ export default function Register() {
     const [showPassword, setShowPassword] = useState(false)
     const navigate = useNavigate()
 
-    // NOVO - CONTROLE DE VALIDACAO
     const [nifValidated, setNifValidated] = useState(false)
     const [validatingNif, setValidatingNif] = useState(false)
     const [agtName, setAgtName] = useState<string | null>(null)
@@ -26,8 +25,9 @@ export default function Register() {
     const [password, setPassword] = useState('')
 
     const handleValidarNif = async () => {
-        if (!nif || nif.replace(/\D/g, '').length < 9) {
-            toast.error("Digite um NIF válido com 9 ou 10 dígitos", { position: 'top-center' })
+        const nifClean = nif.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+        if (!nifClean || nifClean.length < 9) {
+            toast.error("Digite um NIF válido ex: 50020633956 ou 003614847LA037", { position: 'top-center' })
             return
         }
         setValidatingNif(true)
@@ -35,7 +35,7 @@ export default function Register() {
             const res = await fetch(`${API_URL}/auth/validar-nif`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ nif })
+                body: JSON.stringify({ nif: nifClean })
             })
             const data = await res.json()
             if (!res.ok) throw new Error(data.detail || "NIF inválido")
@@ -44,7 +44,6 @@ export default function Register() {
             setAgtEstado(data.estado)
             setNifValidated(true)
 
-            // Se veio nome da AGT, usa ele e trava
             if (data.nome_agt) {
                 setCompanyName(data.nome_agt)
             }
@@ -117,8 +116,8 @@ export default function Register() {
                     <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
 
                     <form onSubmit={handleRegister} className="flex flex-col gap-3">
-                        {/* ETAPA 1 - NIF */}
-                        <div className="flex gap-2">
+                        {/* ETAPA 1 - NIF - COLUNA NO MOBILE */}
+                        <div className="flex flex-col sm:flex-row gap-2">
                             <div className="relative flex-1">
                                 <input
                                     type="text"
@@ -126,7 +125,7 @@ export default function Register() {
                                     onChange={(e) => { setNif(e.target.value); setNifValidated(false); setAgtName(null) }}
                                     required
                                     className={`${inputWithIcon} ${nifValidated? 'border-green-300 bg-green-50/50' : ''}`}
-                                    placeholder="NIF da empresa *"
+                                    placeholder="NIF ex: 50020633956 ou 003614847LA037"
                                     disabled={loading || validatingNif}
                                 />
                                 <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -136,10 +135,10 @@ export default function Register() {
                                 type="button"
                                 onClick={handleValidarNif}
                                 disabled={validatingNif ||!nif}
-                                className={`h-[44px] px-4 rounded-[12px] font-semibold text-[13px] transition flex items-center gap-1.5 shrink-0 ${nifValidated? 'bg-green-600 text-white' : 'bg-[#0095ff] text-white hover:bg-[#0085e6]'} disabled:opacity-50`}
+                                className={`h-[44px] w-full sm:w-auto px-5 rounded-[12px] font-semibold text-[13px] transition flex items-center justify-center gap-1.5 shrink-0 ${nifValidated? 'bg-green-600 text-white' : 'bg-[#0095ff] text-white hover:bg-[#0085e6]'} disabled:opacity-50`}
                             >
                                 {validatingNif? <Loader2 className="w-4 h-4 animate-spin" /> : nifValidated? <CheckCircle className="w-4 h-4" /> : null}
-                                {nifValidated? "Validado" : "Validar"}
+                                {nifValidated? "Validado" : "Validar NIF"}
                             </button>
                         </div>
 
@@ -148,12 +147,11 @@ export default function Register() {
                                 <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
                                 <div>
                                     <b className="block">{agtName}</b>
-                                    <span>Estado: {agtEstado} na AGT • NIF: {nif}</span>
+                                    <span>Estado: {agtEstado} na AGT • NIF: {nif.replace(/[^A-Za-z0-9]/g, '').toUpperCase()}</span>
                                 </div>
                             </div>
                         )}
 
-                        {/* ETAPA 2 - SÓ LIBERA DEPOIS DE VALIDAR */}
                         {nifValidated && (
                             <>
                                 <div className="relative">

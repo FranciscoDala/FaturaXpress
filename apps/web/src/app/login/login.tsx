@@ -88,7 +88,7 @@ export default function LoginPage() {
 
                 <form onSubmit={handleLogin} className="px-6 pb-6 flex flex-col gap-[5px]">
                     <div className="relative">
-                        <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={`${inputClass} pl-10`} placeholder="NIF" disabled={loading} />
+                        <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={`${inputClass} pl-10`} placeholder="NIF nº" disabled={loading} />
                         <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     </div>
 

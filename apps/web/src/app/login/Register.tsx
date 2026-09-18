@@ -134,10 +134,24 @@ export default function Register() {
             })
             const data = await res.json()
             if (!res.ok) {
-                // AQUI ESTÁ O FIX DO TOAST
                 let msg = data.detail || "Erro ao registrar"
+
+                // traduz 422 do Pydantic
                 if (Array.isArray(data.detail)) {
-                    msg = data.detail.map((d: any) => `${d.loc?.[1] || d.loc?.[0]}: ${d.msg}`).join(', ')
+                    const first = data.detail[0]
+                    if (first.loc?.includes('password') || first.loc?.includes('Password')) {
+                        msg = "Senha fraca. Use letras e números (mín. 8 caracteres)"
+                    } else {
+                        msg = first.msg?.replace('Field required', 'Campo obrigatório') || "Preencha todos os campos"
+                    }
+                } else if (typeof data.detail === 'string') {
+                    if (data.detail.toLowerCase().includes('password') || data.detail.toLowerCase().includes('senha')) {
+                        msg = "Senha fraca. Use letras e números (mín. 8 caracteres)"
+                    } else if (data.detail.includes('NIF ou Email')) {
+                        msg = "Este NIF ou email já está cadastrado"
+                    } else {
+                        msg = data.detail
+                    }
                 }
                 throw new Error(msg)
             }

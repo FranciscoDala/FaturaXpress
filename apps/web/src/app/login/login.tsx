@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { FileText, Lock, Building2, Loader2, ArrowRight  } from 'lucide-react'
+import { FileText, Lock, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 
 const API_URL = "https://faturaxpress-backend.onrender.com/api"
@@ -40,8 +40,8 @@ export default function LoginPage() {
         <div className="min-h-screen flex items-center justify-center p-4 bg-[#f6f8fb]">
             <div className="relative w-full max-w-[400px] bg-white rounded-[24px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-gray-100">
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF] shrink-0">
-                    <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center">
-                        <Building2 className="w-4 h-4 text-[#0095ff]" />
+                    <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center overflow-hidden">
+                        <img src="/android-chrome-192x192.png" alt="FT-Xpress" className="w-7 h-7 object-contain" />
                     </div>
                 </div>
 
@@ -62,7 +62,7 @@ export default function LoginPage() {
 
                     <div className="mt-3">
                         <button type="submit" disabled={loading} className="w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50 transition">
-                            {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ArrowRight  className="w-5 h-5" />}
+                            {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ArrowRight className="w-5 h-5" />}
                         </button>
                     </div>
 

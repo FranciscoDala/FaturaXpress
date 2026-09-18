@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Building2, Mail, Lock, Phone, MapPin, FileText, ArrowRight  } from 'lucide-react'
+import { Mail, Lock, Phone, MapPin, FileText, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 
 const API_URL = "https://faturaxpress-backend.onrender.com/api"
@@ -47,8 +47,8 @@ export default function Register() {
         <div className="min-h-screen flex items-center justify-center p-4 bg-[#f6f8fb]">
             <div className="relative w-full max-w-[480px] bg-white rounded-[24px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-gray-100 max-h-[92vh] flex flex-col">
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF] shrink-0">
-                    <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center">
-                        <Building2 className="w-4 h-4 text-[#0095ff]" />
+                    <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center overflow-hidden">
+                        <img src="/android-chrome-192x192.png" alt="FT-Xpress" className="w-7 h-7 object-contain" />
                     </div>
                 </div>
 
@@ -61,7 +61,7 @@ export default function Register() {
                     <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
 
                     <form onSubmit={handleRegister} className="flex flex-col gap-[2px]">
-                        <div className="relative"><input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required className={inputWithIcon} placeholder="Nome da Empresa Lda *" disabled={loading} /><Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
+                        <div className="relative"><input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required className={inputWithIcon} placeholder="Nome da Empresa Lda *" disabled={loading} /><FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
                         <div className="grid grid-cols-2 gap-[2px]">
                             <div className="relative"><input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={inputWithIcon} placeholder="NIF *" disabled={loading} /><FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
                             <div className="relative"><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required className={inputWithIcon} placeholder="Telefone *" disabled={loading} /><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
@@ -76,7 +76,7 @@ export default function Register() {
 
                         <div className="mt-3">
                             <button type="submit" disabled={loading} className="w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50 transition">
-                                {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ArrowRight  className="w-5 h-5" />}
+                                {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ArrowRight className="w-5 h-5" />}
                             </button>
                         </div>
 

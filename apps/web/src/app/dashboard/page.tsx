@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Pencil, Database, Search, Crown, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
@@ -110,19 +110,36 @@ export default function DashboardPage() {
     })
     const [savingEmpresa, setSavingEmpresa] = useState(false)
 
-    const totalFaturado = faturasEmitidas.reduce((s: any, f: any) => s + Number(f.total_geral || f.total || 0), 0)
-    const totalDocs = faturasCurso.length + faturasEmitidas.length
+    const { ncOrigensSet, faturasFTOnly, faturasFTAtivas } = useMemo(() => {
+        const origens = new Set<string>()
+        faturasEmitidas.forEach((f: any) => {
+            if (f.tipo_documento === 'nota_credito' && f.fatura_origem_id) {
+                origens.add(f.fatura_origem_id)
+            }
+        })
+        const ftOnly = faturasEmitidas.filter((f: any) => f.tipo_documento === 'fatura')
+        const ftAtivas = ftOnly.filter((f: any) =>!origens.has(f.id) && f.status!== 'cancelada')
+        return { ncOrigensSet: origens, faturasFTOnly: ftOnly, faturasFTAtivas: ftAtivas }
+    }, [faturasEmitidas])
 
-    // NOVO: info de plano
+    const totalFaturado = useMemo(() => {
+        return faturasFTAtivas.reduce((s: any, f: any) => s + Number(f.total_geral || f.total || 0), 0)
+    }, [faturasFTAtivas])
+
+    const totalDocs = useMemo(() => {
+        return faturasCurso.length + faturasFTOnly.length
+    }, [faturasCurso, faturasFTOnly])
+
     const planId = (empresa?.subscription_plan || 'free').toLowerCase()
     const planInfo = PLAN_LIMITS[planId] || PLAN_LIMITS.free
-    const faturasMes = faturasEmitidas.filter((f: any) => {
-        const d = new Date(f.created_at || f.data_emissao)
-        const now = new Date()
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && f.tipo_documento === 'fatura'
-    }).length
-    const usoPercent = planInfo.max? Math.min(100, (faturasMes / planInfo.max) * 100) : 0
-    const isNearLimit = planInfo.max? usoPercent >= 80 : false
+    const faturasMes = useMemo(() => {
+        return faturasFTOnly.filter((f: any) => {
+            const d = new Date(f.created_at || f.data_emissao)
+            const now = new Date()
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+        }).length
+    }, [faturasFTOnly])
+
     const isAtLimit = planInfo.max? faturasMes >= planInfo.max : false
 
     const isInitialLoading =!empresa && (loading || loadingFaturas)
@@ -328,50 +345,33 @@ export default function DashboardPage() {
                                             <p className="break-all text-[11px]"><span className="font-medium text-gray-500">IBAN:</span> {empresa?.iban}{empresa?.iban2? ` | ${empresa?.iban2}` : ''}</p>
                                         )}
                                     </div>
-                                    {/* BANNER DE PLANO NOVO */}
-                                    <div className={`mt-4 w-full max-w-[420px] rounded-xl border px-3 py-2.5 flex items-center gap-3 ${planInfo.color} ${isNearLimit? 'ring-1 ring-amber-300' : ''}`}>
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-white border`}>
-                                            <Crown className="w-4 h-4" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-[11px] font-bold uppercase tracking-wide">Plano {planInfo.label}</p>
-                                                {planInfo.max && (
-                                                    <span className="text-[10px] px-1.5 py-0.5 bg-white/70 rounded-full border">{faturasMes}/{planInfo.max} FT este mês</span>
-                                                )}
-                                                {!planInfo.max && (
-                                                    <span className="text-[10px] px-1.5 py-0.5 bg-white/70 rounded-full border">Ilimitado</span>
-                                                )}
-                                            </div>
-                                            {planInfo.max? (
-                                                <div className="mt-1.5 h-1.5 w-full bg-white/60 rounded-full overflow-hidden">
-                                                    <div className={`h-full rounded-full transition-all ${isAtLimit? 'bg-red-500' : isNearLimit? 'bg-amber-500' : 'bg-[#0095ff]'}`} style={{ width: `${usoPercent}%` }} />
-                                                </div>
-                                            ) : (
-                                                <p className="text-[11px] mt-0.5 opacity-80">Faturas ilimitadas</p>
-                                            )}
-                                        </div>
-                                        {(isNearLimit || isAtLimit) && (
-                                            <button onClick={() => navigate('/assinatura')} className="text-[11px] font-semibold px-3 py-1 rounded-full bg-[#0095ff] text-white hover:bg-[#007acc] shrink-0">
-                                                Upgrade
-                                            </button>
-                                        )}
-                                    </div>
-                                    {isAtLimit && (
-                                        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full max-w-[420px]">
-                                            <AlertTriangle className="w-3.5 h-3.5" />
-                                            Limite atingido. Proformas continuam livres, só FT bloqueada.
-                                        </div>
-                                    )}
+                                    {/* REMOVIDO DIV PLANO FREE GRANDE - AGORA CONTA FICA ABAIXO DO TOTAL */}
                                     <div className="mt-4 space-y-1">
                                         <p className="text-[11px] text-gray-500">Total de faturas emitidas, PP, FT - {loadingFaturas? '...' : `${totalDocs} docs`}</p>
                                         <p className="text-[11px] text-gray-500">Total Faturado FT - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas? '...' : `${totalFaturado.toFixed(2)} KZ`}</span></p>
+                                        <p className="text-[11px] text-gray-600 font-medium">
+                                            Fatura FT - {loadingFaturas? '...' : planInfo.max? `${faturasMes}/${planInfo.max} FT este mês` : `${faturasMes} FT este mês (Ilimitado)`}
+                                        </p>
+                                        {isAtLimit && (
+                                            <div className="flex items-center gap-1.5 text-[11px] text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full max-w-[320px] mt-1">
+                                                <AlertTriangle className="w-3.5 h-3.5" />
+                                                Limite atingido. Proformas livres, FT bloqueada.
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2 shrink-0 pl-2">
-                                    <button onClick={() => navigate('/assinatura')} className="w-10 h-10 rounded-full bg-white border border-yellow-200 shadow-[0_2px_12px_rgba(0,0,0,0.06)] flex items-center justify-center text-[#f59e0b] hover:bg-yellow-50 transition shrink-0">
-                                        <Crown className="w-[18px] h-[18px]" />
-                                    </button>
+                                <div className="flex items-center gap-3 shrink-0 pl-2">
+                                    {/* ÍCONE UPGRADE COM NOME FREE EM CIMA IGUAL LÁPIS DA LOGO */}
+                                    <div className="relative">
+                                        <div className="absolute -top-3 -right-2 z-10">
+                                            <span className="text-[8px] font-bold tracking-wide bg-white border border-yellow-200 text-yellow-700 px-1.5 py-[1px] rounded-full shadow-sm">
+                                                {planInfo.label}
+                                            </span>
+                                        </div>
+                                        <button onClick={() => navigate('/assinatura')} className="w-10 h-10 rounded-full bg-white border border-yellow-200 shadow-[0_2px_12px_rgba(0,0,0,0.06)] flex items-center justify-center text-[#f59e0b] hover:bg-yellow-50 transition shrink-0">
+                                            <Crown className="w-[18px] h-[18px]" />
+                                        </button>
+                                    </div>
                                     <button onClick={handleLogout} className="w-10 h-10 rounded-full bg-[#FF3B30] border border-[#FF3B30] shadow-[0_2px_12px_rgba(255,59,48,0.25)] flex items-center justify-center text-white hover:bg-[#e6352b] transition shrink-0">
                                         <Power className="w-[18px] h-[18px]" />
                                     </button>
@@ -383,7 +383,7 @@ export default function DashboardPage() {
                                     <p className="text-[11px] text-gray-500">Proforma PP</p>
                                 </button>
                                 <button onClick={() => { setHomeView('faturas'); setFaturaTab('emitidas') }} className={`flex-1 py-2 border-l ${homeView === 'faturas' && faturaTab === 'emitidas'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                    <p className="text-[13px] font-bold">{loadingFaturas? '...' : faturasEmitidas.length}</p>
+                                    <p className="text-[13px] font-bold">{loadingFaturas? '...' : faturasFTOnly.length}</p>
                                     <p className="text-[11px] text-gray-500">Fatura AGT FT</p>
                                 </button>
                                 <div ref={novoWrapperRef} className="flex-[0.6] border-l relative">
@@ -395,8 +395,8 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <style>{`
-                .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-                .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
+               .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+               .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
                       @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }
                     `}</style>
                 </div>

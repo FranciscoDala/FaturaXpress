@@ -359,9 +359,58 @@ async def cancelar(fatura_id: uuid.UUID, motivo: str = "", db: Session = Depends
 
 @router.post("/{fatura_id}/nota-credito", response_model=FaturaResponse)
 async def criar_nota_credito(fatura_id: uuid.UUID, dados: NotaCreditoCreate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    # Busca FT origem antes
+    origem = db.query(Fatura).filter(Fatura.id == fatura_id, Fatura.company_id == company_id).first()
+    if not origem:
+        raise HTTPException(404, "FT origem não encontrada")
+    if origem.tipo_documento == 'nota_credito':
+        raise HTTPException(400, "Não pode emitir NC sobre outra NC")
+    if origem.status == 'cancelada':
+        raise HTTPException(400, f"FT já cancelada/anulada - verifique NC existente")
+
+    # Verifica se já tem NC para essa FT
+    ja_tem_nc = db.query(Fatura).filter(
+        Fatura.company_id == company_id,
+        Fatura.fatura_origem_id == fatura_id,
+        Fatura.tipo_documento == 'nota_credito',
+        Fatura.status!= 'apagada'
+    ).first()
+    if ja_tem_nc:
+        raise HTTPException(400, f"Esta FT já possui NC {ja_tem_nc.numero_nota_credito} - {ja_tem_nc.motivo_credito}")
+
+    # Cria NC (mantém hash chain separado - obrigatório AGT)
     result = fatura_service.criar_nota_credito(db, company_id, fatura_id, dados.motivo, dados.observacoes)
+
+    # AGORA A ALTERAÇÃO ACONTECE NA MESMA FT - marca como anulada
+    # Isso resolve o seu print: FT não fica mais ativa
     try:
-        await manager.broadcast(company_id, {"event": "faturas:changed", "action": "nota_credito", "id": str(result.id), "origem": str(fatura_id)})
+        origem.status = 'cancelada'
+        # Guarda motivo da anulação na própria FT
+        motivo_formatado = dados.motivo
+        # Se motivo for código 01-05, mantém
+        if motivo_formatado not in ['01','02','03','04','05']:
+            # tenta extrair código do texto
+            if 'Devolução' in motivo_formatado:
+                motivo_formatado = '01 - Devolução de mercadoria'
+            elif 'Desconto' in motivo_formatado:
+                motivo_formatado = '02 - Desconto comercial'
+            elif 'Erro' in motivo_formatado:
+                motivo_formatado = '03 - Erro de facturação'
+            elif 'Anulação' in motivo_formatado:
+                motivo_formatado = '04 - Anulação total'
+            else:
+                motivo_formatado = f"05 - Outros - {dados.motivo}"
+
+        origem.observacoes = f"{origem.observacoes or ''} | ANULADA POR NC {result.numero_nota_credito} - {motivo_formatado}".strip()
+        db.commit()
+        db.refresh(origem)
+        db.refresh(result)
+    except Exception as e:
+        logger.warning(f"Falha ao marcar FT origem como cancelada: {e}")
+        db.rollback()
+
+    try:
+        await manager.broadcast(company_id, {"event": "faturas:changed", "action": "nota_credito", "id": str(result.id), "origem": str(fatura_id), "motivo": dados.motivo})
     except Exception as e:
         logger.warning(f"Falha broadcast: {e}")
     return result

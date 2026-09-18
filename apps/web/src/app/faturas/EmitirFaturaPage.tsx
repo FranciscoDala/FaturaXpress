@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Crown, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmitirFaturaSkeleton } from '../../components/EmitirFaturaSkeleton'
 import { useRealtime } from '../../hooks/useRealtime'
@@ -95,7 +95,7 @@ export default function EmitirFaturaPage() {
         api.get('/api/auth/me').then(r => {
             const comp = r.data.company || r.data
             setEmpresa({
-              ...comp,
+            ...comp,
                 nome: comp.nome || comp.companyName,
                 endereco: comp.endereco || comp.address,
                 cidade: comp.cidade || comp.city,
@@ -132,13 +132,39 @@ export default function EmitirFaturaPage() {
         if (clienteId) fetchFaturas()
     }, [clienteId, fetchFaturas])
 
+    const { ncOrigensEmitidas, ftOnlyEmitidas, ftAtivasEmitidas } = useMemo(() => {
+        const origens = new Set<string>()
+        faturasEmitidas.forEach((f: any) => {
+            if (f.tipo_documento === 'nota_credito' && f.fatura_origem_id) origens.add(f.fatura_origem_id)
+        })
+        const ftOnly = faturasEmitidas.filter((f: any) => f.tipo_documento === 'fatura')
+        const ftAtivas = ftOnly.filter((f: any) =>!origens.has(f.id) && f.status!== 'cancelada')
+        return { ncOrigensEmitidas: origens, ftOnlyEmitidas: ftOnly, ftAtivasEmitidas: ftAtivas }
+    }, [faturasEmitidas])
+
+    const { ftOnlyTodas } = useMemo(() => {
+        const ftOnly = faturasTodas.filter((f: any) => f.tipo_documento === 'fatura' && f.status!== 'apagada')
+        return { ftOnlyTodas: ftOnly }
+    }, [faturasTodas])
+
+    const totalFaturadoCliente = useMemo(() => {
+        return ftAtivasEmitidas.reduce((s: number, f: any) => s + Number(f.total_geral || f.total || 0), 0)
+    }, [ftAtivasEmitidas])
+
+    const totalDocsCliente = useMemo(() => {
+        return faturasCurso.length + ftOnlyEmitidas.length
+    }, [faturasCurso, ftOnlyEmitidas])
+
     const planId = (empresa?.subscription_plan || 'free').toLowerCase()
     const planInfo = PLAN_LIMITS[planId] || PLAN_LIMITS.free
-    const faturasMes = faturasTodas.filter((f: any) => {
-        const d = new Date(f.created_at || f.data_emissao)
-        const now = new Date()
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && f.tipo_documento === 'fatura' && f.status!== 'apagada'
-    }).length
+    const faturasMes = useMemo(() => {
+        return ftOnlyTodas.filter((f: any) => {
+            const d = new Date(f.created_at || f.data_emissao)
+            const now = new Date()
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+        }).length
+    }, [ftOnlyTodas])
+
     const isAtLimit = planInfo.max? faturasMes >= planInfo.max : false
 
     const isInitialLoading = loadingEmpresa &&!empresa
@@ -153,7 +179,8 @@ export default function EmitirFaturaPage() {
     return (
         <div className="min-h-screen bg-white">
             <div className="max-w-[1100px] mx-auto">
-                <div className="relative px-4 sm:px-8 lg:px-12 pt-8 pb-6 border-b border-gray-100 overflow-hidden bg-gradient-to-br from-[#E8F2FF] via-[#F0F7FF] to-white">
+                {/* HEADER CLIENTE IGUAL AO HEADER PRINCIPAL */}
+                <div className="relative px-4 sm:px-8 lg:px-12 pt-6 pb-6 border-b border-gray-100 overflow-hidden bg-gradient-to-br from-[#E8F2FF] via-[#F0F7FF] to-white">
                     <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
                         <div className="bubble bubble-1"></div>
                         <div className="bubble bubble-2"></div>
@@ -162,68 +189,68 @@ export default function EmitirFaturaPage() {
                         <div className="bubble bubble-5"></div>
                         <div className="bubble bubble-6"></div>
                     </div>
-                    <div className="relative z-10 flex flex-col md:flex-row gap-5 items-start text-left">
-                        <div className="w-[96px] h-[96px] sm:w-[132px] sm:h-[132px] rounded-full overflow-hidden bg-gray-200 border-[6px] border-white shadow-sm shrink-0 self-start">
-                            <img src={empresa?.logo_url || empresa?.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(cliente?.nome || 'Avulso')}&background=E5E7EB&color=374151&size=132}`} className="w-full h-full object-cover" alt={cliente?.nome || 'Avulso'} />
+                    <div className="relative z-10 flex flex-col md:flex-row gap-4 items-start text-left">
+                        <div className="relative w-[84px] h-[84px] sm:w-[110px] sm:h-[110px] shrink-0 self-start">
+                            <div className="w-full h-full rounded-full overflow-hidden bg-gray-200 border-[5px] border-white shadow-sm">
+                                <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(cliente?.nome || 'Avulso')}&background=E5E7EB&color=374151&size=132}`} className="w-full h-full object-cover" alt={cliente?.nome || 'Avulso'} />
+                            </div>
+                            <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-[2px] border-white shadow bg-[#22c55e]"></div>
                         </div>
-                        <div className="flex-1 w-full">
-                            <div className="flex flex-row justify-between items-start gap-4 w-full">
-                                <div className="flex flex-col items-start text-left">
-                                    <h1 className="text-[22px] sm:text-[24px] font-bold text-[#1a202c] text-left">{cliente?.nome || 'Cliente Avulso - Emitir Direto'}</h1>
-                                    <div className="flex gap-1.5 mt-1.5 justify-start">
-                                        <span className="text-[9px] px-2 py-[2px] bg-[#fff2e0] border border-[#ffd9a0] text-[#8a5a20] rounded">{cliente? 'Cliente' : 'Avulso'}</span>
-                                        <span className="text-[9px] px-2 py-[2px] bg-white border rounded text-gray-600">NIF {cliente?.nif || '999999999'}</span>
-                                        <span className="text-[9px] px-2 py-[2px] bg-blue-50 border border-blue-200 text-blue-700 rounded flex items-center gap-1"><Crown className="w-3 h-3" /> {planInfo.label} {planInfo.max? `${faturasMes}/${planInfo.max}` : 'Ilimitado'}</span>
+                        <div className="flex-1 w-full min-w-0">
+                            <div className="flex flex-row justify-between items-start gap-3 w-full">
+                                <div className="flex flex-col items-start text-left flex-1 min-w-0">
+                                    <h1 className="text-[16px] sm:text-[19px] font-bold text-[#1a202c] uppercase tracking-wide leading-tight truncate max-w-[180px] sm:max-w-[320px]">{cliente?.nome || 'CLIENTE AVULSO'}</h1>
+                                    <div className="mt-2.5 space-y-0 text-[12px] sm:text-[13px] text-gray-700 leading-[1.4]">
+                                        <p><span className="font-medium text-gray-500">NIF:</span> {cliente?.nif || '999999999'}</p>
+                                        <p><span className="font-medium text-gray-500">Tel:</span> {cliente?.telefone || '---'}</p>
+                                        <p className="truncate max-w-[220px] sm:max-w-none"><span className="font-medium text-gray-500">Email:</span> {cliente?.email || '---'}</p>
+                                        <p className="line-clamp-2"><span className="font-medium text-gray-500">Endereço:</span> {cliente?.endereco || '---'}{cliente?.cidade? ` • ${cliente.cidade}` : ''}{cliente?.provincia? ` • ${cliente.provincia}` : ''}</p>
                                     </div>
-                                    <div className="mt-3 space-y-1 text-[13px] text-[#4a5568] text-left">
-                                        {cliente? (
-                                            <>
-                                                <p>{cliente.email}</p>
-                                                <p>{cliente.telefone}</p>
-                                                <p>{cliente.cidade? `${cliente.endereco} - ${cliente.cidade}` : cliente.endereco}</p>
-                                            </>
-                                        ) : (
-                                            <p className="text-gray-500">Sem cadastro - preencha nome/NIF na emissão. Pode salvar depois.</p>
+                                    <div className="mt-4 space-y-1">
+                                        <p className="text-[11px] text-gray-500">Total de faturas emitidas, PP, FT - {loadingCounts? '...' : `${totalDocsCliente} docs`}</p>
+                                        <p className="text-[11px] text-gray-500">Total Faturado FT - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingCounts? '...' : `${totalFaturadoCliente.toFixed(2)} KZ`}</span></p>
+                                        <p className="text-[11px] text-gray-600 font-medium">
+                                            Fatura FT - {loadingCounts? '...' : planInfo.max? `${faturasMes}/${planInfo.max} FT este mês` : `${faturasMes} FT este mês (Ilimitado)`}
+                                        </p>
+                                        {ncOrigensEmitidas.size > 0 && (
+                                            <p className="text-[10px] text-gray-400">{ncOrigensEmitidas.size} FT anulada(s) por NC - conta 1 só</p>
+                                        )}
+                                        {isAtLimit && (
+                                            <div className="flex items-center gap-1.5 text-[11px] text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full max-w-[320px] mt-1">
+                                                <AlertTriangle className="w-3.5 h-3.5" />
+                                                Limite {planInfo.label} atingido. Proformas livres, FT bloqueada.
+                                            </div>
                                         )}
                                     </div>
-                                    {isAtLimit && (
-                                        <div className="mt-3 flex items-center gap-2 text-[11px] text-red-600 bg-red-50 border border-red-200 px-3 py-1.5 rounded-full">
-                                            <AlertTriangle className="w-4 h-4" />
-                                            Limite {planInfo.label} atingido. Proforma livre, FT bloqueada.
-                                            <button onClick={() => navigate('/assinatura')} className="ml-2 bg-[#0095ff] text-white px-2.5 py-1 rounded-full text-[10px]">Upgrade</button>
-                                        </div>
-                                    )}
                                 </div>
-                                <button onClick={() => navigate('/app/dashboard')} className="bg-[#FF3B30] text-white text-[12px] font-semibold px-4 py-1.5 rounded-full shrink-0 flex items-center gap-1.5 hover:bg-[#e6362c] transition">
-                                    <ArrowLeft className="w-4 h-4" />
-                                    Voltar
-                                </button>
+                                <div className="flex items-center gap-2 shrink-0 pl-2">
+                                    <button onClick={() => navigate('/app/dashboard')} className="bg-[#FF3B30] text-white text-[12px] font-semibold px-4 py-1.5 rounded-full shrink-0 flex items-center gap-1.5 hover:bg-[#e6362c] transition">
+                                        <ArrowLeft className="w-4 h-4" />
+                                        Voltar
+                                    </button>
+                                </div>
                             </div>
-                            {clienteId? (
-                                <div className="mt-6 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
-                                    <button onClick={() => setActiveTab('curso')} className={`flex-1 py-2 ${activeTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                        <p className="text-[13px] font-bold">{loadingCounts? '...' : faturasCurso.length}</p>
-                                        <p className="text-[11px] text-gray-500">Proformas PP</p>
-                                    </button>
-                                    <button onClick={() => setActiveTab('emitidas')} className={`flex-1 py-2 border-l ${activeTab === 'emitidas'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                        <p className="text-[13px] font-bold">{loadingCounts? '...' : faturasEmitidas.length}</p>
-                                        <p className="text-[11px] text-gray-500">Faturas FT + NC</p>
-                                    </button>
-                                    <button onClick={() => setActiveTab('emitir')} className={`flex-[1.2] border-l text-[13px] font-semibold ${activeTab === 'emitir'? 'bg-[#0095ff] text-white' : 'bg-[#8ecfff] text-white'}`}>+ Emitir Fatura</button>
-                                </div>
-                            ) : (
-                                <div className="mt-6 bg-white/80 border rounded-[3px] p-2 max-w-[520px] text-[11px] text-gray-600">Modo Avulso: emissão rápida sem precisar salvar cliente</div>
-                            )}
+                            <div className="mt-5 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
+                                <button onClick={() => setActiveTab('curso')} className={`flex-1 py-2 ${activeTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                    <p className="text-[13px] font-bold">{loadingCounts? '...' : faturasCurso.length}</p>
+                                    <p className="text-[11px] text-gray-500">Proforma PP</p>
+                                </button>
+                                <button onClick={() => setActiveTab('emitidas')} className={`flex-1 py-2 border-l ${activeTab === 'emitidas'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                    <p className="text-[13px] font-bold">{loadingCounts? '...' : ftOnlyEmitidas.length}</p>
+                                    <p className="text-[11px] text-gray-500">Fatura AGT FT</p>
+                                </button>
+                                <button onClick={() => setActiveTab('emitir')} className={`flex-[0.6] border-l text-[13px] font-semibold ${activeTab === 'emitir'? 'bg-[#0095ff] text-white' : 'bg-[#8ecfff] text-white'}`}>+ Emitir</button>
+                            </div>
                         </div>
                     </div>
                     <style>{`
-             .bubble { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border: 1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-             .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
-             .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
-             .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
-             .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
-             .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
-             .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
+           .bubble { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border: 1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+           .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
+           .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
+           .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
+           .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
+           .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
+           .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
                 @keyframes floatBubble { 0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.55; } 25% { transform: translateY(-15px) translateX(10px) scale(1.05); opacity: 0.85; } 50% { transform: translateY(-25px) translateX(-5px) scale(0.95); opacity: 0.45; } 75% { transform: translateY(-10px) translateX(-10px) scale(1.02); opacity: 0.7; } }
                     `}</style>
                 </div>

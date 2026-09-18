@@ -21,7 +21,6 @@ api.interceptors.response.use(
         const status = error.response?.status
         const detail = error.response?.data?.detail || error.response?.data?.message || ''
 
-        // Sessão expirada
         if (status === 401) {
             localStorage.clear()
             toast.error('Sessão expirada', { description: 'Faça login novamente.' })
@@ -29,7 +28,6 @@ api.interceptors.response.use(
             return Promise.reject(error)
         }
 
-        // TRAVA DE PLANO - 403
         if (status === 403 && typeof detail === 'string' && detail.toLowerCase().includes('limite do plano')) {
             toast.error('Limite do plano atingido', {
                 description: detail,
@@ -44,15 +42,12 @@ api.interceptors.response.use(
             return Promise.reject(error)
         }
 
-        // Outros erros com toast automático (evita toast duplo em telas que já tratam)
         if (status >= 400 && status!== 403) {
-            // Não mostra aqui se for erro de validação que a página já vai mostrar
             const silentPaths = ['/faturas', '/clientes', '/produtos']
             const url = error.config?.url || ''
             const isSilent = silentPaths.some(p => url.includes(p)) && status === 400
 
             if (!isSilent && detail) {
-                // só mostra se detail for string curta
                 if (typeof detail === 'string' && detail.length < 200) {
                     toast.error('Erro', { description: detail })
                 }

@@ -1,9 +1,49 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Mail, Lock, Phone, MapPin, FileText, ArrowRight, Eye, EyeOff, CheckCircle, ShieldCheck, Loader2 } from 'lucide-react'
+import { Mail, Lock, Phone, MapPin, FileText, ArrowRight, Eye, EyeOff, CheckCircle, ShieldCheck, Loader2, Globe } from 'lucide-react'
 import { toast } from 'sonner'
 
 const API_URL = "https://faturaxpress-backend.onrender.com/api"
+
+// JEITO 2 - Valida direto do navegador (IP de Angola fura WAF do Render)
+async function validarDiretoNoNavegador(nif: string): Promise<{ nome_agt: string }> {
+    const clean = nif.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+    const URL = 'https://portaldocontribuinte.minfin.gov.ao/consultar-nif-do-contribuinte'
+
+    const getRes = await fetch(URL, { method: 'GET', credentials: 'include' })
+    const getText = await getRes.text()
+    const vsMatch = getText.match(/name="javax\.faces\.ViewState"[^>]*value="([^"]+)"/)
+    const viewState = vsMatch? vsMatch[1] : ''
+
+    const form = new URLSearchParams()
+    form.append('javax.faces.partial.ajax', 'true')
+    form.append('javax.faces.source', 'j_id_2x:j_id_34')
+    form.append('javax.faces.partial.execute', 'j_id_2x')
+    form.append('javax.faces.partial.render', 'showpanelNIF')
+    form.append('j_id_2x:j_id_34', 'j_id_2x:j_id_34')
+    form.append('j_id_2x', 'j_id_2x')
+    form.append('j_id_2x:txtNIFNumber', clean)
+    form.append('j_id_2x_SUBMIT', '1')
+    form.append('javax.faces.ViewState', viewState)
+
+    const postRes = await fetch(URL, {
+        method: 'POST',
+        body: form,
+        headers: { 'Faces-Request': 'partial/ajax', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    const postText = await postRes.text()
+    const cdataMatch = postText.match(/<update id="showpanelNIF"><!\[CDATA\[(.*?)\]\]><\/update>/s)
+    const html = cdataMatch? cdataMatch[1] : postText
+
+    if (!html.includes('taxPayerNidId') &&!html.includes('taxpayer')) {
+        throw new Error('NIF não encontrado na AGT')
+    }
+    const nomeMatch = html.match(/Nome:\s*<\/label>\s*<div[^>]*>\s*<label[^>]*>([^<]+)<\/label>/i)
+    const nome = nomeMatch? nomeMatch[1].trim() : null
+    if (!nome) throw new Error('NIF não encontrado na AGT')
+
+    return { nome_agt: nome.toUpperCase() }
+}
 
 export default function Register() {
     const [loading, setLoading] = useState(false)
@@ -14,6 +54,7 @@ export default function Register() {
     const [validatingNif, setValidatingNif] = useState(false)
     const [agtName, setAgtName] = useState<string | null>(null)
     const [agtEstado, setAgtEstado] = useState<string | null>(null)
+    const [source, setSource] = useState<string | null>(null)
 
     const [companyName, setCompanyName] = useState('')
     const [nif, setNif] = useState('')
@@ -32,30 +73,62 @@ export default function Register() {
         }
         setValidatingNif(true)
         try {
+            // JEITO 1 - Backend (Render)
             const res = await fetch(`${API_URL}/auth/validar-nif`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ nif: nifClean })
             })
             const data = await res.json()
-            if (!res.ok) throw new Error(data.detail || "NIF inválido")
 
-            setAgtName(data.nome_agt || null)
-            setAgtEstado(data.estado)
-            setNifValidated(true)
-
-            if (data.nome_agt) {
-                setCompanyName(data.nome_agt)
-                toast.success(`Empresa: ${data.nome_agt}`, { position: 'top-center' })
-            } else if (data.estado === "AGT_Offline") {
-                toast.warning("NIF aceite, AGT offline. Preencha o nome manualmente.", { position: 'top-center' })
-            } else {
-                toast.success("NIF Activo verificado", { position: 'top-center' })
+            if (res.ok) {
+                // Backend validou
+                if (data.valid && data.nome_agt) {
+                    setAgtName(data.nome_agt)
+                    setAgtEstado(data.estado)
+                    setSource(data.source)
+                    setNifValidated(true)
+                    setCompanyName(data.nome_agt)
+                    toast.success(`Empresa: ${data.nome_agt} (AGT)`, { position: 'top-center' })
+                    return
+                }
+                // Backend offline - tenta JEITO 2
+                if (data.estado === "AGT_Offline") {
+                    toast.loading("Servidor no exterior bloqueado, tentando validar direto do seu navegador...", { position: 'top-center' })
+                    try {
+                        const direto = await validarDiretoNoNavegador(nifClean)
+                        setAgtName(direto.nome_agt)
+                        setAgtEstado("Activo")
+                        setSource("browser")
+                        setNifValidated(true)
+                        setCompanyName(direto.nome_agt)
+                        toast.dismiss()
+                        toast.success(`Validado no navegador: ${direto.nome_agt}`, { position: 'top-center' })
+                        return
+                    } catch (e: any) {
+                        toast.dismiss()
+                        // Se falhar por CORS, permite manual mas com aviso
+                        if (e.message?.includes('Failed to fetch') || e.message?.includes('CORS')) {
+                            setAgtName(null)
+                            setAgtEstado("AGT_Offline")
+                            setSource("offline-manual")
+                            setNifValidated(true)
+                            toast.warning("AGT offline no servidor. NIF com formato válido aceite - nome será verificado depois.", { position: 'top-center', duration: 5000 })
+                            return
+                        }
+                        throw e
+                    }
+                }
             }
+
+            // Se chegou aqui é erro real
+            if (!res.ok) throw new Error(data.detail || "NIF inválido ou não encontrado na AGT")
+
         } catch (err: any) {
-            toast.error(err.message, { position: 'top-center' })
+            toast.error(err.message || "NIF não encontrado na AGT", { position: 'top-center' })
             setNifValidated(false)
             setAgtName(null)
+            setAgtEstado(null)
         } finally {
             setValidatingNif(false)
         }
@@ -72,7 +145,17 @@ export default function Register() {
             const res = await fetch(`${API_URL}/auth/register`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ companyName, nif, emailCompany, phone, address, city, province, password })
+                body: JSON.stringify({
+                    companyName,
+                    nif,
+                    emailCompany,
+                    phone,
+                    address,
+                    city,
+                    province,
+                    password,
+                    nome_agt_validado: agtName || undefined
+                })
             })
             const data = await res.json()
             if (!res.ok) throw new Error(data.detail || "Erro ao registrar")
@@ -91,7 +174,6 @@ export default function Register() {
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-[#f6f8fb]">
             <div className="relative w-full max-w-[480px] bg-white rounded-[24px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-gray-100 h-[92vh] flex flex-col">
-                {/* HEADER */}
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF] shrink-0">
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center overflow-hidden">
                         <img src="/android-chrome-192x192.png" alt="FT-Xpress" className="w-7 h-7 object-contain" />
@@ -108,12 +190,10 @@ export default function Register() {
                     </p>
                 </div>
 
-                {/* BODY SCROLL */}
                 <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-4 pb-28">
                     <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
 
                     <form id="form-register" onSubmit={handleRegister} className="flex flex-col gap-3">
-                        {/* NIF - COLUNA NO MOBILE */}
                         <div className="flex flex-col sm:flex-row gap-2">
                             <div className="relative flex-1">
                                 <input
@@ -141,7 +221,14 @@ export default function Register() {
                         {nifValidated && agtName && (
                             <div className="bg-green-50 border border-green-200 rounded-[12px] p-3 text-[12.5px] text-green-800 flex gap-2">
                                 <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                                <div><b>{agtName}</b><br/>Estado: {agtEstado} • {nif.toUpperCase()}</div>
+                                <div><b>{agtName}</b><br/>Estado: {agtEstado} • {nif.toUpperCase()} • via {source}</div>
+                            </div>
+                        )}
+
+                        {nifValidated &&!agtName && agtEstado === "AGT_Offline" && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-[12px] p-3 text-[12.5px] text-amber-800 flex gap-2">
+                                <Globe className="w-4 h-4 mt-0.5 shrink-0" />
+                                <div>AGT offline no servidor estrangeiro. Formato válido aceite. Digite o nome manualmente - será verificado depois.</div>
                             </div>
                         )}
 
@@ -177,7 +264,6 @@ export default function Register() {
                     </form>
                 </div>
 
-                {/* FOOTER FIXO - BOTAO REGISTRAR */}
                 <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 px-6 shrink-0">
                     {nifValidated? (
                         <button form="form-register" type="submit" disabled={loading} className="w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-50 transition">

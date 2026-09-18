@@ -18,7 +18,6 @@ from app.core.agt_validator import validate_nif_agt, clean_nif
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-# VALIDA NIF ANTES DE CADASTRAR - SUPORTA 003614847LA037 e 50020633956
 @router.post("/validar-nif", response_model=schemas.ValidateNifResponse)
 async def validar_nif_endpoint(data: schemas.ValidateNifRequest):
     result = await validate_nif_agt(data.nif)
@@ -32,11 +31,13 @@ async def validar_nif_endpoint(data: schemas.ValidateNifRequest):
     if result["estado"] == "Inactivo":
         raise HTTPException(status_code=400, detail="Este NIF está Inactivo na AGT. Não pode ser usado.")
 
+    # Se offline, retorna 200 com estado Offline para frontend fazer jeito 2
     return {
         "valid": result["valid"],
         "nif": result["nif"],
         "nome_agt": result["nome_agt"],
         "estado": result["estado"],
+        "source": result.get("source"),
         "message": result["message"]
     }
 
@@ -45,13 +46,11 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
     try:
         nif_limpo = clean_nif(data.nif)
 
-        # 1. Verifica duplicado
         result = await db.execute(select(Company).where(or_(Company.nif == nif_limpo, Company.email == data.emailCompany)))
         exists = result.scalar_one_or_none()
         if exists:
             raise HTTPException(status_code=400, detail="NIF ou Email já cadastrado")
 
-        # 2. VALIDA NIF NA AGT ANTES DE CADASTRAR
         agt_result = await validate_nif_agt(data.nif)
 
         if agt_result["estado"] == "FormatoInvalido":
@@ -60,15 +59,22 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
             raise HTTPException(status_code=404, detail="NIF não existe na base da AGT")
         if agt_result["estado"] == "Inactivo":
             raise HTTPException(status_code=400, detail="NIF Inactivo na AGT, não pode cadastrar")
-        if not agt_result["valid"] and agt_result["estado"]!= "AGT_Offline":
-            raise HTTPException(status_code=400, detail="NIF inválido ou não verificado na AGT")
+
+        # Nome final - prioridade: AGT backend > AGT frontend > digitado
+        nome_final = data.companyName
+        nif_verified = False
+        nif_agt_name = None
+
+        if agt_result.get("valid") and agt_result.get("nome_agt"):
+            nome_final = agt_result["nome_agt"]
+            nif_verified = True
+            nif_agt_name = agt_result["nome_agt"]
+        elif data.nome_agt_validado:
+            nome_final = data.nome_agt_validado
+            nif_verified = True
+            nif_agt_name = data.nome_agt_validado
 
         password_hash = hash_password(data.password)
-
-        # Se veio nome da AGT usa ele, senão usa o digitado
-        nome_final = data.companyName
-        if agt_result.get("nome_agt"):
-            nome_final = agt_result["nome_agt"]
 
         company = Company(
             companyName=nome_final,
@@ -87,9 +93,9 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
             password_hash=password_hash,
             subscription_plan="free",
             subscription_status="active",
-            nif_verified=agt_result["estado"] == "Activo",
-            nif_agt_name=agt_result.get("nome_agt"),
-            nif_verified_at=datetime.now(timezone.utc) if agt_result["estado"] == "Activo" else None
+            nif_verified=nif_verified,
+            nif_agt_name=nif_agt_name,
+            nif_verified_at=datetime.now(timezone.utc) if nif_verified else None
         )
         db.add(company)
         await db.commit()
@@ -97,7 +103,7 @@ async def register_company(data: schemas.RegisterRequest, db: AsyncSession = Dep
 
         admin_user = User(
             company_id=company.id,
-            name=data.companyName,
+            name=nome_final,
             email=data.emailCompany,
             password_hash=password_hash,
             role="admin"

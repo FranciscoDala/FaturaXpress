@@ -17,6 +17,8 @@ class RegisterRequest(BaseModel):
     banco2: Optional[str] = None
     logo_url: Optional[str] = None
     image_url: Optional[str] = None
+    # NOVO - para quando frontend valida direto no navegador angolano
+    nome_agt_validado: Optional[str] = None
 
 class RegisterResponse(BaseModel):
     message: str
@@ -74,3 +76,4 @@ class ValidateNifResponse(BaseModel):
     nome_agt: Optional[str] = None
     estado: str
     message: str
+    source: Optional[str] = None

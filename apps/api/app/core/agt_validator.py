@@ -1,4 +1,3 @@
-# app/core/agt_validator.py
 import httpx
 import re
 from typing import Dict, Optional
@@ -23,46 +22,53 @@ def is_valid_format(nif: str) -> bool:
         return len(re.sub(r'\D', '', nif_clean)) >= 9
     return False
 
-def parse_agt_html(html: str, nif_consultado: str) -> Optional[Dict]:
-    html_lower = html.lower()
-    # Mensagens oficiais de não encontrado
-    if "nif inexistente" in html_lower or "contribuinte não encontrado" in html_lower or "nif não existe" in html_lower:
+def parse_agt_real(html_cdata: str, nif_consultado: str) -> Optional[Dict]:
+    lower = html_cdata.lower()
+    if len(html_cdata.strip()) < 100:
+        return {"bloqueio_ip": True}
+
+    if "nif inexistente" in lower or "contribuinte não encontrado" in lower or "nif não existe" in lower:
         return None
-    # Se não tem bloco de resultado, é NIF inválido, não fallback
-    if "taxpayer" not in html_lower and "resultado da consulta" not in html_lower:
+
+    if "taxpayer" not in lower and "resultado da consulta" not in lower and "taxPayerNidId" not in html_cdata:
         return None
 
     def extract(label: str) -> Optional[str]:
         pattern = rf"{label}:\s*</label>\s*<div[^>]*>\s*<label[^>]*>([^<]+)</label>"
-        m = re.search(pattern, html, re.I)
+        m = re.search(pattern, html_cdata, re.I)
         return m.group(1).strip() if m else None
+
+    nif_val = extract("NIF")
+    if not nif_val:
+        m = re.search(r'id="taxPayerNidId"[^>]*>([^<]+)</label>', html_cdata)
+        nif_val = m.group(1).strip() if m else nif_consultado
 
     nome = extract("Nome")
     if not nome:
-        matches = re.findall(r'<label class="control-label text-left">([^<]+)</label>', html)
+        matches = re.findall(r'<label class="control-label text-left">([^<]+)</label>', html_cdata)
         for val in matches:
             v = val.strip()
             if v and v.upper()!= nif_consultado and len(v) > 4:
-                if v.lower() not in ["activo", "inactivo", "singular", "colectivo"]:
+                if v.lower() not in ["activo", "inactivo", "singular", "colectivo", "não", "sim"]:
                     nome = v
                     break
 
     if not nome:
-        return None # NIF existe no HTML mas sem nome = considera não encontrado
+        return None
 
-    tipo = extract("Tipo") or ("SINGULAR" if "LA" in nif_consultado else "COLECTIVO")
-    estado = extract("Estado") or "Activo"
-
-    return {"nome": nome, "tipo": tipo, "estado": estado}
+    return {
+        "nif": nif_val,
+        "nome": nome,
+        "tipo": extract("Tipo") or ("SINGULAR" if "LA" in nif_consultado else "COLECTIVO"),
+        "estado": extract("Estado") or "Activo"
+    }
 
 async def validate_nif_agt(nif: str) -> Dict:
     nif_clean = clean_nif(nif)
     if not is_valid_format(nif_clean):
-        return {"valid": False, "nif": nif_clean, "nome_agt": None, "estado": "FormatoInvalido", "tipo": None, "source": "format", "message": "Formato inválido"}
+        return {"valid": False, "nif": nif_clean, "nome_agt": None, "estado": "FormatoInvalido", "tipo": None, "source": "format", "message": "Formato de NIF inválido"}
 
-    headers = {"User-Agent": "Mozilla/5.0 FaturaXpress"}
-
-    async with httpx.AsyncClient(timeout=20.0, follow_redirects=True, verify=False, headers=headers) as client:
+    async with httpx.AsyncClient(timeout=25.0, follow_redirects=True, verify=False, headers={"User-Agent": "Mozilla/5.0 FaturaXpress"}) as client:
         try:
             r_get = await client.get(URL_CONSULTA)
             vs_matches = re.findall(r'name="javax\.faces\.ViewState"[^>]*value="([^"]+)"', r_get.text)
@@ -70,43 +76,78 @@ async def validate_nif_agt(nif: str) -> Dict:
             if not view_state:
                 raise Exception("ViewState falhou - AGT offline")
 
+            data = {
+                "javax.faces.partial.ajax": "true",
+                "javax.faces.source": "j_id_2x:j_id_34",
+                "javax.faces.partial.execute": "j_id_2x",
+                "javax.faces.partial.render": "showpanelNIF",
+                "j_id_2x:j_id_34": "j_id_2x:j_id_34",
+                "j_id_2x": "j_id_2x",
+                "j_id_2x:txtNIFNumber": nif_clean,
+                "j_id_2x_SUBMIT": "1",
+                "javax.faces.ViewState": view_state
+            }
+
             r_post = await client.post(
                 URL_CONSULTA,
-                data={"j_id_2x": "j_id_2x", "j_id_2x:txtNIFNumber": nif_clean, "j_id_2x_SUBMIT": "1", "javax.faces.ViewState": view_state},
-                headers={"Faces-Request": "partial/ajax", "X-Requested-With": "XMLHttpRequest", "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"}
+                data=data,
+                headers={
+                    "Faces-Request": "partial/ajax",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+                }
             )
 
-            text = r_post.text
-            cdata_list = re.findall(r'<!\[CDATA\[(.*?)\]\]>', text, re.DOTALL)
-            html_result = "".join(cdata_list) if len(cdata_list) > 0 else text
+            cdata_list = re.findall(r'<update id="showpanelNIF"><!\[CDATA\[(.*?)\]\]></update>', r_post.text, re.DOTALL)
+            html_result = cdata_list[0] if len(cdata_list) > 0 else r_post.text
 
-            parsed = parse_agt_html(html_result, nif_clean)
+            logger.info(f"AGT CDATA {nif_clean}: {html_result[:800]}")
+
+            parsed = parse_agt_real(html_result, nif_clean)
 
             if parsed is None:
                 return {"valid": False, "nif": nif_clean, "nome_agt": None, "estado": "NaoEncontrado", "tipo": None, "source": "agt", "message": "NIF não existe na AGT"}
 
-            nome_val = parsed.get("nome")
-            nome_final = nome_val.upper() if isinstance(nome_val, str) else None
+            if parsed.get("bloqueio_ip"):
+                raise Exception("AGT bloqueou IP estrangeiro - CDATA vazio")
+
+            # CORREÇÃO AQUI - evita erro "upper não é atributo de None"
+            nome_raw = parsed.get("nome")
+            if isinstance(nome_raw, str):
+                nome_final: Optional[str] = nome_raw.strip().upper()
+            else:
+                nome_final = None
+
+            nif_ret = parsed.get("nif")
+            nif_final = nif_ret if isinstance(nif_ret, str) else nif_clean
+
+            estado_raw = parsed.get("estado")
+            estado_final = estado_raw if isinstance(estado_raw, str) else "Activo"
+
+            tipo_raw = parsed.get("tipo")
+            tipo_final = tipo_raw if isinstance(tipo_raw, str) else None
+
+            if not nome_final:
+                return {"valid": False, "nif": nif_clean, "nome_agt": None, "estado": "NaoEncontrado", "tipo": None, "source": "agt", "message": "NIF não existe na AGT"}
 
             return {
                 "valid": True,
-                "nif": nif_clean,
+                "nif": nif_final,
                 "nome_agt": nome_final,
-                "estado": "Activo",
-                "tipo": parsed.get("tipo"),
+                "estado": estado_final,
+                "tipo": tipo_final,
                 "source": "agt",
                 "message": f"NIF validado: {nome_final}"
             }
 
         except Exception as e:
-            logger.error(f"AGT erro para {nif_clean}: {e}")
-            # AGORA NÃO ACEITA QUALQUER NUMERO - BLOQUEIA
+            logger.warning(f"AGT erro/offline para {nif_clean}: {e}")
             return {
                 "valid": False,
                 "nif": nif_clean,
                 "nome_agt": None,
                 "estado": "AGT_Offline",
                 "tipo": None,
-                "source": "error",
-                "message": "AGT temporariamente offline, tente novamente em 1 min. NIF não validado."
+                "source": "offline",
+                "message": "AGT temporariamente offline ou bloqueada para IP estrangeiro. Tente validação no navegador."
             }

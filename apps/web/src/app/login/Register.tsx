@@ -26,7 +26,7 @@ const MUNICIPIOS: Record<string, string[]> = {
   "Icolo e Bengo": ["Catete", "Bom Jesus", "Cabiri", "Caculo Cahango", "Calomboloca"],
   "Luanda": ["Luanda", "Belas", "Cacuaco", "Cazenga", "Kilamba Kiaxi", "Talatona", "Viana", "Kilamba"],
   "Lunda-Norte": ["Dundo", "Cambulo", "Capenda-Camulemba", "Caungula", "Cuango", "Cuilo", "Lubalo", "Lucapa", "Xá-Muteba"],
-  "Lunda-Sul": ["Saurimo", "Cacolo", "Dala", "Muconda"],
+  "Lunda-Sul": ["Muangueji", "Cassai-Sul", "Cassengo","Luma-Cassai","Saurimo", "Cacolo", "Dala", "Muconda"],
   "Malanje": ["Malanje", "Cacuso", "Cahombo", "Calandula", "Cambundi-Catembo", "Cangandala", "Caombo", "Cuaba Nzoji", "Cunda-Dia-Baze", "Luquembo", "Marimba", "Massango", "Mucari", "Quela", "Quirima"],
   "Moxico": ["Luena", "Alto Zambeze", "Bundas", "Camanongue", "Léua", "Luau", "Luchazes"],
   "Moxico Leste": ["Cazombo", "Lago Dilolo", "Lumbala Nguimbo", "Luau"],
@@ -300,13 +300,13 @@ export default function Register() {
                                         <CustomSelect
                                             value={province}
                                             onChange={handleProvinceChange}
-                                            placeholder="Província *"
+                                            placeholder="Província"
                                             options={PROVINCIAS.map(p => ({ value: p, label: p }))}
                                         />
                                         <CustomSelect
                                             value={city}
                                             onChange={(v) => setCity(v)}
-                                            placeholder={province? "Município *" : "Selecione província"}
+                                            placeholder={province? "Município" : "Município"}
                                             options={municipiosDisponiveis.map(m => ({ value: m, label: m }))}
                                             disabled={!province}
                                         />

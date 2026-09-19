@@ -14,13 +14,14 @@ export default function ModalConfirmConverter({ open, numero, clienteNome, total
     if (!open) return null
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            {/* BACKDROP TRAVADO - sem onClick */}
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <div className="relative bg-white rounded-[24px] w-full max-w-[400px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)] animate-in fade-in zoom-in-95">
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF]">
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center">
                         <FileCheck className="w-4 h-4 text-[#0095ff]" />
                     </div>
-                    <button onClick={onClose} className="w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center hover:bg-gray-50">
+                    <button onClick={onClose} disabled={loading} className="w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center hover:bg-gray-50 disabled:opacity-50">
                         <X className="w-4 h-4 text-gray-500" />
                     </button>
                 </div>

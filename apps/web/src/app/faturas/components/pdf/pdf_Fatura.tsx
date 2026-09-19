@@ -122,7 +122,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
     const totalBase = Number(fatura?.subtotal || totais.liquido || 0).toFixed(2)
 
     const qrContent = (isOficial || isNC)
-  ? `A:${(emp.nif || '').toString().padStart(10, '0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco || 'Luanda').slice(0, 35)}*L1:${emp.cidade || 'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior || ''}`
+ ? `A:${(emp.nif || '').toString().padStart(10, '0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco || 'Luanda').slice(0, 35)}*L1:${emp.cidade || 'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior || ''}`
         : `${getNumero(fatura)}|${fatura?.id}`
 
     const tituloDoc = isNC? 'NOTA DE CRÉDITO' : isOficial? 'FACTURA' : 'FACTURA PROFORMA'
@@ -235,36 +235,40 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                     </table>
                 </div>
 
+                {/* AJUSTE COLUNAS - AQUI ESTAVA A CONFUSÃO */}
                 <div className="flex mt-2 gap-1">
-                    <div className="flex-1 border border-[#999] min-w-0">
+                    <div className="flex-1 border border-[#999] min-w-0 overflow-hidden">
                         <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] font-bold">
                           <div className="flex-1 border-r border-[#999] py-[6px] px-1">IMPOSTO</div>
-                          <div className="w-[45px] border-r border-[#999] py-[6px] text-center">TAXA</div>
-                          <div className="w-[85px] border-r border-[#999] py-[6px] text-center">INCIDÊNCIA</div>
-                          <div className="w-[85px] py-[6px] text-center">VALOR</div>
+                          <div className="w-[50px] border-r border-[#999] py-[6px] text-center shrink-0">TAXA</div>
+                          <div className="w-[125px] border-r border-[#999] py-[6px] text-center shrink-0">INCIDÊNCIA</div>
+                          <div className="w-[125px] py-[6px] text-center shrink-0">VALOR</div>
                         </div>
                         {Object.entries(totais.ivaPorTaxa).map(([taxa, d]: any) => {
                             const isIsento = taxa === 'Isento'
                             return (
                             <div key={taxa} className="flex text-[11px]">
                               <div className="flex-1 border-r border-[#999] py-[6px] px-1 bg-[rgba(255,255,255,0.40)] truncate">{isIsento? '*M04 Isento' : `IVA ${taxa}`}</div>
-                              <div className="w-[45px] border-r border-[#999] py-[6px] text-center bg-[rgba(255,255,255,0.40)] whitespace-nowrap">{taxa}</div>
-                              <div className="w-[85px] border-r border-[#999] py-[6px] text-right pr-1 bg-[rgba(255,255,255,0.40)] whitespace-nowrap tabular-nums">{fmt(d.incidencia)}</div>
-                              <div className="w-[85px] py-[6px] text-right pr-1 bg-[rgba(255,255,255,0.40)] whitespace-nowrap tabular-nums">{fmt(d.valor)}</div>
+                              <div className="w-[50px] border-r border-[#999] py-[6px] text-center bg-[rgba(255,255,255,0.40)] shrink-0">{taxa}</div>
+                              <div className="w-[125px] border-r border-[#999] py-[6px] text-right pr-2 bg-[rgba(255,255,255,0.40)] shrink-0 whitespace-nowrap tabular-nums">{fmt(d.incidencia)}</div>
+                              <div className="w-[125px] py-[6px] text-right pr-2 bg-[rgba(255,255,255,0.40)] shrink-0 whitespace-nowrap tabular-nums">{fmt(d.valor)}</div>
                             </div>
                         )})}
                     </div>
-                    <div className="w-[265px] shrink-0">
-                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999]"><div className="flex-1 py-[7px] px-1 text-right">Total Líquido</div><div className="w-[105px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-1 whitespace-nowrap tabular-nums overflow-hidden">{fmt(totais.liquido)}</div></div>
-                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999] border-t-0"><div className="flex-1 py-[7px] px-1 text-right">Total Desconto</div><div className="w-[105px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-1 whitespace-nowrap tabular-nums">{fmt(totais.desconto)}</div></div>
-                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999] border-t-0"><div className="flex-1 py-[7px] px-1 text-right">Total IVA</div><div className="w-[105px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-1 whitespace-nowrap tabular-nums">{fmt(totais.iva)}</div></div>
-                        <div className={`flex text-[12px] font-bold border border-[#999] border-t-0 ${isNC? 'bg-[#FFD6D6]' : 'bg-[rgba(194,194,194,0.75)]'}`}><div className="flex-1 py-[7px] px-1 text-right leading-[12px]">TOTAL A PAGAR (AKZ)</div><div className="w-[105px] bg-[rgba(255,255,255,0.65)] border-l border-[#999] py-[7px] text-right pr-1 font-bold whitespace-nowrap tabular-nums overflow-hidden">{fmt(totais.pagar)}</div></div>
+                    <div className="w-[300px] shrink-0">
+                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999]"><div className="flex-1 py-[7px] px-2 text-right">Total Líquido</div><div className="w-[135px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-2 whitespace-nowrap tabular-nums shrink-0">{fmt(totais.liquido)}</div></div>
+                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999] border-t-0"><div className="flex-1 py-[7px] px-2 text-right">Total Desconto</div><div className="w-[135px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-2 whitespace-nowrap tabular-nums shrink-0">{fmt(totais.desconto)}</div></div>
+                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999] border-t-0"><div className="flex-1 py-[7px] px-2 text-right">Total IVA</div><div className="w-[135px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-2 whitespace-nowrap tabular-nums shrink-0">{fmt(totais.iva)}</div></div>
+                        <div className={`flex text-[11px] font-bold border border-[#999] border-t-0 ${isNC? 'bg-[#FFD6D6]' : 'bg-[rgba(194,194,194,0.75)]'}`}>
+                          <div className="flex-1 py-[7px] px-2 text-right">TOTAL A PAGAR (AKZ)</div>
+                          <div className="w-[135px] bg-[rgba(255,255,255,0.65)] border-l border-[#999] py-[7px] text-right pr-2 font-bold whitespace-nowrap tabular-nums shrink-0">{fmt(totais.pagar)}</div>
+                        </div>
                     </div>
                 </div>
 
                 <div className="mt-4 bg-[rgba(255,255,255,0.40)] p-2 text-[11px] border border-dashed border-gray-300 rounded">
                     <p className="font-bold mb-1">Coordenadas Bancárias:</p>
-                    {emp.iban? <p>IBAN - {sigla1 || 'BFA'}: {emp.iban}</p> : <p>IBAN 1: ---</p>}
+                    {emp.iban? <p>IBAN - {sigla1 || 'BAI'}: {emp.iban}</p> : <p>IBAN 1: ---</p>}
                     {emp.iban2? <p>IBAN - {sigla2 || emp.banco2}: {emp.iban2}</p> : null}
                     {!emp.iban &&!emp.iban2 && <p>IBAN ---</p>}
                 </div>

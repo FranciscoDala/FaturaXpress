@@ -185,14 +185,12 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
         setValidatingNif(true)
         setAgtOffline(false)
         try {
-            // 1 - VALIDA NA AGT PRIMEIRO
             const res = await fetch(`${API_URL}/auth/validar-nif`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ nif: nifClean })
             })
             const data = await res.json()
-
             let agtResult: { nome_agt: string, tipo?: string, estado?: string, inadimplente?: string } | null = null
 
             if (res.ok && data.valid && data.nome_agt) {
@@ -214,7 +212,6 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
 
             if (!agtResult) throw new Error("NIF não encontrado na AGT")
 
-            // AGT VALIDOU - AGORA VERIFICA SE JA EXISTE LOCALMENTE
             setAgtData({ nome: agtResult.nome_agt, tipo: agtResult.tipo, estado: agtResult.estado, inadimplente: agtResult.inadimplente })
             setAgtOffline(false)
             setRetryCount(0)
@@ -242,7 +239,6 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                     toast.success(`NIF validado: ${agtResult.nome_agt}`, { position: 'top-center' })
                 }
             } catch {
-                // se falhar check local, considera novo mas com nome da AGT
                 setNifExists(false)
                 setForm(prev => ({...prev, nome: agtResult!.nome_agt, nif: nifClean }))
                 toast.success(`NIF validado: ${agtResult.nome_agt}`, { position: 'top-center' })
@@ -292,7 +288,6 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                 await api.put(`/api/clientes/${clienteExistente.id}`, payload)
                 toast.success('Cliente atualizado', { position: 'top-center' })
             } else {
-                // cria com nome vindo da AGT
                 await api.post('/api/clientes/', {...form, nome: agtData?.nome || form.nome })
                 toast.success('Cliente criado com sucesso', { position: 'top-center' })
             }
@@ -352,9 +347,6 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                                     <input type="text" name="nif" value={form.nif} onChange={(e) => { handleChange(e); setAgtOffline(false) }} required className={inputWithIcon} placeholder="NIF nº: 5002063956 ou 999999999" />
                                     <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 </div>
-                                <button type="button" onClick={handleValidarNif} disabled={validatingNif ||!form.nif} className="w-full h-[44px] rounded-[12px] bg-[#0095ff] text-white font-semibold text-[13.5px] hover:bg-[#0085e6] flex items-center justify-center disabled:opacity-60 transition">
-                                    {validatingNif? <Loader2 className="w-5 h-5 animate-spin" /> : agtOffline? "Tentar novamente" : "Consultar NIF"}
-                                </button>
                             </div>
                         ) : (
                             <>
@@ -369,9 +361,6 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                                 <form id="form-cliente" onSubmit={handleSubmit} className="flex flex-col gap-[5px] mt-[5px]">
                                     <input type="hidden" value={form.nif} readOnly />
                                     <input type="hidden" value={form.nome} readOnly />
-                                    <input type="hidden" value={agtData?.tipo || ''} readOnly />
-                                    <input type="hidden" value={agtData?.estado || ''} readOnly />
-
                                     <div className="relative">
                                         <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="Email" className={inputWithIcon} />
                                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -396,15 +385,28 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                     </div>
                 </div>
 
-                <div className="shrink-0 bg-white border-t border-gray-100 p-4 px-6">
-                    {nifValidated? (
-                        <div className="flex gap-3">
-                            <button type="button" onClick={onClose} className="w-11 h-11 rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center shrink-0"><X className="w-5 h-5" /></button>
-                            <button form="form-cliente" type="submit" disabled={loading} onClick={handleSubmit} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-50 transition">
-                                {loading? <Loader2 className="w-5 h-5 animate-spin" /> : <><span>{isEditMode || nifExists? 'Atualizar Cliente' : 'Criar Cliente'}</span> <Check className="w-5 h-5" /></>}
-                            </button>
-                        </div>
-                    ) : null}
+                {/* FOOTER COM MESMO BOTAO - 2 FUNCOES */}
+                <div className="shrink-0 bg-white border-t border-gray-100 p-4 px-6 flex gap-3">
+                    <button type="button" onClick={onClose} className="w-11 h-11 rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center shrink-0">
+                        <X className="w-5 h-5" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={nifValidated? (e) => handleSubmit(e as any) : handleValidarNif}
+                        disabled={validatingNif || loading || (!nifValidated &&!form.nif)}
+                        className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-60 transition"
+                    >
+                        {validatingNif || loading? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : nifValidated? (
+                            <Check className="w-5 h-5" />
+                        ) : (
+                            <>
+                                <span>{agtOffline? "Tentar novamente" : "Consultar NIF"}</span>
+                                <ArrowRight className="w-5 h-5" />
+                            </>
+                        )}
+                    </button>
                 </div>
             </div>
         </div>

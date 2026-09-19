@@ -317,7 +317,7 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                 <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
                     <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{isEditMode? 'Editar Cliente' : 'Novo Cliente'}</h3>
                     <p className="text-[13.5px] text-gray-500 mt-1 leading-relaxed">
-                        {isEditMode? 'Nome e NIF não podem ser alterados.' : nifValidated? (isNaoActivo? 'Cliente não activo - será fatura avulso' : nifExists? `Cliente já cadastrado: ${clienteExistente?.nome}` : 'Preencha os dados para criar') : 'Adiciona o NIF do cliente para validar na AGT'}
+                        {isEditMode? 'Nome e NIF não podem ser alterados.' : nifValidated? (isNaoActivo? 'Cliente não activo - será fatura avulso' : nifExists? `Cliente já cadastrado: ${clienteExistente?.nome}` : 'Preencha os dados para criar') : 'Adiciona o NIF do cliente para ser validado no Contribuinte da Administração Geral Tributária!'}
                     </p>
                     {nifValidated && (
                         <div className={`mt-[8px] flex items-center gap-1.5 px-3 py-1.5 rounded-full border w-fit ${isNaoActivo? 'bg-red-50 border-red-200' : nifExists? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
@@ -344,7 +344,7 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                                     </div>
                                 )}
                                 <div className="relative">
-                                    <input type="text" name="nif" value={form.nif} onChange={(e) => { handleChange(e); setAgtOffline(false) }} required className={inputWithIcon} placeholder="NIF nº: 5002063956 ou 999999999" />
+                                    <input type="text" name="nif" value={form.nif} onChange={(e) => { handleChange(e); setAgtOffline(false) }} required className={inputWithIcon} placeholder="NIF nº:000000000" />
                                     <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 </div>
                             </div>

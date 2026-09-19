@@ -300,7 +300,7 @@ export default function Register() {
                                     </div>
                                 )}
                                 <div className="relative">
-                                    <input type="text" value={nif} onChange={(e) => { setNif(e.target.value); setAgtOffline(false) }} required className={inputWithIcon} placeholder="NIF nº:5002063956" />
+                                    <input type="text" value={nif} onChange={(e) => { setNif(e.target.value); setAgtOffline(false) }} required className={inputWithIcon} placeholder="NIF nº:000000000" />
                                     <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 </div>
                                 <button type="button" onClick={handleValidarNif} disabled={validatingNif || !nif} className="w-full h-[44px] rounded-[12px] bg-[#0095ff] text-white font-semibold text-[13.5px] hover:bg-[#0085e6] flex items-center justify-center disabled:opacity-60 transition">

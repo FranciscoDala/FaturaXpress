@@ -356,10 +356,10 @@ export default function DashboardPage() {
                                     </div>
                                     {/* REMOVIDO DIV PLANO FREE GRANDE - AGORA CONTA FICA ABAIXO DO TOTAL */}
                                     <div className="mt-4 space-y-0 w-full">
-                                        <p className="text-[11px] text-gray-500">Faturas emitidas - {loadingFaturas ? '...' : `${totalDocs} docs`}</p>
-                                        <p className="text-[11px] text-gray-500">Faturas pagas - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas ? '...' : `${totalFaturado.toFixed(2)} KZ`}</span></p>
+                                        <p className="text-[11px] text-gray-500">Emitidas - {loadingFaturas ? '...' : `${totalDocs} docs`}</p>
+                                        <p className="text-[11px] text-gray-500">Valor - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas ? '...' : `${totalFaturado.toFixed(2)} KZ`}</span></p>
                                         <p className="text-[11px] text-gray-600 font-medium">
-                                            Faturas AGT por mês - {loadingFaturas ? '...' : planInfo.max ? `${faturasMes}(${planInfo.max}) ` : `${faturasMes}, (Ilimitado)`}
+                                            Total de faturas - {loadingFaturas ? '...' : planInfo.max ? `${faturasMes}(${planInfo.max}) este mês` : `${faturasMes}, este mês (Ilimitado)`}
                                         </p>
                                         {isAtLimit && (
                                             <div className="flex items-center gap-1 text-[11px] text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-[12px] w-full max-w-full">

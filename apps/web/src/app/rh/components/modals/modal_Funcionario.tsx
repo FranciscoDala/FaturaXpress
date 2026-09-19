@@ -62,7 +62,6 @@ function formatDisplay(iso: string) {
     return `${d}/${m}/${y}`
 }
 
-// CALENDAR AJUSTADO - RESPONSIVO + YEAR PICKER RAPIDO
 function CustomDatePicker({ value, onChange, placeholder }: { value: string, onChange: (v: string) => void, placeholder: string }) {
     const [open, setOpen] = useState(false)
     const [viewMode, setViewMode] = useState<'days' | 'months' | 'years'>('days')
@@ -75,9 +74,8 @@ function CustomDatePicker({ value, onChange, placeholder }: { value: string, onC
         return Math.floor(base / 12) * 12
     })
     const [isMobile, setIsMobile] = useState(false)
-    const ref = useRef<HTMLDivElement>(null)
     const btnRef = useRef<HTMLButtonElement>(null)
-    const [pos, setPos] = useState({ top: 0, left: 0, width: 0 })
+    const [pos, setPos] = useState({ top: 0, left: 0, width: 340 })
 
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth < 640)
@@ -87,9 +85,12 @@ function CustomDatePicker({ value, onChange, placeholder }: { value: string, onC
     }, [])
 
     useEffect(() => {
-        if (open && btnRef.current && !isMobile) {
-            const rect = btnRef.current.getBoundingClientRect()
-            setPos({ top: rect.bottom + 8, left: rect.left, width: rect.width })
+        if (open && !isMobile && btnRef.current) {
+            const r = btnRef.current.getBoundingClientRect()
+            let left = r.left
+            const w = 340
+            if (left + w > window.innerWidth - 16) left = window.innerWidth - w - 16
+            setPos({ top: r.bottom + 8, left: Math.max(16, left), width: w })
         }
     }, [open, isMobile])
 
@@ -100,16 +101,6 @@ function CustomDatePicker({ value, onChange, placeholder }: { value: string, onC
             setYearPage(Math.floor(d.getFullYear() / 12) * 12)
         }
     }, [value])
-
-    useEffect(() => {
-        if (open) {
-            setViewMode('days')
-            document.body.style.overflow = isMobile ? 'hidden' : ''
-        } else {
-            document.body.style.overflow = ''
-        }
-        return () => { document.body.style.overflow = '' }
-    }, [open, isMobile])
 
     const daysInMonth = new Date(view.year, view.month + 1, 0).getDate()
     const startDay = new Date(view.year, view.month, 1).getDay()
@@ -128,51 +119,56 @@ function CustomDatePicker({ value, onChange, placeholder }: { value: string, onC
         return t.getDate() === day && t.getMonth() === view.month && t.getFullYear() === view.year
     }
 
-    const calendarContent = (
-        <div className={`${isMobile ? 'fixed inset-0 z-[9999] flex items-end' : 'fixed z-[9999]'}`} style={!isMobile ? { top: pos.top, left: pos.left, width: pos.width > 320 ? 320 : Math.max(pos.width, 320) } : {}}>
-            {isMobile && <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setOpen(false)} />}
-            <div className={`${isMobile ? 'relative w-full bg-white rounded-t-[28px] shadow-[0_-12px_40px_rgba(0,0,0,0.2)] animate-in slide-in-from-bottom duration-300 max-h-[85vh] flex flex-col' : 'w-full bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200'}`}>
-                {isMobile && <div className="w-full flex justify-center pt-3 pb-2 shrink-0"><div className="w-10 h-1.5 bg-gray-300 rounded-full" /></div>}
+    const picker = (
+        <>
+            {isMobile && (
+                <div className="fixed inset-0 z-[9998] bg-black/40 backdrop-blur-[2px]" onClick={() => setOpen(false)} />
+            )}
+            <div
+                className={isMobile
+                    ? "fixed bottom-0 left-0 right-0 z-[9999] bg-white rounded-t-[24px] shadow-[0_-8px_30px_rgba(0,0,0,0.2)] max-h-[62vh] flex flex-col animate-in slide-in-from-bottom duration-300"
+                    : "fixed z-[9999] bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.22)] border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+                }
+                style={!isMobile ? { top: pos.top, left: pos.left, width: pos.width } : {}}
+            >
+                {isMobile && <div className="flex justify-center pt-3 pb-1 shrink-0"><div className="w-10 h-1.5 bg-gray-300 rounded-full" /></div>}
 
-                {/* HEADER */}
-                <div className="h-[64px] px-4 flex items-center justify-between bg-[#F8FAFF] border-b border-gray-100 shrink-0">
+                <div className="h-[56px] px-4 flex items-center justify-between bg-[#F8FAFF] border-b border-gray-100 shrink-0">
                     {viewMode === 'days' && (
                         <>
-                            <button type="button" onClick={() => setView(v => v.month === 0 ? { year: v.year - 1, month: 11 } : { year: v.year, month: v.month - 1 })} className="w-10 h-10 rounded-full bg-white border shadow-sm flex items-center justify-center active:scale-95"><ChevronLeft className="w-5 h-5" /></button>
-                            <div className="flex items-center gap-2">
-                                <button type="button" onClick={() => setViewMode('months')} className="px-3 py-1.5 rounded-full bg-white border shadow-sm text-[14px] font-bold hover:bg-gray-50">{MONTH_SHORT[view.month]}</button>
-                                <button type="button" onClick={() => { setYearPage(Math.floor(view.year / 12) * 12); setViewMode('years') }} className="px-3 py-1.5 rounded-full bg-[#0A2540] text-white text-[14px] font-bold hover:bg-black">{view.year}</button>
+                            <button type="button" onClick={() => setView(v => v.month === 0 ? { year: v.year - 1, month: 11 } : { year: v.year, month: v.month - 1 })} className="w-9 h-9 rounded-full bg-white border flex items-center justify-center active:scale-90"><ChevronLeft className="w-4 h-4" /></button>
+                            <div className="flex gap-1.5">
+                                <button type="button" onClick={() => setViewMode('months')} className="px-3 py-1.5 rounded-full bg-white border text-[13px] font-bold">{MONTH_SHORT[view.month]}</button>
+                                <button type="button" onClick={() => { setYearPage(Math.floor(view.year / 12) * 12); setViewMode('years') }} className="px-3 py-1.5 rounded-full bg-[#0A2540] text-white text-[13px] font-bold">{view.year}</button>
                             </div>
-                            <button type="button" onClick={() => setView(v => v.month === 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: v.month + 1 })} className="w-10 h-10 rounded-full bg-white border shadow-sm flex items-center justify-center active:scale-95"><ChevronRight className="w-5 h-5" /></button>
+                            <button type="button" onClick={() => setView(v => v.month === 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: v.month + 1 })} className="w-9 h-9 rounded-full bg-white border flex items-center justify-center active:scale-90"><ChevronRight className="w-4 h-4" /></button>
                         </>
                     )}
                     {viewMode === 'months' && (
                         <>
-                            <button type="button" onClick={() => setView(v => ({ ...v, year: v.year - 1 }))} className="w-10 h-10 rounded-full bg-white border shadow-sm flex items-center justify-center"><ChevronLeft className="w-5 h-5" /></button>
-                            <button type="button" onClick={() => setViewMode('days')} className="text-[15px] font-bold">{view.year}</button>
-                            <button type="button" onClick={() => setView(v => ({ ...v, year: v.year + 1 }))} className="w-10 h-10 rounded-full bg-white border shadow-sm flex items-center justify-center"><ChevronRight className="w-5 h-5" /></button>
+                            <button type="button" onClick={() => setView(v => ({ ...v, year: v.year - 1 }))} className="w-9 h-9 rounded-full bg-white border flex items-center justify-center"><ChevronLeft className="w-4 h-4" /></button>
+                            <button type="button" onClick={() => setViewMode('days')} className="text-[14px] font-bold">{view.year} • voltar</button>
+                            <button type="button" onClick={() => setView(v => ({ ...v, year: v.year + 1 }))} className="w-9 h-9 rounded-full bg-white border flex items-center justify-center"><ChevronRight className="w-4 h-4" /></button>
                         </>
                     )}
                     {viewMode === 'years' && (
                         <>
-                            <button type="button" onClick={() => setYearPage(p => p - 12)} className="w-10 h-10 rounded-full bg-white border shadow-sm flex items-center justify-center"><ChevronLeft className="w-5 h-5" /></button>
-                            <span className="text-[15px] font-bold">{yearPage} - {yearPage + 11}</span>
-                            <button type="button" onClick={() => setYearPage(p => p + 12)} className="w-10 h-10 rounded-full bg-white border shadow-sm flex items-center justify-center"><ChevronRight className="w-5 h-5" /></button>
+                            <button type="button" onClick={() => setYearPage(p => p - 12)} className="w-9 h-9 rounded-full bg-white border flex items-center justify-center"><ChevronLeft className="w-4 h-4" /></button>
+                            <span className="text-[14px] font-bold">{yearPage} - {yearPage + 11}</span>
+                            <button type="button" onClick={() => setYearPage(p => p + 12)} className="w-9 h-9 rounded-full bg-white border flex items-center justify-center"><ChevronRight className="w-4 h-4" /></button>
                         </>
                     )}
                 </div>
 
-                <div className={`p-4 overflow-y-auto ${isMobile ? 'flex-1' : ''}`}>
+                <div className="p-3 overflow-y-auto overscroll-contain">
                     {viewMode === 'days' && (
                         <>
-                            <div className="grid grid-cols-7 gap-1 mb-3">
-                                {WEEK_LABEL.map((w, i) => <span key={i} className="h-7 flex items-center justify-center text-[12px] font-bold text-gray-400">{w}</span>)}
+                            <div className="grid grid-cols-7 gap-1 mb-2">
+                                {WEEK_LABEL.map((w, i) => <span key={i} className="h-6 flex items-center justify-center text-[11px] font-bold text-gray-400">{w}</span>)}
                             </div>
                             <div className="grid grid-cols-7 gap-1">
-                                {days.map((day, idx) => day === null ? <div key={`empty-${idx}`} className="h-11" /> : (
-                                    <button key={`${view.year}-${view.month}-${day}`} type="button" onClick={() => selectDay(day)} className={`h-11 sm:h-10 rounded-[12px] text-[15px] sm:text-[14px] font-medium transition active:scale-90 ${isSelected(day) ? 'bg-[#0A2540] text-white shadow-md' : isToday(day) ? 'bg-[#E6F0FF] text-[#0095ff] border border-[#C2D8FF] font-bold' : 'bg-white border border-gray-100 hover:bg-gray-50 text-gray-800'}`}>
-                                        {day}
-                                    </button>
+                                {days.map((day, idx) => day === null ? <div key={`empty-${idx}`} className="h-9" /> : (
+                                    <button key={`${view.year}-${view.month}-${day}`} type="button" onClick={() => selectDay(day)} className={`h-9 rounded-[10px] text-[13px] font-medium transition ${isSelected(day) ? 'bg-[#0A2540] text-white' : isToday(day) ? 'bg-[#E6F0FF] text-[#0095ff] border border-[#C2D8FF] font-bold' : 'bg-white border border-gray-100 hover:bg-gray-50 text-gray-800'}`}>{day}</button>
                                 ))}
                             </div>
                         </>
@@ -180,43 +176,35 @@ function CustomDatePicker({ value, onChange, placeholder }: { value: string, onC
                     {viewMode === 'months' && (
                         <div className="grid grid-cols-3 gap-2">
                             {MONTH_LABEL.map((m, idx) => (
-                                <button key={m} type="button" onClick={() => { setView(v => ({ ...v, month: idx })); setViewMode('days') }} className={`h-12 rounded-[12px] text-[14px] font-medium border transition ${view.month === idx ? 'bg-[#0A2540] text-white border-[#0A2540]' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>{m}</button>
+                                <button key={m} type="button" onClick={() => { setView(v => ({ ...v, month: idx })); setViewMode('days') }} className={`h-11 rounded-[12px] text-[13px] font-medium border ${view.month === idx ? 'bg-[#0A2540] text-white border-[#0A2540]' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>{m}</button>
                             ))}
                         </div>
                     )}
                     {viewMode === 'years' && (
                         <div className="grid grid-cols-3 gap-2">
                             {Array.from({ length: 12 }, (_, i) => yearPage + i).map(y => (
-                                <button key={y} type="button" onClick={() => { setView(v => ({ ...v, year: y })); setViewMode('days') }} className={`h-12 rounded-[12px] text-[14px] font-bold border transition ${view.year === y ? 'bg-[#0A2540] text-white border-[#0A2540]' : selected?.y === y ? 'bg-[#E6F0FF] text-[#0095ff] border-[#C2D8FF]' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>{y}</button>
+                                <button key={y} type="button" onClick={() => { setView(v => ({ ...v, year: y })); setViewMode('days') }} className={`h-11 rounded-[12px] text-[13px] font-bold border ${view.year === y ? 'bg-[#0A2540] text-white border-[#0A2540]' : selected?.y === y ? 'bg-[#E6F0FF] text-[#0095ff] border-[#C2D8FF]' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>{y}</button>
                             ))}
                         </div>
                     )}
-
                     {viewMode === 'days' && (
-                        <div className="mt-5 flex gap-2">
-                            <button type="button" onClick={() => { onChange(""); setOpen(false) }} className="flex-1 h-12 sm:h-10 rounded-full border border-gray-200 text-[14px] font-medium text-gray-600 bg-white hover:bg-gray-50">Limpar</button>
-                            <button type="button" onClick={() => {
-                                const today = new Date()
-                                const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-                                onChange(iso); setOpen(false)
-                            }} className="flex-1 h-12 sm:h-10 rounded-full bg-[#E6F0FF] border border-[#C2D8FF] text-[14px] font-bold text-[#0095ff]">Hoje</button>
+                        <div className="mt-4 flex gap-2 pb-[env(safe-area-inset-bottom)]">
+                            <button type="button" onClick={() => { onChange(""); setOpen(false) }} className="flex-1 h-10 rounded-full border border-gray-200 text-[13px] bg-white">Limpar</button>
+                            <button type="button" onClick={() => { const t = new Date(); onChange(`${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`); setOpen(false) }} className="flex-1 h-10 rounded-full bg-[#E6F0FF] border border-[#C2D8FF] text-[13px] font-bold text-[#0095ff]">Hoje</button>
                         </div>
                     )}
                 </div>
             </div>
-        </div>
+        </>
     )
 
     return (
-        <div ref={ref} className="relative w-full">
-            <button ref={btnRef} type="button" onClick={() => setOpen(!open)} className={`w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] flex items-center justify-between focus:outline-none focus:border-[#0095ff] transition ${value ? 'text-black' : 'text-black/40'}`}>
-                <span className="flex items-center gap-2 truncate">
-                    <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
-                    {value ? formatDisplay(value) : placeholder}
-                </span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
+        <div className="relative w-full">
+            <button ref={btnRef} type="button" onClick={() => { setOpen(!open); if (!open) setViewMode('days') }} className={`w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] flex items-center justify-between focus:outline-none focus:border-[#0095ff] transition ${value ? 'text-black' : 'text-black/40'}`}>
+                <span className="flex items-center gap-2 truncate"><Calendar className="w-4 h-4 text-gray-400 shrink-0" />{value ? formatDisplay(value) : placeholder}</span>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
-            {open && typeof document !== 'undefined' && createPortal(calendarContent, document.body)}
+            {open && typeof document !== 'undefined' && createPortal(picker, document.body)}
         </div>
     )
 }
@@ -240,7 +228,7 @@ function CustomSelect({ value, options, onChange, placeholder, disabled, icon: I
                 <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
             {open && (
-                <div className="absolute z-50 top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5 max-h-[220px] overflow-y-auto no-scrollbar">
+                <div className="absolute z-[60] top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5 max-h-[220px] overflow-y-auto no-scrollbar">
                     {options.map(o => (
                         <button key={o.value} type="button" onClick={() => { onChange(o.value); setOpen(false) }} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[13px] flex items-center justify-between transition ${value === o.value ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-50 text-gray-700'}`}>
                             {o.label} {value === o.value && <Check className="w-4 h-4 text-[#0095ff]" />}
@@ -267,7 +255,7 @@ function BancoSelect({ value, onChange, placeholder }: { value?: string, onChang
                 <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
             {open && (
-                <div className="absolute z-50 top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5 max-h-[220px] overflow-y-auto no-scrollbar">
+                <div className="absolute z-[60] top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5 max-h-[220px] overflow-y-auto no-scrollbar">
                     {BANCOS_ANGOLA.map(b => (
                         <button key={b} type="button" onClick={() => { onChange(b); setOpen(false) }} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[12.5px] flex items-center justify-between transition ${value === b ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-50 text-gray-700'}`}>{b} {value === b && <Check className="w-4 h-4 text-[#0095ff]" />}</button>
                     ))}
@@ -294,7 +282,7 @@ function MultiAreaSelect({ values, options, onChange }: { values: string[], opti
                 <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
             </button>
             {open && (
-                <div className="absolute z-50 top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5 max-h-[220px] overflow-y-auto no-scrollbar">
+                <div className="absolute z-[60] top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5 max-h-[220px] overflow-y-auto no-scrollbar">
                     {options.map(o => (<button key={o.value} type="button" onClick={() => toggle(o.value)} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[13px] flex items-center justify-between transition ${values.includes(o.value) ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-50 text-gray-700'}`}>{o.label} {values.includes(o.value) && <Check className="w-4 h-4 text-[#0095ff]" />}</button>))}
                 </div>
             )}
@@ -362,7 +350,7 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={e => e.stopPropagation()} />
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
             <div className="relative bg-white rounded-[24px] w-full max-w-[560px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF] shrink-0">
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center"><UserPlus className="w-4 h-4 text-[#0095ff]" /></div>
@@ -371,7 +359,7 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
 
                 <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
                     <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{funcionario ? 'Editar Funcionário' : 'Novo Funcionário'}</h3>
-                    <p className="text-[13.5px] text-gray-500 mt-1">Cadastro completo via BI - calendar responsivo</p>
+                    <p className="text-[13.5px] text-gray-500 mt-1">Cadastro completo via BI</p>
                     <div className="flex gap-[2px] mt-4 overflow-x-auto no-scrollbar">
                         <TabButton id="obrigatorio" label="Obrigatórios" icon={Info} />
                         <TabButton id="opcional" label="Opcionais" icon={Settings} />

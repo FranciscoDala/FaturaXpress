@@ -355,14 +355,14 @@ export default function DashboardPage() {
                                         )}
                                     </div>
                                     {/* REMOVIDO DIV PLANO FREE GRANDE - AGORA CONTA FICA ABAIXO DO TOTAL */}
-                                    <div className="mt-4 space-y-1">
+                                    <div className="mt-4 space-y-1 w-full">
                                         <p className="text-[11px] text-gray-500">Total de faturas emitidas, PP, FT - {loadingFaturas ? '...' : `${totalDocs} docs`}</p>
                                         <p className="text-[11px] text-gray-500">Total Faturado FT - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas ? '...' : `${totalFaturado.toFixed(2)} KZ`}</span></p>
                                         <p className="text-[11px] text-gray-600 font-medium">
                                             Fatura FT - {loadingFaturas ? '...' : planInfo.max ? `${faturasMes}/${planInfo.max} FT este mês` : `${faturasMes} FT este mês (Ilimitado)`}
                                         </p>
                                         {isAtLimit && (
-                                            <div className="flex items-center gap-1.5 text-[11px] text-red-600 bg-red-50 border border-red-200 px-3 py-1.5 rounded-full w-full mt-2 md:max-w-[320px]">
+                                            <div className="flex items-center gap-1.5 text-[11px] text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-[12px] w-full max-w-full">
                                                 Limite atingido. Proformas livres, FT bloqueada.
                                             </div>
                                         )}

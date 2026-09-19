@@ -3,8 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy import String, Numeric, Boolean, ForeignKey, DateTime, Text, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.orm import declarative_base
-Base = declarative_base()
+from app.db.base import Base
 
 class Fatura(Base):
     __tablename__ = "faturas"

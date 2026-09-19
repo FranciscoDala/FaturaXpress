@@ -16,6 +16,7 @@ class FaturaCreate(BaseModel):
     cliente_telefone: Optional[str] = None
     cliente_endereco: Optional[str] = None
     salvar_como_cliente: bool = False
+    area_id: Optional[UUID] = Field(None, description="Área que está a emitir")
     tipo_documento: Literal['proforma', 'fatura'] = 'proforma'
     itens: List[ItemCreate] = Field(..., min_length=1, description="Mínimo 1 item")
     forma_pagamento: Literal['dinheiro', 'transferencia', 'multicaixa', 'credito'] = 'dinheiro'
@@ -39,6 +40,7 @@ class FaturaCreate(BaseModel):
 
 class FaturaUpdate(BaseModel):
     cliente_id: Optional[UUID] = None
+    area_id: Optional[UUID] = None
     forma_pagamento: Optional[Literal['dinheiro', 'transferencia', 'multicaixa', 'credito']] = None
     observacoes: Optional[str] = Field(None, max_length=1000)
     desconto_percent: Optional[float] = Field(None, ge=0, le=100)
@@ -76,7 +78,6 @@ class FaturaResponse(BaseModel):
     desconto_percent: float = 0
     forma_pagamento: str
 
-    # AGT
     hash_agt: Optional[str] = None
     hash_agt_anterior: Optional[str] = None
     qr_code: Optional[str] = None
@@ -90,6 +91,7 @@ class FaturaResponse(BaseModel):
     cliente_telefone: Optional[str] = None
     cliente_email: Optional[str] = None
     cliente_endereco: Optional[str] = None
+    area_id: Optional[UUID] = None
     proforma_origem_id: Optional[UUID] = None
     fatura_origem_id: Optional[UUID] = None
     data_emissao: datetime
@@ -120,6 +122,7 @@ class FaturaListResponse(BaseModel):
     numero: str
     cliente_id: Optional[UUID] = None
     cliente_nome: Optional[str] = None
+    area_id: Optional[UUID] = None
     total_geral: float
     created_at: datetime
     class Config:

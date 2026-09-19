@@ -1,24 +1,19 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
-from typing import Optional, List
+from sqlalchemy import or_, extract
+from typing import Optional, List, Union
 import uuid
+import calendar
+import logging
 from datetime import datetime, timezone
 import xml.etree.ElementTree as ET
+
 from app.db.session import get_db
 from app.core.security import get_current_company_id
 from app.modules.fatura.models import Fatura
 from app.modules.fatura.schemas import FaturaCreate, FaturaResponse, FaturaUpdate, NotaCreditoCreate
 from app.modules.fatura import service as fatura_service
-import logging
-
-from sqlalchemy import extract
-from typing import Optional, Union
-import calendar
-
-from app.core.security import get_current_company_id
-from app.modules.fatura.models import Fatura
 from app.modules.auth.models import Company
 from app.modules.clients.models import Cliente
 from app.modules.realtime.manager import manager
@@ -40,6 +35,7 @@ def listar(
     cliente_id: Optional[uuid.UUID] = None,
     tipo_documento: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    area_id: Optional[uuid.UUID] = Query(None, description="Filtrar por área"),
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=500),
@@ -49,6 +45,8 @@ def listar(
     q = db.query(Fatura).filter(Fatura.company_id == company_id)
     if cliente_id:
         q = q.filter(Fatura.cliente_id == cliente_id)
+    if area_id:
+        q = q.filter(Fatura.area_id == area_id)
     if tipo_documento:
         q = q.filter(Fatura.tipo_documento == tipo_documento)
     if status and status!= 'todos':
@@ -69,9 +67,17 @@ def listar(
     return q.order_by(Fatura.created_at.desc()).offset((page-1)*limit).limit(limit).all()
 
 @router.get("/stats/resumo")
-def stats(cliente_id: Optional[uuid.UUID] = None, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+def stats(
+    cliente_id: Optional[uuid.UUID] = None,
+    area_id: Optional[uuid.UUID] = Query(None, description="Filtrar por área"),
+    db: Session = Depends(get_db),
+    company_id: uuid.UUID = Depends(get_current_company_id)
+):
     base = db.query(Fatura).filter(Fatura.company_id == company_id, Fatura.status!= 'apagada')
-    if cliente_id: base = base.filter(Fatura.cliente_id == cliente_id)
+    if cliente_id:
+        base = base.filter(Fatura.cliente_id == cliente_id)
+    if area_id:
+        base = base.filter(Fatura.area_id == area_id)
     return {
         "em_curso": base.filter(Fatura.status == 'em_curso').count(),
         "proformas": base.filter(Fatura.tipo_documento == 'proforma', Fatura.status == 'em_curso').count(),

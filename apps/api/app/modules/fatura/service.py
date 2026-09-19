@@ -1,9 +1,11 @@
 import uuid
-from sqlalchemy.orm import Session
-from sqlalchemy import extract
-from datetime import datetime, timedelta, timezone
-from fastapi import HTTPException
 import hashlib
+from datetime import datetime, timedelta, timezone
+
+from fastapi import HTTPException
+from sqlalchemy import extract
+from sqlalchemy.orm import Session
+
 from app.modules.fatura.models import Fatura, FaturaItem
 from app.modules.products.models import Produto
 from app.modules.clients.models import Cliente
@@ -168,6 +170,9 @@ def criar_fatura(db: Session, company_id, dados):
     c_tel = dados.cliente_telefone if hasattr(dados, 'cliente_telefone') else None
     c_end = dados.cliente_endereco if hasattr(dados, 'cliente_endereco') else None
 
+    # NOVO CAMPO area_id do schemas
+    area_id_final = getattr(dados, 'area_id', None)
+
     if cliente_id_final:
         cli = db.query(Cliente).filter(Cliente.id == cliente_id_final, Cliente.company_id == company_id).first()
         if cli:
@@ -198,6 +203,7 @@ def criar_fatura(db: Session, company_id, dados):
                 id=uuid.uuid4(),
                 company_id=company_id,
                 cliente_id=cliente_id_final,
+                area_id=area_id_final,
                 cliente_nome=c_nome,
                 cliente_nif=c_nif,
                 cliente_email=c_email,
@@ -223,6 +229,7 @@ def criar_fatura(db: Session, company_id, dados):
                 id=uuid.uuid4(),
                 company_id=company_id,
                 cliente_id=cliente_id_final,
+                area_id=area_id_final,
                 cliente_nome=c_nome,
                 cliente_nif=c_nif,
                 cliente_email=c_email,
@@ -279,6 +286,9 @@ def atualizar_fatura(db: Session, fatura: Fatura, company_id, dados):
 
     if dados.cliente_id:
         fatura.cliente_id = dados.cliente_id
+    # NOVO CAMPO
+    if getattr(dados, 'area_id', None) is not None:
+        fatura.area_id = dados.area_id
     if dados.forma_pagamento:
         fatura.forma_pagamento = dados.forma_pagamento
     if dados.desconto_percent is not None:
@@ -334,6 +344,7 @@ def converter_proforma_para_fatura(db: Session, proforma_id, company_id):
             id=uuid.uuid4(),
             company_id=company_id,
             cliente_id=proforma.cliente_id,
+            area_id=proforma.area_id,
             cliente_nome=proforma.cliente_nome,
             cliente_nif=proforma.cliente_nif,
             cliente_email=proforma.cliente_email,
@@ -391,6 +402,7 @@ def duplicar_fatura(db: Session, fatura_id, company_id):
         id=uuid.uuid4(),
         company_id=company_id,
         cliente_id=orig.cliente_id,
+        area_id=orig.area_id,
         cliente_nome=orig.cliente_nome,
         cliente_nif=orig.cliente_nif,
         cliente_email=orig.cliente_email,
@@ -471,6 +483,7 @@ def criar_nota_credito(db: Session, company_id, fatura_id, motivo: str, observac
             id=uuid.uuid4(),
             company_id=company_id,
             cliente_id=original.cliente_id,
+            area_id=original.area_id,
             cliente_nome=original.cliente_nome,
             cliente_nif=original.cliente_nif,
             cliente_email=original.cliente_email,

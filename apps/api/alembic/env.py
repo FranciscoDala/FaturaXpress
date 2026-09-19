@@ -15,6 +15,9 @@ from app.modules.clients.models import Cliente
 from app.modules.products.models import Produto
 from app.modules.fatura.models import Fatura, FaturaItem
 from app.modules.assinatura.models import Plan, Subscription
+from app.modules.areas.models import Area
+from app.modules.funcionarios.models import Funcionario, funcionario_areas
+
 config = context.config
 
 if config.config_file_name is not None:

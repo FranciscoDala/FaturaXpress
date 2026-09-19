@@ -3,7 +3,8 @@ from datetime import datetime, timezone
 from sqlalchemy import String, Numeric, Boolean, ForeignKey, DateTime, Text, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.db.base import Base
+from sqlalchemy.orm import declarative_base
+Base = declarative_base()
 
 class Fatura(Base):
     __tablename__ = "faturas"
@@ -14,11 +15,13 @@ class Fatura(Base):
         Index('ix_faturas_company_tipo_ano', 'company_id', 'tipo_documento', 'created_at'),
         Index('ix_faturas_company_status', 'company_id', 'status'),
         Index('ix_faturas_hash', 'company_id', 'hash_agt'),
+        Index('ix_faturas_area', 'company_id', 'area_id'),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=False)
     cliente_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("clientes.id", ondelete="RESTRICT"), index=True, nullable=True)
+    area_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("areas.id", ondelete="SET NULL"), nullable=True, index=True)
 
     cliente_nome: Mapped[str | None] = mapped_column(String(255), nullable=True)
     cliente_nif: Mapped[str | None] = mapped_column(String(20), nullable=True, default="999999999")

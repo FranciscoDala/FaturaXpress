@@ -62,7 +62,6 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId?: string
     }, [])
 
     useEffect(() => {
-        // busca plano e uso
         const fetchPlano = async () => {
             try {
                 const [meRes, faturasRes] = await Promise.all([
@@ -97,7 +96,7 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId?: string
             })))
             setPagina(1)
         }).catch(() => setProdutos([]))
-      .finally(() => setLoadingProdutos(false))
+     .finally(() => setLoadingProdutos(false))
     }, [busca])
 
     const totalPaginas = Math.ceil(produtos.length / ITENS_POR_PAGINA) || 1
@@ -177,41 +176,41 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId?: string
     }
 
     return (
-        <div className="-full px-4 sm:px-0 lg:px-0 mt-0">
-            {/* BANNER DE PLANO */}
-            <div className={`mb-4 rounded-[16px] border px-4 py-3 flex items-center gap-3 ${isAtLimit? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-100'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-white border ${isAtLimit? 'text-red-600' : 'text-blue-600'}`}>
+        <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+            {/* BANNER DE PLANO - CORRIGIDO WIDTH 100% NO DESKTOP */}
+            <div className={`mb-4 w-full rounded-[16px] border px-4 py-3 flex items-center gap-3 ${isAtLimit? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-100'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-white border shrink-0 ${isAtLimit? 'text-red-600 border-red-200' : 'text-blue-600 border-blue-100'}`}>
                     <Crown className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
-                    <p className="text-[12px] font-bold">Plano {planInfo.label} {planInfo.max? `- ${usoMes}/${planInfo.max} FT este mês` : '- Ilimitado'}</p>
+                    <p className="text-[12px] font-bold text-black">Plano {planInfo.label} {planInfo.max? `- ${usoMes}/${planInfo.max} FT este mês` : '- Ilimitado'}</p>
                     {planInfo.max? (
-                        <div className="mt-1.5 h-1.5 w-full bg-white rounded-full overflow-hidden max-w-[260px]">
+                        <div className="mt-1.5 h-1.5 w-full bg-white rounded-full overflow-hidden border border-black/5">
                             <div className={`h-full rounded-full ${isAtLimit? 'bg-red-500' : usoPercent >= 80? 'bg-amber-500' : 'bg-[#0095ff]'}`} style={{ width: `${usoPercent}%` }} />
                         </div>
-                    ) : <p className="text-[11px] text-gray-600">Você pode emitir FT ilimitadas</p>}
-                    <p className="text-[10px] text-gray-500 mt-1">Proforma PP sempre livre, não conta no limite.</p>
+                    ) : <p className="text-[11px] text-black font-medium">Você pode emitir FT ilimitadas</p>}
+                    <p className="text-[11px] text-black font-medium mt-1">Proforma PP sempre livre, não conta no limite.</p>
                 </div>
-                {isAtLimit && <button onClick={() => window.location.hash = '#/assinatura'} className="text-[11px] bg-[#0095ff] text-white px-3 py-1.5 rounded-full font-semibold">Upgrade</button>}
+                {isAtLimit && <button onClick={() => window.location.hash = '#/assinatura'} className="shrink-0 text-[11px] bg-[#0095ff] text-white px-3 py-1.5 rounded-full font-semibold">Upgrade</button>}
             </div>
 
             <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 px-5 py-4 flex flex-wrap gap-3 mb-4 w-full">
-                <span className="text-[11px] font-bold text-gray-900 uppercase">ITENS:</span>
-                {itens.length === 0? <span className="text-[11px] text-gray-400">0</span> : itens.map(it => (
-                    <span key={it.produto_id} className="bg-[#ff7a00] text-white text-[10px] font-bold px-3 py-0 rounded-full flex items-center gap-1 shadow-sm">{it.nome.toUpperCase()} x{it.quantidade} <Star className="w-3 h-3 fill-white" /></span>
+                <span className="text-[11px] font-bold text-black uppercase">ITENS:</span>
+                {itens.length === 0? <span className="text-[11px] text-black font-medium">0</span> : itens.map(it => (
+                    <span key={it.produto_id} className="bg-[#ff7a00] text-white text-[10px] font-bold px-3 py-0.5 rounded-full flex items-center gap-1 shadow-sm">{it.nome.toUpperCase()} x{it.quantidade} <Star className="w-3 h-3 fill-white" /></span>
                 ))}
             </div>
 
             {!clienteId && (
             <div className="bg-[#F0F7FF] border border-blue-100 rounded-[22px] p-5 mb-4">
-                <p className="text-[12px] font-bold mb-3">Cliente Avulso (sem cadastro)</p>
+                <p className="text-[13px] font-bold mb-3 text-black">Cliente Avulso (sem cadastro)</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <input value={clienteNome} onChange={e=>setClienteNome(e.target.value)} placeholder="Nome * obrigatório" className="h-[44px] border border-gray-200 rounded-full px-4 text-[13px] bg-white" />
-                    <input value={clienteNif} onChange={e=>setClienteNif(e.target.value)} placeholder="NIF (999999999 = Consumidor Final)" className="h-[44px] border border-gray-200 rounded-full px-4 text-[13px] bg-white" />
-                    <input value={clienteTel} onChange={e=>setClienteTel(e.target.value)} placeholder="Telefone (opcional)" className="h-[44px] border border-gray-200 rounded-full px-4 text-[13px] bg-white" />
-                    <input value={clienteEmail} onChange={e=>setClienteEmail(e.target.value)} placeholder="Email (opcional)" className="h-[44px] border border-gray-200 rounded-full px-4 text-[13px] bg-white" />
+                    <input value={clienteNome} onChange={e=>setClienteNome(e.target.value)} placeholder="Nome * obrigatório" className="h-[44px] border border-gray-200 rounded-full px-4 text-[13px] bg-white text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff]" />
+                    <input value={clienteNif} onChange={e=>setClienteNif(e.target.value)} placeholder="NIF (999999999 = Consumidor Final)" className="h-[44px] border border-gray-200 rounded-full px-4 text-[13px] bg-white text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff]" />
+                    <input value={clienteTel} onChange={e=>setClienteTel(e.target.value)} placeholder="Telefone (opcional)" className="h-[44px] border border-gray-200 rounded-full px-4 text-[13px] bg-white text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff]" />
+                    <input value={clienteEmail} onChange={e=>setClienteEmail(e.target.value)} placeholder="Email (opcional)" className="h-[44px] border border-gray-200 rounded-full px-4 text-[13px] bg-white text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff]" />
                 </div>
-                <label className="flex items-center gap-2 mt-3 text-[12px] cursor-pointer">
+                <label className="flex items-center gap-2 mt-3 text-[12px] cursor-pointer text-black font-medium">
                     <input type="checkbox" checked={salvarComoCliente} onChange={e=>setSalvarComoCliente(e.target.checked)} className="rounded" />
                     Salvar este cliente para próximas faturas
                 </label>
@@ -222,14 +221,14 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId?: string
                 <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 p-6">
                     <div className="flex gap-2 mb-4">
                         <div ref={refTipo} className="relative flex-1 z-20">
-                            <button onClick={() => setOpenTipo(!openTipo)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[12px] font-semibold">
-                                <span className="text-gray-900 truncate">{OPTIONS_TIPO.find(o => o.value === tipoDoc)?.label}</span>
-                                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ml-2 ${openTipo? 'rotate-180' : ''}`} />
+                            <button onClick={() => setOpenTipo(!openTipo)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[12px] font-semibold text-black">
+                                <span className="text-black truncate">{OPTIONS_TIPO.find(o => o.value === tipoDoc)?.label}</span>
+                                <ChevronDown className={`w-4 h-4 text-black transition-transform shrink-0 ml-2 ${openTipo? 'rotate-180' : ''}`} />
                             </button>
                             {openTipo && (
                                 <div className="absolute top-[54px] left-0 w-full bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
                                     {OPTIONS_TIPO.map(opt => (
-                                        <button key={opt.value} onClick={() => { setTipoDoc(opt.value as any); setOpenTipo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[12px] flex items-center justify-between transition ${tipoDoc === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                        <button key={opt.value} onClick={() => { setTipoDoc(opt.value as any); setOpenTipo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[12px] flex items-center justify-between transition ${tipoDoc === opt.value? 'bg-[#E6F0FF] text-black font-semibold' : 'hover:bg-gray-50 text-black'}`}>
                                             {opt.label}
                                             {tipoDoc === opt.value && <Check className="w-4 h-4 text-[#0095ff]" />}
                                         </button>
@@ -239,14 +238,14 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId?: string
                         </div>
                     </div>
                     {tipoDoc === 'fatura' && isAtLimit && (
-                        <div className="mb-4 flex items-center gap-2 text-[11px] text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-full">
-                            <AlertTriangle className="w-4 h-4" />
+                        <div className="mb-4 flex items-center gap-2 text-[11px] text-black font-semibold bg-red-50 border border-red-200 px-3 py-2 rounded-full">
+                            <AlertTriangle className="w-4 h-4 text-red-600" />
                             Limite {planInfo.label} atingido. Emita PP livre ou faça upgrade.
                         </div>
                     )}
                     <div className="relative mb-4">
-                        <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar produto..." className="w-full pl-11 pr-4 h-[46px] bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
+                        <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-black" />
+                        <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar produto..." className="w-full pl-11 pr-4 h-[46px] bg-white border border-gray-200 rounded-full text-[14px] text-black placeholder:text-black/60 focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
                     </div>
                     <div className="max-h-[380px] overflow-auto pr-1 space-y-2">
                         {loadingProdutos? (
@@ -255,42 +254,42 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId?: string
                             <>
                                 {produtosPaginados.map(p => (
                                     <div key={p.id} className="flex justify-between items-center py-3.5 px-4 bg-white border border-gray-200 rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
-                                        <div><p className="text-[13.5px] font-medium text-gray-900">{p.nome}</p><p className="text-[11.5px] text-gray-500 mt-0.5">{p.preco.toFixed(2)} KZ - IVA {p.iva}% | Quant - {p.quantidade}</p></div>
-                                        <button onClick={() => addItem(p)} className="w-8 h-8 border border-gray-200 rounded-full flex items-center justify-center hover:bg-[#0095ff] hover:text-white hover:border-[#0095ff] transition shrink-0 ml-2"><Plus className="w-4 h-4" /></button>
+                                        <div><p className="text-[13.5px] font-medium text-black">{p.nome}</p><p className="text-[11.5px] text-black font-medium mt-0.5">{p.preco.toFixed(2)} KZ - IVA {p.iva}% | Quant - {p.quantidade}</p></div>
+                                        <button onClick={() => addItem(p)} className="w-8 h-8 border border-gray-200 rounded-full flex items-center justify-center hover:bg-[#0095ff] hover:text-white hover:border-[#0095ff] transition shrink-0 ml-2 text-black"><Plus className="w-4 h-4" /></button>
                                     </div>
                                 ))}
-                                {produtos.length === 0 && <p className="text-[12px] text-gray-400 py-6 text-center">Nenhum produto encontrado</p>}
+                                {produtos.length === 0 && <p className="text-[12px] text-black font-medium py-6 text-center">Nenhum produto encontrado</p>}
                             </>
                         )}
                     </div>
                     {!loadingProdutos && produtos.length > ITENS_POR_PAGINA && (
                       <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
-                        <button disabled={pagina===1} onClick={()=>setPagina(p=>Math.max(1,p-1))} className="h-8 px-3 rounded-full border border-gray-200 bg-white text-[12px] font-medium flex items-center gap-1 disabled:opacity-40 hover:bg-gray-50"><ChevronLeft className="w-3.5 h-3.5" /> Ant</button>
+                        <button disabled={pagina===1} onClick={()=>setPagina(p=>Math.max(1,p-1))} className="h-8 px-3 rounded-full border border-gray-200 bg-white text-[12px] font-medium flex items-center gap-1 disabled:opacity-40 hover:bg-gray-50 text-black"><ChevronLeft className="w-3.5 h-3.5" /> Ant</button>
                         <div className="flex items-center gap-1.5">
                           {Array.from({length: totalPaginas}).map((_,i)=>{
                             const num = i+1
                             if (totalPaginas>5 && Math.abs(num-pagina)>2 && num!==1 && num!==totalPaginas) {
-                              if (num===2 || num===totalPaginas-1) return <span key={num} className="text-[11px] text-gray-400 px-1">...</span>
+                              if (num===2 || num===totalPaginas-1) return <span key={num} className="text-[11px] text-black px-1">...</span>
                               return null
                             }
-                            return <button key={num} onClick={()=>setPagina(num)} className={`w-8 h-8 rounded-full text-[12px] font-bold transition ${pagina===num? 'bg-[#0095ff] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>{num}</button>
+                            return <button key={num} onClick={()=>setPagina(num)} className={`w-8 h-8 rounded-full text-[12px] font-bold transition ${pagina===num? 'bg-[#0095ff] text-white' : 'bg-white border border-gray-200 text-black hover:bg-gray-50'}`}>{num}</button>
                           })}
                         </div>
-                        <button disabled={pagina===totalPaginas} onClick={()=>setPagina(p=>Math.min(totalPaginas,p+1))} className="h-8 px-3 rounded-full border border-gray-200 bg-white text-[12px] font-medium flex items-center gap-1 disabled:opacity-40 hover:bg-gray-50">Prox <ChevronRight className="w-3.5 h-3.5" /></button>
+                        <button disabled={pagina===totalPaginas} onClick={()=>setPagina(p=>Math.min(totalPaginas,p+1))} className="h-8 px-3 rounded-full border border-gray-200 bg-white text-[12px] font-medium flex items-center gap-1 disabled:opacity-40 hover:bg-gray-50 text-black">Prox <ChevronRight className="w-3.5 h-3.5" /></button>
                       </div>
                     )}
                 </div>
 
                 <div className="bg-white rounded-[22px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 p-6 h-fit">
                     <div ref={refPag} className="relative w-full z-10 mb-3">
-                        <button onClick={() => setOpenPag(!openPag)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[12px] font-medium">
-                            <span className="text-gray-900">{OPTIONS_PAG.find(o => o.value === formaPagamento)?.label}</span>
-                            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openPag? 'rotate-180' : ''}`} />
+                        <button onClick={() => setOpenPag(!openPag)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[12px] font-medium text-black">
+                            <span className="text-black">{OPTIONS_PAG.find(o => o.value === formaPagamento)?.label}</span>
+                            <ChevronDown className={`w-4 h-4 text-black transition-transform ${openPag? 'rotate-180' : ''}`} />
                         </button>
                         {openPag && (
                             <div className="absolute top-[54px] left-0 w-full bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
                                 {OPTIONS_PAG.map(opt => (
-                                    <button key={opt.value} onClick={() => { setFormaPagamento(opt.value); setOpenPag(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[12px] flex items-center justify-between transition ${formaPagamento === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                    <button key={opt.value} onClick={() => { setFormaPagamento(opt.value); setOpenPag(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[12px] flex items-center justify-between transition ${formaPagamento === opt.value? 'bg-[#E6F0FF] text-black font-semibold' : 'hover:bg-gray-50 text-black'}`}>
                                         {opt.label}
                                         {formaPagamento === opt.value && <Check className="w-4 h-4 text-[#0095ff]" />}
                                     </button>
@@ -299,28 +298,28 @@ export default function TabEmitir({ clienteId, onEmitida }: { clienteId?: string
                         )}
                     </div>
 
-                    <textarea value={observacoes} onChange={e=>setObservacoes(e.target.value)} placeholder="Observações (opcional - vai na FT)" className="w-full h-[70px] border border-gray-200 rounded-[16px] p-3 text-[12px] mb-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+                    <textarea value={observacoes} onChange={e=>setObservacoes(e.target.value)} placeholder="Observações (opcional - vai na FT)" className="w-full h-[70px] border border-gray-200 rounded-[16px] p-3 text-[12px] text-black placeholder:text-black/60 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
                     {itens.length === 0? (
-                        <p className="text-[12px] text-gray-400 py-4 text-center">Nenhum item adicionado</p>
+                        <p className="text-[12px] text-black font-medium py-4 text-center">Nenhum item adicionado</p>
                     ) : (
                         <div className="space-y-2">
                             {itens.map(it => (
                                 <div key={it.produto_id} className="flex gap-2 items-center text-[12px] py-1.5">
-                                    <input type="number" min={1} value={it.quantidade} onChange={e => { const q = Number(e.target.value); setItens(prev => prev.map(x => x.produto_id === it.produto_id? {...x, quantidade: q, subtotal: q * x.preco_unit } : x)) }} className="w-12 h-7 border border-gray-200 rounded-full px-2 py-0.5 text-center text-[12px]" />
-                                    <span className="flex-1 truncate text-gray-700">{it.nome}</span>
-                                    <span className="font-bold text-gray-900">{it.subtotal.toFixed(2)}</span>
+                                    <input type="number" min={1} value={it.quantidade} onChange={e => { const q = Number(e.target.value); setItens(prev => prev.map(x => x.produto_id === it.produto_id? {...x, quantidade: q, subtotal: q * x.preco_unit } : x)) }} className="w-12 h-7 border border-gray-200 rounded-full px-2 py-0.5 text-center text-[12px] text-black" />
+                                    <span className="flex-1 truncate text-black font-medium">{it.nome}</span>
+                                    <span className="font-bold text-black">{it.subtotal.toFixed(2)}</span>
                                     <button onClick={() => { setItens(prev => prev.filter(x => x.produto_id!== it.produto_id)); toast.info('Item removido') }} className="w-6 h-6 rounded-full hover:bg-red-50 flex items-center justify-center transition"><Trash2 className="w-3.5 h-3.5 text-red-500" /></button>
                                 </div>
                             ))}
                         </div>
                     )}
                     <div className="border-t border-gray-100 pt-4 mt-4 text-[12.5px] space-y-2">
-                        <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>{subtotal.toFixed(2)} KZ</span></div>
-                        <div className="flex justify-between text-gray-600"><span>IVA</span><span>{totalIva.toFixed(2)} KZ</span></div>
-                        <div className="flex justify-between font-bold text-[15px] text-gray-900 border-t border-gray-100 pt-3"><span>Total</span><span>{(subtotal + totalIva).toFixed(2)} KZ</span></div>
-                        {tipoDoc==='fatura' &&!isAtLimit && <p className="text-[10px] text-green-600 bg-green-50 border border-green-200 rounded-full px-3 py-1 text-center mt-2">FT vai gerar Hash AGT + QR • Conta {usoMes+1}/{planInfo.max || '∞'} neste mês</p>}
-                        {tipoDoc==='fatura' && isAtLimit && <p className="text-[10px] text-red-600 bg-red-50 border border-red-200 rounded-full px-3 py-1 text-center mt-2">Limite {planInfo.label} atingido - Faça upgrade ou emita PP livre</p>}
-                        {tipoDoc==='proforma' && <p className="text-[10px] text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-3 py-1 text-center mt-2">PP sem valor fiscal - sempre livre, não conta no limite</p>}
+                        <div className="flex justify-between text-black font-medium"><span>Subtotal</span><span>{subtotal.toFixed(2)} KZ</span></div>
+                        <div className="flex justify-between text-black font-medium"><span>IVA</span><span>{totalIva.toFixed(2)} KZ</span></div>
+                        <div className="flex justify-between font-bold text-[15px] text-black border-t border-gray-100 pt-3"><span>Total</span><span>{(subtotal + totalIva).toFixed(2)} KZ</span></div>
+                        {tipoDoc==='fatura' &&!isAtLimit && <p className="text-[10px] text-black font-semibold bg-green-50 border border-green-200 rounded-full px-3 py-1 text-center mt-2">FT vai gerar Hash AGT + QR • Conta {usoMes+1}/{planInfo.max || '∞'} neste mês</p>}
+                        {tipoDoc==='fatura' && isAtLimit && <p className="text-[10px] text-black font-semibold bg-red-50 border border-red-200 rounded-full px-3 py-1 text-center mt-2">Limite {planInfo.label} atingido - Faça upgrade ou emita PP livre</p>}
+                        {tipoDoc==='proforma' && <p className="text-[10px] text-black font-semibold bg-orange-50 border border-orange-200 rounded-full px-3 py-1 text-center mt-2">PP sem valor fiscal - sempre livre, não conta no limite</p>}
                         <button
                             disabled={tipoDoc==='fatura' && isAtLimit}
                             onClick={()=>{ if(!itens.length) return toast.error('Adicione produtos', { description: 'Selecione ao menos 1 item.' }); if(!clienteId &&!clienteNome) return toast.error('Nome cliente obrigatório'); setOpenConfirm(true) }}

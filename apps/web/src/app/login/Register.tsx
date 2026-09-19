@@ -118,12 +118,14 @@ export default function Register() {
     const [city, setCity] = useState('')
     const [province, setProvince] = useState('')
     const [password, setPassword] = useState('')
+    const [agtOffline, setAgtOffline] = useState(false)
+    const [retryCount, setRetryCount] = useState(0)
 
     const municipiosDisponiveis = province ? (MUNICIPIOS[province] || []) : []
 
     const handleProvinceChange = (prov: string) => {
         setProvince(prov)
-        setCity('') // reseta cidade ao trocar província
+        setCity('')
     }
 
     const handleValidarNif = async () => {
@@ -133,6 +135,7 @@ export default function Register() {
             return
         }
         setValidatingNif(true)
+        setAgtOffline(false)
         try {
             const res = await fetch(`${API_URL}/auth/validar-nif`, {
                 method: "POST",
@@ -143,6 +146,8 @@ export default function Register() {
             if (res.ok && data.valid && data.nome_agt) {
                 setAgtData({ nome: data.nome_agt, tipo: data.tipo, estado: data.estado, inadimplente: data.inadimplente, regime_iva: data.regime_iva, residente_fiscal: data.residente_fiscal, source: data.source })
                 setNifValidated(true)
+                setRetryCount(0)
+                setAgtOffline(false)
                 toast.success(`NIF validado: ${data.nome_agt}`, { position: 'top-center' })
                 return
             }
@@ -152,6 +157,7 @@ export default function Register() {
                     const direto = await validarDiretoNoNavegador(nifClean)
                     setAgtData({ nome: direto.nome_agt, tipo: direto.tipo, estado: direto.estado || "Activo", inadimplente: direto.inadimplente, regime_iva: direto.regime_iva, residente_fiscal: direto.residente_fiscal, source: "browser" })
                     setNifValidated(true)
+                    setAgtOffline(false)
                     toast.dismiss()
                     toast.success(`Nif validado.Activo - ${direto.nome_agt}`, { position: 'top-center' })
                     return
@@ -162,9 +168,27 @@ export default function Register() {
             }
             if (!res.ok) throw new Error(data.detail || "NIF inválido ou não encontrado na AGT")
         } catch (err: any) {
-            toast.error(err.message || "NIF não encontrado na AGT", { position: 'top-center' })
-            setNifValidated(false)
-            setAgtData(null)
+            const msg = err?.message || ''
+            const isAgtOffline =
+                msg.includes('Load failed') ||
+                msg.includes('Failed to fetch') ||
+                msg.includes('Service Unavailable') ||
+                msg.includes('503') ||
+                msg.includes('500') ||
+                msg.toLowerCase().includes('network') ||
+                msg.toLowerCase().includes('agt') ||
+                err?.name === 'TypeError'
+
+            if (isAgtOffline) {
+                setAgtOffline(true)
+                setRetryCount(prev => prev + 1)
+                toast.error("Serviço da AGT indisponível", { position: 'top-center' })
+            } else {
+                setAgtOffline(false)
+                toast.error(msg || "NIF não encontrado na AGT", { position: 'top-center' })
+                setNifValidated(false)
+                setAgtData(null)
+            }
         } finally { setValidatingNif(false) }
     }
 
@@ -258,19 +282,29 @@ export default function Register() {
 
                 <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-4">
                     <style>{`
-                    .no-scrollbar::-webkit-scrollbar { display: none; }
-                    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                   .no-scrollbar::-webkit-scrollbar { display: none; }
+                   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
                     `}</style>
 
                     <div className="flex flex-col gap-[5px]">
                         {!nifValidated ? (
                             <div className="flex flex-col gap-[5px]">
+                                {agtOffline && (
+                                    <div className="bg-amber-50 border border-amber-200 rounded-[12px] p-3.5 text-[12.5px] leading-[1.6]">
+                                        <div className="flex items-center gap-2 font-bold text-amber-800 mb-1">
+                                            <AlertTriangle className="w-4 h-4" />
+                                            Serviço da AGT indisponível
+                                        </div>
+                                        <p className="text-amber-700 text-[12px]">O portal da AGT está temporariamente em manutenção. Isso é normal e costuma voltar em alguns minutos. Por favor, tente novamente mais tarde.</p>
+                                        {retryCount > 0 && <p className="text-[11px] text-amber-600 mt-2">Tentativa {retryCount} - NIF guardado: {nif.toUpperCase()}</p>}
+                                    </div>
+                                )}
                                 <div className="relative">
-                                    <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={inputWithIcon} placeholder="NIF nº:5002063956" />
+                                    <input type="text" value={nif} onChange={(e) => { setNif(e.target.value); setAgtOffline(false) }} required className={inputWithIcon} placeholder="NIF nº:5002063956" />
                                     <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 </div>
                                 <button type="button" onClick={handleValidarNif} disabled={validatingNif || !nif} className="w-full h-[44px] rounded-[12px] bg-[#0095ff] text-white font-semibold text-[13.5px] hover:bg-[#0085e6] flex items-center justify-center disabled:opacity-60 transition">
-                                    {validatingNif ? <Loader2 className="w-5 h-5 animate-spin" /> : "Consultar NIF"}
+                                    {validatingNif ? <Loader2 className="w-5 h-5 animate-spin" /> : agtOffline ? "Tentar novamente" : "Consultar NIF"}
                                 </button>
                             </div>
                         ) : (
@@ -295,7 +329,6 @@ export default function Register() {
                                     <div className="relative"><input type="email" value={emailCompany} onChange={(e) => setEmailCompany(e.target.value)} required className={inputWithIcon} placeholder="email@empresa.com *" /><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
                                     <div className="relative"><input type="text" value={address} onChange={(e) => setAddress(e.target.value)} required className={inputWithIcon} placeholder="Rua, Bairro *" /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /></div>
 
-                                    {/* ORDEM TROCAD PROVINCIA PRIMEIRO DEPOIS CIDADE - SELECT CARD */}
                                     <div className="grid grid-cols-2 gap-[5px]">
                                         <CustomSelect
                                             value={province}

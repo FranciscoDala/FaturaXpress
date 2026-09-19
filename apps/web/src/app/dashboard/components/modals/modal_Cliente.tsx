@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { X, Check, User, MapPin, ChevronDown, FileText, Loader2, AlertTriangle, CheckCircle, ShieldCheck } from 'lucide-react'
+import { X, Check, User, MapPin, ChevronDown, FileText, Loader2, AlertTriangle, CheckCircle, ShieldCheck, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../../../../lib/api'
 
@@ -131,7 +131,7 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
     const handleValidarNif = async () => {
         const nifClean = form.nif.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
         if (!nifClean || nifClean.length < 9) {
-            toast.error("Digite NIF válido ex: 5002063956 ou 999999999", { position: 'top-center' })
+            toast.error("Digite NIF ex: 5002063956 ou 999999999", { position: 'top-center' })
             return
         }
         setValidatingNif(true)
@@ -186,7 +186,6 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                 await api.put(`/api/clientes/${cliente.id}`, payload)
                 toast.success('Cliente atualizado com sucesso', { description: `${cliente.nome} atualizado.`, position: 'top-center' })
             } else if (nifExists && clienteExistente) {
-                // SE JA EXISTE, FAZ UPDATE DELE AO INVES DE CRIAR DUPLICADO
                 const payload = {
                     email: form.email,
                     telefone: form.telefone,
@@ -198,19 +197,19 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                 toast.success('Cliente atualizado com sucesso', { description: `${clienteExistente.nome} atualizado.`, position: 'top-center' })
             } else {
                 await api.post('/api/clientes/', form)
-                toast.success('Cliente criado com sucesso', { description: `${form.nome} criado. Clientes não contam no limite de plano.`, position: 'top-center' })
+                toast.success('Cliente criado com sucesso', { description: `${form.nome} criado.`, position: 'top-center' })
             }
             onSuccess()
             onClose()
         } catch (err: any) {
-            toast.error(err.response?.data?.detail || 'Erro ao salvar cliente', { description: 'Verifique NIF duplicado.', position: 'top-center' })
+            toast.error(err.response?.data?.detail || 'Erro ao salvar cliente', { position: 'top-center' })
         } finally {
             setLoading(false)
         }
     }
 
-    const inputClass = "w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-2 text-[13.5px] text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition"
-    const inputDisabledClass = "w-full h-[44px] bg-gray-100 border border-gray-200 rounded-[12px] px-2 text-[13.5px] text-gray-500 placeholder:text-black/60 focus:outline-none cursor-not-allowed opacity-80"
+    const inputClass = "w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition"
+    const inputDisabledClass = "w-full h-[44px] bg-gray-100 border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-gray-500 placeholder:text-black/60 focus:outline-none cursor-not-allowed opacity-80"
     const inputWithIcon = `${inputClass} pl-10`
 
     return (
@@ -228,15 +227,18 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                         {nifValidated? `NIF: ${form.nif.toUpperCase()}` : "Validação NIF"}
                     </div>
                 </div>
-                <div className="px-6 pt-5 pb-2 shrink-0 border-b border-gray-100">
+
+                <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
                     <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{isEditMode? 'Editar Cliente' : 'Novo Cliente'}</h3>
                     <p className="text-[13.5px] text-gray-500 mt-1 leading-relaxed">
-                        {isEditMode? 'Nome e NIF não podem ser alterados após criação.' : nifValidated? (nifExists? `Cliente já cadastrado: ${clienteExistente?.nome}` : 'Preencha os dados para criar novo cliente') : 'Adiciona o NIF do cliente para prosseguir'}
+                        {isEditMode? 'Nome e NIF não podem ser alterados.' : nifValidated? (nifExists? `Cliente já cadastrado: ${clienteExistente?.nome}` : 'Preencha os dados para criar novo cliente') : 'Adiciona o NIF do cliente para prosseguir'}
                     </p>
-                    {nifValidated && nifExists && (
-                        <div className="mt-[8px] flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 w-fit">
-                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                            <span className="text-[11px] font-semibold text-amber-700">Cliente já existe - pode atualizar os dados</span>
+                    {nifValidated && (
+                        <div className={`mt-[8px] flex items-center gap-1.5 px-3 py-1.5 rounded-full border w-fit ${nifExists? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
+                            {nifExists? <AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> : <CheckCircle className="w-3.5 h-3.5 text-green-600" />}
+                            <span className={`text-[11px] font-semibold ${nifExists? 'text-amber-700' : 'text-green-700'}`}>
+                                {nifExists? 'Cliente já existe - pode atualizar' : `NIF validado: ${form.nif.toUpperCase()}`}
+                            </span>
                         </div>
                     )}
                 </div>
@@ -249,71 +251,77 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                                     <input type="text" name="nif" value={form.nif} onChange={handleChange} required className={inputWithIcon} placeholder="NIF nº: 5002063956 ou 999999999" />
                                     <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 </div>
-                                <button type="button" onClick={handleValidarNif} disabled={validatingNif ||!form.nif} className="w-full h-[44px] rounded-[12px] bg-[#0095ff] text-white font-semibold text-[13.5px] hover:bg-[#0085e6] flex items-center justify-center disabled:opacity-60 transition">
-                                    {validatingNif? <Loader2 className="w-5 h-5 animate-spin" /> : "Consultar NIF"}
-                                </button>
                             </div>
                         ) : (
-                            <form id="form-cliente" onSubmit={handleSubmit} className="flex flex-col gap-[2px]">
-                                <div className="grid grid-cols-2 gap-[2px]">
-                                    <input
-                                        name="nome"
-                                        value={form.nome}
-                                        onChange={handleChange}
-                                        required
-                                        placeholder="Nome *"
-                                        disabled={isEditMode || nifExists}
-                                        className={(isEditMode || nifExists)? inputDisabledClass : inputClass}
-                                    />
-                                    <input
-                                        name="nif"
-                                        value={form.nif}
-                                        onChange={handleChange}
-                                        required
-                                        placeholder="NIF *"
-                                        disabled={true}
-                                        className={inputDisabledClass}
-                                    />
-                                </div>
-                                {(isEditMode || nifExists) && (
-                                    <p className="text-[11px] text-gray-400 px-1 mt-1">🔒 Nome e NIF travados para proteger o SAFT e faturas já emitidas</p>
+                            <>
+                                {nifValidated && (
+                                    <div className="bg-green-50 border border-green-200 rounded-[12px] p-3.5 text-[12.5px] leading-[1.6] mb-2">
+                                        <div><span className="text-green-800/70 font-medium">Nome:</span> <span className="font-bold text-green-900 uppercase">{form.nome || clienteExistente?.nome}</span></div>
+                                        <div><span className="text-green-800/70 font-medium">NIF:</span> <span className="font-semibold text-green-800">{form.nif}</span></div>
+                                        <div><span className="text-green-800/70 font-medium">Estado:</span> <span className="font-bold text-green-700">{nifExists? 'Já cadastrado' : 'Novo'}</span></div>
+                                    </div>
                                 )}
-                                <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="Email" className={inputClass} />
-                                <div className="grid grid-cols-2 gap-[2px]">
-                                    <input name="telefone" value={form.telefone} onChange={handleChange} placeholder="Telefone" className={inputClass} />
-                                    <input name="endereco" value={form.endereco} onChange={handleChange} placeholder="Endereço" className={inputClass} />
-                                </div>
-                                <div className="grid grid-cols-2 gap-[2px]">
-                                    <CustomSelect
-                                        value={form.provincia}
-                                        onChange={handleProvinceChange}
-                                        placeholder="Província"
-                                        options={PROVINCIAS.map(p => ({ value: p, label: p }))}
-                                    />
-                                    <CustomSelect
-                                        value={form.cidade}
-                                        onChange={handleCityChange}
-                                        placeholder={form.provincia? "Município" : "Município"}
-                                        options={municipiosDisponiveis.map(m => ({ value: m, label: m }))}
-                                        disabled={!form.provincia}
-                                    />
-                                </div>
-                            </form>
+                                <form id="form-cliente" onSubmit={handleSubmit} className="flex flex-col gap-[5px]">
+                                    <input type="hidden" value={form.nif} readOnly />
+                                    <input type="hidden" value={form.nome} readOnly />
+
+                                    {!nifExists &&!isEditMode && (
+                                        <div className="relative">
+                                            <input name="nome" value={form.nome} onChange={handleChange} required placeholder="Nome do cliente *" className={inputWithIcon} />
+                                            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                        </div>
+                                    )}
+
+                                    <div className="relative">
+                                        <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="Email" className={inputWithIcon} />
+                                        <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-[5px]">
+                                        <div className="relative">
+                                            <input name="telefone" value={form.telefone} onChange={handleChange} placeholder="Telefone" className={`${inputClass} pl-10`} />
+                                            <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                        </div>
+                                        <div className="relative">
+                                            <input name="endereco" value={form.endereco} onChange={handleChange} placeholder="Endereço" className={`${inputClass} pl-10`} />
+                                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-[5px]">
+                                        <CustomSelect
+                                            value={form.provincia}
+                                            onChange={handleProvinceChange}
+                                            placeholder="Província"
+                                            options={PROVINCIAS.map(p => ({ value: p, label: p }))}
+                                        />
+                                        <CustomSelect
+                                            value={form.cidade}
+                                            onChange={handleCityChange}
+                                            placeholder={form.provincia? "Município" : "Município"}
+                                            options={municipiosDisponiveis.map(m => ({ value: m, label: m }))}
+                                            disabled={!form.provincia}
+                                        />
+                                    </div>
+                                </form>
+                            </>
                         )}
                     </div>
                 </div>
 
                 <div className="shrink-0 bg-white border-t border-gray-100 p-4 px-6">
                     <div className="flex gap-3">
-                        <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2"><X className="w-4 h-4" /></button>
-                        {nifValidated || isEditMode? (
-                            <button form="form-cliente" type="submit" onClick={handleSubmit} disabled={loading} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-50">
-                                {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
+                        <button type="button" onClick={onClose} className="w-11 h-11 rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center shrink-0">
+                            <X className="w-5 h-5" />
+                        </button>
+                        {!nifValidated &&!isEditMode? (
+                            <button type="button" onClick={handleValidarNif} disabled={validatingNif ||!form.nif} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-60 transition">
+                                {validatingNif? <Loader2 className="w-5 h-5 animate-spin" /> : <><span>Consultar NIF</span> <ArrowRight className="w-5 h-5" /></>}
                             </button>
                         ) : (
-                            <div className="flex-1 h-11 rounded-full bg-gray-100 flex items-center justify-center">
-                                <span className="text-[12px] text-gray-400">Consulte o NIF primeiro</span>
-                            </div>
+                            <button form="form-cliente" type="submit" disabled={loading} onClick={handleSubmit} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-50 transition">
+                                {loading? <Loader2 className="w-5 h-5 animate-spin" /> : <><span>{isEditMode || nifExists? 'Atualizar Cliente' : 'Criar Cliente'}</span> <Check className="w-5 h-5" /></>}
+                            </button>
                         )}
                     </div>
                 </div>

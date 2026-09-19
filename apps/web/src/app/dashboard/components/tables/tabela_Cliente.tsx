@@ -1,4 +1,4 @@
-import { FileText, Pencil, Trash2 } from 'lucide-react'
+import { FileText, Pencil, Trash2, Lock } from 'lucide-react'
 import { TabelaClientesSkeleton } from '../../../../components/CardsSkeleton'
 
 interface Cliente {
@@ -24,9 +24,10 @@ interface Props {
     onEdit: (cliente: Cliente) => void
     onDelete: (id: string) => void
     onEmitirFatura: (cliente: Cliente) => void
+    clientesComFatura?: Set<string>
 }
 
-export default function TabelaClientes({ clientes, loading, onEdit, onDelete, onEmitirFatura }: Props) {
+export default function TabelaClientes({ clientes, loading, onEdit, onDelete, onEmitirFatura, clientesComFatura }: Props) {
     if (loading) {
         return <TabelaClientesSkeleton />
     }
@@ -39,7 +40,14 @@ export default function TabelaClientes({ clientes, loading, onEdit, onDelete, on
         <div className="w-full">
             <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 {clientes.map((cli) => (
-                    <ClientCard key={cli.id} cliente={cli} onEdit={onEdit} onDelete={onDelete} onEmitirFatura={onEmitirFatura} />
+                    <ClientCard
+                        key={cli.id}
+                        cliente={cli}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        onEmitirFatura={onEmitirFatura}
+                        bloqueado={clientesComFatura?.has(cli.id) || false}
+                    />
                 ))}
             </div>
         </div>
@@ -50,25 +58,27 @@ function ClientCard({
     cliente,
     onEdit,
     onDelete,
-    onEmitirFatura
+    onEmitirFatura,
+    bloqueado
 }: {
     cliente: Cliente
     onEdit: Props['onEdit']
     onDelete: Props['onDelete']
     onEmitirFatura: Props['onEmitirFatura']
+    bloqueado?: boolean
 }) {
     const initials = cliente.nome
-     .split(' ')
-     .map((n) => n[0])
-     .join('')
-     .slice(0, 2)
-     .toUpperCase()
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 
     return (
         <div className="min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
             <div className="relative h-[90px] bg-[#E6F0FF]">
-                <div className="absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[12px] font-medium shadow-sm border">
-                    Ativo + • Ilimitado
+                <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[12px] font-medium shadow-sm border ${bloqueado? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-white border-gray-200 text-gray-700'}`}>
+                    {bloqueado? 'Com faturas • SAFT' : 'Ativo + • Ilimitado'}
                 </div>
                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white">
                     <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-gray-700">
@@ -95,18 +105,30 @@ function ClientCard({
                     <p className="text-[12.5px] text-gray-500 truncate">NIF {cliente.nif}</p>
                     <p className="text-[12.5px] text-gray-500 truncate">Tel {cliente.telefone || '---'}</p>
                 </div>
+                {bloqueado && (
+                    <div className="mt-3 flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-[10px] px-2.5 py-1.5">
+                        <Lock className="w-3 h-3 text-amber-600" />
+                        <span className="text-[10.5px] font-semibold text-amber-700">Não pode apagar - tem faturas no SAFT</span>
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-3 border-t border-gray-100 mt-auto">
-                <button onClick={() => onEmitirFatura(cliente)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group" title="Emitir Fatura - FT conta no limite, PP é livre">
+                <button onClick={() => onEmitirFatura(cliente)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group" title="Emitir Fatura">
                     <FileText className="w-4 h-4 text-gray-600 group-hover:text-green-600" />
                 </button>
                 <button onClick={() => onEdit(cliente)} className="py-3.5 flex justify-center border-x border-gray-100 hover:bg-gray-50 transition group" title="Editar">
                     <Pencil className="w-4 h-4 text-gray-600 group-hover:text-blue-600" />
                 </button>
-                <button onClick={() => onDelete(cliente.id)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group" title="Apagar">
-                    <Trash2 className="w-4 h-4 text-gray-600 group-hover:text-red-600" />
-                </button>
+                {bloqueado? (
+                    <div className="py-3.5 flex justify-center bg-gray-50 opacity-40 cursor-not-allowed" title="Não pode apagar - tem faturas">
+                        <Lock className="w-4 h-4 text-gray-400" />
+                    </div>
+                ) : (
+                    <button onClick={() => onDelete(cliente.id)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group" title="Apagar">
+                        <Trash2 className="w-4 h-4 text-gray-600 group-hover:text-red-600" />
+                    </button>
+                )}
             </div>
         </div>
     )

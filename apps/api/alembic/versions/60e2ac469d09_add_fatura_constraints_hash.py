@@ -1,7 +1,7 @@
 """add fatura constraints hash
 
 Revision ID: 60e2ac469d09
-Revises: fb5590499446
+Revises: 9d72540890e4
 Create Date: 2026-09-16 00:22:26.274734
 
 """
@@ -10,50 +10,57 @@ from alembic import op
 import sqlalchemy as sa
 
 revision: str = '60e2ac469d09'
-down_revision: Union[str, Sequence[str], None] = 'fb5590499446'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: Union[str, Sequence[str], None] = '9d72540890e4'
+branch_labels = None
+depends_on = None
 
 def upgrade() -> None:
-    op.drop_constraint('fatura_itens_produto_id_fkey', 'fatura_itens', type_='foreignkey')
-    op.create_foreign_key('fk_fatura_itens_produto_set_null', 'fatura_itens', 'produtos', ['produto_id'], ['id'], ondelete='SET NULL')
+    # fatura_itens
+    op.execute("ALTER TABLE fatura_itens DROP CONSTRAINT IF EXISTS fatura_itens_produto_id_fkey")
+    op.execute("ALTER TABLE fatura_itens DROP CONSTRAINT IF EXISTS fk_fatura_itens_produto_set_null")
+    op.execute("ALTER TABLE fatura_itens ADD CONSTRAINT fk_fatura_itens_produto_set_null FOREIGN KEY (produto_id) REFERENCES produtos(id) ON DELETE SET NULL")
 
-    op.add_column('faturas', sa.Column('hash_agt_anterior', sa.String(length=500), nullable=True))
-    op.add_column('faturas', sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True))
+    # faturas colunas
+    op.execute("ALTER TABLE faturas ADD COLUMN IF NOT EXISTS hash_agt_anterior VARCHAR(500)")
+    op.execute("ALTER TABLE faturas ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now()")
 
-    op.drop_constraint('faturas_numero_fatura_key', 'faturas', type_='unique')
-    op.create_index('ix_faturas_company_status', 'faturas', ['company_id', 'status'], unique=False)
-    op.create_index('ix_faturas_company_tipo_ano', 'faturas', ['company_id', 'tipo_documento', 'created_at'], unique=False)
-    op.create_index(op.f('ix_faturas_numero_fatura'), 'faturas', ['numero_fatura'], unique=False)
-    op.create_index(op.f('ix_faturas_numero_proforma'), 'faturas', ['numero_proforma'], unique=False)
-    op.create_unique_constraint('uq_company_numero_fatura', 'faturas', ['company_id', 'numero_fatura'], deferrable=True, initially='DEFERRED')
-    op.create_unique_constraint('uq_company_numero_proforma', 'faturas', ['company_id', 'numero_proforma'], deferrable=True, initially='DEFERRED')
+    op.execute("ALTER TABLE faturas DROP CONSTRAINT IF EXISTS faturas_numero_fatura_key")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_faturas_company_status ON faturas (company_id, status)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_faturas_company_tipo_ano ON faturas (company_id, tipo_documento, created_at)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_faturas_numero_fatura ON faturas (numero_fatura)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_faturas_numero_proforma ON faturas (numero_proforma)")
 
-    op.drop_constraint('faturas_company_id_fkey', 'faturas', type_='foreignkey')
-    op.drop_constraint('faturas_proforma_origem_id_fkey', 'faturas', type_='foreignkey')
-    op.drop_constraint('faturas_cliente_id_fkey', 'faturas', type_='foreignkey')
-    op.create_foreign_key('fk_faturas_cliente_restrict', 'faturas', 'clientes', ['cliente_id'], ['id'], ondelete='RESTRICT')
-    op.create_foreign_key('fk_faturas_company_cascade', 'faturas', 'companies', ['company_id'], ['id'], ondelete='CASCADE')
-    op.create_foreign_key('fk_faturas_proforma_set_null', 'faturas', 'faturas', ['proforma_origem_id'], ['id'], ondelete='SET NULL')
+    op.execute("ALTER TABLE faturas DROP CONSTRAINT IF EXISTS uq_company_numero_fatura")
+    op.execute("ALTER TABLE faturas DROP CONSTRAINT IF EXISTS uq_company_numero_proforma")
+    op.execute("ALTER TABLE faturas ADD CONSTRAINT uq_company_numero_fatura UNIQUE (company_id, numero_fatura) DEFERRABLE INITIALLY DEFERRED")
+    op.execute("ALTER TABLE faturas ADD CONSTRAINT uq_company_numero_proforma UNIQUE (company_id, numero_proforma) DEFERRABLE INITIALLY DEFERRED")
+
+    op.execute("ALTER TABLE faturas DROP CONSTRAINT IF EXISTS faturas_company_id_fkey")
+    op.execute("ALTER TABLE faturas DROP CONSTRAINT IF EXISTS faturas_proforma_origem_id_fkey")
+    op.execute("ALTER TABLE faturas DROP CONSTRAINT IF EXISTS faturas_cliente_id_fkey")
+    op.execute("ALTER TABLE faturas DROP CONSTRAINT IF EXISTS fk_faturas_cliente_restrict")
+    op.execute("ALTER TABLE faturas DROP CONSTRAINT IF EXISTS fk_faturas_company_cascade")
+    op.execute("ALTER TABLE faturas DROP CONSTRAINT IF EXISTS fk_faturas_proforma_set_null")
+
+    op.execute("ALTER TABLE faturas ADD CONSTRAINT fk_faturas_cliente_restrict FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE RESTRICT")
+    op.execute("ALTER TABLE faturas ADD CONSTRAINT fk_faturas_company_cascade FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE")
+    op.execute("ALTER TABLE faturas ADD CONSTRAINT fk_faturas_proforma_set_null FOREIGN KEY (proforma_origem_id) REFERENCES faturas(id) ON DELETE SET NULL")
 
 def downgrade() -> None:
-    op.drop_constraint('fk_faturas_proforma_set_null', 'faturas', type_='foreignkey')
-    op.drop_constraint('fk_faturas_company_cascade', 'faturas', type_='foreignkey')
-    op.drop_constraint('fk_faturas_cliente_restrict', 'faturas', type_='foreignkey')
-    op.create_foreign_key('faturas_cliente_id_fkey', 'faturas', 'clientes', ['cliente_id'], ['id'])
-    op.create_foreign_key('faturas_proforma_origem_id_fkey', 'faturas', 'faturas', ['proforma_origem_id'], ['id'])
-    op.create_foreign_key('faturas_company_id_fkey', 'faturas', 'companies', ['company_id'], ['id'])
-
-    op.drop_constraint('uq_company_numero_proforma', 'faturas', type_='unique')
-    op.drop_constraint('uq_company_numero_fatura', 'faturas', type_='unique')
-    op.drop_index(op.f('ix_faturas_numero_proforma'), table_name='faturas')
-    op.drop_index(op.f('ix_faturas_numero_fatura'), table_name='faturas')
-    op.drop_index('ix_faturas_company_tipo_ano', table_name='faturas')
-    op.drop_index('ix_faturas_company_status', table_name='faturas')
-    op.create_unique_constraint('faturas_numero_fatura_key', 'faturas', ['numero_fatura'])
-
-    op.drop_column('faturas', 'updated_at')
-    op.drop_column('faturas', 'hash_agt_anterior')
-
-    op.drop_constraint('fk_fatura_itens_produto_set_null', 'fatura_itens', type_='foreignkey')
-    op.create_foreign_key('fatura_itens_produto_id_fkey', 'fatura_itens', 'produtos', ['produto_id'], ['id'])
+    op.execute("ALTER TABLE faturas DROP CONSTRAINT IF EXISTS fk_faturas_proforma_set_null")
+    op.execute("ALTER TABLE faturas DROP CONSTRAINT IF EXISTS fk_faturas_company_cascade")
+    op.execute("ALTER TABLE faturas DROP CONSTRAINT IF EXISTS fk_faturas_cliente_restrict")
+    op.execute("ALTER TABLE faturas ADD CONSTRAINT faturas_cliente_id_fkey FOREIGN KEY (cliente_id) REFERENCES clientes(id)")
+    op.execute("ALTER TABLE faturas ADD CONSTRAINT faturas_proforma_origem_id_fkey FOREIGN KEY (proforma_origem_id) REFERENCES faturas(id)")
+    op.execute("ALTER TABLE faturas ADD CONSTRAINT faturas_company_id_fkey FOREIGN KEY (company_id) REFERENCES companies(id)")
+    op.execute("ALTER TABLE faturas DROP CONSTRAINT IF EXISTS uq_company_numero_proforma")
+    op.execute("ALTER TABLE faturas DROP CONSTRAINT IF EXISTS uq_company_numero_fatura")
+    op.execute("DROP INDEX IF EXISTS ix_faturas_numero_proforma")
+    op.execute("DROP INDEX IF EXISTS ix_faturas_numero_fatura")
+    op.execute("DROP INDEX IF EXISTS ix_faturas_company_tipo_ano")
+    op.execute("DROP INDEX IF EXISTS ix_faturas_company_status")
+    op.execute("ALTER TABLE faturas ADD CONSTRAINT faturas_numero_fatura_key UNIQUE (numero_fatura)")
+    op.execute("ALTER TABLE faturas DROP COLUMN IF EXISTS updated_at")
+    op.execute("ALTER TABLE faturas DROP COLUMN IF EXISTS hash_agt_anterior")
+    op.execute("ALTER TABLE fatura_itens DROP CONSTRAINT IF EXISTS fk_fatura_itens_produto_set_null")
+    op.execute("ALTER TABLE fatura_itens ADD CONSTRAINT fatura_itens_produto_id_fkey FOREIGN KEY (produto_id) REFERENCES produtos(id)")

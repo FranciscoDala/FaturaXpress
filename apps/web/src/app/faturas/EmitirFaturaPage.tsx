@@ -8,7 +8,7 @@ import { api } from '../../lib/api'
 import TabEmitir from './components/tab/tab_faturaEmitir'
 import TabCurso from './components/tab/tab_faturaEmcurso'
 import TabEmitidas from './components/tab/tab_faturaEmitida'
-import SidebarAreas from '../dashboard/components/sidebar/sidebar_Areas'
+import GlobalAreas from '../../components/GlobalAreas'
 
 export interface Cliente { id: string; nome: string; nif: string; email: string | null; telefone: string | null; endereco: string | null; cidade: string | null; provincia: string | null }
 export type Tab = 'emitir' | 'curso' | 'emitidas'
@@ -178,17 +178,9 @@ export default function EmitirFaturaPage() {
 
     return (
         <div className="min-h-screen bg-white relative">
-            {/* SIDEBAR AREAS - RIGHT */}
-            <SidebarAreas open={sidebarAreasOpen} onClose={() => setSidebarAreasOpen(false)} />
 
-            {/* COG FIXO RIGHT BOTTOM - FORA DO CONTAINER - JUNTO AO SCROLL-Y */}
-            <button
-                onClick={() => setSidebarAreasOpen(true)}
-                className="fixed right-4 bottom-6 z-[9997] w-12 h-12 rounded-full bg-white border border-gray-200 shadow-[0_4px_20px_rgba(0,0,0,0.12)] flex items-center justify-center hover:scale-105 hover:shadow-[0_6px_24px_rgba(0,0,0,0.16)] transition-all"
-                title="Áreas"
-            >
-                <Settings className="w-5 h-5 text-gray-700 animate-[spin_8s_linear_infinite]" />
-            </button>
+            {/* SIDEBAR RIGHT */}
+            <GlobalAreas />
 
             <div className="max-w-[1100px] mx-auto">
                 <div className="relative px-4 sm:px-8 lg:px-12 pt-6 pb-6 border-b border-gray-100 overflow-hidden bg-gradient-to-br from-[#E8F2FF] via-[#F0F7FF] to-white">

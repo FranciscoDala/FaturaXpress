@@ -8,6 +8,9 @@ const FUNC_MOCK = [
 export default function RHPage() {
     return (
         <div className="min-h-screen bg-white relative">
+
+
+            {/* SIDEBAR RIGHT */}
             <GlobalAreas />
 
             {/* HEADER IGUAL FATURA - BOLHAS */}

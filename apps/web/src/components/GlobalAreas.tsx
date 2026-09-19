@@ -8,7 +8,6 @@ export default function GlobalAreas() {
         <>
             <SidebarAreas open={open} onClose={() => setOpen(false)} />
 
-
             <button
                 onClick={() => setOpen(true)}
                 className="fixed right-4 bottom-6 z-[9997] w-12 h-12 rounded-full bg-white border border-gray-200 shadow-[0_4px_20px_rgba(0,0,0,0.12)] flex items-center justify-center hover:scale-105 transition-all"

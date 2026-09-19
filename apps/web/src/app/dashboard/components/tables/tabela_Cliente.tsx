@@ -108,7 +108,7 @@ function ClientCard({
                 {bloqueado && (
                     <div className="mt-3">
                         <span className="inline-flex items-center px-2.5 py-[3px] rounded-full border border-[#F2C9B8] bg-[#FFF6F1] text-[10px] font-medium text-[#B85A3A] leading-tight tracking-wide">
-                            Clinetes com FT/SAFT, não pode ser apagado!
+                            Cliente com SAFT, não pode ser apagado!
                         </span>
                     </div>
                 )}

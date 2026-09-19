@@ -10,6 +10,7 @@ import Register from './app/login/Register'
 import DashboardPage from './app/dashboard/page'
 import EmitirFaturaPage from './app/faturas/EmitirFaturaPage'
 import AssinaturaPage from './app/assinatura/page'
+import RHPage from './app/rh/page'
 
 const queryClient = new QueryClient()
 
@@ -56,8 +57,18 @@ function App() {
                     }
                 />
 
-                <Route path="*" element={<Navigate to="/login" replace />} />
-            </Routes>
+
+                <Route
+                    path="/app/rh"
+                    element={
+                        <ProtectedRoute>
+                            <RHPage />
+                        </ProtectedRoute>
+                    }
+                />
+
+                    <Route path="*" element={<Navigate to="/login" replace />} />
+                </Routes>
         </HashRouter>
     )
 }

@@ -362,8 +362,7 @@ export default function DashboardPage() {
                                             Fatura FT - {loadingFaturas ? '...' : planInfo.max ? `${faturasMes}/${planInfo.max} FT este mês` : `${faturasMes} FT este mês (Ilimitado)`}
                                         </p>
                                         {isAtLimit && (
-                                            <div className="flex items-center gap-1.5 text-[11px] text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full max-w-[320px] mt-1">
-                                                <AlertTriangle className="w-3.5 h-3.5" />
+                                            <div className="flex items-center gap-1.5 text-[11px] text-red-600 bg-red-50 border border-red-200 px-3 py-1.5 rounded-full w-full mt-2 md:max-w-[320px]">
                                                 Limite atingido. Proformas livres, FT bloqueada.
                                             </div>
                                         )}

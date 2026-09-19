@@ -110,7 +110,6 @@ export default function DashboardPage() {
     })
     const [savingEmpresa, setSavingEmpresa] = useState(false)
 
-    // FIX MIXED CONTENT - força https
     const logoUrlSafe = useMemo(() => {
         const raw = empresa?.logo_url || empresa?.image_url || ''
         if (!raw) return ''
@@ -151,11 +150,12 @@ export default function DashboardPage() {
 
     const clientesComFatura = useMemo(() => {
         const ids = new Set<string>()
-            ;[...faturasCurso,...faturasEmitidas].forEach((f: any) => {
-                if (f.cliente_id) ids.add(String(f.cliente_id))
-            })
+        // só FT e NC contam pra bloquear delete
+        faturasEmitidas.forEach((f: any) => {
+            if (f.cliente_id) ids.add(String(f.cliente_id))
+        })
         return ids
-    }, [faturasCurso, faturasEmitidas])
+    }, [faturasEmitidas])
 
     const isInitialLoading =!empresa && (loading || loadingFaturas)
 
@@ -175,8 +175,28 @@ export default function DashboardPage() {
             setLoadingFaturas(true)
             const res = await api.get('/api/faturas', { params: { limit: 500 } })
             const all = Array.isArray(res.data)? res.data : (res.data.items || [])
-            setFaturasCurso(all.filter((f: any) => f.tipo_documento === 'proforma'))
-            setFaturasEmitidas(all.filter((f: any) => f.tipo_documento === 'fatura' || f.tipo_documento === 'nota_credito' ||!!f.hash_agt))
+
+            // IDs de proformas que já viraram FT
+            const proformasConvertidasIds = new Set<string>(
+                all.filter((f: any) => f.tipo_documento === 'fatura' && f.proforma_origem_id)
+                  .map((f: any) => String(f.proforma_origem_id))
+            )
+
+            // CURSO: só PP em_curso e que NÃO foi convertida
+            const curso = all.filter((f: any) =>
+                f.tipo_documento === 'proforma' &&
+                f.status === 'em_curso' &&
+               !proformasConvertidasIds.has(String(f.id))
+            )
+
+            const emitidas = all.filter((f: any) =>
+                f.tipo_documento === 'fatura' ||
+                f.tipo_documento === 'nota_credito' ||
+               !!f.hash_agt
+            )
+
+            setFaturasCurso(curso)
+            setFaturasEmitidas(emitidas)
         } catch { } finally { setLoadingFaturas(false) }
     }, [])
 
@@ -217,7 +237,6 @@ export default function DashboardPage() {
 
     useRealtime({
         onEvent: (msg) => {
-            // FIX removeChild - debounce pra não remover nó durante render do modal/toast
             if (modalClienteOpen || modalProdutoOpen || modalEmpresaOpen) return
             if (msg.event === 'faturas:changed') setTimeout(() => fetchFaturasGeral(), 400)
             if (msg.event === 'clientes:changed') {
@@ -264,7 +283,6 @@ export default function DashboardPage() {
     useEffect(() => {
         const close = (e: MouseEvent) => {
             const target = e.target as HTMLElement
-            // FIX removeChild - ignora clique no toast/sonner
             if (target.closest('[data-sonner-toaster]') || target.closest('[data-sonner-toast]')) return
             if (listWrapperRef.current &&!listWrapperRef.current.contains(e.target as Node) &&!target.closest('[data-list-dropdown]')) setOpenListSelect(false)
             if (novoWrapperRef.current &&!novoWrapperRef.current.contains(e.target as Node) &&!target.closest('[data-novo-dropdown]')) setOpenNovo(false)
@@ -325,8 +343,6 @@ export default function DashboardPage() {
             setDeleteTarget(null)
         } catch (err: any) {
             const detail = err.response?.data?.detail || err.message
-            console.error("DELETE ERRO:", err.response?.data)
-
             if (detail?.toLowerCase().includes("fatura") || detail?.toLowerCase().includes("saft")) {
                 toast.error('Não pode apagar', { description: 'Este cliente já tem faturas emitidas no SAFT.' })
             } else if (err.response?.status === 500) {
@@ -420,7 +436,7 @@ export default function DashboardPage() {
                                         </p>
                                         {isAtLimit && (
                                             <div className="mt-2">
-                                                <span className="inline-flex items-center px-2.5 py-[3px] rounded-full border border-[#FFC9C5] bg-[#FFF1F0] text-[10px] font-medium text-[#D6453E] leading-tight">
+                                                <span className="inline-flex items-center px-2.5 py-[3px] rounded-full border bg-white border-gray-200 text-gray-700 text-[10px] font-medium leading-tight shadow-sm">
                                                     Limite {planInfo.label} atingido - atualiza seu plano
                                                 </span>
                                             </div>
@@ -461,8 +477,8 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <style>{`
-             .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-             .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
+            .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+            .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
                       @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }
                     `}</style>
                 </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Trash2, XCircle, Eye, ArrowRight, Crown } from 'lucide-react'
 import { toast } from 'sonner'
 import { TabCursoSkeleton } from '../../../../components/CardsSkeleton'
@@ -24,6 +24,14 @@ interface Props {
 export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading = false }: Props) {
     const [deleteTarget, setDeleteTarget] = useState<any>(null)
     const [viewFatura, setViewFatura] = useState<any>(null)
+
+    // FIX DEFENSIVO: garante que só PP em_curso aparece aqui
+    const faturasVisiveis = useMemo(() => {
+        return faturas.filter((f: any) =>
+            f.tipo_documento === 'proforma' &&
+            f.status === 'em_curso'
+        )
+    }, [faturas])
 
     const handleConverter = async (id: string) => {
         try {
@@ -95,11 +103,11 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
                 </div>
             )}
 
-            {faturas.length === 0? (
+            {faturasVisiveis.length === 0? (
                 <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma fatura proforma (FT/PP)</p>
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                    {faturas.map(f => {
+                    {faturasVisiveis.map(f => {
                         const numeroRaw = getNumero(f)
                         const numero = cleanNumero(numeroRaw)
                         const total = getTotal(f)

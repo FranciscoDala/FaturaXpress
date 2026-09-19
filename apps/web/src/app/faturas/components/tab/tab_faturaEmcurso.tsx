@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react'
-import { Trash2, XCircle, Eye, ArrowRight, Crown } from 'lucide-react'
+import { Trash2, XCircle, Eye, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { TabCursoSkeleton } from '../../../../components/CardsSkeleton'
 import { api } from '../../../../lib/api'
 import { getNumero, getTotal } from '../../EmitirFaturaPage'
 import ModalConfirmDelete from '../../../dashboard/components/modals/modal_ConfirmDelete'
+import ModalConfirmConverter from '../../../dashboard/components/modals/modal_ConfirmConverter'
 import FaturaFolhaView from '../../components/pdf/FaturaFolhaView'
 
 const formatEstado = (s: string) => (s || 'em_curso').replace(/_/g, ' ').toUpperCase()
@@ -23,9 +24,10 @@ interface Props {
 
 export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading = false }: Props) {
     const [deleteTarget, setDeleteTarget] = useState<any>(null)
+    const [convertTarget, setConvertTarget] = useState<any>(null)
+    const [converting, setConverting] = useState(false)
     const [viewFatura, setViewFatura] = useState<any>(null)
 
-    // FIX DEFENSIVO: garante que só PP em_curso aparece aqui
     const faturasVisiveis = useMemo(() => {
         return faturas.filter((f: any) =>
             f.tipo_documento === 'proforma' &&
@@ -33,35 +35,41 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
         )
     }, [faturas])
 
-    const handleConverter = async (id: string) => {
+    const handleAskConverter = (f: any) => {
+        setConvertTarget(f)
+    }
+
+    const handleConverter = async () => {
+        if (!convertTarget) return
         try {
+            setConverting(true)
             const t = toast.loading('A gerar FT com hash AGT...', { description: 'Validando com regras do seu plano...' })
-            const { data } = await api.post(`/api/faturas/${id}/converter`)
+            const { data } = await api.post(`/api/faturas/${convertTarget.id}/converter`)
             toast.dismiss(t)
             toast.success(`FT ${data.numero_fatura} emitida!`, {
                 description: `Hash: ${data.hash_agt?.slice(0, 12)}... | PP convertida para FT oficial.`,
                 duration: 5000
             })
+            setConvertTarget(null)
             onRefresh()
         } catch (e: any) {
             toast.dismiss()
             const status = e.response?.status
             const detail = e.response?.data?.detail || 'Erro ao converter para FT'
-
             if (status === 403) {
                 toast.error('Limite do plano atingido', {
                     description: detail,
                     duration: 6000,
-                    action: {
-                        label: 'Fazer Upgrade',
-                        onClick: () => window.location.hash = '#/assinatura'
-                    }
+                    action: { label: 'Fazer Upgrade', onClick: () => window.location.hash = '#/assinatura' }
                 })
             } else {
                 toast.error('Erro ao converter', { description: detail })
             }
+        } finally {
+            setConverting(false)
         }
     }
+
     const handleCancelar = async (id: string) => {
         try {
             await api.post(`/api/faturas/${id}/cancelar`);
@@ -129,7 +137,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
                                         <p className="text-[11px] text-gray-500 truncate">{f.forma_pagamento} • Validade: {f.validade_proforma? new Date(f.validade_proforma).toLocaleDateString('pt-AO') : '15 dias'}</p>
                                         <p className="text-[10px] text-gray-400 truncate">Sem valor fiscal - AGT • {estado} • Livre de limite</p>
                                     </div>
-                                    <button onClick={() => handleConverter(f.id)} className="mt-3 w-full bg-[#0095ff] text-white h-[38px] rounded-full text-[12px] font-bold flex items-center justify-center gap-1 hover:bg-[#0080e0]">
+                                    <button onClick={() => handleAskConverter(f)} className="mt-3 w-full bg-[#0095ff] text-white h-[38px] rounded-full text-[12px] font-bold flex items-center justify-center gap-1 hover:bg-[#0080e0]">
                                         Converter para FT <ArrowRight className="w-4 h-4" />
                                     </button>
                                 </div>
@@ -144,6 +152,16 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
                 </div>
             )}
             <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget? `PROFORMA PP ${cleanNumero(getNumero(deleteTarget))}` : ''} onClose={() => setDeleteTarget(null)} onConfirm={handleApagar} title="Apagar proforma?" description="Proforma PP pode ser apagada. É livre e não conta no limite. FT oficial só cancela - regra AGT." />
+
+            <ModalConfirmConverter
+                open={!!convertTarget}
+                numero={convertTarget? cleanNumero(getNumero(convertTarget)) : ''}
+                clienteNome={convertTarget?.cliente_nome || cliente?.nome}
+                total={convertTarget? getTotal(convertTarget) : 0}
+                loading={converting}
+                onClose={() =>!converting && setConvertTarget(null)}
+                onConfirm={handleConverter}
+            />
         </div>
     )
 }

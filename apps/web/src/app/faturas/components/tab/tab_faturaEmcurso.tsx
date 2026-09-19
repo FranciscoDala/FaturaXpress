@@ -6,6 +6,7 @@ import { api } from '../../../../lib/api'
 import { getNumero, getTotal } from '../../EmitirFaturaPage'
 import ModalConfirmDelete from '../../../dashboard/components/modals/modal_ConfirmDelete'
 import ModalConfirmConverter from '../../../dashboard/components/modals/modal_ConfirmConverter'
+import ModalConfirmCancelarPP from '../../../dashboard/components/modals/modal_ConfirmCancelarPP'
 import FaturaFolhaView from '../../components/pdf/FaturaFolhaView'
 
 const formatEstado = (s: string) => (s || 'em_curso').replace(/_/g, ' ').toUpperCase()
@@ -26,6 +27,8 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
     const [deleteTarget, setDeleteTarget] = useState<any>(null)
     const [convertTarget, setConvertTarget] = useState<any>(null)
     const [converting, setConverting] = useState(false)
+    const [cancelTarget, setCancelTarget] = useState<any>(null)
+    const [canceling, setCanceling] = useState(false)
     const [viewFatura, setViewFatura] = useState<any>(null)
 
     const faturasVisiveis = useMemo(() => {
@@ -35,9 +38,8 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
         )
     }, [faturas])
 
-    const handleAskConverter = (f: any) => {
-        setConvertTarget(f)
-    }
+    const handleAskConverter = (f: any) => setConvertTarget(f)
+    const handleAskCancelar = (f: any) => setCancelTarget(f)
 
     const handleConverter = async () => {
         if (!convertTarget) return
@@ -70,15 +72,21 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
         }
     }
 
-    const handleCancelar = async (id: string) => {
+    const handleConfirmCancelar = async () => {
+        if (!cancelTarget) return
         try {
-            await api.post(`/api/faturas/${id}/cancelar`);
+            setCanceling(true)
+            await api.post(`/api/faturas/${cancelTarget.id}/cancelar`);
             toast.success('Proforma cancelada', { description: 'PP marcada como cancelada.' });
+            setCancelTarget(null)
             onRefresh()
         } catch (e: any) {
             toast.error('Erro ao cancelar', { description: e.response?.data?.detail || 'Tente novamente.' })
+        } finally {
+            setCanceling(false)
         }
     }
+
     const handleApagar = async () => {
         try {
             await api.delete(`/api/faturas/${deleteTarget.id}`);
@@ -133,12 +141,9 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
                                 </div>
                                 <div className="pt-14 px-5 pb-4 min-w-0 flex-1 overflow-hidden">
                                     <h3 className="font-bold text-[15px] text-gray-900 leading-tight truncate max-w-full block" title={`${total.toFixed(2)} KZ`}>{total.toFixed(2)} KZ</h3>
-
-                                    {/* FIX: trava width do nome */}
                                     <p className="text-[11px] font-semibold text-gray-800 mt-1 truncate max-w-full block overflow-hidden whitespace-nowrap text-ellipsis" title={clienteDisplay}>
                                         {clienteDisplay}
                                     </p>
-
                                     <div className="mt-2 flex flex-col gap-0.5 min-w-0">
                                         <p className="text-[11px] text-gray-500 truncate max-w-full block" title={`${f.forma_pagamento} • Validade: ${f.validade_proforma? new Date(f.validade_proforma).toLocaleDateString('pt-AO') : '15 dias'}`}>
                                             {f.forma_pagamento} • Validade: {f.validade_proforma? new Date(f.validade_proforma).toLocaleDateString('pt-AO') : '15 dias'}
@@ -151,7 +156,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
                                 </div>
                                 <div className="grid grid-cols-3 border-t border-gray-100 mt-auto shrink-0">
                                     <button onClick={() => setViewFatura(f)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group"><Eye className="w-4 h-4 text-gray-600 group-hover:text-black" /></button>
-                                    <button onClick={() => handleCancelar(f.id)} className="py-3.5 flex justify-center border-x border-gray-100 hover:bg-gray-50 transition group"><XCircle className="w-4 h-4 text-gray-600 group-hover:text-orange-600" /></button>
+                                    <button onClick={() => handleAskCancelar(f)} className="py-3.5 flex justify-center border-x border-gray-100 hover:bg-gray-50 transition group"><XCircle className="w-4 h-4 text-gray-600 group-hover:text-orange-600" /></button>
                                     <button onClick={() => setDeleteTarget(f)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group"><Trash2 className="w-4 h-4 text-gray-600 group-hover:text-red-600" /></button>
                                 </div>
                             </div>
@@ -159,16 +164,25 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
                     })}
                 </div>
             )}
+
+            {/* Modals - todas travadas, só fecham no X/Cancelar */}
             <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget? `PROFORMA PP ${cleanNumero(getNumero(deleteTarget))}` : ''} onClose={() => setDeleteTarget(null)} onConfirm={handleApagar} title="Apagar proforma?" description="Proforma PP pode ser apagada. É livre e não conta no limite. FT oficial só cancela - regra AGT." />
 
             <ModalConfirmConverter
                 open={!!convertTarget}
                 numero={convertTarget? cleanNumero(getNumero(convertTarget)) : ''}
-                clienteNome={convertTarget?.cliente_nome || cliente?.nome}
                 total={convertTarget? getTotal(convertTarget) : 0}
                 loading={converting}
                 onClose={() =>!converting && setConvertTarget(null)}
                 onConfirm={handleConverter}
+            />
+
+            <ModalConfirmCancelarPP
+                open={!!cancelTarget}
+                numero={cancelTarget? cleanNumero(getNumero(cancelTarget)) : ''}
+                loading={canceling}
+                onClose={() =>!canceling && setCancelTarget(null)}
+                onConfirm={handleConfirmCancelar}
             />
         </div>
     )

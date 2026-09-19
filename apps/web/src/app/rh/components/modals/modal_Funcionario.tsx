@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import { X, Check, UserPlus, ChevronDown, Lock, Briefcase, Building2, Info, Settings, Shield, MapPin, Landmark, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -73,26 +72,13 @@ function CustomDatePicker({ value, onChange, placeholder }: { value: string, onC
         const base = value ? new Date(value + "T12:00:00").getFullYear() : new Date().getFullYear()
         return Math.floor(base / 12) * 12
     })
-    const [isMobile, setIsMobile] = useState(false)
-    const btnRef = useRef<HTMLButtonElement>(null)
-    const [pos, setPos] = useState({ top: 0, left: 0, width: 340 })
+    const ref = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
-        const check = () => setIsMobile(window.innerWidth < 640)
-        check()
-        window.addEventListener('resize', check)
-        return () => window.removeEventListener('resize', check)
+        const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+        document.addEventListener('mousedown', h)
+        return () => document.removeEventListener('mousedown', h)
     }, [])
-
-    useEffect(() => {
-        if (open && !isMobile && btnRef.current) {
-            const r = btnRef.current.getBoundingClientRect()
-            let left = r.left
-            const w = 340
-            if (left + w > window.innerWidth - 16) left = window.innerWidth - w - 16
-            setPos({ top: r.bottom + 8, left: Math.max(16, left), width: w })
-        }
-    }, [open, isMobile])
 
     useEffect(() => {
         if (value) {
@@ -100,7 +86,7 @@ function CustomDatePicker({ value, onChange, placeholder }: { value: string, onC
             setView({ year: d.getFullYear(), month: d.getMonth() })
             setYearPage(Math.floor(d.getFullYear() / 12) * 12)
         }
-    }, [value])
+    }, [])
 
     const daysInMonth = new Date(view.year, view.month + 1, 0).getDate()
     const startDay = new Date(view.year, view.month, 1).getDay()
@@ -119,92 +105,85 @@ function CustomDatePicker({ value, onChange, placeholder }: { value: string, onC
         return t.getDate() === day && t.getMonth() === view.month && t.getFullYear() === view.year
     }
 
-    const picker = (
-        <>
-            {isMobile && (
-                <div className="fixed inset-0 z-[9998] bg-black/40 backdrop-blur-[2px]" onClick={() => setOpen(false)} />
-            )}
-            <div
-                className={isMobile
-                    ? "fixed bottom-0 left-0 right-0 z-[9999] bg-white rounded-t-[24px] shadow-[0_-8px_30px_rgba(0,0,0,0.2)] max-h-[62vh] flex flex-col animate-in slide-in-from-bottom duration-300"
-                    : "fixed z-[9999] bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.22)] border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-                }
-                style={!isMobile ? { top: pos.top, left: pos.left, width: pos.width } : {}}
-            >
-                {isMobile && <div className="flex justify-center pt-3 pb-1 shrink-0"><div className="w-10 h-1.5 bg-gray-300 rounded-full" /></div>}
+    return (
+        <div ref={ref} className="relative w-full">
+            <button type="button" onClick={() => { setOpen(!open); if (!open) setViewMode('days') }} className={`w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] flex items-center justify-between focus:outline-none focus:border-[#0095ff] transition ${value ? 'text-black' : 'text-black/40'} ${open ? 'border-[#0095ff] ring-1 ring-[#0095ff]/20' : ''}`}>
+                <span className="flex items-center gap-2 truncate">
+                    <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+                    {value ? formatDisplay(value) : placeholder}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
+            </button>
 
-                <div className="h-[56px] px-4 flex items-center justify-between bg-[#F8FAFF] border-b border-gray-100 shrink-0">
-                    {viewMode === 'days' && (
-                        <>
-                            <button type="button" onClick={() => setView(v => v.month === 0 ? { year: v.year - 1, month: 11 } : { year: v.year, month: v.month - 1 })} className="w-9 h-9 rounded-full bg-white border flex items-center justify-center active:scale-90"><ChevronLeft className="w-4 h-4" /></button>
-                            <div className="flex gap-1.5">
-                                <button type="button" onClick={() => setViewMode('months')} className="px-3 py-1.5 rounded-full bg-white border text-[13px] font-bold">{MONTH_SHORT[view.month]}</button>
-                                <button type="button" onClick={() => { setYearPage(Math.floor(view.year / 12) * 12); setViewMode('years') }} className="px-3 py-1.5 rounded-full bg-[#0A2540] text-white text-[13px] font-bold">{view.year}</button>
-                            </div>
-                            <button type="button" onClick={() => setView(v => v.month === 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: v.month + 1 })} className="w-9 h-9 rounded-full bg-white border flex items-center justify-center active:scale-90"><ChevronRight className="w-4 h-4" /></button>
-                        </>
-                    )}
-                    {viewMode === 'months' && (
-                        <>
-                            <button type="button" onClick={() => setView(v => ({ ...v, year: v.year - 1 }))} className="w-9 h-9 rounded-full bg-white border flex items-center justify-center"><ChevronLeft className="w-4 h-4" /></button>
-                            <button type="button" onClick={() => setViewMode('days')} className="text-[14px] font-bold">{view.year} • voltar</button>
-                            <button type="button" onClick={() => setView(v => ({ ...v, year: v.year + 1 }))} className="w-9 h-9 rounded-full bg-white border flex items-center justify-center"><ChevronRight className="w-4 h-4" /></button>
-                        </>
-                    )}
-                    {viewMode === 'years' && (
-                        <>
-                            <button type="button" onClick={() => setYearPage(p => p - 12)} className="w-9 h-9 rounded-full bg-white border flex items-center justify-center"><ChevronLeft className="w-4 h-4" /></button>
-                            <span className="text-[14px] font-bold">{yearPage} - {yearPage + 11}</span>
-                            <button type="button" onClick={() => setYearPage(p => p + 12)} className="w-9 h-9 rounded-full bg-white border flex items-center justify-center"><ChevronRight className="w-4 h-4" /></button>
-                        </>
-                    )}
-                </div>
+            {open && (
+                <div className="mt-2 w-full bg-white rounded-[20px] shadow-[0_12px_32px_rgba(0,0,0,0.14)] border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                    {/* HEADER */}
+                    <div className="h-[52px] px-3 flex items-center justify-between bg-[#F8FAFF] border-b border-gray-100">
+                        {viewMode === 'days' && (
+                            <>
+                                <button type="button" onClick={() => setView(v => v.month === 0 ? { year: v.year - 1, month: 11 } : { year: v.year, month: v.month - 1 })} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center"><ChevronLeft className="w-4 h-4" /></button>
+                                <div className="flex gap-1.5">
+                                    <button type="button" onClick={() => setViewMode('months')} className="px-3 py-1 rounded-full bg-white border text-[12px] font-bold">{MONTH_SHORT[view.month]}</button>
+                                    <button type="button" onClick={() => { setYearPage(Math.floor(view.year / 12) * 12); setViewMode('years') }} className="px-3 py-1 rounded-full bg-[#0A2540] text-white text-[12px] font-bold">{view.year}</button>
+                                </div>
+                                <button type="button" onClick={() => setView(v => v.month === 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: v.month + 1 })} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center"><ChevronRight className="w-4 h-4" /></button>
+                            </>
+                        )}
+                        {viewMode === 'months' && (
+                            <>
+                                <button type="button" onClick={() => setView(v => ({ ...v, year: v.year - 1 }))} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center"><ChevronLeft className="w-4 h-4" /></button>
+                                <button type="button" onClick={() => setViewMode('days')} className="text-[13px] font-bold">{view.year} • voltar</button>
+                                <button type="button" onClick={() => setView(v => ({ ...v, year: v.year + 1 }))} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center"><ChevronRight className="w-4 h-4" /></button>
+                            </>
+                        )}
+                        {viewMode === 'years' && (
+                            <>
+                                <button type="button" onClick={() => setYearPage(p => p - 12)} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center"><ChevronLeft className="w-4 h-4" /></button>
+                                <span className="text-[13px] font-bold">{yearPage} - {yearPage + 11}</span>
+                                <button type="button" onClick={() => setYearPage(p => p + 12)} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center"><ChevronRight className="w-4 h-4" /></button>
+                            </>
+                        )}
+                    </div>
 
-                <div className="p-3 overflow-y-auto overscroll-contain">
-                    {viewMode === 'days' && (
-                        <>
-                            <div className="grid grid-cols-7 gap-1 mb-2">
-                                {WEEK_LABEL.map((w, i) => <span key={i} className="h-6 flex items-center justify-center text-[11px] font-bold text-gray-400">{w}</span>)}
-                            </div>
-                            <div className="grid grid-cols-7 gap-1">
-                                {days.map((day, idx) => day === null ? <div key={`empty-${idx}`} className="h-9" /> : (
-                                    <button key={`${view.year}-${view.month}-${day}`} type="button" onClick={() => selectDay(day)} className={`h-9 rounded-[10px] text-[13px] font-medium transition ${isSelected(day) ? 'bg-[#0A2540] text-white' : isToday(day) ? 'bg-[#E6F0FF] text-[#0095ff] border border-[#C2D8FF] font-bold' : 'bg-white border border-gray-100 hover:bg-gray-50 text-gray-800'}`}>{day}</button>
+                    <div className="p-3">
+                        {viewMode === 'days' && (
+                            <>
+                                <div className="grid grid-cols-7 gap-1 mb-2">
+                                    {WEEK_LABEL.map((w, i) => <span key={i} className="h-6 flex items-center justify-center text-[10px] font-bold text-gray-400">{w}</span>)}
+                                </div>
+                                <div className="grid grid-cols-7 gap-1">
+                                    {days.map((day, idx) => day === null ? <div key={`empty-${idx}`} className="h-9" /> : (
+                                        <button key={`${view.year}-${view.month}-${day}`} type="button" onClick={() => selectDay(day)} className={`h-9 rounded-[10px] text-[13px] font-medium transition ${isSelected(day) ? 'bg-[#0A2540] text-white' : isToday(day) ? 'bg-[#E6F0FF] text-[#0095ff] border border-[#C2D8FF] font-bold' : 'bg-white border border-gray-100 hover:bg-gray-50 text-gray-800'}`}>
+                                            {day}
+                                        </button>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                        {viewMode === 'months' && (
+                            <div className="grid grid-cols-3 gap-1.5">
+                                {MONTH_LABEL.map((m, idx) => (
+                                    <button key={m} type="button" onClick={() => { setView(v => ({ ...v, month: idx })); setViewMode('days') }} className={`h-10 rounded-[10px] text-[12px] font-medium border ${view.month === idx ? 'bg-[#0A2540] text-white border-[#0A2540]' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>{m.slice(0, 3)}</button>
                                 ))}
                             </div>
-                        </>
-                    )}
-                    {viewMode === 'months' && (
-                        <div className="grid grid-cols-3 gap-2">
-                            {MONTH_LABEL.map((m, idx) => (
-                                <button key={m} type="button" onClick={() => { setView(v => ({ ...v, month: idx })); setViewMode('days') }} className={`h-11 rounded-[12px] text-[13px] font-medium border ${view.month === idx ? 'bg-[#0A2540] text-white border-[#0A2540]' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>{m}</button>
-                            ))}
-                        </div>
-                    )}
-                    {viewMode === 'years' && (
-                        <div className="grid grid-cols-3 gap-2">
-                            {Array.from({ length: 12 }, (_, i) => yearPage + i).map(y => (
-                                <button key={y} type="button" onClick={() => { setView(v => ({ ...v, year: y })); setViewMode('days') }} className={`h-11 rounded-[12px] text-[13px] font-bold border ${view.year === y ? 'bg-[#0A2540] text-white border-[#0A2540]' : selected?.y === y ? 'bg-[#E6F0FF] text-[#0095ff] border-[#C2D8FF]' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>{y}</button>
-                            ))}
-                        </div>
-                    )}
-                    {viewMode === 'days' && (
-                        <div className="mt-4 flex gap-2 pb-[env(safe-area-inset-bottom)]">
-                            <button type="button" onClick={() => { onChange(""); setOpen(false) }} className="flex-1 h-10 rounded-full border border-gray-200 text-[13px] bg-white">Limpar</button>
-                            <button type="button" onClick={() => { const t = new Date(); onChange(`${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`); setOpen(false) }} className="flex-1 h-10 rounded-full bg-[#E6F0FF] border border-[#C2D8FF] text-[13px] font-bold text-[#0095ff]">Hoje</button>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </>
-    )
+                        )}
+                        {viewMode === 'years' && (
+                            <div className="grid grid-cols-3 gap-1.5">
+                                {Array.from({ length: 12 }, (_, i) => yearPage + i).map(y => (
+                                    <button key={y} type="button" onClick={() => { setView(v => ({ ...v, year: y })); setViewMode('days') }} className={`h-10 rounded-[10px] text-[12px] font-bold border ${view.year === y ? 'bg-[#0A2540] text-white border-[#0A2540]' : selected?.y === y ? 'bg-[#E6F0FF] text-[#0095ff] border-[#C2D8FF]' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>{y}</button>
+                                ))}
+                            </div>
+                        )}
 
-    return (
-        <div className="relative w-full">
-            <button ref={btnRef} type="button" onClick={() => { setOpen(!open); if (!open) setViewMode('days') }} className={`w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] flex items-center justify-between focus:outline-none focus:border-[#0095ff] transition ${value ? 'text-black' : 'text-black/40'}`}>
-                <span className="flex items-center gap-2 truncate"><Calendar className="w-4 h-4 text-gray-400 shrink-0" />{value ? formatDisplay(value) : placeholder}</span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
-            </button>
-            {open && typeof document !== 'undefined' && createPortal(picker, document.body)}
+                        {viewMode === 'days' && (
+                            <div className="mt-3 flex gap-2">
+                                <button type="button" onClick={() => { onChange(""); setOpen(false) }} className="flex-1 h-9 rounded-full border border-gray-200 text-[12px] bg-white">Limpar</button>
+                                <button type="button" onClick={() => { const t = new Date(); onChange(`${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`); setOpen(false) }} className="flex-1 h-9 rounded-full bg-[#E6F0FF] border border-[#C2D8FF] text-[12px] font-bold text-[#0095ff]">Hoje</button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
@@ -368,7 +347,8 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
-                    <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-4">
+                    <div className="flex-1 overflow-y-auto overflow-x-visible no-scrollbar px-6 py-4 overscroll-contain"
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                         <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
 
                         {tab === 'obrigatorio' && (

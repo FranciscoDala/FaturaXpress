@@ -130,7 +130,7 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
                         const estado = formatEstado(f.status)
                         const clienteDisplay = getClienteDisplay(f)
                         return (
-                            <div key={f.id} className="min-w-[320px] max-w-[320px] w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
+                            <div key={f.id} className="w-full min-w-[calc(100vw-32px)] md:min-w-[320px] md:max-w-[320px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
                                 <div className="relative h-[90px] bg-[#FFF7CC] shrink-0">
                                     <div className="absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[10px] font-bold shadow-sm border text-[#8A6D00] truncate max-w-[70%]">
                                         PROFORMA PP {numero}
@@ -165,25 +165,9 @@ export default function TabCurso({ faturas, cliente, empresa, onRefresh, loading
                 </div>
             )}
 
-            {/* Modals - todas travadas, só fecham no X/Cancelar */}
             <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget? `PROFORMA PP ${cleanNumero(getNumero(deleteTarget))}` : ''} onClose={() => setDeleteTarget(null)} onConfirm={handleApagar} title="Apagar proforma?" description="Proforma PP pode ser apagada. É livre e não conta no limite. FT oficial só cancela - regra AGT." />
-
-            <ModalConfirmConverter
-                open={!!convertTarget}
-                numero={convertTarget? cleanNumero(getNumero(convertTarget)) : ''}
-                total={convertTarget? getTotal(convertTarget) : 0}
-                loading={converting}
-                onClose={() =>!converting && setConvertTarget(null)}
-                onConfirm={handleConverter}
-            />
-
-            <ModalConfirmCancelarPP
-                open={!!cancelTarget}
-                numero={cancelTarget? cleanNumero(getNumero(cancelTarget)) : ''}
-                loading={canceling}
-                onClose={() =>!canceling && setCancelTarget(null)}
-                onConfirm={handleConfirmCancelar}
-            />
+            <ModalConfirmConverter open={!!convertTarget} numero={convertTarget? cleanNumero(getNumero(convertTarget)) : ''} total={convertTarget? getTotal(convertTarget) : 0} loading={converting} onClose={() =>!converting && setConvertTarget(null)} onConfirm={handleConverter} />
+            <ModalConfirmCancelarPP open={!!cancelTarget} numero={cancelTarget? cleanNumero(getNumero(cancelTarget)) : ''} loading={canceling} onClose={() =>!canceling && setCancelTarget(null)} onConfirm={handleConfirmCancelar} />
         </div>
     )
 }

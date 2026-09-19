@@ -116,14 +116,26 @@ def calcular_itens(db: Session, company_id, itens_in):
             raise HTTPException(400, f"Quantidade inválida para {prod.nome}")
 
         sub_linha = preco * qtd
-        iva_percent = float(getattr(prod, 'iva', 14) or 14)
-        iva_valor = sub_linha * (iva_percent / 100)
+
+        # FIX: RESPEITAR IVA 0 (ISENTO) - antes usava `or 14` e 0 virava 14
+        raw_iva = getattr(prod, 'iva', None)
+        if raw_iva is None:
+            raw_iva = 14
+        try:
+            iva_percent = float(raw_iva)
+        except:
+            iva_percent = 14.0
+
+        # Se IVA 0, não calcula IVA
+        if iva_percent == 0:
+            iva_valor = 0.0
+            motivo_isencao = getattr(prod, 'motivo_isencao', None) or "M04 - Isento"
+        else:
+            iva_valor = sub_linha * (iva_percent / 100)
+            motivo_isencao = None
+
         subtotal += sub_linha
         total_iva += iva_valor
-
-        motivo_isencao = None
-        if iva_percent == 0:
-            motivo_isencao = "M04 - Isento"
 
         objs.append(FaturaItem(
             id=uuid.uuid4(),
@@ -142,7 +154,6 @@ def criar_fatura(db: Session, company_id, dados):
     if dados.tipo_documento not in ['proforma', 'fatura']:
         raise HTTPException(400, "tipo_documento deve ser 'proforma' ou 'fatura'")
 
-    # TRAVA DE PLANO SÓ PARA FATURA, PROFORMA É LIVRE
     if dados.tipo_documento == 'fatura':
         check_limite_faturas(db, company_id)
 
@@ -280,7 +291,6 @@ def atualizar_fatura(db: Session, fatura: Fatura, company_id, dados):
     return fatura
 
 def converter_proforma_para_fatura(db: Session, proforma_id, company_id):
-    # TAMBÉM TRAVA NA CONVERSÃO
     check_limite_faturas(db, company_id)
 
     proforma = db.query(Fatura).filter(

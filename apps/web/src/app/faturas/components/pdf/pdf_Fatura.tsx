@@ -46,11 +46,20 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
             const qtd = Number(it.quantidade?? it.qtd?? it.qty?? 1)
             const preco = Number(it.preco_unit_snapshot?? it.preco_unit?? it.preco?? 0)
             const descPerc = Number(it.desconto_perc?? it.desconto?? 0)
-            const ivaPerc = Number(it.taxa_iva?? it.iva?? it.iva_percent?? it.taxa?? 0)
+            // FIX: respeita 0 - não usa || que transforma 0 em 14
+            const rawIva = it.taxa_iva?? it.iva?? it.iva_percent?? it.taxa?? it.iva_valor === 0? 0 : null
+            // fallback mais seguro: procura iva_percent direto do backend
+            let ivaPerc: number
+            if (it.iva_percent!== undefined && it.iva_percent!== null) ivaPerc = Number(it.iva_percent)
+            else if (it.taxa_iva!== undefined && it.taxa_iva!== null) ivaPerc = Number(it.taxa_iva)
+            else if (it.iva!== undefined && it.iva!== null) ivaPerc = Number(it.iva)
+            else ivaPerc = 0
+
             const bruto = qtd * preco
             const vDesc = bruto * (descPerc / 100)
             const base = bruto - vDesc
-            const vIva = base * (ivaPerc / 100)
+            // Só calcula IVA se > 0
+            const vIva = ivaPerc > 0? base * (ivaPerc / 100) : 0
             const total = base + vIva
             return {
                 referencia: it.referencia || it.codigo || it.ref || it.sku || '---',
@@ -64,6 +73,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                 subtotal_base: base,
                 valor_iva: vIva,
                 subtotal_linha: Number(it.subtotal_linha?? it.subtotal?? total),
+                motivo_isencao: it.motivo_isencao || (ivaPerc === 0? 'M04 - Isento' : null)
             }
         })
         let liquido = 0, totalIva = 0, totalDesc = 0
@@ -72,12 +82,13 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
             liquido += it.subtotal_base
             totalIva += it.valor_iva
             totalDesc += it.desconto_valor
-            const k = `${it.taxa_iva}%`
+            const isIsento = it.taxa_iva === 0
+            const k = isIsento? 'Isento' : `${it.taxa_iva}%`
             if (!ivaPorTaxa[k]) ivaPorTaxa[k] = { incidencia: 0, valor: 0 }
             ivaPorTaxa[k].incidencia += it.subtotal_base
             ivaPorTaxa[k].valor += it.valor_iva
         })
-        if (Object.keys(ivaPorTaxa).length === 0) ivaPorTaxa['0%'] = { incidencia: liquido, valor: 0 }
+        if (Object.keys(ivaPorTaxa).length === 0) ivaPorTaxa['Isento'] = { incidencia: liquido, valor: 0 }
         return { itens: parsed, totais: { liquido, iva: totalIva, desconto: totalDesc, pagar: liquido + totalIva, ivaPorTaxa } }
     }, [itensRaw])
 
@@ -115,11 +126,10 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
     const totalBase = Number(fatura?.subtotal || totais.liquido || 0).toFixed(2)
 
     const qrContent = (isOficial || isNC)
-      ? `A:${(emp.nif || '').toString().padStart(10, '0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco || 'Luanda').slice(0, 35)}*L1:${emp.cidade || 'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior || ''}`
+     ? `A:${(emp.nif || '').toString().padStart(10, '0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco || 'Luanda').slice(0, 35)}*L1:${emp.cidade || 'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior || ''}`
         : `${getNumero(fatura)}|${fatura?.id}`
 
     const tituloDoc = isNC? 'NOTA DE CRÉDITO' : isOficial? 'FACTURA' : 'FACTURA PROFORMA'
-    const corHeader = isNC? 'bg-[#FFEBEB]' : 'bg-[rgba(255,255,255,0.40)]'
 
     const FolhaTela = () => (
         <div id="fatura-pdf" className="relative bg-white text-black w-[210mm] min-w-[210mm] min-h-[297mm] p-[10mm] flex flex-col border border-gray-200 overflow-hidden mx-auto" style={{ fontFamily: "var(--fonte-principal)" }}>
@@ -190,7 +200,17 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                         <thead><tr className="bg-[rgba(194,194,194,0.65)] text-[9px] font-bold"><th className="border border-[#999] py-[6px] px-1 text-left">REFERÊNCIA</th><th className="border border-[#999] py-[6px] px-1 text-left">PRODUTO / SERVIÇO</th><th className="border border-[#999] py-[6px]">QTD.</th><th className="border border-[#999] py-[6px]">UN.</th><th className="border border-[#999] py-[6px]">PREÇO UNIT.</th><th className="border border-[#999] py-[6px]">DESCONTO</th><th className="border border-[#999] py-[6px]">TAXA</th><th className="border border-[#999] py-[6px] text-right">VALOR (AKZ)</th></tr></thead>
                         <tbody>
                             {itens.map((it: any, i: number) => (
-                                <tr key={i} className="text-[10px] h-[24px]"><td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate">{it.referencia}</td><td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate">{it.nome_snapshot}</td><td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.quantidade}</td><td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.unidade}</td><td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{fmt(it.preco_unit_snapshot)}</td><td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{it.desconto_perc > 0? fmt(it.desconto_valor) : ''}</td><td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.taxa_iva}%{it.taxa_iva === 0? '*' : ''}</td><td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)] font-semibold">{fmt(it.subtotal_linha)}</td></tr>
+                                <tr key={i} className="text-[10px] h-[24px]">
+                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate">{it.referencia}</td>
+                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate">{it.nome_snapshot}</td>
+                                  <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.quantidade}</td>
+                                  <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.unidade}</td>
+                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{fmt(it.preco_unit_snapshot)}</td>
+                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{it.desconto_perc > 0? fmt(it.desconto_valor) : ''}</td>
+                                  {/* FIX IVA */}
+                                  <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.taxa_iva === 0? 'Isento' : `${it.taxa_iva}%`}</td>
+                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)] font-semibold">{fmt(it.subtotal_linha)}</td>
+                                </tr>
                             ))}
                             {Array.from({ length: Math.max(0, 8 - itens.length) }).map((_, k) => (<tr key={k} className="h-[26px]"><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td></tr>))}
                         </tbody>
@@ -200,9 +220,11 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                 <div className="flex mt-2 gap-1">
                     <div className="flex-1 border border-[#999]">
                         <div className="flex bg-[rgba(194,194,194,0.65)] text-[9px] font-bold"><div className="flex-1 border-r border-[#999] py-[5px] px-1">IMPOSTO</div><div className="w-[50px] border-r border-[#999] py-[5px] text-center">TAXA</div><div className="w-[80px] border-r border-[#999] py-[5px] text-center">INCIDÊNCIA</div><div className="w-[80px] py-[5px] text-center">VALOR</div></div>
-                        {Object.entries(totais.ivaPorTaxa).map(([taxa, d]: any) => (
-                            <div key={taxa} className="flex text-[9px]"><div className="flex-1 border-r border-[#999] py-[5px] px-1 bg-[rgba(255,255,255,0.40)]">{Number(taxa.replace('%', '')) === 0? '*M04 Isento' : `IVA ${taxa}`}</div><div className="w-[50px] border-r border-[#999] py-[5px] text-center bg-[rgba(255,255,255,0.40)]">{taxa}</div><div className="w-[80px] border-r border-[#999] py-[5px] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{fmt(d.incidencia)}</div><div className="w-[80px] py-[5px] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{fmt(d.valor)}</div></div>
-                        ))}
+                        {Object.entries(totais.ivaPorTaxa).map(([taxa, d]: any) => {
+                            const isIsento = taxa === 'Isento'
+                            return (
+                            <div key={taxa} className="flex text-[9px]"><div className="flex-1 border-r border-[#999] py-[5px] px-1 bg-[rgba(255,255,255,0.40)]">{isIsento? '*M04 Isento' : `IVA ${taxa}`}</div><div className="w-[50px] border-r border-[#999] py-[5px] text-center bg-[rgba(255,255,255,0.40)]">{taxa}</div><div className="w-[80px] border-r border-[#999] py-[5px] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{fmt(d.incidencia)}</div><div className="w-[80px] py-[5px] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{fmt(d.valor)}</div></div>
+                        )})}
                     </div>
                     <div className="w-[240px] shrink-0">
                         <div className="flex bg-[rgba(194,194,194,0.65)] text-[10px] border border-[#999]"><div className="flex-1 py-[6px] px-1 text-right">Total Líquido</div><div className="w-[90px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[6px] text-right pr-1">{fmt(totais.liquido)}</div></div>

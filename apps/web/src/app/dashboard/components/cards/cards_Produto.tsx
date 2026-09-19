@@ -35,11 +35,11 @@ export default function CardsProdutos({ produtos, loading, onEdit, onDelete, onV
     }
 
     if (loading) return <CardsProdutosSkeleton />
-    if (produtos.length === 0) return <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhum produto/serviço encontrado!</p>
+    if (produtos.length === 0) return <p className="text-center text-black py-16 bg-white rounded-[20px] border font-medium">Nenhum produto/serviço encontrado!</p>
 
     return (
-        <div className="w-full">
-            <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="w-full overflow-hidden">
+            <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-1">
                 {produtos.map(p => (
                     <ProductCard key={p.id} produto={p} formatPrice={formatPrice} onEdit={onEdit} onDelete={onDelete} onView={onView} />
                 ))}
@@ -53,25 +53,25 @@ function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
     const tipo = (produto.tipo || 'produto').toLowerCase()
 
     return (
-        <div className="min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
-            <div className="relative h-[90px] bg-[#E6F0FF]">
-                <div className="absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[12px] font-medium shadow-sm border">
-                    {produto.ativo? 'Ativo' : 'Inativo'} + • Ilimitado
+        <div className="w-[92vw] max-w-[92vw] md:w-[320px] md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
+            <div className="relative h-[90px] bg-[#E6F0FF] shrink-0">
+                <div className="absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[11px] font-medium shadow-sm border text-black">
+                    {produto.ativo? 'Ativo' : 'Inativo'} • Ilimitado
                 </div>
                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white border-[4px] border-white flex items-center justify-center shadow-md overflow-hidden">
                     {produto.imagem_url? (
                         <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover" />
                     ) : (
-                        <div className="w-full h-full bg-[#F3F4F6] flex items-center justify-center text-[20px] font-bold text-gray-600">
+                        <div className="w-full h-full bg-[#F3F4F6] flex items-center justify-center text-[20px] font-bold text-black">
                             {initials}
                         </div>
                     )}
                 </div>
             </div>
 
-            <div className="pt-14 px-5 pb-4">
+            <div className="pt-14 px-5 pb-4 w-full overflow-hidden">
                 <div className="flex items-center gap-2">
-                    <p className="text-[11px] text-gray-400">exp.</p>
+                    <p className="text-[11px] text-black font-medium">exp.</p>
                     <div className="flex gap-[2px]">
                         {Array.from({ length: 10 }).map((_, i) => (
                             <div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5? 'bg-yellow-400' : 'bg-gray-200'}`} />
@@ -79,24 +79,33 @@ function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
                     </div>
                 </div>
 
-                <h3 className="font-bold text-[16px] text-gray-900 mt-3 truncate">{produto.nome}</h3>
-                <p className="text-[12.5px] text-gray-500 truncate mt-1">
-                    {produto.categoria || 'Produto'} • {produto.unidade} • {tipo} • Livre de limite
+                {/* FIX MOBILE - truncate com w-full */}
+                <h3 className="font-bold text-[15px] text-black mt-3 w-full truncate block">{produto.nome}</h3>
+
+                <p className="text-[12px] text-black font-medium w-full truncate block mt-1">
+                    {produto.categoria || 'Produto'} • {produto.unidade} • {tipo} • Livre
                 </p>
-                <p className="text-[13px] text-gray-600 truncate mt-1">
-                    {produto.codigo} • Kz {formatPrice(produto.preco_venda)}
-                </p>
+
+                {/* ADICIONADO QUANTIDADE */}
+                <div className="flex items-center gap-1.5 mt-2 w-full overflow-hidden">
+                    <p className="text-[12.5px] text-black font-semibold truncate flex-1">
+                        {produto.codigo} • Kz {formatPrice(produto.preco_venda)}
+                    </p>
+                    <span className="shrink-0 bg-black text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+                        Qtd: {produto.stock_atual?? 0}
+                    </span>
+                </div>
             </div>
 
-            <div className="grid grid-cols-3 border-t border-gray-100 mt-auto">
+            <div className="grid grid-cols-3 border-t border-gray-100 mt-auto shrink-0">
                 <button onClick={() => onView?.(produto)} className="py-3.5 flex items-center justify-center hover:bg-gray-50 border-r border-gray-100 group">
-                    <FileText className="w-4 h-4 text-gray-600 group-hover:text-blue-600" />
+                    <FileText className="w-4 h-4 text-black group-hover:text-blue-600" />
                 </button>
                 <button onClick={() => onEdit?.(produto)} className="py-3.5 flex items-center justify-center hover:bg-gray-50 border-r border-gray-100 group">
-                    <Pencil className="w-4 h-4 text-gray-600 group-hover:text-orange-600" />
+                    <Pencil className="w-4 h-4 text-black group-hover:text-orange-600" />
                 </button>
                 <button onClick={() => onDelete?.(produto)} className="py-3.5 flex items-center justify-center hover:bg-red-50 group">
-                    <Trash2 className="w-4 h-4 text-gray-600 group-hover:text-red-600" />
+                    <Trash2 className="w-4 h-4 text-black group-hover:text-red-600" />
                 </button>
             </div>
         </div>

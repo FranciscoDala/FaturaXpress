@@ -413,23 +413,23 @@ export default function DashboardPage() {
                 {openNovo && (
                     <div data-novo-dropdown style={{ top: novoDropdownPos.top, left: novoDropdownPos.left, width: novoDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999]">
                         <button onClick={() => handleNovoAction('ver_faturas')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'faturas' ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
-                            <Receipt className="w-4 h-4 text-black" /> Ver Faturas PP/FT
+                            <Receipt className="w-4 h-4 text-black" /> Faturas
                         </button>
                         <button onClick={() => handleNovoAction('ver_registros')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao' ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
-                            <Database className="w-4 h-4 text-black" /> Ver Registros
+                            <Database className="w-4 h-4 text-black" /> Registros
                         </button>
                         <div className="h-[1px] bg-gray-200 my-2 mx-2" />
                         <button onClick={() => handleNovoAction('emitir')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-100 text-black">
-                            <Receipt className="w-4 h-4 text-black" /> Emitir Fatura (Avulso)
+                            <Receipt className="w-4 h-4 text-black" /> Emitir fatura
                         </button>
                         <button onClick={() => handleNovoAction('cliente')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-100 text-black">
-                            <Users className="w-4 h-4 text-black" /> Adicionar Cliente
+                            <Users className="w-4 h-4 text-black" /> Novo cliente
                         </button>
                         <button onClick={() => handleNovoAction('produto')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-100 text-black">
-                            <Package className="w-4 h-4 text-black" /> Adicionar Produto
+                            <Package className="w-4 h-4 text-black" /> Novo produto
                         </button>
                         <button onClick={() => handleNovoAction('saft')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-100 text-black">
-                            <FileDown className="w-4 h-4 text-black" /> Exportar SAFT-AO AGT
+                            <FileDown className="w-4 h-4 text-black" /> Exportar SAFT(agt)
                         </button>
                     </div>
                 )}

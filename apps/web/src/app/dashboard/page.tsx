@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from 'react'
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Pencil, Database, Search, Crown, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
@@ -110,6 +110,13 @@ export default function DashboardPage() {
     })
     const [savingEmpresa, setSavingEmpresa] = useState(false)
 
+    // FIX MIXED CONTENT - força https
+    const logoUrlSafe = useMemo(() => {
+        const raw = empresa?.logo_url || empresa?.image_url || ''
+        if (!raw) return ''
+        return raw.replace(/^http:\/\//i, 'https://')
+    }, [empresa])
+
     const { ncOrigensSet, faturasFTOnly, faturasFTAtivas } = useMemo(() => {
         const origens = new Set<string>()
         faturasEmitidas.forEach((f: any) => {
@@ -118,7 +125,7 @@ export default function DashboardPage() {
             }
         })
         const ftOnly = faturasEmitidas.filter((f: any) => f.tipo_documento === 'fatura')
-        const ftAtivas = ftOnly.filter((f: any) => !origens.has(f.id) && f.status !== 'cancelada')
+        const ftAtivas = ftOnly.filter((f: any) =>!origens.has(f.id) && f.status!== 'cancelada')
         return { ncOrigensSet: origens, faturasFTOnly: ftOnly, faturasFTAtivas: ftAtivas }
     }, [faturasEmitidas])
 
@@ -140,18 +147,17 @@ export default function DashboardPage() {
         }).length
     }, [faturasFTOnly])
 
-    const isAtLimit = planInfo.max ? faturasMes >= planInfo.max : false
+    const isAtLimit = planInfo.max? faturasMes >= planInfo.max : false
 
-    // CLIENTES QUE JÁ TEM FATURA - NÃO PODE APAGAR (SAFT)
     const clientesComFatura = useMemo(() => {
         const ids = new Set<string>()
-            ;[...faturasCurso, ...faturasEmitidas].forEach((f: any) => {
+            ;[...faturasCurso,...faturasEmitidas].forEach((f: any) => {
                 if (f.cliente_id) ids.add(String(f.cliente_id))
             })
         return ids
     }, [faturasCurso, faturasEmitidas])
 
-    const isInitialLoading = !empresa && (loading || loadingFaturas)
+    const isInitialLoading =!empresa && (loading || loadingFaturas)
 
     useEffect(() => {
         localStorage.setItem(LS_KEYS.view, homeView)
@@ -164,26 +170,27 @@ export default function DashboardPage() {
         setSearchParams(params, { replace: true })
     }, [homeView, faturaTab, listView])
 
-    const fetchFaturasGeral = async () => {
+    const fetchFaturasGeral = useCallback(async () => {
         try {
             setLoadingFaturas(true)
             const res = await api.get('/api/faturas', { params: { limit: 500 } })
-            const all = Array.isArray(res.data) ? res.data : (res.data.items || [])
+            const all = Array.isArray(res.data)? res.data : (res.data.items || [])
             setFaturasCurso(all.filter((f: any) => f.tipo_documento === 'proforma'))
-            setFaturasEmitidas(all.filter((f: any) => f.tipo_documento === 'fatura' || f.tipo_documento === 'nota_credito' || !!f.hash_agt))
+            setFaturasEmitidas(all.filter((f: any) => f.tipo_documento === 'fatura' || f.tipo_documento === 'nota_credito' ||!!f.hash_agt))
         } catch { } finally { setLoadingFaturas(false) }
-    }
+    }, [])
 
-    const fetchClientes = async () => {
+    const fetchClientes = useCallback(async () => {
         try { setLoading(true); const skip = (page - 1) * limit; const res = await api.get('/api/clientes', { params: { skip, limit, search } }); setClientes(res.data.items); if (listView === 'clientes') setTotal(res.data.total) }
         catch { toast.error('Erro ao carregar clientes', { description: 'Verifique sua conexão.' }) } finally { setLoading(false) }
-    }
-    const fetchProdutos = async () => {
+    }, [page, limit, search, listView])
+
+    const fetchProdutos = useCallback(async () => {
         try { setLoading(true); const skip = (page - 1) * limit; const res = await api.get('/api/produtos', { params: { skip, limit, search } }); setProdutos(res.data.items); setTotal(res.data.total) }
         catch { toast.error('Erro ao carregar produtos', { description: 'Tente novamente.' }) } finally { setLoading(false) }
-    }
+    }, [page, limit, search])
 
-    const fetchEmpresa = async () => {
+    const fetchEmpresa = useCallback(async () => {
         try {
             const r = await api.get('/api/auth/me')
             const comp = r.data.company || r.data
@@ -202,18 +209,22 @@ export default function DashboardPage() {
                 iban2: comp.iban2 || '',
                 banco1: comp.banco1 || comp.banco || '',
                 banco2: comp.banco2 || '',
-                logo_url: comp.logo_url || comp.image_url || '',
-                image_url: comp.image_url || comp.logo_url || ''
+                logo_url: (comp.logo_url || comp.image_url || '').replace(/^http:\/\//i, 'https://'),
+                image_url: (comp.image_url || comp.logo_url || '').replace(/^http:\/\//i, 'https://')
             })
         } catch (err: any) { if (err?.response?.status === 401) { localStorage.clear(); navigate('/login') } }
-    }
+    }, [navigate])
 
     useRealtime({
         onEvent: (msg) => {
-            if (msg.event === 'faturas:changed') fetchFaturasGeral()
-            if (msg.event === 'clientes:changed') { fetchClientes(); fetchFaturasGeral() }
-            if (msg.event === 'produtos:changed') fetchProdutos()
-            if (msg.event === 'company:changed') fetchEmpresa()
+            // FIX removeChild - debounce pra não remover nó durante render do modal/toast
+            if (modalClienteOpen || modalProdutoOpen || modalEmpresaOpen) return
+            if (msg.event === 'faturas:changed') setTimeout(() => fetchFaturasGeral(), 400)
+            if (msg.event === 'clientes:changed') {
+                setTimeout(() => { fetchClientes(); fetchFaturasGeral() }, 400)
+            }
+            if (msg.event === 'produtos:changed') setTimeout(() => fetchProdutos(), 400)
+            if (msg.event === 'company:changed') setTimeout(() => fetchEmpresa(), 400)
         }
     })
 
@@ -221,9 +232,9 @@ export default function DashboardPage() {
         const name = localStorage.getItem("company_name");
         if (name) setCompanyName(name);
         fetchEmpresa(); fetchFaturasGeral()
-    }, [])
+    }, [fetchEmpresa, fetchFaturasGeral])
     useEffect(() => { setPage(1) }, [listView])
-    useEffect(() => { if (homeView === 'gestao') { if (listView === 'clientes') fetchClientes(); else fetchProdutos() } }, [page, listView, search, homeView])
+    useEffect(() => { if (homeView === 'gestao') { if (listView === 'clientes') fetchClientes(); else fetchProdutos() } }, [page, listView, search, homeView, fetchClientes, fetchProdutos])
 
     const updateListPos = () => {
         if (listBtnRef.current) {
@@ -236,23 +247,27 @@ export default function DashboardPage() {
             const r = novoBtnRef.current.getBoundingClientRect()
             const width = 320
             const isMobile = window.innerWidth < 768
-            const left = isMobile ? window.innerWidth - width - 16 : r.right - width
+            const left = isMobile? window.innerWidth - width - 16 : r.right - width
             setNovoDropdownPos({ top: r.bottom + 8, left: Math.max(16, left), width })
         }
     }
     useEffect(() => { if (openListSelect) updateListPos() }, [openListSelect])
     useEffect(() => { if (openNovo) updateNovoPos() }, [openNovo])
     useEffect(() => {
-        if (!openListSelect && !openNovo) return
+        if (!openListSelect &&!openNovo) return
         const handle = () => { if (openListSelect) updateListPos(); if (openNovo) updateNovoPos() }
         window.addEventListener('scroll', handle, true)
         window.addEventListener('resize', handle)
         return () => { window.removeEventListener('scroll', handle, true); window.removeEventListener('resize', handle) }
     }, [openListSelect, openNovo])
+
     useEffect(() => {
         const close = (e: MouseEvent) => {
-            if (listWrapperRef.current && !listWrapperRef.current.contains(e.target as Node) && !(e.target as HTMLElement).closest('[data-list-dropdown]')) setOpenListSelect(false)
-            if (novoWrapperRef.current && !novoWrapperRef.current.contains(e.target as Node) && !(e.target as HTMLElement).closest('[data-novo-dropdown]')) setOpenNovo(false)
+            const target = e.target as HTMLElement
+            // FIX removeChild - ignora clique no toast/sonner
+            if (target.closest('[data-sonner-toaster]') || target.closest('[data-sonner-toast]')) return
+            if (listWrapperRef.current &&!listWrapperRef.current.contains(e.target as Node) &&!target.closest('[data-list-dropdown]')) setOpenListSelect(false)
+            if (novoWrapperRef.current &&!novoWrapperRef.current.contains(e.target as Node) &&!target.closest('[data-novo-dropdown]')) setOpenNovo(false)
         }
         document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
@@ -317,7 +332,7 @@ export default function DashboardPage() {
             } else if (err.response?.status === 500) {
                 toast.error('Erro no servidor', { description: 'Cliente tem movimentações, não pode ser apagado.' })
             } else {
-                toast.error(detail || 'Erro ao apagar', { description: detail })
+                toast.error(detail || 'Erro ao apagar', { description: typeof detail === 'string'? detail : undefined })
             }
         } finally { setDeleting(false) }
     }
@@ -351,12 +366,20 @@ export default function DashboardPage() {
     }
 
     const ProdutoModalAny = ProdutoModal as any
-    const produtosFiltrados = listView === 'servicos' ? produtos.filter(p => p.tipo === 'servico') : listView === 'produtos' ? produtos.filter(p => p.tipo !== 'servico') : produtos
+    const produtosFiltrados = listView === 'servicos'? produtos.filter(p => p.tipo === 'servico') : listView === 'produtos'? produtos.filter(p => p.tipo!== 'servico') : produtos
 
     return (
         <div className="min-h-screen bg-white">
-            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => { toast.success(clienteSelecionado ? 'Cliente atualizado' : 'Cliente criado', { description: clienteSelecionado ? 'Dados atualizados.' : 'Cliente adicionado com sucesso.' }); fetchClientes() }} />
-            <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => { toast.success(produtoSelecionado ? 'Produto atualizado' : 'Produto criado', { description: 'Operação concluída.' }); fetchProdutos() }} />
+            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => {
+                setOpenListSelect(false); setOpenNovo(false);
+                toast.success(clienteSelecionado? 'Cliente atualizado' : 'Cliente criado', { description: clienteSelecionado? 'Dados atualizados.' : 'Cliente adicionado com sucesso.' });
+                setTimeout(() => fetchClientes(), 200)
+            }} />
+            <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => {
+                setOpenListSelect(false); setOpenNovo(false);
+                toast.success(produtoSelecionado? 'Produto atualizado' : 'Produto criado', { description: 'Operação concluída.' });
+                setTimeout(() => fetchProdutos(), 200)
+            }} />
             <ModalEmpresa open={modalEmpresaOpen} initialData={formEmpresa} saving={savingEmpresa} onClose={() => setModalEmpresaOpen(false)} onSave={handleSaveEmpresa} />
             <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget?.nome} loading={deleting} onClose={() => setDeleteTarget(null)} onConfirm={handleConfirmDelete} />
             <ModalSaftAO open={modalSaftOpen} onClose={() => setModalSaftOpen(false)} />
@@ -369,9 +392,9 @@ export default function DashboardPage() {
                     <div className="relative z-10 flex flex-col md:flex-row gap-4 items-start text-left">
                         <div className="relative w-[84px] h-[84px] sm:w-[110px] sm:h-[110px] shrink-0 self-start">
                             <div className="w-full h-full rounded-full overflow-hidden bg-gray-200 border-[5px] border-white shadow-sm">
-                                <img src={empresa?.logo_url || empresa?.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(companyName || 'FX')}&background=E5E7EB&color=374151&size=132}`} className="w-full h-full object-cover" alt={companyName} />
+                                <img src={logoUrlSafe || `https://ui-avatars.com/api/?name=${encodeURIComponent(companyName || 'FX')}&background=E5E7EB&color=374151&size=132}`} className="w-full h-full object-cover" alt={companyName} />
                             </div>
-                            <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-[2px] border-white shadow" style={{ background: empresa?.is_active === false ? '#ef4444' : '#22c55e' }}></div>
+                            <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-[2px] border-white shadow" style={{ background: empresa?.is_active === false? '#ef4444' : '#22c55e' }}></div>
                             <button onClick={() => setModalEmpresaOpen(true)} className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-white border shadow flex items-center justify-center hover:bg-gray-50">
                                 <Pencil className="w-3.5 h-3.5 text-gray-700" />
                             </button>
@@ -386,14 +409,14 @@ export default function DashboardPage() {
                                         <p className="truncate max-w-[220px] sm:max-w-none"><span className="font-medium text-gray-500">Email:</span> {empresa?.email || 'killerbless12@gmail.com'}</p>
                                         <p className="line-clamp-2"><span className="font-medium text-gray-500">Endereço:</span> {(empresa?.endereco || empresa?.address || 'Sassamba')} • {empresa?.cidade || empresa?.city || 'Saurimo'} • {empresa?.provincia || empresa?.province || 'Lunda-Sul'}</p>
                                         {(empresa?.iban || empresa?.iban2) && (
-                                            <p className="break-all text-[11px]"><span className="font-medium text-gray-500">IBAN:</span> {empresa?.iban}{empresa?.iban2 ? ` | ${empresa?.iban2}` : ''}</p>
+                                            <p className="break-all text-[11px]"><span className="font-medium text-gray-500">IBAN:</span> {empresa?.iban}{empresa?.iban2? ` | ${empresa?.iban2}` : ''}</p>
                                         )}
                                     </div>
                                     <div className="mt-4 space-y-0 w-full">
-                                        <p className="text-[11px] text-gray-500">Faturas emitidas - {loadingFaturas ? '...' : `${totalDocs} docs`}</p>
-                                        <p className="text-[11px] text-gray-500">Total pago faturas(agt) - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas ? '...' : `${totalFaturado.toFixed(2)} KZ`}</span></p>
+                                        <p className="text-[11px] text-gray-500">Faturas emitidas - {loadingFaturas? '...' : `${totalDocs} docs`}</p>
+                                        <p className="text-[11px] text-gray-500">Total pago faturas(agt) - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas? '...' : `${totalFaturado.toFixed(2)} KZ`}</span></p>
                                         <p className="text-[11px] text-gray-600 font-medium">
-                                            Faturas por mês - {loadingFaturas ? '...' : planInfo.max ? `${faturasMes}(${planInfo.max}) este mês` : `${faturasMes}, este mês (Ilimitado)`}
+                                            Faturas por mês - {loadingFaturas? '...' : planInfo.max? `${faturasMes}(${planInfo.max}) este mês` : `${faturasMes}, este mês (Ilimitado)`}
                                         </p>
                                         {isAtLimit && (
                                             <div className="mt-2">
@@ -421,16 +444,16 @@ export default function DashboardPage() {
                                 </div>
                             </div>
                             <div className="mt-5 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
-                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className={`flex-1 py-2 ${homeView === 'faturas' && faturaTab === 'curso' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                    <p className="text-[13px] font-bold">{loadingFaturas ? '...' : faturasCurso.length}</p>
+                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className={`flex-1 py-2 ${homeView === 'faturas' && faturaTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                    <p className="text-[13px] font-bold">{loadingFaturas? '...' : faturasCurso.length}</p>
                                     <p className="text-[11px] text-gray-500">Proforma PP</p>
                                 </button>
-                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('emitidas') }} className={`flex-1 py-2 border-l ${homeView === 'faturas' && faturaTab === 'emitidas' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                    <p className="text-[13px] font-bold">{loadingFaturas ? '...' : faturasFTOnly.length}</p>
+                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('emitidas') }} className={`flex-1 py-2 border-l ${homeView === 'faturas' && faturaTab === 'emitidas'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                    <p className="text-[13px] font-bold">{loadingFaturas? '...' : faturasFTOnly.length}</p>
                                     <p className="text-[11px] text-gray-500">Fatura AGT FT</p>
                                 </button>
                                 <div ref={novoWrapperRef} className="flex-[0.6] border-l relative">
-                                    <button ref={novoBtnRef} onClick={() => setOpenNovo(!openNovo)} className={`w-full h-full flex items-center justify-center ${openNovo ? 'bg-[#0095ff] text-white' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
+                                    <button ref={novoBtnRef} onClick={() => setOpenNovo(!openNovo)} className={`w-full h-full flex items-center justify-center ${openNovo? 'bg-[#0095ff] text-white' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
                                         <Menu className="w-5 h-5" />
                                     </button>
                                 </div>
@@ -438,18 +461,18 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <style>{`
-              .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-              .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
+             .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+             .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
                       @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }
                     `}</style>
                 </div>
 
                 {openNovo && (
                     <div data-novo-dropdown style={{ top: novoDropdownPos.top, left: novoDropdownPos.left, width: novoDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999]">
-                        <button onClick={() => handleNovoAction('ver_faturas')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'faturas' ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
+                        <button onClick={() => handleNovoAction('ver_faturas')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'faturas'? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
                             <Receipt className="w-4 h-4 text-black" /> Faturas
                         </button>
-                        <button onClick={() => handleNovoAction('ver_registros')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao' ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
+                        <button onClick={() => handleNovoAction('ver_registros')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao'? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
                             <Database className="w-4 h-4 text-black" /> Registros
                         </button>
                         <div className="h-[1px] bg-gray-200 my-2 mx-2" />
@@ -482,25 +505,25 @@ export default function DashboardPage() {
                                 <div ref={listWrapperRef} className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-40">
                                     <button ref={listBtnRef} onClick={() => setOpenListSelect(!openListSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
                                         <span className="text-gray-900 capitalize">{LIST_OPTIONS.find(o => o.value === listView)?.label || listView}</span>
-                                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openListSelect ? 'rotate-180' : ''}`} />
+                                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openListSelect? 'rotate-180' : ''}`} />
                                     </button>
                                 </div>
                                 <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-0">
                                     <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                                    <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder={listView === 'clientes' ? 'Buscar cliente por nome ou NIF' : listView === 'servicos' ? 'Buscar serviço por nome' : 'Buscar produto por nome ou código'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
+                                    <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder={listView === 'clientes'? 'Buscar cliente por nome ou NIF' : listView === 'servicos'? 'Buscar serviço por nome' : 'Buscar produto por nome ou código'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
                                 </div>
                             </div>
                             {openListSelect && (
                                 <div data-list-dropdown style={{ top: listDropdownPos.top, left: listDropdownPos.left, width: listDropdownPos.width }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999]">
                                     {LIST_OPTIONS.map(opt => (
-                                        <button key={opt.value} onClick={() => { setListView(opt.value as any); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === opt.value ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
+                                        <button key={opt.value} onClick={() => { setListView(opt.value as any); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === opt.value? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
                                             {opt.label} {listView === opt.value && <Check className="w-4 h-4 text-black" />}
                                         </button>
                                     ))}
                                 </div>
                             )}
                             <div id="tabela">
-                                {listView === 'clientes' ? (
+                                {listView === 'clientes'? (
                                     <TabelaClientes
                                         clientes={clientes}
                                         loading={loading}

@@ -68,60 +68,63 @@ function ClientCard({
     bloqueado?: boolean
 }) {
     const initials = cliente.nome
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase()
+       .split(' ')
+       .map((n) => n[0])
+       .join('')
+       .slice(0, 2)
+       .toUpperCase()
 
     return (
-        <div className="min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
-            <div className="relative h-[90px] bg-[#E6F0FF]">
-                <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[12px] font-medium shadow-sm border ${bloqueado ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-white border-gray-200 text-gray-700'}`}>
-                    {bloqueado ? 'TEM FT/Emitidas • SAFT' : 'Ativo'}
+        <div className="min-w-full md:min-w-[320px] md:max-w-[320px] max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
+            <div className="relative h-[90px] bg-[#E6F0FF] shrink-0">
+                <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[12px] font-medium shadow-sm border max-w-[55%] truncate ${bloqueado? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-white border-gray-200 text-gray-700'}`}>
+                    {bloqueado? 'TEM FT/Emitidas • SAFT' : 'Ativo'}
                 </div>
-                <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white">
-                    <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-gray-700">
+                <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white shrink-0">
+                    <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-gray-700 overflow-hidden">
                         {initials}
                     </div>
                 </div>
             </div>
 
-            <div className="pt-14 px-5 pb-4">
+            <div className="pt-14 px-5 pb-4 min-w-0 overflow-hidden">
                 <div className="flex items-center gap-1.5 mb-3">
                     <span className="text-[11px] text-gray-400">exp.</span>
                     <div className="flex gap-[2px]">
                         {Array.from({ length: 10 }).map((_, i) => (
-                            <div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5 ? 'bg-yellow-400' : 'bg-gray-200'}`} />
+                            <div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5? 'bg-yellow-400' : 'bg-gray-200'}`} />
                         ))}
                     </div>
                 </div>
 
-                <h3 className="font-bold text-[16px] text-gray-900 leading-tight truncate">{cliente.nome}</h3>
+                {/* FIX: nome grande corta com... */}
+                <h3 className="font-bold text-[16px] text-gray-900 leading-tight truncate block w-full max-w-full overflow-hidden text-ellipsis whitespace-nowrap" title={cliente.nome}>
+                    {cliente.nome}
+                </h3>
 
-                <div className="mt-2 flex flex-col gap-0.5">
-                    <p className="text-[12.5px] text-gray-500 truncate">NIF: {cliente.nif}</p>
-                    <p className="text-[12.5px] text-gray-500 truncate">Endereço: {cliente.cidade || 'Saurimo'} · {cliente.provincia || 'Luanda'}</p>
-                    <p className="text-[12.5px] text-gray-500 truncate">E-mail: {cliente.email || 'killerbless12@gmail.com'}</p>
-                    <p className="text-[12.5px] text-gray-500 truncate">Tel: {cliente.telefone || '---'}</p>
+                <div className="mt-2 flex flex-col gap-0.5 min-w-0">
+                    <p className="text-[12.5px] text-gray-500 truncate block w-full max-w-full overflow-hidden text-ellipsis whitespace-nowrap">NIF: {cliente.nif}</p>
+                    <p className="text-[12.5px] text-gray-500 truncate block w-full max-w-full overflow-hidden text-ellipsis whitespace-nowrap" title={`${cliente.cidade} · ${cliente.provincia}`}>Endereço: {cliente.cidade || 'Saurimo'} · {cliente.provincia || 'Luanda'}</p>
+                    <p className="text-[12.5px] text-gray-500 truncate block w-full max-w-full overflow-hidden text-ellipsis whitespace-nowrap" title={cliente.email || ''}>E-mail: {cliente.email || 'killerbless12@gmail.com'}</p>
+                    <p className="text-[12.5px] text-gray-500 truncate block w-full max-w-full overflow-hidden text-ellipsis whitespace-nowrap">Tel: {cliente.telefone || '---'}</p>
                 </div>
                 {bloqueado && (
-                    <div className="mt-3">
-                        <span className="inline-flex items-center px-2.5 py-[3px] rounded-full border border-[#F2C9B8] bg-[#FFF6F1] text-[10px] font-medium text-[#B85A3A] leading-tight tracking-wide">
+                    <div className="mt-3 min-w-0">
+                        <span className="inline-flex items-center max-w-full truncate px-2.5 py-[3px] rounded-full border border-[#F2C9B8] bg-[#FFF6F1] text-[10px] font-medium text-[#B85A3A] leading-tight tracking-wide overflow-hidden">
                             Cliente com SAFT, não pode ser apagado!
                         </span>
                     </div>
                 )}
             </div>
 
-            <div className="grid grid-cols-3 border-t border-gray-100 mt-auto">
+            <div className="grid grid-cols-3 border-t border-gray-100 mt-auto shrink-0">
                 <button onClick={() => onEmitirFatura(cliente)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group" title="Emitir Fatura">
                     <FileText className="w-4 h-4 text-gray-600 group-hover:text-green-600" />
                 </button>
                 <button onClick={() => onEdit(cliente)} className="py-3.5 flex justify-center border-x border-gray-100 hover:bg-gray-50 transition group" title="Editar">
                     <Pencil className="w-4 h-4 text-gray-600 group-hover:text-blue-600" />
                 </button>
-                {bloqueado ? (
+                {bloqueado? (
                     <div className="py-3.5 flex justify-center bg-gray-50 opacity-40 cursor-not-allowed" title="Não pode apagar - tem faturas">
                         <Lock className="w-4 h-4 text-gray-400" />
                     </div>

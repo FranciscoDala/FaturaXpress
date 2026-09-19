@@ -142,6 +142,10 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <style>{`
+             .no-scrollbar::-webkit-scrollbar { display: none; }
+             .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
             <div className="relative bg-white rounded-[24px] w-full max-w-[520px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF] shrink-0">
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center"><User className="w-4 h-4 text-[#0095ff]" /></div>
@@ -151,7 +155,7 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                     <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{isEditMode? 'Editar Cliente' : 'Novo Cliente'}</h3>
                     <p className="text-[13.5px] text-gray-500 mt-1 leading-relaxed">{isEditMode? 'Atualize os dados do cliente.' : 'Preencha os dados para criar novo cliente. Clientes são ilimitados.'}</p>
                 </div>
-                <form onSubmit={handleSubmit} className="px-6 pb-6 pt-3 overflow-auto flex-1">
+                <form onSubmit={handleSubmit} className="px-6 pb-6 pt-3 overflow-auto flex-1 no-scrollbar">
                     <div className="flex flex-col gap-[2px]">
                         <div className="grid grid-cols-2 gap-[2px]">
                             <input name="nome" value={form.nome} onChange={handleChange} required placeholder="Nome *" className={inputClass} />
@@ -162,7 +166,6 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                             <input name="telefone" value={form.telefone} onChange={handleChange} placeholder="Telefone" className={inputClass} />
                             <input name="endereco" value={form.endereco} onChange={handleChange} placeholder="Endereço" className={inputClass} />
                         </div>
-                        {/* MESMA LOGICA DO REGISTER - PROVINCIA PRIMEIRO, MUNICIPIO DEPOIS */}
                         <div className="grid grid-cols-2 gap-[2px]">
                             <CustomSelect
                                 value={form.provincia}

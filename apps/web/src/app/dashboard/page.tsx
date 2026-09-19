@@ -363,7 +363,8 @@ export default function DashboardPage() {
                                         </p>
                                         {isAtLimit && (
                                             <div className="flex items-center gap-1.5 text-[11px] text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-[12px] w-full max-w-full">
-                                                Limite atingido. Proformas livres, FT bloqueada.
+                                                Limite free atingido, atualiza o seu plano!
+
                                             </div>
                                         )}
                                     </div>

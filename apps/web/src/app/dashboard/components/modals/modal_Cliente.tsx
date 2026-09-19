@@ -122,8 +122,16 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
         setLoading(true)
         try {
             if (isEditMode && cliente) {
-                await api.put(`/api/clientes/${cliente.id}`, form)
-                toast.success('Cliente atualizado com sucesso', { description: `${form.nome} atualizado.`, position: 'top-center' })
+                // NAO ENVIA NOME E NIF SE ESTA TRAVADO
+                const payload = {
+                    email: form.email,
+                    telefone: form.telefone,
+                    endereco: form.endereco,
+                    cidade: form.cidade,
+                    provincia: form.provincia
+                }
+                await api.put(`/api/clientes/${cliente.id}`, payload)
+                toast.success('Cliente atualizado com sucesso', { description: `${cliente.nome} atualizado.`, position: 'top-center' })
             } else {
                 await api.post('/api/clientes/', form)
                 toast.success('Cliente criado com sucesso', { description: `${form.nome} criado. Clientes não contam no limite de plano.`, position: 'top-center' })
@@ -138,13 +146,14 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
     }
 
     const inputClass = "w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-2 text-[13.5px] text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition"
+    const inputDisabledClass = "w-full h-[44px] bg-gray-100 border border-gray-200 rounded-[12px] px-2 text-[13.5px] text-gray-500 placeholder:text-black/60 focus:outline-none cursor-not-allowed opacity-80"
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <style>{`
-             .no-scrollbar::-webkit-scrollbar { display: none; }
-             .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            .no-scrollbar::-webkit-scrollbar { display: none; }
+            .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
             <div className="relative bg-white rounded-[24px] w-full max-w-[520px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF] shrink-0">
@@ -153,14 +162,35 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                 </div>
                 <div className="px-6 pt-5 pb-2 shrink-0">
                     <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{isEditMode? 'Editar Cliente' : 'Novo Cliente'}</h3>
-                    <p className="text-[13.5px] text-gray-500 mt-1 leading-relaxed">{isEditMode? 'Atualize os dados do cliente.' : 'Preencha os dados para criar novo cliente. Clientes são ilimitados.'}</p>
+                    <p className="text-[13.5px] text-gray-500 mt-1 leading-relaxed">
+                        {isEditMode? 'Nome e NIF não podem ser alterados após criação.' : 'Preencha os dados para criar novo cliente. Clientes são ilimitados.'}
+                    </p>
                 </div>
                 <form onSubmit={handleSubmit} className="px-6 pb-6 pt-3 overflow-auto flex-1 no-scrollbar">
                     <div className="flex flex-col gap-[2px]">
                         <div className="grid grid-cols-2 gap-[2px]">
-                            <input name="nome" value={form.nome} onChange={handleChange} required placeholder="Nome *" className={inputClass} />
-                            <input name="nif" value={form.nif} onChange={handleChange} required placeholder="NIF *" className={inputClass} />
+                            <input
+                                name="nome"
+                                value={form.nome}
+                                onChange={handleChange}
+                                required
+                                placeholder="Nome *"
+                                disabled={isEditMode}
+                                className={isEditMode? inputDisabledClass : inputClass}
+                            />
+                            <input
+                                name="nif"
+                                value={form.nif}
+                                onChange={handleChange}
+                                required
+                                placeholder="NIF *"
+                                disabled={isEditMode}
+                                className={isEditMode? inputDisabledClass : inputClass}
+                            />
                         </div>
+                        {isEditMode && (
+                            <p className="text-[11px] text-gray-400 px-1 mt-1">🔒 Nome e NIF travados para proteger o SAFT e faturas já emitidas</p>
+                        )}
                         <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="Email" className={inputClass} />
                         <div className="grid grid-cols-2 gap-[2px]">
                             <input name="telefone" value={form.telefone} onChange={handleChange} placeholder="Telefone" className={inputClass} />

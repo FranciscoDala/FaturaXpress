@@ -277,24 +277,67 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
             toast.error("Valide o NIF na AGT primeiro", { position: 'top-center' })
             return
         }
+
+        // VALIDACAO DOS INPUTS ABAIXO - igual register
+        if (!form.email.trim()) {
+            toast.error("Preencha o email do cliente", { position: 'top-center' })
+            return
+        }
+        if (!form.telefone.trim()) {
+            toast.error("Preencha o telefone do cliente", { position: 'top-center' })
+            return
+        }
+        if (!form.endereco.trim()) {
+            toast.error("Preencha o endereço do cliente", { position: 'top-center' })
+            return
+        }
+        if (!form.provincia.trim()) {
+            toast.error("Selecione a província", { position: 'top-center' })
+            return
+        }
+        if (!form.cidade.trim()) {
+            toast.error("Selecione o município", { position: 'top-center' })
+            return
+        }
+
         setLoading(true)
         try {
             if (isEditMode && cliente) {
-                const payload = { email: form.email, telefone: form.telefone, endereco: form.endereco, cidade: form.cidade, provincia: form.provincia }
+                const payload = { email: form.email.trim(), telefone: form.telefone.trim(), endereco: form.endereco.trim(), cidade: form.cidade.trim(), provincia: form.provincia.trim() }
                 await api.put(`/api/clientes/${cliente.id}`, payload)
                 toast.success('Cliente atualizado', { position: 'top-center' })
             } else if (nifExists && clienteExistente) {
-                const payload = { email: form.email, telefone: form.telefone, endereco: form.endereco, cidade: form.cidade, provincia: form.provincia }
+                const payload = { email: form.email.trim(), telefone: form.telefone.trim(), endereco: form.endereco.trim(), cidade: form.cidade.trim(), provincia: form.provincia.trim() }
                 await api.put(`/api/clientes/${clienteExistente.id}`, payload)
                 toast.success('Cliente atualizado', { position: 'top-center' })
             } else {
-                await api.post('/api/clientes/', {...form, nome: agtData?.nome || form.nome })
+                const payload = {
+                  nome: (agtData?.nome || form.nome).trim(),
+                  nif: form.nif.trim(),
+                  email: form.email.trim(),
+                  telefone: form.telefone.trim(),
+                  endereco: form.endereco.trim(),
+                  cidade: form.cidade.trim(),
+                  provincia: form.provincia.trim()
+                }
+                await api.post('/api/clientes/', payload)
                 toast.success('Cliente criado com sucesso', { position: 'top-center' })
             }
             onSuccess()
             onClose()
         } catch (err: any) {
-            toast.error(err.response?.data?.detail || 'Erro ao salvar cliente', { position: 'top-center' })
+            // FIX TELA PRETA - nunca renderiza objeto
+            const detail = err.response?.data?.detail
+            let msg = 'Erro ao salvar cliente'
+            if (Array.isArray(detail)) {
+                msg = detail.map((d: any) => `${d.loc?.[1] || 'campo'}: ${d.msg}`).join(', ')
+            } else if (typeof detail === 'string') {
+                msg = detail
+            } else if (detail?.msg) {
+                msg = detail.msg
+            }
+            console.log('ERRO CLIENTE:', err.response?.data)
+            toast.error(msg, { position: 'top-center' })
         } finally { setLoading(false) }
     }
 
@@ -362,22 +405,22 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                                     <input type="hidden" value={form.nif} readOnly />
                                     <input type="hidden" value={form.nome} readOnly />
                                     <div className="relative">
-                                        <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="Email" className={inputWithIcon} />
+                                        <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="Email *" className={inputWithIcon} />
                                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                     </div>
                                     <div className="grid grid-cols-2 gap-[5px]">
                                         <div className="relative">
-                                            <input name="telefone" value={form.telefone} onChange={handleChange} placeholder="Telefone" className={`${inputClass} pl-10`} />
+                                            <input name="telefone" value={form.telefone} onChange={handleChange} placeholder="Telefone *" className={`${inputClass} pl-10`} />
                                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                         </div>
                                         <div className="relative">
-                                            <input name="endereco" value={form.endereco} onChange={handleChange} placeholder="Endereço" className={`${inputClass} pl-10`} />
+                                            <input name="endereco" value={form.endereco} onChange={handleChange} placeholder="Endereço *" className={`${inputClass} pl-10`} />
                                             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-[5px]">
-                                        <CustomSelect value={form.provincia} onChange={handleProvinceChange} placeholder="Província" options={PROVINCIAS.map(p => ({ value: p, label: p }))} />
-                                        <CustomSelect value={form.cidade} onChange={handleCityChange} placeholder={form.provincia? "Município" : "Município"} options={municipiosDisponiveis.map(m => ({ value: m, label: m }))} disabled={!form.provincia} />
+                                        <CustomSelect value={form.provincia} onChange={handleProvinceChange} placeholder="Província *" options={PROVINCIAS.map(p => ({ value: p, label: p }))} />
+                                        <CustomSelect value={form.cidade} onChange={handleCityChange} placeholder={form.provincia? "Município *" : "Município *"} options={municipiosDisponiveis.map(m => ({ value: m, label: m }))} disabled={!form.provincia} />
                                     </div>
                                 </form>
                             </>

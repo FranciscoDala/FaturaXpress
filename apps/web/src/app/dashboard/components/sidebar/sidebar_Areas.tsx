@@ -30,15 +30,15 @@ export default function SidebarAreas({ open, onClose }: { open: boolean, onClose
         <>
             {/* Overlay */}
             <div
-                className={`fixed inset-0 bg-black/30 backdrop-blur-[2px] z-[9998] transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                className={`fixed inset-0 bg-black/30 backdrop-blur-[2px] z-[9998] transition-opacity duration-300 ${open? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={onClose}
             />
 
             {/* Sidebar Right */}
-            <div className={`fixed top-0 right-0 h-[100dvh] w-[92vw] sm:w-[380px] bg-white z-[9999] shadow-[-8px_0_40px_rgba(0,0,0,0.12)] border-l border-gray-100 flex flex-col transition-transform duration-300 ease-out ${open ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className={`fixed top-0 right-0 h-[100dvh] w-[92vw] sm:w-[380px] bg-white z-[9999] shadow-[-8px_0_40px_rgba(0,0,0,0.12)] border-l border-gray-100 flex flex-col transition-transform duration-300 ease-out ${open? 'translate-x-0' : 'translate-x-full'}`}>
 
                 {/* Header */}
-                <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+                <div className="px-6 pt-6 pb-4 border-b border-gray-100 shrink-0">
                     <div className="flex items-center justify-between">
                         <div>
                             <h2 className="text-[16px] font-bold text-gray-900">Áreas</h2>
@@ -50,8 +50,8 @@ export default function SidebarAreas({ open, onClose }: { open: boolean, onClose
                     </div>
                 </div>
 
-                {/* Lista - estilo dos seus cards */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {/* Lista - scroll-y invisível */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {AREAS_MOCK.map((area) => {
                         const Icon = area.icon
                         const colors = colorMap[area.color]

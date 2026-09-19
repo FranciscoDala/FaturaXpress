@@ -398,7 +398,7 @@ export default function DashboardPage() {
                                         {isAtLimit && (
                                             <div className="mt-2">
                                                 <span className="inline-flex items-center px-2.5 py-[3px] rounded-full border border-[#FFC9C5] bg-[#FFF1F0] text-[10px] font-medium text-[#D6453E] leading-tight">
-                                                    Limite FREE atingido - atualiza seu plano
+                                                    Limite {planInfo.label} atingido - atualiza plano
                                                 </span>
                                             </div>
                                         )}

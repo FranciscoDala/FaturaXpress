@@ -9,7 +9,7 @@ import TabPresente from './components/tab/tab_func_presente'
 import TabFerias from './components/tab/tab_func_ferias'
 import { api } from '../../lib/api'
 
-type RHTab = 'func_presente' | 'func_ferias'
+type RHTab = 'presente' | 'ferias'
 
 const LS_KEYS = {
     tab: 'rh_tab',
@@ -33,7 +33,7 @@ function getInitialFromStorage(searchParams: URLSearchParams) {
     const urlTab = searchParams.get('rtab') as RHTab | null
     const lsTab = localStorage.getItem(LS_KEYS.tab) as RHTab | null
     return {
-        tab: urlTab || lsTab || 'func_presente' as RHTab,
+        tab: urlTab || lsTab || 'presente' as RHTab,
     }
 }
 
@@ -183,10 +183,10 @@ export default function RHPage() {
                                 </div>
                             </div>
                             <div className="mt-5 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
-                                <button onClick={() => setRhTab('func_presente')} className={`flex-1 py-2 ${rhTab === 'func_presente' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                <button onClick={() => setRhTab('presente')} className={`flex-1 py-2 ${rhTab === 'presente' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
                                     <p className="text-[13px] font-bold">{totalPresentes}</p><p className="text-[11px] text-gray-500">Presentes</p>
                                 </button>
-                                <button onClick={() => setRhTab('func_ferias')} className={`flex-1 py-2 border-l ${rhTab === 'func_ferias' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                <button onClick={() => setRhTab('ferias')} className={`flex-1 py-2 border-l ${rhTab === 'ferias' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
                                     <p className="text-[13px] font-bold">{totalFerias}</p><p className="text-[11px] text-gray-500">Férias</p>
                                 </button>
                                 <div ref={novoWrapperRef} className="flex-[0.6] border-l relative">
@@ -206,8 +206,8 @@ export default function RHPage() {
 
                 {openNovo && (
                     <div data-novo-dropdown style={{ top: novoDropdownPos.top, left: novoDropdownPos.left, width: novoDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999]">
-                        <button onClick={() => { setRhTab('func_presente'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${rhTab === 'func_presente' ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>Presentes</button>
-                        <button onClick={() => { setRhTab('func_ferias'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${rhTab === 'func_ferias' ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>Férias</button>
+                        <button onClick={() => { setRhTab('presente'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${rhTab === 'presente' ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>Presentes</button>
+                        <button onClick={() => { setRhTab('ferias'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${rhTab === 'ferias' ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>Férias</button>
                         <div className="h-[1px] bg-gray-200 my-2 mx-2" />
                         <button onClick={() => { setOpenNovo(false); toast.info('Em breve: novo funcionário') }} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-100 text-black">+ Novo funcionário</button>
                     </div>
@@ -219,13 +219,13 @@ export default function RHPage() {
                         <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                             <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-0">
                                 <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                                <input value={search} onChange={e => setSearch(e.target.value)} placeholder={rhTab === 'func_ferias' ? 'Buscar em férias por nome' : 'Buscar funcionário por nome, cargo ou área'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
+                                <input value={search} onChange={e => setSearch(e.target.value)} placeholder={rhTab === 'ferias' ? 'Buscar em férias por nome' : 'Buscar funcionário por nome, cargo ou área'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
                             </div>
                         </div>
 
                         <div id="tabela">
-                            {rhTab === 'func_presente' && <TabPresente funcionarios={presentes} search={search} />}
-                            {rhTab === 'func_ferias' && <TabFerias funcionarios={ferias} search={search} />}
+                            {rhTab === 'presente' && <TabPresente funcionarios={presentes} search={search} />}
+                            {rhTab === 'ferias' && <TabFerias funcionarios={ferias} search={search} />}
                         </div>
                     </div>
                 </div>

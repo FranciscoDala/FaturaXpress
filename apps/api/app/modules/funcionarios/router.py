@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import uuid
 from typing import List
@@ -17,3 +17,25 @@ def criar(dados: FuncionarioCreate, db: Session = Depends(get_db), company_id: u
 @router.get("", response_model=List[FuncionarioResponse])
 def listar(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return func_service.listar_funcionarios(db, company_id)
+
+@router.get("/{funcionario_id}", response_model=FuncionarioResponse)
+def obter(funcionario_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    func = func_service.obter_funcionario(db, company_id, funcionario_id)
+    if not func:
+        raise HTTPException(404, "Funcionário não encontrado")
+    return func
+
+@router.patch("/{funcionario_id}", response_model=FuncionarioResponse)
+def atualizar(funcionario_id: uuid.UUID, dados: FuncionarioUpdate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    func = func_service.obter_funcionario(db, company_id, funcionario_id)
+    if not func:
+        raise HTTPException(404, "Funcionário não encontrado")
+    return func_service.atualizar_funcionario(db, func, dados, company_id)
+
+@router.delete("/{funcionario_id}", status_code=204)
+def desativar(funcionario_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    func = func_service.obter_funcionario(db, company_id, funcionario_id)
+    if not func:
+        raise HTTPException(404, "Funcionário não encontrado")
+    func_service.desativar_funcionario(db, func)
+    return None

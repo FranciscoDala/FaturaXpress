@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import uuid
 from typing import List
@@ -22,6 +22,13 @@ def listar(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_cu
 def atualizar(area_id: uuid.UUID, dados: AreaUpdate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     area = db.query(Area).filter(Area.id == area_id, Area.company_id == company_id).first()
     if not area:
-        from fastapi import HTTPException
         raise HTTPException(404, "Área não encontrada")
     return area_service.atualizar_area(db, area, dados)
+
+@router.delete("/{area_id}", status_code=204)
+def desativar(area_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    area = db.query(Area).filter(Area.id == area_id, Area.company_id == company_id).first()
+    if not area:
+        raise HTTPException(404, "Área não encontrada")
+    area_service.desativar_area(db, area)
+    return None

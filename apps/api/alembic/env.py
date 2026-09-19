@@ -7,16 +7,17 @@ from alembic import context
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.core.config import settings
-from app.db.base import Base # <- CORRETO, todos os models usam esse
+from app.db.base import Base
 
-# IMPORTA TODOS OS MODELS
+# IMPORTA TODOS OS MODELS - ORDEM IMPORTA
 from app.modules.auth.models import Company, User
+from app.modules.areas.models import Area  # <- áreas ANTES de funcionários e fatura
 from app.modules.clients.models import Cliente
 from app.modules.products.models import Produto
+from app.modules.funcionarios.models import Funcionario, funcionario_areas
 from app.modules.fatura.models import Fatura, FaturaItem
 from app.modules.assinatura.models import Plan, Subscription
-from app.modules.areas.models import Area
-from app.modules.funcionarios.models import Funcionario, funcionario_areas
+from app.modules.auditoria.models import AtividadeLog  # <- FALTAVA ESSE
 
 config = context.config
 
@@ -38,7 +39,8 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        compare_type=True
+        compare_type=True,
+        compare_server_default=True
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -50,7 +52,12 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            compare_server_default=True
+        )
         with context.begin_transaction():
             context.run_migrations()
 

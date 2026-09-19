@@ -12,7 +12,7 @@ class FuncionarioCreate(BaseModel):
     areas_ids: List[UUID] = Field(default_factory=list)
 
 class FuncionarioUpdate(BaseModel):
-    nome: Optional[str] = None
+    nome: Optional[str] = Field(None, max_length=100)
     cargo: Optional[str] = None
     area_principal_id: Optional[UUID] = None
     areas_ids: Optional[List[UUID]] = None
@@ -27,5 +27,6 @@ class FuncionarioResponse(BaseModel):
     area_principal_id: Optional[UUID] = None
     ativo: bool
     created_at: datetime
+    updated_at: datetime
     class Config:
         from_attributes = True

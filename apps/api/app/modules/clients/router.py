@@ -13,7 +13,6 @@ from app.modules.realtime.manager import manager
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/clientes", tags=["Clientes"])
 
-# NOVO - CONSULTA NIF ANTES DE ABRIR O FORM
 @router.post("/validar-nif", response_model=ClienteValidarNifResponse)
 def validar_nif_cliente(
     payload: ClienteValidarNifRequest,

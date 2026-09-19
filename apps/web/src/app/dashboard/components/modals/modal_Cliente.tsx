@@ -182,6 +182,17 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
             toast.error("Digite NIF ex: 5002063956 ou 999999999", { position: 'top-center' })
             return
         }
+        // CONSUMIDOR FINAL sempre permite
+        if (nifClean === "999999999") {
+            setAgtData({ nome: "CONSUMIDOR FINAL", tipo: "CONSUMIDOR", estado: "Activo" })
+            setForm(prev => ({...prev, nome: "CONSUMIDOR FINAL", nif: nifClean }))
+            setNifValidated(true)
+            setNifExists(false)
+            setClienteExistente(null)
+            toast.success("NIF 999999999 - Consumidor final", { position: 'top-center' })
+            return
+        }
+
         setValidatingNif(true)
         setAgtOffline(false)
         try {
@@ -220,6 +231,7 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                 const localRes = await api.post('/api/clientes/validar-nif', { nif: nifClean })
                 const localData = localRes.data
                 if (localData.exists && localData.cliente) {
+                    // TRAVA - NAO DEIXA CRIAR COM NIF REPETIDO
                     setNifExists(true)
                     setClienteExistente(localData.cliente)
                     setForm({
@@ -231,20 +243,21 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                         cidade: localData.cliente.cidade || '',
                         provincia: localData.cliente.provincia || ''
                     })
-                    toast.success(`Cliente já existe: ${localData.cliente.nome}`, { position: 'top-center' })
+                    toast.error(`NIF já cadastrado: ${localData.cliente.nome}`, { description: `Este NIF ${nifClean} já existe. Não pode duplicar.`, position: 'top-center' })
+                    setNifValidated(true) // mostra o card mas bloqueia save
                 } else {
                     setNifExists(false)
                     setClienteExistente(null)
                     setForm(prev => ({...prev, nome: agtResult!.nome_agt, nif: nifClean }))
                     toast.success(`NIF validado: ${agtResult.nome_agt}`, { position: 'top-center' })
+                    setNifValidated(true)
                 }
             } catch {
                 setNifExists(false)
                 setForm(prev => ({...prev, nome: agtResult!.nome_agt, nif: nifClean }))
                 toast.success(`NIF validado: ${agtResult.nome_agt}`, { position: 'top-center' })
+                setNifValidated(true)
             }
-
-            setNifValidated(true)
 
         } catch (err: any) {
             const msg = err?.message || ''
@@ -278,6 +291,15 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
             return
         }
 
+        // SE NIF JA EXISTE E NAO É EDICAO, BLOQUEIA TOTAL
+        if (!isEditMode && nifExists && clienteExistente) {
+            toast.error(`NIF já cadastrado: ${clienteExistente.nome}`, {
+                description: `Este NIF ${form.nif} já está cadastrado. Não pode criar duplicado.`,
+                position: 'top-center'
+            })
+            return
+        }
+
         // VALIDACAO DOS INPUTS ABAIXO - igual register
         if (!form.email.trim()) {
             toast.error("Preencha o email do cliente", { position: 'top-center' })
@@ -303,14 +325,12 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
         setLoading(true)
         try {
             if (isEditMode && cliente) {
+                // edicao - nao manda nome/nif
                 const payload = { email: form.email.trim(), telefone: form.telefone.trim(), endereco: form.endereco.trim(), cidade: form.cidade.trim(), provincia: form.provincia.trim() }
                 await api.put(`/api/clientes/${cliente.id}`, payload)
                 toast.success('Cliente atualizado', { position: 'top-center' })
-            } else if (nifExists && clienteExistente) {
-                const payload = { email: form.email.trim(), telefone: form.telefone.trim(), endereco: form.endereco.trim(), cidade: form.cidade.trim(), provincia: form.provincia.trim() }
-                await api.put(`/api/clientes/${clienteExistente.id}`, payload)
-                toast.success('Cliente atualizado', { position: 'top-center' })
             } else {
+                // criacao - so se NIF novo ou 999999999
                 const payload = {
                   nome: (agtData?.nome || form.nome).trim(),
                   nif: form.nif.trim(),
@@ -326,7 +346,6 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
             onSuccess()
             onClose()
         } catch (err: any) {
-            // FIX TELA PRETA - nunca renderiza objeto
             const detail = err.response?.data?.detail
             let msg = 'Erro ao salvar cliente'
             if (Array.isArray(detail)) {
@@ -360,13 +379,13 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                 <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
                     <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{isEditMode? 'Editar Cliente' : 'Novo Cliente'}</h3>
                     <p className="text-[13.5px] text-gray-500 mt-1 leading-relaxed">
-                        {isEditMode? 'Nome e NIF não podem ser alterados.' : nifValidated? (isNaoActivo? 'Cliente não activo - será fatura avulso' : nifExists? `Cliente já cadastrado: ${clienteExistente?.nome}` : 'Preencha os dados para criar') : 'Adiciona o NIF do cliente para ser validado no Contribuinte da Administração Geral Tributária!'}
+                        {isEditMode? 'Nome e NIF não podem ser alterados.' : nifValidated? (isNaoActivo? 'Cliente não activo - será fatura avulso' : nifExists? `NIF já cadastrado: ${clienteExistente?.nome} - não pode duplicar` : 'Preencha os dados para criar') : 'Adiciona o NIF do cliente para ser validado no Contribuinte da Administração Geral Tributária!'}
                     </p>
                     {nifValidated && (
-                        <div className={`mt-[8px] flex items-center gap-1.5 px-3 py-1.5 rounded-full border w-fit ${isNaoActivo? 'bg-red-50 border-red-200' : nifExists? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
-                            {isNaoActivo? <AlertTriangle className="w-3.5 h-3.5 text-red-600" /> : nifExists? <AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> : <CheckCircle className="w-3.5 h-3.5 text-green-600" />}
-                            <span className={`text-[11px] font-semibold ${isNaoActivo? 'text-red-700' : nifExists? 'text-amber-700' : 'text-green-700'}`}>
-                                {isNaoActivo? 'Cliente não activo - fatura avulso' : nifExists? 'Cliente já existe' : `NIF validado pela AGT`}
+                        <div className={`mt-[8px] flex items-center gap-1.5 px-3 py-1.5 rounded-full border w-fit ${isNaoActivo? 'bg-red-50 border-red-200' : nifExists? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                            {isNaoActivo? <AlertTriangle className="w-3.5 h-3.5 text-red-600" /> : nifExists? <AlertTriangle className="w-3.5 h-3.5 text-red-600" /> : <CheckCircle className="w-3.5 h-3.5 text-green-600" />}
+                            <span className={`text-[11px] font-semibold ${isNaoActivo? 'text-red-700' : nifExists? 'text-red-700' : 'text-green-700'}`}>
+                                {isNaoActivo? 'Cliente não activo - fatura avulso' : nifExists? 'NIF já existe - não pode duplicar' : `NIF validado pela AGT`}
                             </span>
                         </div>
                     )}
@@ -394,33 +413,34 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                         ) : (
                             <>
                                 {agtData && (
-                                    <div className={`${isNaoActivo? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'} border rounded-[12px] p-3.5 text-[12.5px] leading-[1.6]`}>
-                                        <div><span className={`${isNaoActivo? 'text-red-800/70' : 'text-green-800/70'} font-medium`}>Nome:</span> <span className={`font-bold uppercase ${isNaoActivo? 'text-red-900' : 'text-green-900'}`}>{agtData.nome}</span></div>
-                                        <div><span className={`${isNaoActivo? 'text-red-800/70' : 'text-green-800/70'} font-medium`}>Tipo:</span> <span className={`font-semibold ${isNaoActivo? 'text-red-800' : 'text-green-800'}`}>{agtData.tipo || "SINGULAR"}</span></div>
-                                        <div><span className={`${isNaoActivo? 'text-red-800/70' : 'text-green-800/70'} font-medium`}>Estado:</span> <span className={`font-bold ${isNaoActivo? 'text-red-700' : 'text-green-700'}`}>{agtData.estado || "Activo"}</span></div>
+                                    <div className={`${isNaoActivo? 'bg-red-50 border-red-200' : nifExists? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'} border rounded-[12px] p-3.5 text-[12.5px] leading-[1.6]`}>
+                                        <div><span className={`${isNaoActivo? 'text-red-800/70' : nifExists? 'text-red-800/70' : 'text-green-800/70'} font-medium`}>Nome:</span> <span className={`font-bold uppercase ${isNaoActivo? 'text-red-900' : nifExists? 'text-red-900' : 'text-green-900'}`}>{agtData.nome}</span></div>
+                                        <div><span className={`${isNaoActivo? 'text-red-800/70' : nifExists? 'text-red-800/70' : 'text-green-800/70'} font-medium`}>Tipo:</span> <span className={`font-semibold ${isNaoActivo? 'text-red-800' : nifExists? 'text-red-800' : 'text-green-800'}`}>{agtData.tipo || "SINGULAR"}</span></div>
+                                        <div><span className={`${isNaoActivo? 'text-red-800/70' : nifExists? 'text-red-800/70' : 'text-green-800/70'} font-medium`}>Estado:</span> <span className={`font-bold ${isNaoActivo? 'text-red-700' : nifExists? 'text-red-700' : 'text-green-700'}`}>{agtData.estado || "Activo"}</span></div>
                                         {isNaoActivo && <div className="mt-2 text-[11px] font-semibold text-red-700">⚠️ Este cliente não está activo - fatura será avulso no SAFT</div>}
+                                        {nifExists &&!isEditMode && <div className="mt-2 text-[11px] font-semibold text-red-700">⛔ Este NIF já está cadastrado como {clienteExistente?.nome}. Não pode criar duplicado.</div>}
                                     </div>
                                 )}
                                 <form id="form-cliente" onSubmit={handleSubmit} className="flex flex-col gap-[5px] mt-[5px]">
                                     <input type="hidden" value={form.nif} readOnly />
                                     <input type="hidden" value={form.nome} readOnly />
                                     <div className="relative">
-                                        <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="Email *" className={inputWithIcon} />
+                                        <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="Email *" className={inputWithIcon} disabled={nifExists &&!isEditMode} />
                                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                     </div>
                                     <div className="grid grid-cols-2 gap-[5px]">
                                         <div className="relative">
-                                            <input name="telefone" value={form.telefone} onChange={handleChange} placeholder="Telefone *" className={`${inputClass} pl-10`} />
+                                            <input name="telefone" value={form.telefone} onChange={handleChange} placeholder="Telefone *" className={`${inputClass} pl-10`} disabled={nifExists &&!isEditMode} />
                                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                         </div>
                                         <div className="relative">
-                                            <input name="endereco" value={form.endereco} onChange={handleChange} placeholder="Endereço *" className={`${inputClass} pl-10`} />
+                                            <input name="endereco" value={form.endereco} onChange={handleChange} placeholder="Endereço *" className={`${inputClass} pl-10`} disabled={nifExists &&!isEditMode} />
                                             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-[5px]">
-                                        <CustomSelect value={form.provincia} onChange={handleProvinceChange} placeholder="Província *" options={PROVINCIAS.map(p => ({ value: p, label: p }))} />
-                                        <CustomSelect value={form.cidade} onChange={handleCityChange} placeholder={form.provincia? "Município *" : "Município *"} options={municipiosDisponiveis.map(m => ({ value: m, label: m }))} disabled={!form.provincia} />
+                                        <CustomSelect value={form.provincia} onChange={handleProvinceChange} placeholder="Província *" options={PROVINCIAS.map(p => ({ value: p, label: p }))} disabled={nifExists &&!isEditMode} />
+                                        <CustomSelect value={form.cidade} onChange={handleCityChange} placeholder={form.provincia? "Município *" : "Município *"} options={municipiosDisponiveis.map(m => ({ value: m, label: m }))} disabled={!form.provincia || (nifExists &&!isEditMode)} />
                                     </div>
                                 </form>
                             </>
@@ -428,7 +448,6 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                     </div>
                 </div>
 
-                {/* FOOTER COM MESMO BOTAO - 2 FUNCOES */}
                 <div className="shrink-0 bg-white border-t border-gray-100 p-4 px-6 flex gap-3">
                     <button type="button" onClick={onClose} className="w-11 h-11 rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center shrink-0">
                         <X className="w-5 h-5" />
@@ -436,13 +455,17 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                     <button
                         type="button"
                         onClick={nifValidated? (e) => handleSubmit(e as any) : handleValidarNif}
-                        disabled={validatingNif || loading || (!nifValidated &&!form.nif)}
-                        className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center gap-2 disabled:opacity-60 transition"
+                        disabled={validatingNif || loading || (!nifValidated &&!form.nif) || (!isEditMode && nifExists)}
+                        className={`flex-1 h-11 rounded-full font-semibold flex items-center justify-center gap-2 transition ${(!isEditMode && nifExists)? 'bg-red-100 text-red-700 border border-red-200 cursor-not-allowed' : 'bg-[#0095ff] text-white hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)]'} disabled:opacity-60`}
                     >
                         {validatingNif || loading? (
                             <Loader2 className="w-5 h-5 animate-spin" />
                         ) : nifValidated? (
-                            <Check className="w-5 h-5" />
+                            (!isEditMode && nifExists)? (
+                                <><AlertTriangle className="w-5 h-5" /> NIF já existe</>
+                            ) : (
+                                <Check className="w-5 h-5" />
+                            )
                         ) : (
                             <>
                                 <span>{agtOffline? "Tentar novamente" : "Consultar NIF"}</span>

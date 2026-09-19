@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { X, Check, UserPlus, ChevronDown, Lock, Briefcase, Building2, Info, Settings, Shield, MapPin } from 'lucide-react'
+import { X, Check, UserPlus, ChevronDown, Lock, Briefcase, Building2, Info, Settings, Shield, MapPin, Landmark } from 'lucide-react'
 import { toast } from 'sonner'
 
 const CARGOS = [
@@ -19,6 +19,27 @@ const ESTADO_CIVIL = [
     { value: 'casado', label: 'Casado(a)' },
     { value: 'divorciado', label: 'Divorciado(a)' },
     { value: 'viuvo', label: 'Viúvo(a)' },
+]
+
+const BANCOS_ANGOLA = [
+    "BAI - Banco Angolano de Investimentos",
+    "BFA - Banco de Fomento Angola",
+    "BIC - Banco BIC",
+    "BPC - Banco de Poupança e Crédito",
+    "BCI - Banco de Comércio e Indústria",
+    "BNI - Banco de Negócios Internacional",
+    "BMA - Banco Millennium Atlântico",
+    "BCA - Banco Caixa Geral Angola",
+    "SOL - Banco Sol",
+    "SBA - Standard Bank Angola",
+    "BE - Banco Económico",
+    "BVB - Banco Valor",
+    "BCS - Banco de Crédito do Sul",
+    "BCH - Banco Comercial do Huambo",
+    "BPG - Banco Prestígio",
+    "BMF - Banco BAI Micro Finanças",
+    "BIR - Banco de Investimento Rural",
+    "FNB - First National Bank Angola",
 ]
 
 const AREAS_MOCK = [
@@ -80,7 +101,10 @@ interface FuncionarioForm {
     cidade: string
     provincia: string
     nif: string
-    iban: string
+    banco1?: string
+    banco2?: string
+    iban?: string
+    iban2?: string
     contacto_emergencia: string
     tem_acesso: boolean
     senha: string
@@ -97,7 +121,6 @@ interface Props {
     onSave: (data: any) => void
 }
 
-// MESMO SELECT DA MODAL CLIENTE
 function CustomSelect({ value, options, onChange, placeholder, disabled, icon: Icon }: { value: string, options: { value: string, label: string }[], onChange: (v: string) => void, placeholder: string, disabled?: boolean, icon?: any }) {
     const [open, setOpen] = useState(false)
     const ref = useRef<HTMLDivElement>(null)
@@ -110,7 +133,7 @@ function CustomSelect({ value, options, onChange, placeholder, disabled, icon: I
     return (
         <div ref={ref} className="relative w-full">
             <button type="button" disabled={disabled} onClick={() => !disabled && setOpen(!open)} className={`w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black flex items-center justify-between focus:outline-none focus:border-[#0095ff] transition ${disabled ? 'opacity-60 bg-gray-50 cursor-not-allowed' : ''}`}>
-                <span className={`flex items-center gap-2 ${selected ? 'text-black' : 'text-black/60'}`}>
+                <span className={`flex items-center gap-2 truncate ${selected ? 'text-black' : 'text-black/60'}`}>
                     {Icon ? <Icon className="w-4 h-4 text-gray-400" /> : <MapPin className="w-4 h-4 text-gray-400" />}
                     {selected ? selected.label : placeholder}
                 </span>
@@ -123,6 +146,37 @@ function CustomSelect({ value, options, onChange, placeholder, disabled, icon: I
                             {o.label} {value === o.value && <Check className="w-4 h-4 text-[#0095ff]" />}
                         </button>
                     ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
+function BancoSelect({ value, onChange, placeholder }: { value?: string, onChange: (v: string | undefined) => void, placeholder: string }) {
+    const [open, setOpen] = useState(false)
+    const ref = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+        const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+        document.addEventListener('mousedown', h)
+        return () => document.removeEventListener('mousedown', h)
+    }, [])
+    return (
+        <div ref={ref} className="relative w-full">
+            <button type="button" onClick={() => setOpen(!open)} className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black flex items-center justify-between focus:outline-none focus:border-[#0095ff] transition">
+                <span className="flex items-center gap-2 truncate">
+                    <Landmark className="w-4 h-4 text-gray-500 shrink-0" />
+                    <span className={value ? 'text-black' : 'text-black/40'}>{value || placeholder}</span>
+                </span>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+            </button>
+            {open && (
+                <div className="absolute z-50 top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5 max-h-[220px] overflow-y-auto no-scrollbar">
+                    {BANCOS_ANGOLA.map(b => (
+                        <button key={b} type="button" onClick={() => { onChange(b); setOpen(false) }} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[12.5px] flex items-center justify-between transition ${value === b ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-50 text-gray-700'}`}>
+                            {b} {value === b && <Check className="w-4 h-4 text-[#0095ff]" />}
+                        </button>
+                    ))}
+                    <button type="button" onClick={() => { onChange(undefined); setOpen(false) }} className="w-full text-left px-3 py-2.5 rounded-[10px] text-[12.5px] text-red-500 hover:bg-red-50">Limpar seleção</button>
                 </div>
             )}
         </div>
@@ -175,7 +229,7 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
     const [form, setForm] = useState<FuncionarioForm>({
         nome: '', numero_bi: '', data_nascimento: '', genero: '', nacionalidade: 'Angolana', naturalidade: '', nome_pai: '', nome_mae: '',
         data_emissao_bi: '', data_validade_bi: '', local_emissao_bi: '',
-        estado_civil: 'solteiro', telefone: '', email: '', endereco: '', cidade: '', provincia: '', nif: '', iban: '', contacto_emergencia: '',
+        estado_civil: 'solteiro', telefone: '', email: '', endereco: '', cidade: '', provincia: '', nif: '', banco1: '', banco2: '', iban: '', iban2: '', contacto_emergencia: '',
         tem_acesso: false, senha: '', cargo: 'rh', area_principal_id: '', areas_ids: []
     })
 
@@ -201,7 +255,10 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
                     cidade: funcionario.cidade || '',
                     provincia: funcionario.provincia || '',
                     nif: funcionario.nif || '',
+                    banco1: funcionario.banco1 || funcionario.banco || '',
+                    banco2: funcionario.banco2 || '',
                     iban: funcionario.iban || '',
+                    iban2: funcionario.iban2 || '',
                     contacto_emergencia: funcionario.contacto_emergencia || '',
                     tem_acesso: funcionario.tem_acesso || !!funcionario.email,
                     senha: '',
@@ -213,7 +270,7 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
                 setForm({
                     nome: '', numero_bi: '', data_nascimento: '', genero: '', nacionalidade: 'Angolana', naturalidade: '', nome_pai: '', nome_mae: '',
                     data_emissao_bi: '', data_validade_bi: '', local_emissao_bi: '',
-                    estado_civil: 'solteiro', telefone: '', email: '', endereco: '', cidade: '', provincia: '', nif: '', iban: '', contacto_emergencia: '',
+                    estado_civil: 'solteiro', telefone: '', email: '', endereco: '', cidade: '', provincia: '', nif: '', banco1: '', banco2: '', iban: '', iban2: '', contacto_emergencia: '',
                     tem_acesso: false, senha: '', cargo: 'rh', area_principal_id: '', areas_ids: []
                 })
             }
@@ -254,7 +311,9 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
             nome_pai: form.nome_pai, nome_mae: form.nome_mae,
             data_emissao_bi: form.data_emissao_bi || null, data_validade_bi: form.data_validade_bi || null, local_emissao_bi: form.local_emissao_bi || null,
             estado_civil: form.estado_civil, telefone: form.telefone, email: form.tem_acesso ? form.email : null,
-            endereco: form.endereco, cidade: form.cidade, provincia: form.provincia, nif: form.nif, iban: form.iban, contacto_emergencia: form.contacto_emergencia,
+            endereco: form.endereco, cidade: form.cidade, provincia: form.provincia, nif: form.nif,
+            banco1: form.banco1, banco2: form.banco2, iban: form.iban, iban2: form.iban2,
+            contacto_emergencia: form.contacto_emergencia,
             tem_acesso: form.tem_acesso, senha: form.tem_acesso ? form.senha : undefined, cargo: form.cargo, area_principal_id: form.area_principal_id || null, areas_ids: form.areas_ids
         })
     }
@@ -274,7 +333,7 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
 
                 <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
                     <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{funcionario ? 'Editar Funcionário' : 'Novo Funcionário'}</h3>
-                    <p className="text-[13.5px] text-gray-500 mt-1">Cadastro completo via BI - igual cliente AGT</p>
+                    <p className="text-[13.5px] text-gray-500 mt-1">Cadastro completo via BI - banco igual empresa</p>
                     <div className="flex gap-[2px] mt-4 overflow-x-auto no-scrollbar">
                         <TabButton id="obrigatorio" label="Obrigatórios" icon={Info} />
                         <TabButton id="opcional" label="Opcionais" icon={Settings} />
@@ -303,7 +362,6 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
                                 </div>
                                 <input value={form.nome_pai} onChange={e => setForm({ ...form, nome_pai: e.target.value })} placeholder="Nome do Pai *" className={inputClass} />
                                 <input value={form.nome_mae} onChange={e => setForm({ ...form, nome_mae: e.target.value })} placeholder="Nome da Mãe *" className={inputClass} />
-
                                 <div className="h-[1px] bg-gray-100 my-3" />
                                 <p className="text-[11px] font-bold tracking-widest text-black mb-2">DADOS DO BI</p>
                                 <div className="grid grid-cols-2 gap-[2px]">
@@ -315,18 +373,36 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
                         )}
 
                         {tab === 'opcional' && (
-                            <div className="flex flex-col gap-[5px]">
-                                <div className="grid grid-cols-2 gap-[5px]">
+                            <div className="flex flex-col gap-[2px]">
+                                <div className="grid grid-cols-2 gap-[2px]">
                                     <input value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })} placeholder="Telefone" className={inputClass} />
                                     <input value={form.nif} onChange={e => setForm({ ...form, nif: e.target.value })} placeholder="NIF (opcional)" className={inputClass} />
                                 </div>
                                 <input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} type="email" placeholder="Email pessoal" className={inputClass} />
                                 <input value={form.endereco} onChange={e => setForm({ ...form, endereco: e.target.value })} placeholder="Endereço" className={inputClass} />
-                                <div className="grid grid-cols-2 gap-[5px]">
-                                    <CustomSelect value={form.provincia} onChange={handleProvinceChange} placeholder="Província *" options={PROVINCIAS.map(p => ({ value: p, label: p }))} />
-                                    <CustomSelect value={form.cidade} onChange={handleCityChange} placeholder={form.provincia ? "Município *" : "Selecione província"} options={municipiosDisponiveis.map(m => ({ value: m, label: m }))} disabled={!form.provincia} />
+                                <div className="grid grid-cols-2 gap-[2px]">
+                                    <CustomSelect value={form.provincia} onChange={handleProvinceChange} placeholder="Província" options={PROVINCIAS.map(p => ({ value: p, label: p }))} icon={MapPin} />
+                                    <CustomSelect value={form.cidade} onChange={handleCityChange} placeholder={form.provincia ? "Município" : "Selecione província"} options={municipiosDisponiveis.map(m => ({ value: m, label: m }))} disabled={!form.provincia} icon={MapPin} />
                                 </div>
-                                <input value={form.iban} onChange={e => setForm({ ...form, iban: e.target.value })} placeholder="IBAN (opcional)" className={inputClass} />
+
+                                <div className="h-[1px] bg-gray-100 my-3" />
+                                <p className="text-[11px] font-bold tracking-widest text-black mb-2">DADOS BANCÁRIOS</p>
+
+                                <div className="flex flex-col gap-[2px]">
+                                    <BancoSelect value={form.banco1} onChange={(v) => setForm({ ...form, banco1: v, iban: v ? form.iban : '' })} placeholder="Selecionar banco 1" />
+                                    {form.banco1 && (
+                                        <input value={form.iban || ''} onChange={e => setForm({ ...form, iban: e.target.value })} placeholder={`IBAN - ${form.banco1.split('-')[0].trim()}`} className={inputClass} />
+                                    )}
+                                </div>
+
+                                <div className="flex flex-col gap-[2px] mt-[2px]">
+                                    <BancoSelect value={form.banco2} onChange={(v) => setForm({ ...form, banco2: v, iban2: v ? form.iban2 : '' })} placeholder="Selecionar banco 2 (opcional)" />
+                                    {form.banco2 && (
+                                        <input value={form.iban2 || ''} onChange={e => setForm({ ...form, iban2: e.target.value })} placeholder={`IBAN - ${form.banco2.split('-')[0].trim()}`} className={inputClass} />
+                                    )}
+                                </div>
+
+                                <div className="h-[1px] bg-gray-100 my-3" />
                                 <input value={form.contacto_emergencia} onChange={e => setForm({ ...form, contacto_emergencia: e.target.value })} placeholder="Contacto emergência" className={inputClass} />
                             </div>
                         )}
@@ -337,11 +413,7 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
                                     <input type="checkbox" checked={form.tem_acesso} onChange={e => setForm({ ...form, tem_acesso: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
                                     <span className="text-[12px] text-black font-medium">Terá acesso ao app? (login BI + senha)</span>
                                 </label>
-
-                                {!form.tem_acesso && (
-                                    <p className="text-[12px] text-gray-500 bg-gray-50 p-3 rounded-[12px] border border-gray-200 mt-1">Sem acesso: só cadastro RH, não faz login.</p>
-                                )}
-
+                                {!form.tem_acesso && <p className="text-[12px] text-gray-500 bg-gray-50 p-3 rounded-[12px] border border-gray-200 mt-1">Sem acesso: só cadastro RH.</p>}
                                 {form.tem_acesso && (
                                     <>
                                         <div className="h-[1px] bg-gray-100 my-2" />

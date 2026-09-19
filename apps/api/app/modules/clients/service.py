@@ -79,8 +79,11 @@ def update_cliente(db: Session, cliente_id: uuid.UUID, cliente_update: ClienteUp
     db.refresh(db_cliente)
     return db_cliente
 
-def delete_cliente(db: Session, cliente_id: uuid.UUID, company_id: uuid.UUID):
+def delete_cliente(db, cliente_id, company_id):
     db_cliente = get_cliente_by_id(db, cliente_id, company_id)
+    from app.modules.fatura.models import Fatura
+    if db.query(Fatura).filter(Fatura.cliente_id == cliente_id).first():
+        raise HTTPException(400, "Não pode apagar cliente com faturas emitidas")
     db.delete(db_cliente)
     db.commit()
-    return {"message": "Cliente apagado com sucesso"}
+    return {"message": "Cliente apagado"}

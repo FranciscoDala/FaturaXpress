@@ -278,14 +278,33 @@ export default function DashboardPage() {
     const handleRequestDeleteCliente = (id: string) => { const c = clientes.find(x => x.id === id); setDeleteTarget({ type: 'cliente', id, nome: c?.nome || 'este cliente' }) }
     const handleRequestDeleteProduto = (p: Produto) => setDeleteTarget({ type: 'produto', id: p.id, nome: p.nome })
     const handleConfirmDelete = async () => {
-        if (!deleteTarget) return
-        setDeleting(true)
-        try {
-            if (deleteTarget.type === 'cliente') { await api.delete(`/api/clientes/${deleteTarget.id}`); toast.success('Cliente apagado', { description: `${deleteTarget.nome} foi removido.` }); fetchClientes(); fetchFaturasGeral() }
-            else { await api.delete(`/api/produtos/${deleteTarget.id}`); toast.success('Produto apagado', { description: `${deleteTarget.nome} foi removido.` }); fetchProdutos() }
-            setDeleteTarget(null)
-        } catch { toast.error('Erro ao apagar', { description: 'Tente novamente em alguns segundos.' }) } finally { setDeleting(false) }
-    }
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+        if (deleteTarget.type === 'cliente') {
+            await api.delete(`/api/clientes/${deleteTarget.id}`);
+            toast.success('Cliente apagado', { description: `${deleteTarget.nome} foi removido.` });
+            fetchClientes();
+            fetchFaturasGeral()
+        } else {
+            await api.delete(`/api/produtos/${deleteTarget.id}`);
+            toast.success('Produto apagado', { description: `${deleteTarget.nome} foi removido.` });
+            fetchProdutos()
+        }
+        setDeleteTarget(null)
+    } catch (err: any) {
+        const detail = err.response?.data?.detail || err.message
+        console.error("DELETE ERRO:", err.response?.data)
+
+        if (detail?.toLowerCase().includes("fatura") || detail?.toLowerCase().includes("saft")) {
+            toast.error('Não pode apagar', { description: 'Este cliente já tem faturas emitidas no SAFT.' })
+        } else if (err.response?.status === 500) {
+            toast.error('Erro no servidor', { description: 'Cliente tem movimentações, não pode ser apagado.' })
+        } else {
+            toast.error(detail || 'Erro ao apagar', { description: detail })
+        }
+    } finally { setDeleting(false) }
+}
 
     const handleSaveEmpresa = async (data: EmpresaFormFull) => {
         setSavingEmpresa(true)

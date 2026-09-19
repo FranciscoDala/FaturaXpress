@@ -206,19 +206,13 @@ export default function EmitirFaturaPage() {
                                         <p className="line-clamp-2"><span className="font-medium text-gray-500">Endereço:</span> {cliente?.endereco || '---'}{cliente?.cidade? ` • ${cliente.cidade}` : ''}{cliente?.provincia? ` • ${cliente.provincia}` : ''}</p>
                                     </div>
                                     <div className="mt-4 space-y-1">
-                                        <p className="text-[11px] text-gray-500">Total de faturas emitidas, PP, FT - {loadingCounts? '...' : `${totalDocsCliente} docs`}</p>
-                                        <p className="text-[11px] text-gray-500">Total Faturado FT - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingCounts? '...' : `${totalFaturadoCliente.toFixed(2)} KZ`}</span></p>
+                                        <p className="text-[11px] text-gray-500">Faturas emitidas - {loadingCounts? '...' : `${totalDocsCliente} docs`}</p>
+                                        <p className="text-[11px] text-gray-500">Total pago faturas(agt) - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingCounts? '...' : `${totalFaturadoCliente.toFixed(2)} KZ`}</span></p>
                                         <p className="text-[11px] text-gray-600 font-medium">
                                             Fatura FT - {loadingCounts? '...' : planInfo.max? `${faturasMes}/${planInfo.max} FT este mês` : `${faturasMes} FT este mês (Ilimitado)`}
                                         </p>
                                         {ncOrigensEmitidas.size > 0 && (
                                             <p className="text-[10px] text-gray-400">{ncOrigensEmitidas.size} FT anulada(s) por NC - conta 1 só</p>
-                                        )}
-                                        {isAtLimit && (
-                                            <div className="flex items-center gap-1.5 text-[11px] text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full max-w-[320px] mt-1">
-                                                <AlertTriangle className="w-3.5 h-3.5" />
-                                                Limite {planInfo.label} atingido. Proformas livres, FT bloqueada.
-                                            </div>
                                         )}
                                     </div>
                                 </div>

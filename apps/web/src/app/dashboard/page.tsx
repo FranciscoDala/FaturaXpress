@@ -391,7 +391,7 @@ export default function DashboardPage() {
                                     </div>
                                     <div className="mt-4 space-y-0 w-full">
                                         <p className="text-[11px] text-gray-500">Faturas emitidas - {loadingFaturas? '...' : `${totalDocs} docs`}</p>
-                                        <p className="text-[11px] text-gray-500">Total de faturas emititas há (agt) - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas? '...' : `${totalFaturado.toFixed(2)} KZ`}</span></p>
+                                        <p className="text-[11px] text-gray-500">Total pago faturas(agt) - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas? '...' : `${totalFaturado.toFixed(2)} KZ`}</span></p>
                                         <p className="text-[11px] text-gray-600 font-medium">
                                             Faturas por mês - {loadingFaturas? '...' : planInfo.max? `${faturasMes}(${planInfo.max}) este mês` : `${faturasMes}, este mês (Ilimitado)`}
                                         </p>

@@ -1,10 +1,10 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Pencil, Crown, Power } from 'lucide-react'
+import { User, Crown, Power } from 'lucide-react'
 import { toast } from 'sonner'
 import GlobalAreas from '../../components/GlobalAreas'
 import ModalConfirmSair from '../dashboard/components/modals/modal_ConfirmSair'
-import ModalEmpresa from '../dashboard/components/modals/modal_Empresa'
+import ModalUsuario from './components/modals/modal_UsuarioView'
 import { api } from '../../lib/api'
 
 const PLAN_LIMITS: Record<string, { label: string }> = {
@@ -22,11 +22,10 @@ const FUNC_MOCK = [
 export default function RHPage() {
   const navigate = useNavigate()
   const [empresa, setEmpresa] = useState<any>(null)
+  const [usuario, setUsuario] = useState<any>(null)
   const [companyName, setCompanyName] = useState(localStorage.getItem("company_name") || '')
   const [modalSairOpen, setModalSairOpen] = useState(false)
-  const [modalEmpresaOpen, setModalEmpresaOpen] = useState(false)
-  const [savingEmpresa, setSavingEmpresa] = useState(false)
-  const [formEmpresa, setFormEmpresa] = useState<any>({})
+  const [modalUsuarioOpen, setModalUsuarioOpen] = useState(false)
 
   const logoUrlSafe = useMemo(() => {
     const raw = empresa?.logo_url || empresa?.image_url || ''
@@ -37,45 +36,30 @@ export default function RHPage() {
   const planId = (empresa?.subscription_plan || 'free').toLowerCase()
   const planInfo = PLAN_LIMITS[planId] || PLAN_LIMITS.free
 
-  const fetchEmpresa = useCallback(async () => {
+  const fetchMe = useCallback(async () => {
     try {
       const r = await api.get('/api/auth/me')
       const comp = r.data.company || r.data
+      const user = r.data.user || r.data
       setEmpresa(comp)
+      setUsuario(user)
       const nome = comp.nome || comp.companyName || localStorage.getItem("company_name")
       if (nome) { setCompanyName(nome); localStorage.setItem("company_name", nome) }
-      setFormEmpresa({
-        companyName: comp.nome || comp.companyName || '',
-        nif: comp.nif || '', email: comp.email || '', phone: comp.telefone || comp.phone || '',
-        address: comp.endereco || comp.address || '', city: comp.cidade || comp.city || '',
-        province: comp.provincia || comp.province || '', iban: comp.iban || '', iban2: comp.iban2 || '',
-        banco1: comp.banco1 || '', banco2: comp.banco2 || '', logo_url: comp.logo_url || '', image_url: comp.image_url || ''
-      })
     } catch {}
   }, [])
 
-  useEffect(() => { fetchEmpresa() }, [fetchEmpresa])
+  useEffect(() => { fetchMe() }, [fetchMe])
 
   const handleLogout = () => setModalSairOpen(true)
   const handleConfirmLogout = () => { localStorage.clear(); toast.success("Sessão encerrada"); setModalSairOpen(false); navigate('/login') }
-
-  const handleSaveEmpresa = async (data: any) => {
-    setSavingEmpresa(true)
-    try {
-      if (data.logoFile) { const fd = new FormData(); fd.append('logo', data.logoFile); await api.put('/api/auth/company/logo', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) }
-      await api.put('/api/auth/company', { companyName: data.companyName, nif: data.nif, email: data.email, phone: data.phone, address: data.address, city: data.city, province: data.province, banco1: data.banco1, banco2: data.banco2, iban: data.iban, iban2: data.iban2 })
-      toast.success('Empresa atualizada'); setModalEmpresaOpen(false); fetchEmpresa()
-    } catch (e: any) { toast.error('Erro ao atualizar') } finally { setSavingEmpresa(false) }
-  }
 
   return (
     <div className="min-h-screen bg-white relative">
       <GlobalAreas />
       <ModalConfirmSair open={modalSairOpen} companyName={companyName} onClose={() => setModalSairOpen(false)} onConfirm={handleConfirmLogout} />
-      <ModalEmpresa open={modalEmpresaOpen} initialData={formEmpresa} saving={savingEmpresa} onClose={() => setModalEmpresaOpen(false)} onSave={handleSaveEmpresa} />
+      <ModalUsuario open={modalUsuarioOpen} usuario={usuario} empresa={empresa} onClose={() => setModalUsuarioOpen(false)} />
 
       <div className="max-w-[1100px] mx-auto">
-        {/* HEADER IGUAL DASHBOARD - 100% */}
         <div className="relative px-4 sm:px-8 lg:px-12 pt-6 pb-6 border-b border-gray-100 overflow-hidden bg-gradient-to-br from-[#E8F2FF] via-[#F0F7FF] to-white">
           <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
             <div className="bubble bubble-1"></div><div className="bubble bubble-2"></div><div className="bubble bubble-3"></div><div className="bubble bubble-4"></div><div className="bubble bubble-5"></div><div className="bubble bubble-6"></div>
@@ -86,8 +70,9 @@ export default function RHPage() {
                 <img src={logoUrlSafe || `https://ui-avatars.com/api/?name=${encodeURIComponent(companyName || 'FX')}&background=E5E7EB&color=374151&size=132}`} className="w-full h-full object-cover" alt={companyName} />
               </div>
               <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-[2px] border-white shadow" style={{ background: empresa?.is_active === false? '#ef4444' : '#22c55e' }}></div>
-              <button onClick={() => setModalEmpresaOpen(true)} className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-white border shadow flex items-center justify-center hover:bg-gray-50">
-                <Pencil className="w-3.5 h-3.5 text-gray-700" />
+              {/* ICONE USUARIO AGORA */}
+              <button onClick={() => setModalUsuarioOpen(true)} className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-white border shadow flex items-center justify-center hover:bg-gray-50">
+                <User className="w-3.5 h-3.5 text-gray-700" />
               </button>
             </div>
             <div className="flex-1 w-full min-w-0">
@@ -120,28 +105,20 @@ export default function RHPage() {
                   </button>
                 </div>
               </div>
-              {/* TABS RH - MESMO ESTILO DASHBOARD */}
               <div className="mt-5 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
-                <button className="flex-1 py-2 bg-gray-50 text-[#0095ff]">
-                  <p className="text-[13px] font-bold">10</p><p className="text-[11px] text-gray-500">Ativos</p>
-                </button>
-                <button className="flex-1 py-2 border-l text-gray-800">
-                  <p className="text-[13px] font-bold">2</p><p className="text-[11px] text-gray-500">Férias</p>
-                </button>
-                <button className="flex-[0.6] border-l bg-white hover:bg-gray-50 text-gray-800 flex items-center justify-center">
-                  <span className="text-[12px] font-semibold">+ Novo</span>
-                </button>
+                <button className="flex-1 py-2 bg-gray-50 text-[#0095ff]"><p className="text-[13px] font-bold">10</p><p className="text-[11px] text-gray-500">Ativos</p></button>
+                <button className="flex-1 py-2 border-l text-gray-800"><p className="text-[13px] font-bold">2</p><p className="text-[11px] text-gray-500">Férias</p></button>
+                <button className="flex-[0.6] border-l bg-white hover:bg-gray-50 text-gray-800 flex items-center justify-center"><span className="text-[12px] font-semibold">+ Novo</span></button>
               </div>
             </div>
           </div>
           <style>{`
-           .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-           .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
+          .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; }
+          .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
             @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }
           `}</style>
         </div>
 
-        {/* CONTEUDO RH */}
         <div className="px-4 sm:px-8 lg:px-12 py-6 space-y-3">
           {FUNC_MOCK.map(f => (
             <div key={f.id} className="flex items-center gap-3 p-3 rounded-[16px] border border-gray-100 bg-white hover:shadow-[0_2px_12px_rgba(0,149,255,0.08)] transition">

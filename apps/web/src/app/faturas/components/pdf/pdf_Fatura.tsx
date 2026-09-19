@@ -46,9 +46,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
             const qtd = Number(it.quantidade?? it.qtd?? it.qty?? 1)
             const preco = Number(it.preco_unit_snapshot?? it.preco_unit?? it.preco?? 0)
             const descPerc = Number(it.desconto_perc?? it.desconto?? 0)
-            // FIX: respeita 0 - não usa || que transforma 0 em 14
-            const rawIva = it.taxa_iva?? it.iva?? it.iva_percent?? it.taxa?? it.iva_valor === 0? 0 : null
-            // fallback mais seguro: procura iva_percent direto do backend
             let ivaPerc: number
             if (it.iva_percent!== undefined && it.iva_percent!== null) ivaPerc = Number(it.iva_percent)
             else if (it.taxa_iva!== undefined && it.taxa_iva!== null) ivaPerc = Number(it.taxa_iva)
@@ -58,7 +55,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
             const bruto = qtd * preco
             const vDesc = bruto * (descPerc / 100)
             const base = bruto - vDesc
-            // Só calcula IVA se > 0
             const vIva = ivaPerc > 0? base * (ivaPerc / 100) : 0
             const total = base + vIva
             return {
@@ -126,7 +122,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
     const totalBase = Number(fatura?.subtotal || totais.liquido || 0).toFixed(2)
 
     const qrContent = (isOficial || isNC)
-     ? `A:${(emp.nif || '').toString().padStart(10, '0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco || 'Luanda').slice(0, 35)}*L1:${emp.cidade || 'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior || ''}`
+    ? `A:${(emp.nif || '').toString().padStart(10, '0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco || 'Luanda').slice(0, 35)}*L1:${emp.cidade || 'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior || ''}`
         : `${getNumero(fatura)}|${fatura?.id}`
 
     const tituloDoc = isNC? 'NOTA DE CRÉDITO' : isOficial? 'FACTURA' : 'FACTURA PROFORMA'
@@ -195,21 +191,41 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                 </div>
 
                 <div className="w-full mt-2">
-                    <table className="w-full border-collapse">
-                        <colgroup><col style={{ width: '14%' }} /><col style={{ width: '32%' }} /><col style={{ width: '7%' }} /><col style={{ width: '6%' }} /><col style={{ width: '13%' }} /><col style={{ width: '10%' }} /><col style={{ width: '6%' }} /><col style={{ width: '12%' }} /></colgroup>
-                        <thead><tr className="bg-[rgba(194,194,194,0.65)] text-[9px] font-bold"><th className="border border-[#999] py-[6px] px-1 text-left">REFERÊNCIA</th><th className="border border-[#999] py-[6px] px-1 text-left">PRODUTO / SERVIÇO</th><th className="border border-[#999] py-[6px]">QTD.</th><th className="border border-[#999] py-[6px]">UN.</th><th className="border border-[#999] py-[6px]">PREÇO UNIT.</th><th className="border border-[#999] py-[6px]">DESCONTO</th><th className="border border-[#999] py-[6px]">TAXA</th><th className="border border-[#999] py-[6px] text-right">VALOR (AKZ)</th></tr></thead>
+                    <table className="w-full border-collapse table-fixed">
+                        {/* FIX COLUNAS: Valor agora com 17% em vez de 12% */}
+                        <colgroup>
+                          <col style={{ width: '12%' }} />
+                          <col style={{ width: '28%' }} />
+                          <col style={{ width: '6%' }} />
+                          <col style={{ width: '6%' }} />
+                          <col style={{ width: '15%' }} />
+                          <col style={{ width: '9%' }} />
+                          <col style={{ width: '7%' }} />
+                          <col style={{ width: '17%' }} />
+                        </colgroup>
+                        <thead>
+                          <tr className="bg-[rgba(194,194,194,0.65)] text-[8px] font-bold">
+                            <th className="border border-[#999] py-[6px] px-1 text-left">REFERÊNCIA</th>
+                            <th className="border border-[#999] py-[6px] px-1 text-left">PRODUTO / SERVIÇO</th>
+                            <th className="border border-[#999] py-[6px]">QTD.</th>
+                            <th className="border border-[#999] py-[6px]">UN.</th>
+                            <th className="border border-[#999] py-[6px]">PREÇO UNIT.</th>
+                            <th className="border border-[#999] py-[6px]">DESCONTO</th>
+                            <th className="border border-[#999] py-[6px]">TAXA</th>
+                            <th className="border border-[#999] py-[6px] text-right">VALOR (AKZ)</th>
+                          </tr>
+                        </thead>
                         <tbody>
                             {itens.map((it: any, i: number) => (
-                                <tr key={i} className="text-[10px] h-[24px]">
-                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate">{it.referencia}</td>
-                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate">{it.nome_snapshot}</td>
+                                <tr key={i} className="text-[9px] h-[24px]">
+                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate overflow-hidden whitespace-nowrap">{it.referencia}</td>
+                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate overflow-hidden whitespace-nowrap" title={it.nome_snapshot}>{it.nome_snapshot}</td>
                                   <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.quantidade}</td>
                                   <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.unidade}</td>
-                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{fmt(it.preco_unit_snapshot)}</td>
-                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{it.desconto_perc > 0? fmt(it.desconto_valor) : ''}</td>
-                                  {/* FIX IVA */}
-                                  <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.taxa_iva === 0? 'Isento' : `${it.taxa_iva}%`}</td>
-                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)] font-semibold">{fmt(it.subtotal_linha)}</td>
+                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)] whitespace-nowrap tabular-nums">{fmt(it.preco_unit_snapshot)}</td>
+                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)] whitespace-nowrap tabular-nums">{it.desconto_perc > 0? fmt(it.desconto_valor) : ''}</td>
+                                  <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)] whitespace-nowrap">{it.taxa_iva === 0? 'Isento' : `${it.taxa_iva}%`}</td>
+                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)] font-semibold whitespace-nowrap tabular-nums overflow-hidden">{fmt(it.subtotal_linha)}</td>
                                 </tr>
                             ))}
                             {Array.from({ length: Math.max(0, 8 - itens.length) }).map((_, k) => (<tr key={k} className="h-[26px]"><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td></tr>))}
@@ -218,19 +234,29 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                 </div>
 
                 <div className="flex mt-2 gap-1">
-                    <div className="flex-1 border border-[#999]">
-                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[9px] font-bold"><div className="flex-1 border-r border-[#999] py-[5px] px-1">IMPOSTO</div><div className="w-[50px] border-r border-[#999] py-[5px] text-center">TAXA</div><div className="w-[80px] border-r border-[#999] py-[5px] text-center">INCIDÊNCIA</div><div className="w-[80px] py-[5px] text-center">VALOR</div></div>
+                    <div className="flex-1 border border-[#999] min-w-0">
+                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[8px] font-bold">
+                          <div className="flex-1 border-r border-[#999] py-[5px] px-1">IMPOSTO</div>
+                          <div className="w-[45px] border-r border-[#999] py-[5px] text-center">TAXA</div>
+                          <div className="w-[85px] border-r border-[#999] py-[5px] text-center">INCIDÊNCIA</div>
+                          <div className="w-[85px] py-[5px] text-center">VALOR</div>
+                        </div>
                         {Object.entries(totais.ivaPorTaxa).map(([taxa, d]: any) => {
                             const isIsento = taxa === 'Isento'
                             return (
-                            <div key={taxa} className="flex text-[9px]"><div className="flex-1 border-r border-[#999] py-[5px] px-1 bg-[rgba(255,255,255,0.40)]">{isIsento? '*M04 Isento' : `IVA ${taxa}`}</div><div className="w-[50px] border-r border-[#999] py-[5px] text-center bg-[rgba(255,255,255,0.40)]">{taxa}</div><div className="w-[80px] border-r border-[#999] py-[5px] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{fmt(d.incidencia)}</div><div className="w-[80px] py-[5px] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{fmt(d.valor)}</div></div>
+                            <div key={taxa} className="flex text-[8px]">
+                              <div className="flex-1 border-r border-[#999] py-[5px] px-1 bg-[rgba(255,255,255,0.40)] truncate">{isIsento? '*M04 Isento' : `IVA ${taxa}`}</div>
+                              <div className="w-[45px] border-r border-[#999] py-[5px] text-center bg-[rgba(255,255,255,0.40)] whitespace-nowrap">{taxa}</div>
+                              <div className="w-[85px] border-r border-[#999] py-[5px] text-right pr-1 bg-[rgba(255,255,255,0.40)] whitespace-nowrap tabular-nums">{fmt(d.incidencia)}</div>
+                              <div className="w-[85px] py-[5px] text-right pr-1 bg-[rgba(255,255,255,0.40)] whitespace-nowrap tabular-nums">{fmt(d.valor)}</div>
+                            </div>
                         )})}
                     </div>
-                    <div className="w-[240px] shrink-0">
-                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[10px] border border-[#999]"><div className="flex-1 py-[6px] px-1 text-right">Total Líquido</div><div className="w-[90px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[6px] text-right pr-1">{fmt(totais.liquido)}</div></div>
-                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[10px] border border-[#999] border-t-0"><div className="flex-1 py-[6px] px-1 text-right">Total Desconto</div><div className="w-[90px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[6px] text-right pr-1">{fmt(totais.desconto)}</div></div>
-                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[10px] border border-[#999] border-t-0"><div className="flex-1 py-[6px] px-1 text-right">Total IVA</div><div className="w-[90px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[6px] text-right pr-1">{fmt(totais.iva)}</div></div>
-                        <div className={`flex text-[11px] font-bold border border-[#999] border-t-0 ${isNC? 'bg-[#FFD6D6]' : 'bg-[rgba(194,194,194,0.75)]'}`}><div className="flex-1 py-[6px] px-1 text-right">TOTAL A PAGAR (AKZ)</div><div className="w-[90px] bg-[rgba(255,255,255,0.65)] border-l border-[#999] py-[6px] text-right pr-1 font-bold">{fmt(totais.pagar)}</div></div>
+                    <div className="w-[265px] shrink-0">
+                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[9px] border border-[#999]"><div className="flex-1 py-[6px] px-1 text-right">Total Líquido</div><div className="w-[105px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[6px] text-right pr-1 whitespace-nowrap tabular-nums overflow-hidden">{fmt(totais.liquido)}</div></div>
+                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[9px] border border-[#999] border-t-0"><div className="flex-1 py-[6px] px-1 text-right">Total Desconto</div><div className="w-[105px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[6px] text-right pr-1 whitespace-nowrap tabular-nums">{fmt(totais.desconto)}</div></div>
+                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[9px] border border-[#999] border-t-0"><div className="flex-1 py-[6px] px-1 text-right">Total IVA</div><div className="w-[105px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[6px] text-right pr-1 whitespace-nowrap tabular-nums">{fmt(totais.iva)}</div></div>
+                        <div className={`flex text-[10px] font-bold border border-[#999] border-t-0 ${isNC? 'bg-[#FFD6D6]' : 'bg-[rgba(194,194,194,0.75)]'}`}><div className="flex-1 py-[6px] px-1 text-right leading-[12px]">TOTAL A PAGAR (AKZ)</div><div className="w-[105px] bg-[rgba(255,255,255,0.65)] border-l border-[#999] py-[6px] text-right pr-1 font-bold whitespace-nowrap tabular-nums overflow-hidden">{fmt(totais.pagar)}</div></div>
                     </div>
                 </div>
 

@@ -32,7 +32,7 @@ export default function ModalSaftAO({ open, onClose }: Props) {
     const ref = useRef<HTMLDivElement>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
 
-    // TRAVA BODY + IMPEDE SCROLL VAZAR
+    // TRAVA BODY + IMPEDE SCROLL VAZAR - igual ModalFuncionario
     useEffect(() => {
         if (open) {
             const prev = document.body.style.overflow
@@ -58,8 +58,6 @@ export default function ModalSaftAO({ open, onClose }: Props) {
               params: { mes },
               responseType: 'blob'
             })
-
-            // FIX: blob tipado como XML para validador AGT
             const blob = new Blob([res.data], { type: 'application/xml;charset=utf-8' })
             const url = window.URL.createObjectURL(blob)
             const a = document.createElement('a')
@@ -69,13 +67,11 @@ export default function ModalSaftAO({ open, onClose }: Props) {
             a.click()
             a.remove()
             window.URL.revokeObjectURL(url)
-
             toast.success(`SAFT ${mes} gerado - AGT 1.04_01`)
             onClose()
         } catch (e: any) {
             if (e.response?.status === 404) toast.error(`Sem FT/NC em ${mes}`)
             else {
-                // Se for blob com erro, lê como texto
                 if (e.response?.data instanceof Blob) {
                   const text = await e.response.data.text()
                   try {
@@ -98,9 +94,8 @@ export default function ModalSaftAO({ open, onClose }: Props) {
 
     return (
         <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-
-            <div className="relative bg-white rounded-[24px] w-full max-w-[400px] my-4 sm:my-0 shadow-[0_20px_60px_rgba(0,0,0,0.25)] flex flex-col max-h-[90vh]">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={e => e.stopPropagation()} />
+            <div className="relative bg-white rounded-[24px] w-full max-w-[400px] my-4 sm:my-0 shadow-[0_20px_60px_rgba(0,0,0,0.25)] flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
                 <div className="relative h-[72px] bg-[#E6F0FF] px-5 pt-5 flex justify-between items-start rounded-t-[24px] shrink-0">
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center">
                         <FileDown className="w-4 h-4 text-[#0095ff]" />

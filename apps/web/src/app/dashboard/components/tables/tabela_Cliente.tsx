@@ -77,8 +77,8 @@ function ClientCard({
     return (
         <div className="min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
             <div className="relative h-[90px] bg-[#E6F0FF]">
-                <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[12px] font-medium shadow-sm border ${bloqueado ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-white border-gray-200 text-gray-700'}`}>
-                    {bloqueado ? 'TEM FT/Emitidas • SAFT' : 'Ativo + • Ilimitado'}
+                <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[12px] font-medium shadow-sm border ${bloqueado ? 'bg-amber-50 border-amber-200 text-amber-700' : ''}`}>
+                    {bloqueado ? 'TEM FT/Emitidas • SAFT' : 'Ativo'}
                 </div>
                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white">
                     <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-gray-700">

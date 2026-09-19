@@ -100,10 +100,10 @@ function ClientCard({
                 <h3 className="font-bold text-[16px] text-gray-900 leading-tight truncate">{cliente.nome}</h3>
 
                 <div className="mt-2 flex flex-col gap-0.5">
-                    <p className="text-[12.5px] text-gray-500 truncate">{cliente.cidade || 'Saurimo'} · {cliente.provincia || 'Luanda'}</p>
-                    <p className="text-[12.5px] text-gray-500 truncate">{cliente.email || 'killerbless12@gmail.com'}</p>
-                    <p className="text-[12.5px] text-gray-500 truncate">NIF {cliente.nif}</p>
-                    <p className="text-[12.5px] text-gray-500 truncate">Tel {cliente.telefone || '---'}</p>
+                    <p className="text-[12.5px] text-gray-500 truncate">Endereço: {cliente.cidade || 'Saurimo'} · {cliente.provincia || 'Luanda'}</p>
+                    <p className="text-[12.5px] text-gray-500 truncate">E-mail: {cliente.email || 'killerbless12@gmail.com'}</p>
+                    <p className="text-[12.5px] text-gray-500 truncate">NIF: {cliente.nif}</p>
+                    <p className="text-[12.5px] text-gray-500 truncate">Tel: {cliente.telefone || '---'}</p>
                 </div>
                 {bloqueado && (
                     <div className="mt-3">

@@ -38,8 +38,8 @@ export default function CardsProdutos({ produtos, loading, onEdit, onDelete, onV
     if (produtos.length === 0) return <p className="text-center text-black py-16 bg-white rounded-[20px] border font-medium">Nenhum produto/serviço encontrado!</p>
 
     return (
-        <div className="w-full overflow-hidden">
-            <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-1">
+        <div className="w-full">
+            <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 {produtos.map(p => (
                     <ProductCard key={p.id} produto={p} formatPrice={formatPrice} onEdit={onEdit} onDelete={onDelete} onView={onView} />
                 ))}
@@ -54,7 +54,7 @@ function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
     const isServico = tipo === 'servico'
 
     return (
-        <div className="w-[92vw] max-w-[92vw] md:w-[320px] md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
+        <div className="min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
             <div className="relative h-[90px] bg-[#E6F0FF] shrink-0">
                 <div className="absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[11px] font-medium shadow-sm border text-black">
                     {produto.ativo? 'Ativo' : 'Inativo'} • Ilimitado
@@ -70,7 +70,7 @@ function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
                 </div>
             </div>
 
-            <div className="pt-14 px-5 pb-4 w-full overflow-hidden">
+            <div className="pt-14 px-5 pb-4 w-full">
                 <div className="flex items-center gap-2">
                     <p className="text-[11px] text-black font-medium">exp.</p>
                     <div className="flex gap-[2px]">
@@ -80,13 +80,13 @@ function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
                     </div>
                 </div>
 
-                <h3 className="font-bold text-[15px] text-black mt-3 w-full truncate block">{produto.nome}</h3>
+                <h3 className="font-bold text-[15px] text-black mt-3 truncate">{produto.nome}</h3>
 
-                <p className="text-[12px] text-black font-medium w-full truncate block mt-1">
+                <p className="text-[12px] text-black font-medium truncate mt-1">
                     {produto.categoria || 'Produto'} • {produto.unidade} • {tipo} • Livre
                 </p>
 
-                <div className="flex items-center gap-1.5 mt-2 w-full overflow-hidden">
+                <div className="flex items-center gap-1.5 mt-2">
                     <p className="text-[12.5px] text-black font-semibold truncate flex-1">
                         {produto.codigo} • Kz {formatPrice(produto.preco_venda)}
                     </p>

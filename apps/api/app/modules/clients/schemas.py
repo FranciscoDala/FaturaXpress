@@ -22,6 +22,16 @@ class ClienteUpdateRequest(BaseModel):
     cidade: Optional[str] = None
     provincia: Optional[str] = None
 
+# NOVO - PARA CONSULTAR NIF ANTES
+class ClienteValidarNifRequest(BaseModel):
+    nif: str
+
+class ClienteValidarNifResponse(BaseModel):
+    exists: bool
+    nif: str
+    message: str
+    cliente: Optional["ClienteResponse"] = None
+
 # RESPONSE - Bate com a tabela do frontend
 class ClienteResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

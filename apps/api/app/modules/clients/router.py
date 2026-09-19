@@ -5,13 +5,35 @@ from typing import List
 import logging
 
 from app.db.session import get_db
-from app.modules.clients.schemas import ClienteCreateRequest, ClienteResponse, ClienteUpdateRequest
+from app.modules.clients.schemas import ClienteCreateRequest, ClienteResponse, ClienteUpdateRequest, ClienteValidarNifRequest, ClienteValidarNifResponse
 from app.modules.clients import service as cliente_service
 from app.core.security import get_current_company_id
 from app.modules.realtime.manager import manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/clientes", tags=["Clientes"])
+
+# NOVO - CONSULTA NIF ANTES DE ABRIR O FORM
+@router.post("/validar-nif", response_model=ClienteValidarNifResponse)
+def validar_nif_cliente(
+    payload: ClienteValidarNifRequest,
+    db: Session = Depends(get_db),
+    company_id: uuid.UUID = Depends(get_current_company_id)
+):
+    result = cliente_service.validar_nif_local(db=db, nif=payload.nif, company_id=company_id)
+    if result["exists"]:
+        return {
+            "exists": True,
+            "nif": result["nif"],
+            "message": "Cliente já cadastrado",
+            "cliente": result["cliente"]
+        }
+    return {
+        "exists": False,
+        "nif": result["nif"],
+        "message": "NIF novo, pode cadastrar",
+        "cliente": None
+    }
 
 @router.post("/", response_model=ClienteResponse, status_code=201)
 async def create_cliente(

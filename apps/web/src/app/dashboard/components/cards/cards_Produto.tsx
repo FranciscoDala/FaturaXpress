@@ -39,6 +39,7 @@ export default function CardsProdutos({ produtos, loading, onEdit, onDelete, onV
 
     return (
         <div className="w-full">
+            {/* MESMA ESTRUTURA DO CLIENTE */}
             <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 {produtos.map(p => (
                     <ProductCard key={p.id} produto={p} formatPrice={formatPrice} onEdit={onEdit} onDelete={onDelete} onView={onView} />
@@ -54,10 +55,10 @@ function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
     const isServico = tipo === 'servico'
 
     return (
-        <div className="min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
+        <div className="min-w-full max-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
             <div className="relative h-[90px] bg-[#E6F0FF] shrink-0">
                 <div className="absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-[11px] font-medium shadow-sm border text-black">
-                    {produto.ativo? 'Ativo' : 'Inativo'} • Ilimitado
+                    {produto.ativo? 'Ativo' : 'Inativo'} • {isServico? 'Serviço' : 'Ilimitado'}
                 </div>
                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white border-[4px] border-white flex items-center justify-center shadow-md overflow-hidden">
                     {produto.imagem_url? (
@@ -70,7 +71,7 @@ function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
                 </div>
             </div>
 
-            <div className="pt-14 px-5 pb-4 w-full">
+            <div className="pt-14 px-5 pb-4">
                 <div className="flex items-center gap-2">
                     <p className="text-[11px] text-black font-medium">exp.</p>
                     <div className="flex gap-[2px]">
@@ -83,7 +84,7 @@ function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
                 <h3 className="font-bold text-[15px] text-black mt-3 truncate">{produto.nome}</h3>
 
                 <p className="text-[12px] text-black font-medium truncate mt-1">
-                    {produto.categoria || 'Produto'} • {produto.unidade} • {tipo} • Livre
+                    {produto.categoria || (isServico? 'Serviço' : 'Produto')} • {produto.unidade} • {tipo}
                 </p>
 
                 <div className="flex items-center gap-1.5 mt-2">

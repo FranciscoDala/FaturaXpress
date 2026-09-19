@@ -51,6 +51,7 @@ export default function CardsProdutos({ produtos, loading, onEdit, onDelete, onV
 function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
     const initials = produto.nome.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
     const tipo = (produto.tipo || 'produto').toLowerCase()
+    const isServico = tipo === 'servico'
 
     return (
         <div className="w-[92vw] max-w-[92vw] md:w-[320px] md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
@@ -79,21 +80,21 @@ function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
                     </div>
                 </div>
 
-                {/* FIX MOBILE - truncate com w-full */}
                 <h3 className="font-bold text-[15px] text-black mt-3 w-full truncate block">{produto.nome}</h3>
 
                 <p className="text-[12px] text-black font-medium w-full truncate block mt-1">
                     {produto.categoria || 'Produto'} • {produto.unidade} • {tipo} • Livre
                 </p>
 
-                {/* ADICIONADO QUANTIDADE */}
                 <div className="flex items-center gap-1.5 mt-2 w-full overflow-hidden">
                     <p className="text-[12.5px] text-black font-semibold truncate flex-1">
                         {produto.codigo} • Kz {formatPrice(produto.preco_venda)}
                     </p>
-                    <span className="shrink-0 bg-black text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
-                        Qtd: {produto.stock_atual?? 0}
-                    </span>
+                    {!isServico && (
+                        <span className="shrink-0 bg-black text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+                            Qtd: {produto.stock_atual?? 0}
+                        </span>
+                    )}
                 </div>
             </div>
 

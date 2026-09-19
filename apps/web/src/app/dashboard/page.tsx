@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Pencil, Database, Search, Crown, AlertTriangle } from 'lucide-react'
+import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Pencil, Database, Search, Crown, AlertTriangle, Settings } from 'lucide-react'
 import { toast } from 'sonner'
 import { DashboardSkeleton } from '../../components/DashboardSkeleton'
 import { useRealtime } from '../../hooks/useRealtime'
@@ -15,6 +15,7 @@ import CardsProdutos from './components/cards/cards_Produto'
 import TabEmitir from '../faturas/components/tab/tab_faturaEmitir'
 import TabCurso from '../faturas/components/tab/tab_faturaEmcurso'
 import TabEmitidas from '../faturas/components/tab/tab_faturaEmitida'
+import SidebarAreas from './components/sidebar/sidebar_Areas'
 import { api } from '../../lib/api'
 
 interface Cliente { id: string; nome: string; nif: string; email: string | null; telefone: string | null; endereco: string | null; cidade: string | null; provincia: string | null }
@@ -74,6 +75,7 @@ export default function DashboardPage() {
     const [modalSaftOpen, setModalSaftOpen] = useState(false)
     const [modalEmpresaOpen, setModalEmpresaOpen] = useState(false)
     const [modalSairOpen, setModalSairOpen] = useState(false)
+    const [sidebarAreasOpen, setSidebarAreasOpen] = useState(false)
     const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null)
     const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(null)
 
@@ -150,7 +152,6 @@ export default function DashboardPage() {
 
     const clientesComFatura = useMemo(() => {
         const ids = new Set<string>()
-        // só FT e NC contam pra bloquear delete
         faturasEmitidas.forEach((f: any) => {
             if (f.cliente_id) ids.add(String(f.cliente_id))
         })
@@ -175,26 +176,20 @@ export default function DashboardPage() {
             setLoadingFaturas(true)
             const res = await api.get('/api/faturas', { params: { limit: 500 } })
             const all = Array.isArray(res.data)? res.data : (res.data.items || [])
-
-            // IDs de proformas que já viraram FT
             const proformasConvertidasIds = new Set<string>(
                 all.filter((f: any) => f.tipo_documento === 'fatura' && f.proforma_origem_id)
-                  .map((f: any) => String(f.proforma_origem_id))
+                 .map((f: any) => String(f.proforma_origem_id))
             )
-
-            // CURSO: só PP em_curso e que NÃO foi convertida
             const curso = all.filter((f: any) =>
                 f.tipo_documento === 'proforma' &&
                 f.status === 'em_curso' &&
-               !proformasConvertidasIds.has(String(f.id))
+              !proformasConvertidasIds.has(String(f.id))
             )
-
             const emitidas = all.filter((f: any) =>
                 f.tipo_documento === 'fatura' ||
                 f.tipo_documento === 'nota_credito' ||
-               !!f.hash_agt
+              !!f.hash_agt
             )
-
             setFaturasCurso(curso)
             setFaturasEmitidas(emitidas)
         } catch { } finally { setLoadingFaturas(false) }
@@ -385,7 +380,7 @@ export default function DashboardPage() {
     const produtosFiltrados = listView === 'servicos'? produtos.filter(p => p.tipo === 'servico') : listView === 'produtos'? produtos.filter(p => p.tipo!== 'servico') : produtos
 
     return (
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-white relative">
             <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => {
                 setOpenListSelect(false); setOpenNovo(false);
                 toast.success(clienteSelecionado? 'Cliente atualizado' : 'Cliente criado', { description: clienteSelecionado? 'Dados atualizados.' : 'Cliente adicionado com sucesso.' });
@@ -400,6 +395,19 @@ export default function DashboardPage() {
             <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget?.nome} loading={deleting} onClose={() => setDeleteTarget(null)} onConfirm={handleConfirmDelete} />
             <ModalSaftAO open={modalSaftOpen} onClose={() => setModalSaftOpen(false)} />
             <ModalConfirmSair open={modalSairOpen} companyName={companyName} onClose={() => setModalSairOpen(false)} onConfirm={handleConfirmLogout} />
+
+            {/* SIDEBAR AREAS */}
+            <SidebarAreas open={sidebarAreasOpen} onClose={() => setSidebarAreasOpen(false)} />
+
+            {/* COG FIXO LEFT BOTTOM - FORA DO CONTAINER - JUNTO AO SCROLL-Y */}
+            <button
+                onClick={() => setSidebarAreasOpen(true)}
+                className="fixed left-4 bottom-6 z-[9997] w-12 h-12 rounded-full bg-white border border-gray-200 shadow-[0_4px_20px_rgba(0,0,0,0.12)] flex items-center justify-center hover:scale-105 hover:shadow-[0_6px_24px_rgba(0,0,0,0.16)] transition-all"
+                title="Áreas"
+            >
+                <Settings className="w-5 h-5 text-gray-700 animate-[spin_8s_linear_infinite]" />
+            </button>
+
             <div className="max-w-[1100px] mx-auto">
                 <div className="relative px-4 sm:px-8 lg:px-12 pt-6 pb-6 border-b border-gray-100 overflow-hidden bg-gradient-to-br from-[#E8F2FF] via-[#F0F7FF] to-white">
                     <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
@@ -477,8 +485,8 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <style>{`
-            .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-            .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
+           .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+           .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
                       @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }
                     `}</style>
                 </div>

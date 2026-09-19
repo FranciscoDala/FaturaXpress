@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import GlobalAreas from '../../components/GlobalAreas'
 import ModalConfirmSair from '../dashboard/components/modals/modal_ConfirmSair'
 import ModalUsuario from './components/modals/modal_UsuarioView'
+import ModalFuncionario from './components/modals/modal_Funcionario'
 import TabPresente from './components/tab/tab_func_presente'
 import TabFerias from './components/tab/tab_func_ferias'
 import { api } from '../../lib/api'
@@ -47,6 +48,10 @@ export default function RHPage() {
     const [companyName, setCompanyName] = useState(localStorage.getItem("company_name") || '')
     const [modalSairOpen, setModalSairOpen] = useState(false)
     const [modalUsuarioOpen, setModalUsuarioOpen] = useState(false)
+    const [modalFuncOpen, setModalFuncOpen] = useState(false)
+    const [funcSelecionado, setFuncSelecionado] = useState<any>(null)
+    const [savingFunc, setSavingFunc] = useState(false)
+
     const [rhTab, setRhTab] = useState<RHTab>(init.tab)
     const [search, setSearch] = useState('')
 
@@ -85,13 +90,12 @@ export default function RHPage() {
         setSearchParams(params, { replace: true })
     }, [rhTab])
 
-    // dropdown position igual dashboard
     const updateNovoPos = () => {
         if (novoBtnRef.current) {
             const r = novoBtnRef.current.getBoundingClientRect()
             const width = 320
             const isMobile = window.innerWidth < 768
-            const left = isMobile ? window.innerWidth - width - 16 : r.right - width
+            const left = isMobile? window.innerWidth - width - 16 : r.right - width
             setNovoDropdownPos({ top: r.bottom + 8, left: Math.max(16, left), width })
         }
     }
@@ -106,7 +110,7 @@ export default function RHPage() {
     useEffect(() => {
         const close = (e: MouseEvent) => {
             const target = e.target as HTMLElement
-            if (novoWrapperRef.current && !novoWrapperRef.current.contains(e.target as Node) && !target.closest('[data-novo-dropdown]')) setOpenNovo(false)
+            if (novoWrapperRef.current &&!novoWrapperRef.current.contains(e.target as Node) &&!target.closest('[data-novo-dropdown]')) setOpenNovo(false)
         }
         document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
@@ -114,6 +118,33 @@ export default function RHPage() {
 
     const handleLogout = () => setModalSairOpen(true)
     const handleConfirmLogout = () => { localStorage.clear(); toast.success("Sessão encerrada"); setModalSairOpen(false); navigate('/login') }
+
+    // MODAL FUNCIONARIO
+    const handleOpenCreateFunc = () => { setFuncSelecionado(null); setModalFuncOpen(true); setOpenNovo(false) }
+    const handleOpenEditFunc = (f: any) => { setFuncSelecionado(f); setModalFuncOpen(true) }
+
+    const handleSaveFuncionario = async (data: any) => {
+        setSavingFunc(true)
+        try {
+            if (funcSelecionado) {
+                await api.put(`/api/funcionarios/${funcSelecionado.id}`, {
+                    nome: data.nome,
+                    cargo: data.cargo,
+                    area_principal_id: data.area_principal_id || null,
+                    areas_ids: data.areas_ids,
+                    ativo: true
+                })
+                toast.success('Funcionário atualizado')
+            } else {
+                await api.post('/api/funcionarios', data)
+                toast.success('Funcionário criado')
+            }
+            setModalFuncOpen(false)
+            // fetchFuncionarios() aqui quando tiveres API real
+        } catch (e: any) {
+            toast.error(e?.response?.data?.detail || 'Erro ao salvar funcionário')
+        } finally { setSavingFunc(false) }
+    }
 
     const funcionariosFiltrados = useMemo(() => {
         const q = search.toLowerCase().trim()
@@ -135,9 +166,9 @@ export default function RHPage() {
             <GlobalAreas />
             <ModalConfirmSair open={modalSairOpen} companyName={companyName} onClose={() => setModalSairOpen(false)} onConfirm={handleConfirmLogout} />
             <ModalUsuario open={modalUsuarioOpen} usuario={usuario} empresa={empresa} onClose={() => setModalUsuarioOpen(false)} />
+            <ModalFuncionario open={modalFuncOpen} funcionario={funcSelecionado} saving={savingFunc} onClose={() => setModalFuncOpen(false)} onSave={handleSaveFuncionario} />
 
             <div className="max-w-[1100px] mx-auto">
-                {/* HEADER IGUAL DASHBOARD */}
                 <div className="relative px-4 sm:px-8 lg:px-12 pt-6 pb-6 border-b border-gray-100 overflow-hidden bg-gradient-to-br from-[#E8F2FF] via-[#F0F7FF] to-white">
                     <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
                         <div className="bubble bubble-1"></div><div className="bubble bubble-2"></div><div className="bubble bubble-3"></div><div className="bubble bubble-4"></div><div className="bubble bubble-5"></div><div className="bubble bubble-6"></div>
@@ -147,7 +178,7 @@ export default function RHPage() {
                             <div className="w-full h-full rounded-full overflow-hidden bg-gray-200 border-[5px] border-white shadow-sm">
                                 <img src={logoUrlSafe || `https://ui-avatars.com/api/?name=${encodeURIComponent(companyName || 'FX')}&background=E5E7EB&color=374151&size=132}`} className="w-full h-full object-cover" alt={companyName} />
                             </div>
-                            <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-[2px] border-white shadow" style={{ background: empresa?.is_active === false ? '#ef4444' : '#22c55e' }}></div>
+                            <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-[2px] border-white shadow" style={{ background: empresa?.is_active === false? '#ef4444' : '#22c55e' }}></div>
                             <button onClick={() => setModalUsuarioOpen(true)} className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-white border shadow flex items-center justify-center hover:bg-gray-50">
                                 <User className="w-3.5 h-3.5 text-gray-700" />
                             </button>
@@ -183,14 +214,14 @@ export default function RHPage() {
                                 </div>
                             </div>
                             <div className="mt-5 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
-                                <button onClick={() => setRhTab('presente')} className={`flex-1 py-2 ${rhTab === 'presente' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                <button onClick={() => setRhTab('presente')} className={`flex-1 py-2 ${rhTab === 'presente'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
                                     <p className="text-[13px] font-bold">{totalPresentes}</p><p className="text-[11px] text-gray-500">Presentes</p>
                                 </button>
-                                <button onClick={() => setRhTab('ferias')} className={`flex-1 py-2 border-l ${rhTab === 'ferias' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                <button onClick={() => setRhTab('ferias')} className={`flex-1 py-2 border-l ${rhTab === 'ferias'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
                                     <p className="text-[13px] font-bold">{totalFerias}</p><p className="text-[11px] text-gray-500">Férias</p>
                                 </button>
                                 <div ref={novoWrapperRef} className="flex-[0.6] border-l relative">
-                                    <button ref={novoBtnRef} onClick={() => setOpenNovo(!openNovo)} className={`w-full h-full flex items-center justify-center ${openNovo ? 'bg-[#0095ff] text-white' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
+                                    <button ref={novoBtnRef} onClick={() => setOpenNovo(!openNovo)} className={`w-full h-full flex items-center justify-center ${openNovo? 'bg-[#0095ff] text-white' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
                                         <Menu className="w-5 h-5" />
                                     </button>
                                 </div>
@@ -198,34 +229,33 @@ export default function RHPage() {
                         </div>
                     </div>
                     <style>{`
-           .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; }
-           .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
+          .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; }
+          .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
             @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }
           `}</style>
                 </div>
 
                 {openNovo && (
                     <div data-novo-dropdown style={{ top: novoDropdownPos.top, left: novoDropdownPos.left, width: novoDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999]">
-                        <button onClick={() => { setRhTab('presente'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${rhTab === 'presente' ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>Presentes</button>
-                        <button onClick={() => { setRhTab('ferias'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${rhTab === 'ferias' ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>Férias</button>
+                        <button onClick={() => { setRhTab('presente'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${rhTab === 'presente'? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>Presentes</button>
+                        <button onClick={() => { setRhTab('ferias'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${rhTab === 'ferias'? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>Férias</button>
                         <div className="h-[1px] bg-gray-200 my-2 mx-2" />
-                        <button onClick={() => { setOpenNovo(false); toast.info('Em breve: novo funcionário') }} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-100 text-black">+ Novo funcionário</button>
+                        <button onClick={handleOpenCreateFunc} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-100 text-black">+ Novo funcionário</button>
                     </div>
                 )}
 
                 <div className="w-full py-6">
-                    {/* BUSCA igual dashboard gestao */}
                     <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
                         <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                             <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-0">
                                 <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                                <input value={search} onChange={e => setSearch(e.target.value)} placeholder={rhTab === 'ferias' ? 'Buscar em férias por nome' : 'Buscar funcionário por nome, cargo ou área'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
+                                <input value={search} onChange={e => setSearch(e.target.value)} placeholder={rhTab === 'ferias'? 'Buscar em férias por nome' : 'Buscar funcionário por nome, cargo ou área'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
                             </div>
                         </div>
 
                         <div id="tabela">
-                            {rhTab === 'presente' && <TabPresente funcionarios={presentes} search={search} />}
-                            {rhTab === 'ferias' && <TabFerias funcionarios={ferias} search={search} />}
+                            {rhTab === 'presente' && <TabPresente funcionarios={presentes} search={search} onEdit={handleOpenEditFunc} />}
+                            {rhTab === 'ferias' && <TabFerias funcionarios={ferias} search={search} onEdit={handleOpenEditFunc} />}
                         </div>
                     </div>
                 </div>

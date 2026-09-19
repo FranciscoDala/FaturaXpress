@@ -50,7 +50,6 @@ def buscar_por_codigo(codigo: str, db: Session = Depends(get_db), company_id: uu
 def buscar_por_id(produto_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return produto_service.get_produto_by_id(db, produto_id, company_id)
 
-# CRIAR - agora com codigo_qr e peso
 @router.post("/", response_model=ProdutoResponse, status_code=201)
 async def criar_produto(
     nome: str = Form(...), codigo: str = Form(...), preco_venda: float = Form(...),
@@ -73,6 +72,17 @@ async def criar_produto(
 
     tipo_enum = TipoProdutoEnum(tipo) if tipo in ["produto","servico","kit"] else TipoProdutoEnum.produto
 
+    # REGRA IVA AUTOMATICA POR TIPO
+    if tipo_enum in [TipoProdutoEnum.servico, TipoProdutoEnum.kit]:
+        tem_iva = False
+        iva = 0.0
+        controlar_stock = False
+        stock_atual = 0.0
+    else:
+        tem_iva = True
+        if iva == 0:
+            iva = 14.0
+
     produto_data = ProdutoCreateRequest(
         nome=nome, codigo=codigo, preco_venda=preco_venda, tipo=tipo_enum, unidade=unidade,
         ativo=ativo, controlar_stock=controlar_stock, stock_atual=stock_atual,
@@ -86,14 +96,12 @@ async def criar_produto(
         logger.warning(f"Falha broadcast produtos:changed: {e}")
     return result
 
-# EDITAR - AGORA ACEITA FormData COM IMAGEM TAMBÉM
 @router.put("/{produto_id}", response_model=ProdutoResponse)
 async def atualizar_produto(
     produto_id: uuid.UUID,
-    # todos opcionais pra permitir update parcial
     nome: Optional[str] = Form(None), codigo: Optional[str] = Form(None), preco_venda: Optional[float] = Form(None),
     tipo: Optional[str] = Form(None), unidade: Optional[str] = Form(None), ativo: Optional[bool] = Form(None),
-    controlar_stock: Optional[bool] = Form(None), stock_minimo: Optional[float] = Form(None),
+    controlar_stock: Optional[bool] = Form(None), stock_atual: Optional[float] = Form(None), stock_minimo: Optional[float] = Form(None),
     preco_custo: Optional[float] = Form(None), codigo_barras: Optional[str] = Form(None), codigo_qr: Optional[str] = Form(None),
     descricao: Optional[str] = Form(None), categoria: Optional[str] = Form(None),
     iva: Optional[float] = Form(None), tem_iva: Optional[bool] = Form(None), peso: Optional[float] = Form(None),
@@ -104,18 +112,31 @@ async def atualizar_produto(
     if nome is not None: update_data["nome"] = nome
     if codigo is not None: update_data["codigo"] = codigo
     if preco_venda is not None: update_data["preco_venda"] = preco_venda
-    if tipo is not None and tipo in ["produto","servico","kit"]: update_data["tipo"] = TipoProdutoEnum(tipo)
+    if tipo is not None and tipo in ["produto","servico","kit"]:
+        tipo_enum = TipoProdutoEnum(tipo)
+        update_data["tipo"] = tipo_enum
+        # REGRA IVA AUTOMATICA AO EDITAR
+        if tipo_enum in [TipoProdutoEnum.servico, TipoProdutoEnum.kit]:
+            update_data["tem_iva"] = False
+            update_data["iva"] = 0.0
+            update_data["controlar_stock"] = False
+            update_data["stock_atual"] = 0.0
+        else:
+            update_data["tem_iva"] = True
+            update_data["iva"] = iva if (iva is not None and iva!= 0) else 14.0
     if unidade is not None: update_data["unidade"] = unidade
     if ativo is not None: update_data["ativo"] = ativo
-    if controlar_stock is not None: update_data["controlar_stock"] = controlar_stock
+    if controlar_stock is not None and "controlar_stock" not in update_data: update_data["controlar_stock"] = controlar_stock
+    if stock_atual is not None and "stock_atual" not in update_data: update_data["stock_atual"] = stock_atual
     if stock_minimo is not None: update_data["stock_minimo"] = stock_minimo
     if preco_custo is not None: update_data["preco_custo"] = preco_custo
     if codigo_barras is not None: update_data["codigo_barras"] = codigo_barras
     if codigo_qr is not None: update_data["codigo_qr"] = codigo_qr
     if descricao is not None: update_data["descricao"] = descricao
     if categoria is not None: update_data["categoria"] = categoria
-    if iva is not None: update_data["iva"] = iva
-    if tem_iva is not None: update_data["tem_iva"] = tem_iva
+    # So atualiza IVA se nao foi definido pela regra de tipo acima
+    if iva is not None and "iva" not in update_data: update_data["iva"] = iva
+    if tem_iva is not None and "tem_iva" not in update_data: update_data["tem_iva"] = tem_iva
     if peso is not None: update_data["peso"] = peso
 
     if imagem:

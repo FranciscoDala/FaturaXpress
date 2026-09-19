@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from fastapi import HTTPException
-from app.modules.products.models import Produto
+from app.modules.products.models import Produto, TipoProdutoEnum
 from app.modules.products.schemas import ProdutoCreateRequest, ProdutoUpdateRequest
 import uuid
 
@@ -39,7 +39,20 @@ def create_produto(db: Session, produto: ProdutoCreateRequest, company_id: uuid.
     exists = db.query(Produto).filter(Produto.company_id == company_id, Produto.codigo == produto.codigo).first()
     if exists:
         raise HTTPException(status_code=400, detail="Já existe um produto com este código")
-    db_produto = Produto(**produto.model_dump(), company_id=company_id)
+
+    # SEGURANCA IVA POR TIPO
+    data = produto.model_dump()
+    if data.get("tipo") in [TipoProdutoEnum.servico, TipoProdutoEnum.kit]:
+        data["tem_iva"] = False
+        data["iva"] = 0.0
+        data["controlar_stock"] = False
+        data["stock_atual"] = 0.0
+    else:
+        data["tem_iva"] = True
+        if data.get("iva", 0) == 0:
+            data["iva"] = 14.0
+
+    db_produto = Produto(**data, company_id=company_id)
     db.add(db_produto)
     db.commit()
     db.refresh(db_produto)
@@ -47,7 +60,21 @@ def create_produto(db: Session, produto: ProdutoCreateRequest, company_id: uuid.
 
 def update_produto(db: Session, produto_id: uuid.UUID, produto_update: ProdutoUpdateRequest, company_id: uuid.UUID):
     db_produto = get_produto_by_id(db, produto_id, company_id)
-    for key, value in produto_update.model_dump(exclude_unset=True).items():
+    update_dict = produto_update.model_dump(exclude_unset=True)
+
+    # SEGURANCA IVA POR TIPO NO UPDATE
+    if "tipo" in update_dict:
+        if update_dict["tipo"] in [TipoProdutoEnum.servico, TipoProdutoEnum.kit]:
+            update_dict["tem_iva"] = False
+            update_dict["iva"] = 0.0
+            update_dict["controlar_stock"] = False
+            update_dict["stock_atual"] = 0.0
+        else:
+            update_dict["tem_iva"] = True
+            if update_dict.get("iva", 0) == 0:
+                update_dict["iva"] = 14.0
+
+    for key, value in update_dict.items():
         setattr(db_produto, key, value)
     db.commit()
     db.refresh(db_produto)
@@ -61,11 +88,13 @@ def delete_produto(db: Session, produto_id: uuid.UUID, company_id: uuid.UUID):
 
 def baixar_stock(db: Session, produto_id: uuid.UUID, quantidade: float, company_id: uuid.UUID):
     db_produto = get_produto_by_id(db, produto_id, company_id)
-    if db_produto.controlar_stock and db_produto.stock_atual < quantidade:
+    # NAO DESCONTA SE FOR ILIMITADO / SERVICO / KIT
+    if not db_produto.controlar_stock:
+        return db_produto
+    if db_produto.stock_atual < quantidade:
         raise ValueError(f"Stock insuficiente. Disponível: {db_produto.stock_atual}")
-    if db_produto.controlar_stock:
-        db_produto.stock_atual -= quantidade
-        db.commit()
+    db_produto.stock_atual -= quantidade
+    db.commit()
     return db_produto
 
 def get_categorias(db: Session, company_id: uuid.UUID) -> list[str]:

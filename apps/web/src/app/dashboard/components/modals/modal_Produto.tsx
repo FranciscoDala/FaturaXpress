@@ -49,12 +49,10 @@ function generateQRCode(codigo: string) {
     return `QR-${codigo || Date.now()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`
 }
 
-// Limpa 75.000,50 -> 75000.50
 function parseAO(value: any): number {
     if (value === null || value === undefined || value === '') return 0
     const str = String(value).trim()
     if (!str) return 0
-    // remove pontos de milhar e troca virgula por ponto
     const cleaned = str.replace(/\./g, '').replace(',', '.')
     const n = parseFloat(cleaned)
     return isNaN(n)? 0 : n
@@ -102,13 +100,36 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
         useCategoria: false, categoria: '',
         usePeso: false, peso: '',
         preco_custo: '0', iva: '14', useIva: true, unidade: 'UN', ativo: true,
-        controlar_stock: true, stock_minimo: '0'
+        controlar_stock: true, stock_atual: '0', stock_minimo: '0'
     })
+
+    // REGRA IVA AUTOMATICA POR TIPO
+    const handleTipoChange = (novoTipo: string) => {
+        if (novoTipo === 'servico' || novoTipo === 'kit') {
+            setForm(prev => ({
+               ...prev,
+                tipo: novoTipo,
+                useIva: false,
+                iva: '0',
+                controlar_stock: false,
+                stock_atual: '0'
+            }))
+        } else {
+            setForm(prev => ({
+               ...prev,
+                tipo: novoTipo,
+                useIva: true,
+                iva: prev.iva === '0'? '14' : prev.iva,
+                controlar_stock: true
+            }))
+        }
+    }
 
     useEffect(() => {
         if (!open) return
         if (produto) {
             if (form.imagem_preview && form.imagem_file) URL.revokeObjectURL(form.imagem_preview)
+            const isServicoOuKit = produto.tipo === 'servico' || produto.tipo === 'kit'
             setForm({
                 nome: produto.nome || '',
                 codigo: produto.codigo || '',
@@ -126,11 +147,12 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                 usePeso:!!produto.peso,
                 peso: String(produto.peso?? ''),
                 preco_custo: String(produto.preco_custo?? '0'),
-                iva: String(produto.iva?? '14'),
-                useIva: produto.tem_iva?? true,
+                iva: String(produto.iva?? (isServicoOuKit? '0' : '14')),
+                useIva: isServicoOuKit? false : (produto.tem_iva?? true),
                 unidade: produto.unidade || 'UN',
                 ativo: produto.ativo?? true,
-                controlar_stock: produto.controlar_stock?? true,
+                controlar_stock: isServicoOuKit? false : (produto.controlar_stock?? true),
+                stock_atual: String(produto.stock_atual?? '0'),
                 stock_minimo: String(produto.stock_minimo?? '0')
             })
             setTab('obrigatorio')
@@ -158,9 +180,9 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
         try {
             const finalBarCode = form.codigo_barras || generateBarCode()
             const finalQR = form.codigo_qr || generateQRCode(form.codigo)
+            const isServicoOuKit = form.tipo === 'servico' || form.tipo === 'kit'
 
             if (isEditing) {
-                // SEMPRE FormData no editar para bater com backend Form(...)
                 const fd = new FormData()
                 fd.append('nome', form.nome)
                 fd.append('codigo', form.codigo)
@@ -168,11 +190,12 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                 fd.append('tipo', form.tipo)
                 fd.append('unidade', form.unidade)
                 fd.append('ativo', String(form.ativo))
-                fd.append('controlar_stock', String(form.controlar_stock))
+                fd.append('controlar_stock', String(isServicoOuKit? false : form.controlar_stock))
+                fd.append('stock_atual', String(isServicoOuKit? 0 : parseAO(form.stock_atual)))
                 fd.append('stock_minimo', String(parseAO(form.stock_minimo)))
                 fd.append('preco_custo', String(parseAO(form.preco_custo)))
-                fd.append('iva', form.useIva? String(parseAO(form.iva)) : '0')
-                fd.append('tem_iva', String(form.useIva))
+                fd.append('iva', isServicoOuKit? '0' : (form.useIva? String(parseAO(form.iva)) : '0'))
+                fd.append('tem_iva', String(isServicoOuKit? false : form.useIva))
                 fd.append('codigo_barras', finalBarCode)
                 fd.append('codigo_qr', finalQR)
                 if (form.useCategoria && form.categoria) fd.append('categoria', form.categoria)
@@ -190,8 +213,8 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                 formData.append('tipo', form.tipo)
                 formData.append('unidade', form.unidade);
                 formData.append('ativo', String(form.ativo))
-                formData.append('controlar_stock', String(form.controlar_stock));
-                formData.append('stock_atual', '0')
+                formData.append('controlar_stock', String(isServicoOuKit? false : form.controlar_stock));
+                formData.append('stock_atual', String(isServicoOuKit? 0 : (parseAO(form.stock_atual) || 0)))
                 formData.append('stock_minimo', String(parseAO(form.stock_minimo) || 0));
                 formData.append('preco_custo', String(parseAO(form.preco_custo) || 0))
                 formData.append('codigo_barras', finalBarCode);
@@ -199,8 +222,8 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                 if (form.useDescricao && form.descricao) formData.append('descricao', form.descricao)
                 if (form.useCategoria && form.categoria) formData.append('categoria', form.categoria)
                 if (form.usePeso && form.peso) formData.append('peso', String(parseAO(form.peso)))
-                formData.append('iva', form.useIva? String(parseAO(form.iva) || 0) : '0');
-                formData.append('tem_iva', String(form.useIva))
+                formData.append('iva', isServicoOuKit? '0' : (form.useIva? String(parseAO(form.iva) || 0) : '0'));
+                formData.append('tem_iva', String(isServicoOuKit? false : form.useIva))
                 if (form.useImagem && form.imagem_file) formData.append('imagem', form.imagem_file)
                 await api.post('/api/produtos', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
                 toast.success('Produto criado com sucesso!')
@@ -221,7 +244,7 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
             nome: '', codigo: '', preco_venda: '', tipo: 'produto', useImagem: false, imagem_file: null, imagem_preview: '',
             codigo_barras: generateBarCode(), codigo_qr: generateQRCode(''),
             useDescricao: false, descricao: '', useCategoria: false, categoria: '',
-            usePeso: false, peso: '', preco_custo: '0', iva: '14', useIva: true, unidade: 'UN', ativo: true, controlar_stock: true, stock_minimo: '0'
+            usePeso: false, peso: '', preco_custo: '0', iva: '14', useIva: true, unidade: 'UN', ativo: true, controlar_stock: true, stock_atual: '0', stock_minimo: '0'
         })
         setTab('obrigatorio')
     }
@@ -236,6 +259,8 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
             <Icon className="w-4 h-4" /> {label}
         </button>
     )
+
+    const isServicoOuKit = form.tipo === 'servico' || form.tipo === 'kit'
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -261,8 +286,8 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
 
                 <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-4">
                     <style>{`
-                      .no-scrollbar::-webkit-scrollbar { display: none; }
-                      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                     .no-scrollbar::-webkit-scrollbar { display: none; }
+                     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
                     `}</style>
 
                     {tab === 'obrigatorio' && (
@@ -271,7 +296,7 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                                 <input required value={form.nome} onChange={(e) => setForm({...form, nome: e.target.value })} placeholder="Nome *" className={inputClass} />
                                 <input required value={form.codigo} onChange={(e) => setForm({...form, codigo: e.target.value })} placeholder="Código *" className={inputClass} />
                                 <input type="text" inputMode="decimal" required value={form.preco_venda} onChange={(e) => setForm({...form, preco_venda: e.target.value })} placeholder="Preço Venda *" className={inputClass} />
-                                <CustomSelect value={form.tipo} onChange={(v) => setForm({...form, tipo: v })} placeholder="Tipo" options={TIPOS} />
+                                <CustomSelect value={form.tipo} onChange={handleTipoChange} placeholder="Tipo" options={TIPOS} />
                                 <CustomSelect value={form.unidade} onChange={(v) => setForm({...form, unidade: v })} placeholder="Unidade" options={UNIDADES.map(u => ({ value: u, label: u }))} />
                                 <label className={checkBoxCard}>
                                     <input type="checkbox" checked={form.ativo} onChange={(e) => setForm({...form, ativo: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
@@ -323,25 +348,31 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
 
                             <div className="grid grid-cols-2 gap-[2px]">
                                 <input type="text" inputMode="decimal" value={form.preco_custo} onChange={(e) => setForm({...form, preco_custo: e.target.value })} placeholder="Preço Custo" className={inputClass} />
-                                <label className={checkBoxCard}>
-                                    <input type="checkbox" checked={form.useIva} onChange={(e) => setForm({...form, useIva: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
-                                    <span className="text-[12px] text-black font-medium">Aplicar IVA</span>
+                                <label className={`${checkBoxCard} ${isServicoOuKit? 'opacity-50 cursor-not-allowed bg-gray-50' : ''}`}>
+                                    <input type="checkbox" checked={isServicoOuKit? false : form.useIva} disabled={isServicoOuKit} onChange={(e) => setForm({...form, useIva: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
+                                    <span className="text-[12px] text-black font-medium">{isServicoOuKit? 'Sem IVA (Serviço/Kit)' : 'Aplicar IVA'}</span>
                                 </label>
                             </div>
-                            {form.useIva && <input type="text" inputMode="decimal" value={form.iva} onChange={(e) => setForm({...form, iva: e.target.value })} placeholder="IVA %" className={inputClass} />}
+                            {form.useIva &&!isServicoOuKit && <input type="text" inputMode="decimal" value={form.iva} onChange={(e) => setForm({...form, iva: e.target.value })} placeholder="IVA %" className={inputClass} />}
+                            {isServicoOuKit && <p className="text-[11px] text-gray-500 bg-yellow-50 p-2.5 rounded-[10px] border border-yellow-200">Serviços e Kits não cobram IVA automaticamente.</p>}
                         </div>
                     )}
 
                     {tab === 'estoque' && (
                         <div className="flex flex-col gap-[2px]">
-                            <label className={checkBoxCard}>
-                                <input type="checkbox" checked={form.controlar_stock} onChange={(e) => setForm({...form, controlar_stock: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
-                                <span className="text-[12px] text-black font-medium">Controlar Estoque</span>
+                            <label className={`${checkBoxCard} ${isServicoOuKit? 'opacity-50 cursor-not-allowed bg-gray-50' : ''}`}>
+                                <input type="checkbox" checked={isServicoOuKit? false : form.controlar_stock} disabled={isServicoOuKit} onChange={(e) => setForm({...form, controlar_stock: e.target.checked })} className="w-4 h-4 accent-[#0095ff] rounded" />
+                                <span className="text-[12px] text-black font-medium">{isServicoOuKit? 'Sem controle (Serviço/Kit)' : 'Controlar Estoque'}</span>
                             </label>
-                            {form.controlar_stock? (
-                                <input type="text" inputMode="decimal" value={form.stock_minimo} onChange={(e) => setForm({...form, stock_minimo: e.target.value })} placeholder="Estoque Mínimo" className={inputClass} />
+                            {form.controlar_stock &&!isServicoOuKit? (
+                                <div className="grid grid-cols-2 gap-[2px]">
+                                    <input type="text" inputMode="decimal" value={form.stock_atual} onChange={(e) => setForm({...form, stock_atual: e.target.value })} placeholder="Qtd em Stock (atual)" className={inputClass} />
+                                    <input type="text" inputMode="decimal" value={form.stock_minimo} onChange={(e) => setForm({...form, stock_minimo: e.target.value })} placeholder="Estoque Mínimo" className={inputClass} />
+                                </div>
                             ) : (
-                                <p className="text-[12px] text-gray-500 bg-gray-50 p-3 rounded-[12px] border border-gray-200">Para serviços ou produtos sem controle de estoque.</p>
+                                <p className="text-[12px] text-gray-500 bg-gray-50 p-3 rounded-[12px] border border-gray-200">
+                                    {isServicoOuKit? 'Serviços e Kits são sempre ilimitados, sem baixa de estoque.' : 'Produto sem controle de estoque = Ilimitado.'}
+                                </p>
                             )}
                         </div>
                     )}

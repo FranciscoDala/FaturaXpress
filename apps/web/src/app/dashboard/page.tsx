@@ -362,7 +362,7 @@ export default function DashboardPage() {
                                             Faturas da agt por mês - {loadingFaturas ? '...' : planInfo.max ? `${faturasMes}(${planInfo.max}) este mês` : `${faturasMes}, este mês (Ilimitado)`}
                                         </p>
                                         {isAtLimit && (
-                                            <div className="flex items-center gap-0 text-[11px] text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-[12px] w-full max-w-full">
+                                            <div className="flex items-center gap-1 text-[11px] text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-[12px] w-full max-w-full">
                                                 Limite free atingido, atualiza o seu plano!
 
                                             </div>

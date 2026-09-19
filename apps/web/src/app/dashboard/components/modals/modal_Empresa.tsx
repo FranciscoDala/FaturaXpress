@@ -162,7 +162,6 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
     if (!open) return null
 
     const inputClass = "w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black placeholder:text-black/40 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition"
-    const inputDisabledClass = "w-full h-[44px] bg-gray-100 border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-gray-500 placeholder:text-black/40 focus:outline-none cursor-not-allowed opacity-80"
 
     const municipiosDisponiveis = form.province? (MUNICIPIOS[form.province] || []) : []
 
@@ -181,7 +180,6 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        // NAO ENVIA companyName E NIF - TRAVADOS
         const payload = {
             email: form.email,
             phone: form.phone,
@@ -216,12 +214,16 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
 
                 <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
                     <h3 className="text-[18px] font-bold text-gray-900 leading-tight">Editar Empresa</h3>
-                    <p className="text-[13.5px] text-gray-500 mt-1">Nome e NIF são validados pela AGT e não podem ser alterados</p>
+                    <p className="text-[13.5px] text-gray-500 mt-1">Atualize logo, contacto e dados bancários</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
                     <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-4">
                         <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
+
+                        {/* OCULTO - NOME E NIF NAO APARECEM MAS VAI NO PAYLOAD */}
+                        <input type="hidden" value={form.companyName} readOnly />
+                        <input type="hidden" value={form.nif} readOnly />
 
                         <div className="flex flex-col gap-[2px]">
                             <div className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-100 rounded-[16px] mb-2">
@@ -238,14 +240,7 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
                                 </label>
                             </div>
 
-                            <input value={form.companyName} disabled className={inputDisabledClass} placeholder="Nome da empresa *" />
-
-                            <div className="grid grid-cols-2 gap-[2px]">
-                                <input value={form.nif} disabled className={inputDisabledClass} placeholder="NIF" />
-                                <input value={form.phone} onChange={e => setForm({...form, phone: e.target.value })} placeholder="Telefone" className={inputClass} />
-                            </div>
-                            <p className="text-[11px] text-gray-400 px-1 mb-1">🔒 Nome e NIF validados pela AGT - não editáveis</p>
-
+                            <input value={form.phone} onChange={e => setForm({...form, phone: e.target.value })} placeholder="Telefone" className={inputClass} />
                             <input value={form.email} type="email" onChange={e => setForm({...form, email: e.target.value })} placeholder="Email" className={inputClass} />
                             <input value={form.address} onChange={e => setForm({...form, address: e.target.value })} placeholder="Endereço" className={inputClass} />
 

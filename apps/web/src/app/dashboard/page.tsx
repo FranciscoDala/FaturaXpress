@@ -118,7 +118,7 @@ export default function DashboardPage() {
             }
         })
         const ftOnly = faturasEmitidas.filter((f: any) => f.tipo_documento === 'fatura')
-        const ftAtivas = ftOnly.filter((f: any) =>!origens.has(f.id) && f.status!== 'cancelada')
+        const ftAtivas = ftOnly.filter((f: any) => !origens.has(f.id) && f.status !== 'cancelada')
         return { ncOrigensSet: origens, faturasFTOnly: ftOnly, faturasFTAtivas: ftAtivas }
     }, [faturasEmitidas])
 
@@ -140,9 +140,9 @@ export default function DashboardPage() {
         }).length
     }, [faturasFTOnly])
 
-    const isAtLimit = planInfo.max? faturasMes >= planInfo.max : false
+    const isAtLimit = planInfo.max ? faturasMes >= planInfo.max : false
 
-    const isInitialLoading =!empresa && (loading || loadingFaturas)
+    const isInitialLoading = !empresa && (loading || loadingFaturas)
 
     useEffect(() => {
         localStorage.setItem(LS_KEYS.view, homeView)
@@ -159,9 +159,9 @@ export default function DashboardPage() {
         try {
             setLoadingFaturas(true)
             const res = await api.get('/api/faturas', { params: { limit: 500 } })
-            const all = Array.isArray(res.data)? res.data : (res.data.items || [])
+            const all = Array.isArray(res.data) ? res.data : (res.data.items || [])
             setFaturasCurso(all.filter((f: any) => f.tipo_documento === 'proforma'))
-            setFaturasEmitidas(all.filter((f: any) => f.tipo_documento === 'fatura' || f.tipo_documento === 'nota_credito' ||!!f.hash_agt))
+            setFaturasEmitidas(all.filter((f: any) => f.tipo_documento === 'fatura' || f.tipo_documento === 'nota_credito' || !!f.hash_agt))
         } catch { } finally { setLoadingFaturas(false) }
     }
 
@@ -227,14 +227,14 @@ export default function DashboardPage() {
             const r = novoBtnRef.current.getBoundingClientRect()
             const width = 320
             const isMobile = window.innerWidth < 768
-            const left = isMobile? window.innerWidth - width - 16 : r.right - width
+            const left = isMobile ? window.innerWidth - width - 16 : r.right - width
             setNovoDropdownPos({ top: r.bottom + 8, left: Math.max(16, left), width })
         }
     }
     useEffect(() => { if (openListSelect) updateListPos() }, [openListSelect])
     useEffect(() => { if (openNovo) updateNovoPos() }, [openNovo])
     useEffect(() => {
-        if (!openListSelect &&!openNovo) return
+        if (!openListSelect && !openNovo) return
         const handle = () => { if (openListSelect) updateListPos(); if (openNovo) updateNovoPos() }
         window.addEventListener('scroll', handle, true)
         window.addEventListener('resize', handle)
@@ -242,8 +242,8 @@ export default function DashboardPage() {
     }, [openListSelect, openNovo])
     useEffect(() => {
         const close = (e: MouseEvent) => {
-            if (listWrapperRef.current &&!listWrapperRef.current.contains(e.target as Node) &&!(e.target as HTMLElement).closest('[data-list-dropdown]')) setOpenListSelect(false)
-            if (novoWrapperRef.current &&!novoWrapperRef.current.contains(e.target as Node) &&!(e.target as HTMLElement).closest('[data-novo-dropdown]')) setOpenNovo(false)
+            if (listWrapperRef.current && !listWrapperRef.current.contains(e.target as Node) && !(e.target as HTMLElement).closest('[data-list-dropdown]')) setOpenListSelect(false)
+            if (novoWrapperRef.current && !novoWrapperRef.current.contains(e.target as Node) && !(e.target as HTMLElement).closest('[data-novo-dropdown]')) setOpenNovo(false)
         }
         document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
@@ -296,8 +296,17 @@ export default function DashboardPage() {
                 await api.put('/api/auth/company/logo', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
             }
             await api.put('/api/auth/company', {
-                companyName: data.companyName, nif: data.nif, email: data.email, phone: data.phone,
-                address: data.address, city: data.city, province: data.province, iban: data.iban, iban2: data.iban2,
+                companyName: data.companyName,
+                nif: data.nif,
+                email: data.email,
+                phone: data.phone,
+                address: data.address,
+                city: data.city,
+                province: data.province,
+                banco1: data.banco1,
+                banco2: data.banco2,
+                iban: data.iban,
+                iban2: data.iban2,
             })
             toast.success('Empresa atualizada', { description: 'Dados salvos com sucesso.' })
             setModalEmpresaOpen(false)
@@ -307,12 +316,12 @@ export default function DashboardPage() {
     }
 
     const ProdutoModalAny = ProdutoModal as any
-    const produtosFiltrados = listView === 'servicos'? produtos.filter(p => p.tipo === 'servico') : listView === 'produtos'? produtos.filter(p => p.tipo!== 'servico') : produtos
+    const produtosFiltrados = listView === 'servicos' ? produtos.filter(p => p.tipo === 'servico') : listView === 'produtos' ? produtos.filter(p => p.tipo !== 'servico') : produtos
 
     return (
         <div className="min-h-screen bg-white">
-            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => { toast.success(clienteSelecionado? 'Cliente atualizado' : 'Cliente criado', { description: clienteSelecionado? 'Dados atualizados.' : 'Cliente adicionado com sucesso.' }); fetchClientes() }} />
-            <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => { toast.success(produtoSelecionado? 'Produto atualizado' : 'Produto criado', { description: 'Operação concluída.' }); fetchProdutos() }} />
+            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => { toast.success(clienteSelecionado ? 'Cliente atualizado' : 'Cliente criado', { description: clienteSelecionado ? 'Dados atualizados.' : 'Cliente adicionado com sucesso.' }); fetchClientes() }} />
+            <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => { toast.success(produtoSelecionado ? 'Produto atualizado' : 'Produto criado', { description: 'Operação concluída.' }); fetchProdutos() }} />
             <ModalEmpresa open={modalEmpresaOpen} initialData={formEmpresa} saving={savingEmpresa} onClose={() => setModalEmpresaOpen(false)} onSave={handleSaveEmpresa} />
             <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget?.nome} loading={deleting} onClose={() => setDeleteTarget(null)} onConfirm={handleConfirmDelete} />
             <ModalSaftAO open={modalSaftOpen} onClose={() => setModalSaftOpen(false)} />
@@ -327,7 +336,7 @@ export default function DashboardPage() {
                             <div className="w-full h-full rounded-full overflow-hidden bg-gray-200 border-[5px] border-white shadow-sm">
                                 <img src={empresa?.logo_url || empresa?.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(companyName || 'FX')}&background=E5E7EB&color=374151&size=132}`} className="w-full h-full object-cover" alt={companyName} />
                             </div>
-                            <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-[2px] border-white shadow" style={{ background: empresa?.is_active === false? '#ef4444' : '#22c55e' }}></div>
+                            <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-[2px] border-white shadow" style={{ background: empresa?.is_active === false ? '#ef4444' : '#22c55e' }}></div>
                             <button onClick={() => setModalEmpresaOpen(true)} className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-white border shadow flex items-center justify-center hover:bg-gray-50">
                                 <Pencil className="w-3.5 h-3.5 text-gray-700" />
                             </button>
@@ -342,15 +351,15 @@ export default function DashboardPage() {
                                         <p className="truncate max-w-[220px] sm:max-w-none"><span className="font-medium text-gray-500">Email:</span> {empresa?.email || 'killerbless12@gmail.com'}</p>
                                         <p className="line-clamp-2"><span className="font-medium text-gray-500">Endereço:</span> {(empresa?.endereco || empresa?.address || 'Sassamba')} • {empresa?.cidade || empresa?.city || 'Saurimo'} • {empresa?.provincia || empresa?.province || 'Lunda-Sul'}</p>
                                         {(empresa?.iban || empresa?.iban2) && (
-                                            <p className="break-all text-[11px]"><span className="font-medium text-gray-500">IBAN:</span> {empresa?.iban}{empresa?.iban2? ` | ${empresa?.iban2}` : ''}</p>
+                                            <p className="break-all text-[11px]"><span className="font-medium text-gray-500">IBAN:</span> {empresa?.iban}{empresa?.iban2 ? ` | ${empresa?.iban2}` : ''}</p>
                                         )}
                                     </div>
                                     {/* REMOVIDO DIV PLANO FREE GRANDE - AGORA CONTA FICA ABAIXO DO TOTAL */}
                                     <div className="mt-4 space-y-1">
-                                        <p className="text-[11px] text-gray-500">Total de faturas emitidas, PP, FT - {loadingFaturas? '...' : `${totalDocs} docs`}</p>
-                                        <p className="text-[11px] text-gray-500">Total Faturado FT - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas? '...' : `${totalFaturado.toFixed(2)} KZ`}</span></p>
+                                        <p className="text-[11px] text-gray-500">Total de faturas emitidas, PP, FT - {loadingFaturas ? '...' : `${totalDocs} docs`}</p>
+                                        <p className="text-[11px] text-gray-500">Total Faturado FT - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas ? '...' : `${totalFaturado.toFixed(2)} KZ`}</span></p>
                                         <p className="text-[11px] text-gray-600 font-medium">
-                                            Fatura FT - {loadingFaturas? '...' : planInfo.max? `${faturasMes}/${planInfo.max} FT este mês` : `${faturasMes} FT este mês (Ilimitado)`}
+                                            Fatura FT - {loadingFaturas ? '...' : planInfo.max ? `${faturasMes}/${planInfo.max} FT este mês` : `${faturasMes} FT este mês (Ilimitado)`}
                                         </p>
                                         {isAtLimit && (
                                             <div className="flex items-center gap-1.5 text-[11px] text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full max-w-[320px] mt-1">
@@ -378,16 +387,16 @@ export default function DashboardPage() {
                                 </div>
                             </div>
                             <div className="mt-5 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
-                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className={`flex-1 py-2 ${homeView === 'faturas' && faturaTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                    <p className="text-[13px] font-bold">{loadingFaturas? '...' : faturasCurso.length}</p>
+                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className={`flex-1 py-2 ${homeView === 'faturas' && faturaTab === 'curso' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                    <p className="text-[13px] font-bold">{loadingFaturas ? '...' : faturasCurso.length}</p>
                                     <p className="text-[11px] text-gray-500">Proforma PP</p>
                                 </button>
-                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('emitidas') }} className={`flex-1 py-2 border-l ${homeView === 'faturas' && faturaTab === 'emitidas'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                    <p className="text-[13px] font-bold">{loadingFaturas? '...' : faturasFTOnly.length}</p>
+                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('emitidas') }} className={`flex-1 py-2 border-l ${homeView === 'faturas' && faturaTab === 'emitidas' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                    <p className="text-[13px] font-bold">{loadingFaturas ? '...' : faturasFTOnly.length}</p>
                                     <p className="text-[11px] text-gray-500">Fatura AGT FT</p>
                                 </button>
                                 <div ref={novoWrapperRef} className="flex-[0.6] border-l relative">
-                                    <button ref={novoBtnRef} onClick={() => setOpenNovo(!openNovo)} className={`w-full h-full flex items-center justify-center ${openNovo? 'bg-[#0095ff] text-white' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
+                                    <button ref={novoBtnRef} onClick={() => setOpenNovo(!openNovo)} className={`w-full h-full flex items-center justify-center ${openNovo ? 'bg-[#0095ff] text-white' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
                                         <Menu className="w-5 h-5" />
                                     </button>
                                 </div>
@@ -403,10 +412,10 @@ export default function DashboardPage() {
 
                 {openNovo && (
                     <div data-novo-dropdown style={{ top: novoDropdownPos.top, left: novoDropdownPos.left, width: novoDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999]">
-                        <button onClick={() => handleNovoAction('ver_faturas')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'faturas'? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
+                        <button onClick={() => handleNovoAction('ver_faturas')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'faturas' ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
                             <Receipt className="w-4 h-4 text-black" /> Ver Faturas PP/FT
                         </button>
-                        <button onClick={() => handleNovoAction('ver_registros')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao'? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
+                        <button onClick={() => handleNovoAction('ver_registros')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao' ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
                             <Database className="w-4 h-4 text-black" /> Ver Registros
                         </button>
                         <div className="h-[1px] bg-gray-200 my-2 mx-2" />
@@ -439,25 +448,25 @@ export default function DashboardPage() {
                                 <div ref={listWrapperRef} className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-40">
                                     <button ref={listBtnRef} onClick={() => setOpenListSelect(!openListSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
                                         <span className="text-gray-900 capitalize">{LIST_OPTIONS.find(o => o.value === listView)?.label || listView}</span>
-                                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openListSelect? 'rotate-180' : ''}`} />
+                                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openListSelect ? 'rotate-180' : ''}`} />
                                     </button>
                                 </div>
                                 <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-0">
                                     <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                                    <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder={listView === 'clientes'? 'Buscar cliente por nome ou NIF' : listView === 'servicos'? 'Buscar serviço por nome' : 'Buscar produto por nome ou código'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
+                                    <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder={listView === 'clientes' ? 'Buscar cliente por nome ou NIF' : listView === 'servicos' ? 'Buscar serviço por nome' : 'Buscar produto por nome ou código'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
                                 </div>
                             </div>
                             {openListSelect && (
                                 <div data-list-dropdown style={{ top: listDropdownPos.top, left: listDropdownPos.left, width: listDropdownPos.width }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999]">
                                     {LIST_OPTIONS.map(opt => (
-                                        <button key={opt.value} onClick={() => { setListView(opt.value as any); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === opt.value? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
+                                        <button key={opt.value} onClick={() => { setListView(opt.value as any); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === opt.value ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
                                             {opt.label} {listView === opt.value && <Check className="w-4 h-4 text-black" />}
                                         </button>
                                     ))}
                                 </div>
                             )}
                             <div id="tabela">
-                                {listView === 'clientes'? (
+                                {listView === 'clientes' ? (
                                     <TabelaClientes clientes={clientes} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditCliente} onDelete={handleRequestDeleteCliente} onEmitirFatura={handleEmitirFatura} />
                                 ) : (
                                     <CardsProdutos produtos={produtosFiltrados} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditProduto} onDelete={handleRequestDeleteProduto} />

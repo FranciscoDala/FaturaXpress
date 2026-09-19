@@ -122,10 +122,14 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
     const totalBase = Number(fatura?.subtotal || totais.liquido || 0).toFixed(2)
 
     const qrContent = (isOficial || isNC)
-    ? `A:${(emp.nif || '').toString().padStart(10, '0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco || 'Luanda').slice(0, 35)}*L1:${emp.cidade || 'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior || ''}`
+   ? `A:${(emp.nif || '').toString().padStart(10, '0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco || 'Luanda').slice(0, 35)}*L1:${emp.cidade || 'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior || ''}`
         : `${getNumero(fatura)}|${fatura?.id}`
 
     const tituloDoc = isNC? 'NOTA DE CRÉDITO' : isOficial? 'FACTURA' : 'FACTURA PROFORMA'
+
+    // pega só a sigla BFA, BAI etc
+    const sigla1 = emp.banco1? emp.banco1.split('-')[0].trim() : ''
+    const sigla2 = emp.banco2? emp.banco2.split('-')[0].trim() : ''
 
     const FolhaTela = () => (
         <div id="fatura-pdf" className="relative bg-white text-black w-[210mm] min-w-[210mm] min-h-[297mm] p-[10mm] flex flex-col border border-gray-200 overflow-hidden mx-auto" style={{ fontFamily: "var(--fonte-principal)" }}>
@@ -192,7 +196,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
 
                 <div className="w-full mt-2">
                     <table className="w-full border-collapse table-fixed">
-                        {/* FIX COLUNAS: Valor agora com 17% em vez de 12% */}
                         <colgroup>
                           <col style={{ width: '12%' }} />
                           <col style={{ width: '28%' }} />
@@ -262,8 +265,8 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
 
                 <div className="mt-4 bg-[rgba(255,255,255,0.40)] p-2 text-[10px] border border-dashed border-gray-300 rounded">
                     <p className="font-bold mb-1">Coordenadas Bancárias:</p>
-                    {emp.iban? <p>{emp.banco1? `${emp.banco1} - IBAN: ${emp.iban}` : `IBAN: ${emp.iban}`}</p> : <p>IBAN 1: ---</p>}
-                    {emp.iban2? <p>{emp.banco2? `${emp.banco2} - IBAN: ${emp.iban2}` : `IBAN 2: ${emp.iban2}`}</p> : null}
+                    {emp.iban? <p>IBAN - {sigla1 || 'BFA'}: {emp.iban}</p> : <p>IBAN 1: ---</p>}
+                    {emp.iban2? <p>IBAN - {sigla2 || emp.banco2}: {emp.iban2}</p> : null}
                     {!emp.iban &&!emp.iban2 && <p>IBAN ---</p>}
                 </div>
                 {fatura?.observacoes && <div className="mt-2 text-[10px]"><b>Observações:</b> {fatura.observacoes}</div>}

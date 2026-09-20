@@ -108,8 +108,8 @@ def listar_faltas_hoje(db: Session, company_id: uuid.UUID):
     return db.query(PedidoRH).filter(
         PedidoRH.company_id==company_id,
         PedidoRH.data_inicio==hoje,
-        PedidoRH.tipo.in_(["falta","falta_justificada"]),
-        PedidoRH.status.in_(["pendente","pendente_justificacao","aprovado"])
+        PedidoRH.tipo== "falta_justificada",  # só esse que existe no banco
+        PedidoRH.status.in_(["pendente","aprovado"])
     ).all()
 
 from zoneinfo import ZoneInfo
@@ -167,29 +167,28 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
     return {"ponto": ponto, "atraso_min": atraso, "falta_gerada": falta_gerada, "total_atrasos_periodo": qtd_atrasos}
 
 def marcar_falta_manual(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, motivo: str, categoria: str = "outros", observacao: str | None = None):
-    # verifica se já tem falta hoje
     existe = db.query(PedidoRH).filter(
         PedidoRH.company_id==company_id,
         PedidoRH.funcionario_id==funcionario_id,
         PedidoRH.data_inicio==date.today(),
-        PedidoRH.tipo.in_(["falta","falta_justificada"]),
-        PedidoRH.status.in_(["pendente","pendente_justificacao","aprovado"])
+        PedidoRH.tipo== "falta_justificada",
+        PedidoRH.status.in_(["pendente","aprovado"])
     ).first()
     if existe:
-        raise HTTPException(400, f"Já existe falta marcada hoje: {existe.motivo}")
+        raise HTTPException(400, f"Já existe falta hoje: {existe.motivo}")
 
-    texto_motivo = motivo
     if categoria == "nao_apareceu":
-        texto_motivo = f"Não apareceu - {motivo}" if motivo!= "Não apareceu" else "Não apareceu - sem aviso prévio"
+        texto = f"NAO_APARECEU | {observacao or motivo}"
     elif categoria == "doente":
-        texto_motivo = f"Doente - {motivo}" if motivo!= "Doente" else "Doente - aguardando atestado"
-    elif categoria == "outros" and observacao:
-        texto_motivo = f"Outros: {observacao}"
+        texto = f"DOENTE | {observacao or motivo}"
+    else:
+        texto = f"OUTROS | {observacao or motivo}"
 
     falta = PedidoRH(
         id=uuid.uuid4(), company_id=company_id, funcionario_id=funcionario_id,
-        tipo="falta", data_inicio=date.today(), data_fim=date.today(),
-        dias_uteis=1, motivo=texto_motivo, status="pendente_justificacao"
+        tipo="falta_justificada",  # usa o que já existe
+        data_inicio=date.today(), data_fim=date.today(),
+        dias_uteis=1, motivo=texto, status="pendente" # pendente = pendente de justificação
     )
     db.add(falta); db.commit(); db.refresh(falta)
     return falta

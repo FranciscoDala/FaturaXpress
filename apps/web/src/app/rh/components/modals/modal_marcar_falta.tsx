@@ -70,7 +70,7 @@ export default function ModalMarcarFalta({ open, funcionario, onClose, onSaved }
                 </div>
                 <div className="px-6 py-4 border-t flex gap-[2px]">
                     <button onClick={onClose} className="flex-1 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50"><X className="w-5 h-5 text-black"/></button>
-                    <button disabled={saving} onClick={save} className="flex-1 h-11 rounded-full bg-red-600 text-white font-semibold hover:bg-red-700 flex items-center justify-center disabled:opacity-50 gap-1.5">{saving? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : <><Check className="w-5 h-5"/> Marcar Falta</>}</button>
+                    <button disabled={saving} onClick={save} className="flex-1 h-11 rounded-full bg-red-600 text-white font-semibold hover:bg-red-700 flex items-center justify-center disabled:opacity-50 gap-1.5">{saving? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : <><Check className="w-5 h-5"/></>}</button>
                 </div>
             </div>
         </div>

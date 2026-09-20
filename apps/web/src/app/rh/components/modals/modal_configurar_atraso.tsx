@@ -19,10 +19,10 @@ function CustomSelect({ value, options, onChange, placeholder, icon: Icon }: { v
         <div ref={ref} className="relative w-full">
             <button type="button" onClick={() => setOpen(!open)} className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black flex items-center justify-between focus:outline-none focus:border-black transition">
                 <span className={`flex items-center gap-2 truncate ${selected? 'text-black' : 'text-black/40'}`}>
-                    {Icon? <Icon className="w-4 h-4 text-gray-400" /> : null}
+                    {Icon? <Icon className="w-4 h-4 text-gray-400 shrink-0" /> : null}
                     {selected? selected.label : placeholder}
                 </span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open? 'rotate-180' : ''} shrink-0`} />
             </button>
             {open && (
                 <div className="absolute z-[70] top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5">
@@ -76,63 +76,89 @@ export default function ModalConfigPonto({ open, onClose }: { open: boolean, onC
                     <p className="text-[13px] text-black/60 mt-1">Configure horário e conversão automática de atrasos em faltas</p>
                 </div>
 
-                <div className="flex-1 overflow-y-auto no-scrollbar px-6 py-4 flex flex-col gap-[2px]">
-                    <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
+                <div className="flex-1 overflow-y-auto no-scrollbar px-6 py-5 flex flex-col">
+                    <style>{`
+                       .no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+                        input[type="time"]{ -webkit-appearance:none; appearance:none; }
+                        input[type="time"]::-webkit-calendar-picker-indicator{ opacity:0.5; margin-left:4px; }
+                        input[type="number"]::-webkit-outer-spin-button,
+                        input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+                    `}</style>
+
                     {loadingCfg? (
                         <div className="py-20 flex items-center justify-center">
                             <Loader2 className="w-6 h-6 animate-spin text-black/30" />
                         </div>
                     ) : <>
-                        <p className="text-[11px] font-bold tracking-widest text-black mb-1">HORÁRIO BASE</p>
-                        <div className="grid grid-cols-2 gap-[2px]">
-                            <div className="relative">
-                                <Clock className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                                <input value={cfg.hora_entrada} onChange={e => setCfg({...cfg, hora_entrada: e.target.value })} className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] pl-10 pr-3 text-[13.5px] text-black focus:outline-none focus:border-black" type="time" />
+                        <p className="text-[11px] font-bold tracking-widest text-black mb-2">HORÁRIO BASE</p>
+
+                        {/* CARDS ESTILO TAB PONTO */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-white border border-gray-200 rounded-[14px] px-3 py-2.5 flex flex-col gap-1 shadow-sm">
+                                <div className="flex items-center gap-1.5 text-[10px] text-black/50 font-medium">
+                                    <Clock className="w-3.5 h-3.5" /> Entrada
+                                </div>
+                                <input
+                                    value={cfg.hora_entrada}
+                                    onChange={e => setCfg({...cfg, hora_entrada: e.target.value })}
+                                    className="w-full bg-transparent text-[15px] font-semibold text-black focus:outline-none"
+                                    type="time"
+                                    style={{ minWidth: 0 }}
+                                />
                             </div>
-                            <div className="relative">
-                                <Timer className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                                <input value={cfg.tolerancia_min} onChange={e => setCfg({...cfg, tolerancia_min: parseInt(e.target.value) || 0 })} className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] pl-10 pr-3 text-[13.5px] text-black focus:outline-none focus:border-black" type="number" placeholder="Tolerância min" />
+
+                            <div className="bg-white border border-gray-200 rounded-[14px] px-3 py-2.5 flex flex-col gap-1 shadow-sm">
+                                <div className="flex items-center gap-1.5 text-[10px] text-black/50 font-medium">
+                                    <Timer className="w-3.5 h-3.5" /> Tolerância (min)
+                                </div>
+                                <input
+                                    value={cfg.tolerancia_min}
+                                    onChange={e => setCfg({...cfg, tolerancia_min: parseInt(e.target.value) || 0 })}
+                                    className="w-full bg-transparent text-[15px] font-semibold text-black focus:outline-none"
+                                    type="number"
+                                    placeholder="15"
+                                    inputMode="numeric"
+                                />
                             </div>
                         </div>
 
-                        <div className="h-[1px] bg-gray-100 my-3" />
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-white border flex items-center justify-center"><ShieldAlert className="w-4 h-4 text-black" /></div>
-                                <div>
+                        <div className="h-[1px] bg-gray-100 my-4" />
+
+                        <div className="bg-white border border-gray-200 rounded-[14px] p-3 flex items-center justify-between gap-3 shadow-sm">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-8 h-8 rounded-full bg-gray-50 border flex items-center justify-center shrink-0"><ShieldAlert className="w-4 h-4 text-black" /></div>
+                                <div className="min-w-0">
                                     <p className="font-semibold text-[13px] text-black">X atrasos = 1 falta</p>
-                                    <p className="text-[11px] text-black/60">Gera falta automática em tempo real</p>
+                                    <p className="text-[11px] text-black/60 truncate">Gera falta automática em tempo real</p>
                                 </div>
                             </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
+                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
                                 <input type="checkbox" checked={cfg.regra_atraso_ativa} onChange={e => setCfg({...cfg, regra_atraso_ativa: e.target.checked })} className="sr-only peer" />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-black"></div>
+                                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-black"></div>
                             </label>
                         </div>
 
                         {cfg.regra_atraso_ativa && (
-                            <div className="mt-3 grid grid-cols-2 gap-[2px] bg-gray-50 p-3 rounded-[16px] border border-gray-100">
-                                <div>
-                                    <label className="text-[11px] text-black/60">Qtd atrasos p/ falta</label>
-                                    <div className="relative mt-1">
-                                        <input min={2} max={10} value={cfg.qtd_atrasos_para_falta} onChange={e => setCfg({...cfg, qtd_atrasos_para_falta: parseInt(e.target.value) || 3 })} className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black" type="number" />
-                                    </div>
+                            <div className="mt-3 bg-gray-50 p-3 rounded-[16px] border border-gray-100 grid grid-cols-2 gap-3">
+                                <div className="bg-white border border-gray-200 rounded-[14px] px-3 py-2.5 flex flex-col gap-1 shadow-sm">
+                                    <label className="text-[10px] text-black/50 font-medium">Qtd atrasos p/ falta</label>
+                                    <input min={2} max={10} value={cfg.qtd_atrasos_para_falta} onChange={e => setCfg({...cfg, qtd_atrasos_para_falta: parseInt(e.target.value) || 3 })} className="w-full bg-transparent text-[14px] font-semibold text-black focus:outline-none" type="number" inputMode="numeric" />
                                 </div>
-                                <div>
-                                    <label className="text-[11px] text-black/60">Período</label>
-                                    <div className="mt-1">
+                                <div className="bg-white border border-gray-200 rounded-[14px] px-3 py-2.5 flex flex-col gap-1 shadow-sm">
+                                    <label className="text-[10px] text-black/50 font-medium">Período</label>
+                                    <div className="mt-0.5">
                                         <CustomSelect value={cfg.periodo_regra} onChange={v => setCfg({...cfg, periodo_regra: v })} placeholder="Período" options={[{ value: 'semana', label: 'Semana' }, { value: 'mes', label: 'Mês' }]} icon={CalendarRange} />
                                     </div>
                                 </div>
-                                <p className="col-span-2 text-[10px] text-black/50 mt-1">Ex: {cfg.qtd_atrasos_para_falta} atrasos na {cfg.periodo_regra} = 1 falta automática (conta tempo real)</p>
+                                <p className="col-span-2 text-[10px] text-black/50">Ex: {cfg.qtd_atrasos_para_falta} atrasos na {cfg.periodo_regra} = 1 falta automática</p>
                             </div>
                         )}
                     </>}
                 </div>
 
-                <div className="shrink-0 px-6 py-4 border-t border-gray-100 bg-white flex gap-[2px]">
+                <div className="shrink-0 px-6 py-4 border-t border-gray-100 bg-white flex gap-3">
                     <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50"><X className="w-5 h-5 text-black" /></button>
-                    <button type="button" disabled={saving || loadingCfg} onClick={save} className="flex-1 h-11 rounded-full bg-black text-white font-semibold hover:bg-gray-900 flex items-center justify-center disabled:opacity-50 gap-1.5">{saving? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-5 h-5" /> Salvar</>}</button>
+                    <button type="button" disabled={saving || loadingCfg} onClick={save} className="flex-1 h-11 rounded-full bg-black text-white font-semibold hover:bg-gray-900 flex items-center justify-center disabled:opacity-50 gap-1.5">{saving? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-5 h-5" /></>}</button>
                 </div>
             </div>
         </div>

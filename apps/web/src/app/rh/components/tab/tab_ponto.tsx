@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { api } from '../../../../lib/api'
 import { toast } from 'sonner'
-import { Settings, Search } from 'lucide-react'
+import { Settings, Search, Loader2 } from 'lucide-react'
 import ModalConfigPonto from '../modals/modal_configurar_atraso'
 import ModalMarcarFalta from '../modals/modal_marcar_falta'
 
@@ -67,7 +67,7 @@ export default function TabPonto(){
                 api.get('/api/rh/faltas/hoje').catch(()=>({data:[]}))
             ])
             setFuncs(fRes.data.map((f:any)=>({
-            ...f,
+           ...f,
                 area: f.area_principal?.nome || f.area || 'Geral',
                 funcao: f.funcao_principal?.nome || f.funcao || f.cargo || f.area_principal?.nome || 'Geral'
             })))
@@ -133,12 +133,17 @@ export default function TabPonto(){
         }finally{setBatendo(null)}
     }
 
-    if(loading) return <p className="text-center py-10 bg-white border rounded-[16px] text-black">Carregando ponto...</p>
+    if(loading) return (
+        <div className="bg-white rounded-[16px] border h-[300px] flex items-center justify-center">
+            <Loader2 className="w-6 h-6 animate-spin text-black/40" />
+        </div>
+    )
 
     return (
         <>
         <div className="bg-white rounded-[16px] border overflow-hidden">
-            <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
+            {/* HEADER - COLUNA NO MOBILE, LINHA NO DESKTOP */}
+            <div className="p-3 border-b bg-gray-50 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                 <div>
                     <h3 className="font-bold text-[14px] text-black">Ponto hoje - {new Date().toLocaleDateString('pt-AO')}</h3>
                     {config?.regra_atraso_ativa? (
@@ -147,8 +152,8 @@ export default function TabPonto(){
                         <p className="text-[10px] text-black/50 mt-0.5">Regra de atrasos desativada</p>
                     )}
                 </div>
-                <div className="flex items-center gap-2 w-full">
-                    <div className="relative flex-1">
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                    <div className="relative flex-1 md:w-[300px] md:flex-none">
                         <Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
                         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[36px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[12px] text-black placeholder:text-black/40 focus:outline-none focus:border-black" />
                     </div>
@@ -181,7 +186,7 @@ export default function TabPonto(){
                                         </span>
                                     </div>
                                 ) : lista.length===0? (
-                                    <div className="mt-1.5 flex flex-wrap gap-1">
+                                    <div className="mt-1.5 flex flex-wrap gap-1 items-center">
                                         <span className="text-[11px] text-black/60">Sem ponto hoje</span>
                                         {atrasos>0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium">{atrasos} atraso</span>}
                                     </div>

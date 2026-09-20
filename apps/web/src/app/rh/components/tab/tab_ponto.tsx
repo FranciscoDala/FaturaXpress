@@ -1,10 +1,10 @@
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { api } from '../../../../lib/api'
 import { toast } from 'sonner'
 import { Settings, Search, Loader2, Calendar, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle } from 'lucide-react'
-import { createPortal } from 'react-dom'
 import ModalConfigPonto from '../modals/modal_configurar_atraso'
 import ModalMarcarFalta from '../modals/modal_marcar_falta'
+import ModalCalendarioPonto from '../modals/modal_calendario_ponto'
 
 type Func = { id: string; nome: string; area?: string; funcao?: string; cargo?: string; area_principal?: any; funcao_principal?: any }
 type Ponto = { id: string; funcionario_id: string; tipo: string; timestamp: string; dentro_raio: boolean; dispositivo: string; atraso_min?: number; is_retroativo?: boolean }
@@ -19,249 +19,160 @@ function formatAtraso(min: number) {
     if (m === 0) return `${h}h de atraso`
     return `${h}h:${String(m).padStart(2, '0')}min de atraso`
 }
-function prettyFalta(motivo: string){
-    if(!motivo) return "Não apareceu"
-    if(motivo.includes('|')){
+function prettyFalta(motivo: string) {
+    if (!motivo) return "Não apareceu"
+    if (motivo.includes('|')) {
         const parte = motivo.split('|')[1]?.trim() || motivo.split('|')[0]?.trim()
         return capitalizarFalta(parte)
     }
     return capitalizarFalta(motivo)
 }
-function capitalizarFalta(txt: string){
+function capitalizarFalta(txt: string) {
     const lower = txt.toLowerCase()
-    if(lower.includes('nao_apareceu') || lower.includes('não apareceu')) return 'Não apareceu'
-    if(lower.includes('doente')) {
+    if (lower.includes('nao_apareceu') || lower.includes('não apareceu')) return 'Não apareceu'
+    if (lower.includes('doente')) {
         const resto = txt.split('|')[1]?.trim() || ''
         return resto? resto.charAt(0).toUpperCase() + resto.slice(1).toLowerCase() : 'Doente'
     }
-    if(lower.includes('falta - rh') || lower.includes('falta -')) return 'Falta - rh'
-    if(lower.startsWith('outros')){
-        const resto = txt.split('|')[1]?.trim() || txt.replace(/outros\s*\|?/i,'').trim()
+    if (lower.includes('falta - rh') || lower.includes('falta -')) return 'Falta - rh'
+    if (lower.startsWith('outros')) {
+        const resto = txt.split('|')[1]?.trim() || txt.replace(/outros\s*\|?/i, '').trim()
         return resto? `Outros - ${resto}` : 'Outros'
     }
     return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase()
 }
-const MONTH_LABEL = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
-const MONTH_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
-const WEEK_LABEL = ["D", "S", "T", "Q", "Q", "S", "S"]
-
-function isoToday(){
+function isoToday() {
     const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
-function formatDisplay(iso: string){
-    if(!iso) return ""
-    const [y,m,d] = iso.split("-")
+function formatDisplay(iso: string) {
+    if (!iso) return ""
+    const [y, m, d] = iso.split("-")
     return `${d}/${m}/${y}`
 }
-
-// CALENDAR IGUAL AO TEU MODAL FUNCIONARIO
-function PontoDatePicker({ value, onChange }: { value: string, onChange: (v:string)=>void }){
-    const [open,setOpen] = useState(false)
-    const [viewMode,setViewMode] = useState<'days'|'months'|'years'>('days')
-    const [view,setView] = useState(()=>{
-        const base = value? new Date(value+"T12:00:00") : new Date()
-        return { year: base.getFullYear(), month: base.getMonth() }
-    })
-    const [yearPage,setYearPage] = useState(()=> Math.floor((value? new Date(value+"T12:00:00").getFullYear(): new Date().getFullYear())/12)*12)
-
-    useEffect(()=>{
-        if(value){
-            const d = new Date(value+"T12:00:00")
-            setView({year:d.getFullYear(), month:d.getMonth()})
-            setYearPage(Math.floor(d.getFullYear()/12)*12)
-        }
-    },[value])
-
-    const daysInMonth = new Date(view.year, view.month+1, 0).getDate()
-    const startDay = new Date(view.year, view.month, 1).getDay()
-    const days: (number|null)[] = [...Array(startDay).fill(null),...Array.from({length:daysInMonth},(_,i)=>i+1)]
-    const selected = value? {d:Number(value.split("-")[2]), m:Number(value.split("-")[1])-1, y:Number(value.split("-")[0])} : null
-    const isSelected = (day:number)=> selected && selected.d===day && selected.m===view.month && selected.y===view.year
-    const isToday = (day:number)=>{
-        const t=new Date()
-        return t.getDate()===day && t.getMonth()===view.month && t.getFullYear()===view.year
-    }
-    const selectDay = (day:number)=>{
-        const iso = `${view.year}-${String(view.month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
-        onChange(iso)
-        setOpen(false)
-    }
-    const shiftDay = (dir:number)=>{
-        const d = new Date(value+"T12:00:00")
-        d.setDate(d.getDate()+dir)
-        const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-        onChange(iso)
-    }
-
-    const picker = (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={()=>setOpen(false)} />
-            <div className="relative w-full max-w-[360px] bg-white rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.35)] border border-gray-200 overflow-hidden animate-in zoom-in-95">
-                <div className="h-[60px] px-4 flex items-center justify-between bg-white border-b border-gray-200">
-                    {viewMode==='days'? (
-                        <>
-                            <button type="button" onClick={()=>setView(v=> v.month===0? {year:v.year-1,month:11}:{year:v.year,month:v.month-1})} className="w-10 h-10 rounded-full bg-gray-100 border flex items-center justify-center"><ChevronLeft className="w-5 h-5 text-black" /></button>
-                            <div className="flex gap-2">
-                                <button type="button" onClick={()=>setViewMode('months')} className="px-4 py-1.5 rounded-full bg-white border border-gray-300 text-[14px] font-black text-black">{MONTH_SHORT[view.month]}</button>
-                                <button type="button" onClick={()=>{setYearPage(Math.floor(view.year/12)*12); setViewMode('years')}} className="px-4 py-1.5 rounded-full bg-[#0A2540] text-white text-[14px] font-black">{view.year}</button>
-                            </div>
-                            <button type="button" onClick={()=>setView(v=> v.month===11? {year:v.year+1,month:0}:{year:v.year,month:v.month+1})} className="w-10 h-10 rounded-full bg-gray-100 border flex items-center justify-center"><ChevronRight className="w-5 h-5 text-black" /></button>
-                        </>
-                    ):(
-                        <>
-                            <button type="button" onClick={()=>setYearPage(p=>p-12)} className="w-10 h-10 rounded-full bg-gray-100 border flex items-center justify-center"><ChevronLeft className="w-5 h-5 text-black" /></button>
-                            <span className="text-[15px] font-black text-black">{viewMode==='months'? view.year : `${yearPage} - ${yearPage+11}`}</span>
-                            <button type="button" onClick={()=>setYearPage(p=>p+12)} className="w-10 h-10 rounded-full bg-gray-100 border flex items-center justify-center"><ChevronRight className="w-5 h-5 text-black" /></button>
-                        </>
-                    )}
-                </div>
-                <div className="p-4 bg-white">
-                    {viewMode==='days' && (
-                        <>
-                            <div className="grid grid-cols-7 gap-1 mb-3">
-                                {WEEK_LABEL.map((w,i)=><span key={i} className="h-7 flex items-center justify-center text-[12px] font-black text-black">{w}</span>)}
-                            </div>
-                            <div className="grid grid-cols-7 gap-2">
-                                {days.map((day,idx)=> day===null? <div key={`e-${idx}`} className="h-11" /> : (
-                                    <button key={idx} type="button" onClick={()=>selectDay(day)} className={`h-11 rounded-[12px] text-[15px] font-bold border-2 transition active:scale-90 ${isSelected(day)? 'bg-[#0A2540] text-white border-[#0A2540]': isToday(day)? 'bg-white text-black border-black': 'bg-white text-black border-gray-200 hover:border-black'}`}>{day}</button>
-                                ))}
-                            </div>
-                        </>
-                    )}
-                    {viewMode==='months' && (
-                        <div className="grid grid-cols-3 gap-2">
-                            {MONTH_LABEL.map((m,i)=>(
-                                <button key={m} type="button" onClick={()=>{setView(v=>({...v, month:i})); setViewMode('days')}} className={`h-12 rounded-[12px] text-[13px] font-black border-2 text-black ${view.month===i? 'bg-black text-white border-black':'bg-white border-gray-300'}`}>{m}</button>
-                            ))}
-                        </div>
-                    )}
-                    {viewMode==='years' && (
-                        <div className="grid grid-cols-3 gap-2">
-                            {Array.from({length:12},(_,i)=>yearPage+i).map(y=>(
-                                <button key={y} type="button" onClick={()=>{setView(v=>({...v, year:y})); setViewMode('days')}} className={`h-12 rounded-[12px] text-[13px] font-black border-2 text-black ${view.year===y? 'bg-black text-white border-black':'bg-white border-gray-300'}`}>{y}</button>
-                            ))}
-                        </div>
-                    )}
-                    <div className="mt-5 flex gap-3">
-                        <button type="button" onClick={()=>{ onChange(isoToday()); setOpen(false)}} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-black">Hoje</button>
-                        <button type="button" onClick={()=>setOpen(false)} className="flex-1 h-11 rounded-full border-2 border-black text-black font-bold bg-white">Fechar</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    )
-
-    return (
-        <div className="flex items-center gap-1">
-            <button onClick={()=>shiftDay(-1)} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50"><ChevronLeft className="w-4 h-4 text-black" /></button>
-            <button type="button" onClick={()=>{setOpen(!open); if(!open) setViewMode('days')}} className={`h-[36px] px-3 bg-white border rounded-full flex items-center gap-2 text-[13px] font-bold text-black ${open? 'border-black ring-2 ring-black/10':''}`}>
-                <Calendar className="w-4 h-4" /> {formatDisplay(value)} <ChevronDown className={`w-3.5 h-3.5 transition ${open? 'rotate-180':''}`} />
-            </button>
-            <button onClick={()=>shiftDay(1)} disabled={value===isoToday()} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30"><ChevronRight className="w-4 h-4 text-black" /></button>
-            {open && typeof document!=='undefined' && createPortal(picker, document.body)}
-        </div>
-    )
+function addDays(iso: string, days: number) {
+    const d = new Date(iso + "T12:00:00")
+    d.setDate(d.getDate() + days)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export default function TabPonto(){
-    const [funcs,setFuncs] = useState<Func[]>([])
-    const [pontos,setPontos] = useState<Ponto[]>([])
-    const [faltas,setFaltas] = useState<Falta[]>([])
-    const [faltasPeriodo,setFaltasPeriodo] = useState<Record<string, number>>({})
-    const [config,setConfig] = useState<Config | null>(null)
-    const [loading,setLoading] = useState(true)
-    const [batendo,setBatendo] = useState<string | null>(null)
-    const [page,setPage] = useState(1)
-    const [openCfg,setOpenCfg] = useState(false)
-    const [openFalta,setOpenFalta] = useState<{open:boolean, func: Func|null}>({open:false, func:null})
-    const [search,setSearch] = useState('')
-    const [dataSelecionada,setDataSelecionada] = useState(()=> isoToday())
+export default function TabPonto() {
+    const [funcs, setFuncs] = useState<Func[]>([])
+    const [pontos, setPontos] = useState<Ponto[]>([])
+    const [faltas, setFaltas] = useState<Falta[]>([])
+    const [faltasPeriodo, setFaltasPeriodo] = useState<Record<string, number>>({})
+    const [config, setConfig] = useState<Config | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [batendo, setBatendo] = useState<string | null>(null)
+    const [page, setPage] = useState(1)
+    const [openCfg, setOpenCfg] = useState(false)
+    const [openFalta, setOpenFalta] = useState<{ open: boolean, func: Func | null }>({ open: false, func: null })
+    const [openCal, setOpenCal] = useState(false)
+    const [search, setSearch] = useState('')
+    const [dataSelecionada, setDataSelecionada] = useState(() => isoToday())
     const perPage = 10
-    const isHoje = dataSelecionada === isoToday()
+    const hoje = isoToday()
+    const minDate = addDays(hoje, -6)
+    const isHoje = dataSelecionada === hoje
     const isRetro =!isHoje
+
+    const canGoPrev = dataSelecionada > minDate
+    const canGoNext = dataSelecionada < hoje
 
     const load = async () => {
         setLoading(true)
-        try{
+        try {
             const [fRes, pRes, cRes, faltaRes] = await Promise.all([
                 api.get('/api/funcionarios'),
                 api.get(`/api/rh/ponto?data=${dataSelecionada}`),
-                api.get('/api/rh/ponto/config').catch(()=>({data:null})),
-                api.get(`/api/rh/faltas?data=${dataSelecionada}`).catch(()=>({data:[]}))
+                api.get('/api/rh/ponto/config').catch(() => ({ data: null })),
+                api.get(`/api/rh/faltas?data=${dataSelecionada}`).catch(() => ({ data: [] }))
             ])
-            setFuncs(fRes.data.map((f:any)=>({
+            setFuncs(fRes.data.map((f: any) => ({
                ...f,
                 area: f.area_principal?.nome || f.area || 'Geral',
                 funcao: f.funcao_principal?.nome || f.funcao || f.cargo || f.area_principal?.nome || 'Geral'
             })))
             setPontos(pRes.data)
             setFaltas(faltaRes.data)
-            if(cRes.data) setConfig(cRes.data)
-            try{
+            if (cRes.data) setConfig(cRes.data)
+            try {
                 const periodo = cRes.data?.periodo_regra || 'semana'
-                const {data: pontosPeriodo} = await api.get(`/api/rh/ponto/${periodo}`)
+                const { data: pontosPeriodo } = await api.get(`/api/rh/ponto/${periodo}`)
                 const contagem: Record<string, number> = {}
-                pontosPeriodo.forEach((p:any)=>{
-                    if(p.tipo==='entrada' && p.atraso_min>0){
-                        contagem[p.funcionario_id] = (contagem[p.funcionario_id]||0)+1
+                pontosPeriodo.forEach((p: any) => {
+                    if (p.tipo === 'entrada' && p.atraso_min > 0) {
+                        contagem[p.funcionario_id] = (contagem[p.funcionario_id] || 0) + 1
                     }
                 })
                 setFaltasPeriodo(contagem)
-            }catch{}
-        }catch{
+            } catch { }
+        } catch {
             toast.error('Erro ao carregar ponto')
-        }finally{setLoading(false)}
+        } finally { setLoading(false) }
     }
-    useEffect(()=>{load()},[dataSelecionada])
-    useEffect(()=>{ setPage(1) },[search])
+    useEffect(() => { load() }, [dataSelecionada])
+    useEffect(() => { setPage(1) }, [search])
 
-    const pontosPorFunc = useMemo(()=>{
+    const pontosPorFunc = useMemo(() => {
         const map = new Map<string, Ponto[]>()
-        pontos.forEach(p=>{
-            if(!map.has(p.funcionario_id)) map.set(p.funcionario_id, [])
+        pontos.forEach(p => {
+            if (!map.has(p.funcionario_id)) map.set(p.funcionario_id, [])
             map.get(p.funcionario_id)!.push(p)
         })
         return map
-    },[pontos])
+    }, [pontos])
 
-    const faltasPorFunc = useMemo(()=>{
+    const faltasPorFunc = useMemo(() => {
         const map = new Map<string, Falta>()
-        faltas.forEach(f=> map.set(f.funcionario_id, f))
+        faltas.forEach(f => map.set(f.funcionario_id, f))
         return map
-    },[faltas])
+    }, [faltas])
 
-    const filtered = useMemo(()=>{
-        if(!search.trim()) return funcs
+    const filtered = useMemo(() => {
+        if (!search.trim()) return funcs
         const s = search.toLowerCase()
-        return funcs.filter(f=> f.nome.toLowerCase().includes(s) || (f.area||'').toLowerCase().includes(s) || (f.funcao||'').toLowerCase().includes(s))
-    },[funcs, search])
+        return funcs.filter(f => f.nome.toLowerCase().includes(s) || (f.area || '').toLowerCase().includes(s) || (f.funcao || '').toLowerCase().includes(s))
+    }, [funcs, search])
 
     const totalPages = Math.ceil(filtered.length / perPage)
-    const paginatedFuncs = useMemo(()=>{
-        const start = (page-1)*perPage
-        return filtered.slice(start, start+perPage)
-    },[filtered, page])
+    const paginatedFuncs = useMemo(() => {
+        const start = (page - 1) * perPage
+        return filtered.slice(start, start + perPage)
+    }, [filtered, page])
+
+    const shiftDay = (dir: number) => {
+        const novo = addDays(dataSelecionada, dir)
+        if (novo > hoje) {
+            toast.error("Não pode ir para o futuro")
+            return
+        }
+        if (novo < minDate) {
+            toast.error(`Limite: só até ${formatDisplay(minDate)}`)
+            return
+        }
+        setDataSelecionada(novo)
+    }
 
     const bater = async (funcId: string, tipo: string) => {
         setBatendo(funcId)
-        try{
-            const payload:any = { funcionario_id: funcId, tipo, data: dataSelecionada }
-            if(isRetro){
+        try {
+            const payload: any = { funcionario_id: funcId, tipo, data: dataSelecionada }
+            if (isRetro) {
                 payload.motivo_retroativo = `Lançamento retroativo ${formatDisplay(dataSelecionada)} - Falta de luz / correção RH`
             }
-            const {data} = await api.post('/api/rh/ponto/bater', payload)
+            const { data } = await api.post('/api/rh/ponto/bater', payload)
             const atraso = data.atraso_min?? data.ponto?.atraso_min?? 0
-            if(atraso>0) toast.warning(`Entrada com ${formatAtraso(atraso)}`)
+            if (atraso > 0) toast.warning(`Entrada com ${formatAtraso(atraso)}`)
             else toast.success(`${tipo} batido em ${formatDisplay(dataSelecionada)}`)
-            if(data.falta_gerada) toast.error(`FALTA GERADA: ${config?.qtd_atrasos_para_falta} atrasos`)
+            if (data.falta_gerada) toast.error(`FALTA GERADA: ${config?.qtd_atrasos_para_falta} atrasos`)
             await load()
-        }catch(e:any){
+        } catch (e: any) {
             toast.error(e?.response?.data?.detail || 'Erro ao bater ponto')
-        }finally{setBatendo(null)}
+        } finally { setBatendo(null) }
     }
 
-    if(loading) return (
+    if (loading) return (
         <div className="bg-white rounded-[16px] border h-[300px] flex items-center justify-center">
             <Loader2 className="w-6 h-6 animate-spin text-black/40" />
         </div>
@@ -269,120 +180,88 @@ export default function TabPonto(){
 
     return (
         <>
-        <div className="bg-white rounded-[16px] border overflow-hidden">
-            <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        <PontoDatePicker value={dataSelecionada} onChange={setDataSelecionada} />
-                        {isRetro && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold"><AlertTriangle className="w-3 h-3" /> Retroativo</span>}
-                    </div>
-                    <div className="flex items-center gap-2 w-full md:w-auto">
-                        <div className="relative flex-1 md:w-[300px] md:flex-none">
-                            <Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[36px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[12px] text-black placeholder:text-black/40 focus:outline-none focus:border-black" />
+            <div className="bg-white rounded-[16px] border overflow-hidden">
+                <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                        <div className="flex items-center gap-1">
+                            <button disabled={!canGoPrev} onClick={() => shiftDay(-1)} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"><ChevronLeft className="w-4 h-4 text-black" /></button>
+                            <button type="button" onClick={() => setOpenCal(true)} className="h-[36px] px-3 bg-white border rounded-full flex items-center gap-2 text-[13px] font-bold text-black hover:border-black transition">
+                                <Calendar className="w-4 h-4" /> {formatDisplay(dataSelecionada)} <ChevronDown className="w-3.5 h-3.5" />
+                            </button>
+                            <button disabled={!canGoNext} onClick={() => shiftDay(1)} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"><ChevronRight className="w-4 h-4 text-black" /></button>
+                            {isRetro && <span className="ml-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold"><AlertTriangle className="w-3 h-3" /> Retroativo</span>}
                         </div>
-                        <button onClick={()=>setOpenCfg(true)} className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 shadow-sm shrink-0">
-                            <Settings className="w-4 h-4 text-black"/>
-                        </button>
+                        <div className="flex items-center gap-2 w-full md:w-auto">
+                            <div className="relative flex-1 md:w-[300px] md:flex-none">
+                                <Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[36px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[12px] text-black placeholder:text-black/40 focus:outline-none focus:border-black" />
+                            </div>
+                            <button onClick={() => setOpenCfg(true)} className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 shadow-sm shrink-0">
+                                <Settings className="w-4 h-4 text-black" />
+                            </button>
+                        </div>
                     </div>
+                    <p className="text-[11px] text-black/60">
+                        {config?.regra_atraso_ativa? `ATT: ${config.qtd_atrasos_para_falta} atrasos na ${config.periodo_regra} = 1 falta • ` : ''}
+                        Mostrando {formatDisplay(dataSelecionada)} • Janela editável: {formatDisplay(minDate)} até hoje
+                    </p>
                 </div>
-                {config?.regra_atraso_ativa? (
-                    <p className="text-[11px] text-black/60">ATT: {config.qtd_atrasos_para_falta} atrasos na {config.periodo_regra} resulta em 1 falta • Mostrando {formatDisplay(dataSelecionada)}</p>
-                ):(
-                    <p className="text-[11px] text-black/50">Regra de atrasos desativada • Mostrando {formatDisplay(dataSelecionada)}</p>
+
+                <div className="max-h-[70vh] overflow-y-auto">
+                    {paginatedFuncs.length === 0 && <p className="text-center py-8 text-[12px] text-black/50">Nenhum funcionário para "{search}"</p>}
+                    {paginatedFuncs.map(f => {
+                        const lista = (pontosPorFunc.get(f.id) || []).sort((a, b) => +new Date(b.timestamp) - +new Date(a.timestamp))
+                        const temEntrada = lista.some(p => p.tipo === 'entrada')
+                        const temSaida = lista.some(p => p.tipo === 'saida')
+                        const falta = faltasPorFunc.get(f.id)
+                        const atrasos = faltasPeriodo[f.id] || 0
+
+                        return (
+                            <div key={f.id} className="px-3 md:px-4 py-2.5 border-b last:border-b-0 flex justify-between items-center gap-3">
+                                <div className="min-w-0 flex-1">
+                                    <p className="font-bold text-[13px] text-black truncate">{f.nome} <span className="font-normal text-black/60">• {f.funcao}</span></p>
+                                    {falta? (
+                                        <div className="mt-1.5 flex flex-wrap gap-1">
+                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] text-red-700">Falta • {prettyFalta(falta.motivo)} {falta.is_retroativo && '(retro)'} • pendente justificação</span>
+                                        </div>
+                                    ) : lista.length === 0? (
+                                        <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                                            <span className="text-[11px] text-black/60">Sem ponto em {formatDisplay(dataSelecionada)}</span>
+                                            {atrasos > 0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium">{atrasos} atraso</span>}
+                                        </div>
+                                    ) : (
+                                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                            {lista.map(p => {
+                                                const isAtraso = p.atraso_min && p.atraso_min > 0
+                                                if (isAtraso) {
+                                                    return (<span key={p.id} className="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[11px] text-amber-800 font-medium">entrada {new Date(p.timestamp).toLocaleTimeString('pt-AO')} ({formatAtraso(p.atraso_min!)}) {p.is_retroativo && '• retro'}</span>)
+                                                }
+                                                return (<span key={p.id} className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border ${p.tipo === 'entrada'? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff] font-semibold' : 'bg-gray-50 border-gray-200 text-black/60'}`}>{p.tipo} {new Date(p.timestamp).toLocaleTimeString('pt-AO')} {p.is_retroativo && '• retro'}</span>)
+                                            })}
+                                            {atrasos > 0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium">{atrasos} atraso</span>}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex gap-1.5 shrink-0">
+                                    {falta? (<span className="h-[26px] px-3 flex items-center text-[11px] bg-red-600 text-white rounded-full font-medium">Falta</span>) :!temEntrada? (<><button disabled={batendo === f.id} onClick={() => bater(f.id, 'entrada')} className="h-[26px] px-3 bg-[#0095ff] text-white rounded-full text-[11px] font-medium disabled:opacity-50 hover:bg-[#0085e6]">Entrada</button><button onClick={() => setOpenFalta({ open: true, func: f })} className="h-[26px] px-3 bg-red-50 border border-red-200 text-red-600 rounded-full text-[11px] font-medium hover:bg-red-100">Falta</button></>) :!temSaida? (<button disabled={batendo === f.id} onClick={() => bater(f.id, 'saida')} className="h-[26px] px-3 border border-gray-200 bg-white rounded-full text-[11px] text-black hover:bg-gray-50">Saída</button>) : (<span className="h-[26px] px-3 flex items-center text-[11px] bg-gray-100 text-black rounded-full border">Completo</span>)}
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+
+                {totalPages > 1 && (
+                    <div className="flex justify-between items-center p-2.5 border-t bg-gray-50">
+                        <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-3 py-1 text-[11px] rounded-full border bg-white text-black disabled:opacity-40">Anterior</button>
+                        <span className="text-[11px] text-black/60">Página {page} de {totalPages} • {formatDisplay(dataSelecionada)}</span>
+                        <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="px-3 py-1 text-[11px] rounded-full bg-black text-white disabled:opacity-40">Próxima</button>
+                    </div>
                 )}
             </div>
 
-            <div className="max-h-[70vh] overflow-y-auto">
-                {paginatedFuncs.length===0 && <p className="text-center py-8 text-[12px] text-black/50">Nenhum funcionário para "{search}"</p>}
-                {paginatedFuncs.map(f=>{
-                    const lista = (pontosPorFunc.get(f.id) || []).sort((a,b)=>+new Date(b.timestamp)-+new Date(a.timestamp))
-                    const temEntrada = lista.some(p=>p.tipo==='entrada')
-                    const temSaida = lista.some(p=>p.tipo==='saida')
-                    const falta = faltasPorFunc.get(f.id)
-                    const atrasos = faltasPeriodo[f.id] || 0
-
-                    return (
-                        <div key={f.id} className="px-3 md:px-4 py-2.5 border-b last:border-b-0 flex justify-between items-center gap-3">
-                            <div className="min-w-0 flex-1">
-                                <p className="font-bold text-[13px] text-black truncate">
-                                    {f.nome} <span className="font-normal text-black/60">• {f.funcao}</span>
-                                </p>
-
-                                {falta? (
-                                    <div className="mt-1.5 flex flex-wrap gap-1">
-                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] text-red-700">
-                                            Falta • {prettyFalta(falta.motivo)} {falta.is_retroativo && '(retro)'} • pendente justificação
-                                        </span>
-                                    </div>
-                                ) : lista.length===0? (
-                                    <div className="mt-1.5 flex flex-wrap gap-1 items-center">
-                                        <span className="text-[11px] text-black/60">Sem ponto em {formatDisplay(dataSelecionada)}</span>
-                                        {atrasos>0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium">{atrasos} atraso</span>}
-                                    </div>
-                                ) : (
-                                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                        {lista.map(p=>{
-                                            const isAtraso = p.atraso_min && p.atraso_min>0
-                                            if(isAtraso){
-                                                return (
-                                                    <span key={p.id} className="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[11px] text-amber-800 font-medium">
-                                                        entrada {new Date(p.timestamp).toLocaleTimeString('pt-AO')} ({formatAtraso(p.atraso_min!)}) {p.is_retroativo && '• retro'}
-                                                    </span>
-                                                )
-                                            }
-                                            return (
-                                                <span key={p.id} className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border ${p.tipo==='entrada'? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff] font-semibold' : 'bg-gray-50 border-gray-200 text-black/60'}`}>
-                                                    {p.tipo} {new Date(p.timestamp).toLocaleTimeString('pt-AO')} {p.is_retroativo && '• retro'}
-                                                </span>
-                                            )
-                                        })}
-                                        {atrasos>0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium">{atrasos} atraso</span>}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex gap-1.5 shrink-0">
-                                {falta? (
-                                    <span className="h-[26px] px-3 flex items-center text-[11px] bg-red-600 text-white rounded-full font-medium">Falta</span>
-                                ):!temEntrada? (
-                                    <>
-                                        <button disabled={batendo===f.id} onClick={()=>bater(f.id,'entrada')} className="h-[26px] px-3 bg-[#0095ff] text-white rounded-full text-[11px] font-medium disabled:opacity-50 hover:bg-[#0085e6]">
-                                            Entrada
-                                        </button>
-                                        <button onClick={()=>setOpenFalta({open:true, func:f})} className="h-[26px] px-3 bg-red-50 border border-red-200 text-red-600 rounded-full text-[11px] font-medium hover:bg-red-100">
-                                            Falta
-                                        </button>
-                                    </>
-                                ):!temSaida? (
-                                    <button disabled={batendo===f.id} onClick={()=>bater(f.id,'saida')} className="h-[26px] px-3 border border-gray-200 bg-white rounded-full text-[11px] text-black hover:bg-gray-50">
-                                        Saída
-                                    </button>
-                                ):(
-                                    <span className="h-[26px] px-3 flex items-center text-[11px] bg-gray-100 text-black rounded-full border">Completo</span>
-                                )}
-                            </div>
-                        </div>
-                    )
-                })}
-            </div>
-
-            {totalPages > 1 && (
-                <div className="flex justify-between items-center p-2.5 border-t bg-gray-50">
-                    <button disabled={page===1} onClick={()=>setPage(p=>p-1)} className="px-3 py-1 text-[11px] rounded-full border bg-white text-black disabled:opacity-40">Anterior</button>
-                    <span className="text-[11px] text-black/60">Página {page} de {totalPages} • {formatDisplay(dataSelecionada)}</span>
-                    <button disabled={page===totalPages} onClick={()=>setPage(p=>p+1)} className="px-3 py-1 text-[11px] rounded-full bg-black text-white disabled:opacity-40">Próxima</button>
-                </div>
-            )}
-        </div>
-
-        <ModalConfigPonto open={openCfg} onClose={()=>{setOpenCfg(false); load()}} />
-        <ModalMarcarFalta
-            open={openFalta.open}
-            funcionario={openFalta.func}
-            dataSelecionada={dataSelecionada}
-            onClose={()=>setOpenFalta({open:false, func:null})}
-            onSaved={()=>{setOpenFalta({open:false, func:null}); load()}}
-        />
+            <ModalCalendarioPonto open={openCal} value={dataSelecionada} onClose={() => setOpenCal(false)} onSelect={setDataSelecionada} />
+            <ModalConfigPonto open={openCfg} onClose={() => { setOpenCfg(false); load() }} />
+            <ModalMarcarFalta open={openFalta.open} funcionario={openFalta.func} dataSelecionada={dataSelecionada} onClose={() => setOpenFalta({ open: false, func: null })} onSaved={() => { setOpenFalta({ open: false, func: null }); load() }} />
         </>
     )
 }

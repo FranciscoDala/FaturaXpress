@@ -12,6 +12,20 @@ from zoneinfo import ZoneInfo
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 CARGOS_VALIDOS = ["admin", "financeira", "recepcao", "rh"]
 
+LIMITE_DIAS_RH = 6 # hoje + 6 pra trás = 7 dias
+LIMITE_DIAS_ADMIN = 30
+
+def validar_janela_edicao(data_alvo: date, is_admin: bool = False):
+    hoje = date.today()
+    if data_alvo > hoje:
+        raise HTTPException(400, "Não pode lançar ponto no futuro")
+    diff = (hoje - data_alvo).days
+    limite = LIMITE_DIAS_ADMIN if is_admin else LIMITE_DIAS_RH
+    if diff > limite:
+        if is_admin:
+            raise HTTPException(403, f"Limite máximo de {LIMITE_DIAS_ADMIN} dias atingido (tentou {diff} dias atrás)")
+        raise HTTPException(403, f"Edição bloqueada: só até {LIMITE_DIAS_RH+1} dias (hoje + {LIMITE_DIAS_RH} atrás). Você tentou {diff} dias atrás. Solicite ao Admin.")
+
 def criar_funcionario(db: Session, company_id: uuid.UUID, dados: FuncionarioCreate):
     bi = (dados.numero_bi or dados.bi or "").strip().upper()
     if not bi:
@@ -87,7 +101,6 @@ def get_config_ponto(db: Session, company_id: uuid.UUID):
         db.add(cfg); db.commit(); db.refresh(cfg)
     return cfg
 
-# --- NOVAS FUNÇÕES POR DATA ---
 def parse_data(data_str: Optional[str]) -> date:
     if not data_str:
         return date.today()
@@ -107,7 +120,6 @@ def listar_faltas_por_data(db: Session, company_id: uuid.UUID, data_alvo: date):
         PedidoRH.status.in_(["pendente","aprovado"])
     ).all()
 
-# Mantém compatibilidade
 def listar_ponto_hoje(db: Session, company_id: uuid.UUID):
     return listar_ponto_por_data(db, company_id, date.today())
 
@@ -127,14 +139,15 @@ def listar_ponto_periodo(db: Session, company_id: uuid.UUID, periodo: str):
 def listar_faltas_hoje(db: Session, company_id: uuid.UUID):
     return listar_faltas_por_data(db, company_id, date.today())
 
-def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid.UUID, tipo: str, ip: str | None = None, data_str: str | None = None, motivo_retroativo: str | None = None, lancado_por_id: uuid.UUID | None = None):
+def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid.UUID, tipo: str, ip: str | None = None, data_str: str | None = None, motivo_retroativo: str | None = None, lancado_por_id: uuid.UUID | None = None, is_admin: bool = False):
     cfg = get_config_ponto(db, company_id)
     data_alvo = parse_data(data_str)
     hoje = date.today()
     is_retro = data_alvo!= hoje
 
+    validar_janela_edicao(data_alvo, is_admin=is_admin)
+
     if is_retro and not motivo_retroativo:
-        # profissional: exige motivo para retroativo
         raise HTTPException(400, "Para ponto retroativo, informe o motivo (ex: Falta de luz)")
 
     agora_utc = datetime.now(timezone.utc)
@@ -147,8 +160,6 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
         try:
             h, m = map(int, cfg.hora_entrada.split(":"))
             entrada_min = h*60 + m
-            # se for retroativo, não calcula atraso pelo horário atual, usa 0 ou calcula baseado na data? Para simplicidade, se retroativo, atraso vem no payload ou 0
-            # aqui mantemos logica original só para hoje
             if not is_retro:
                 agora_min = agora_luanda.hour*60 + agora_luanda.minute
                 atraso = agora_min - entrada_min - cfg.tolerancia_min
@@ -156,7 +167,6 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
         except:
             atraso = 0
 
-    # timestamp retroativo = meio-dia da data alvo em Luanda para manter ordenação
     timestamp_final = agora_utc
     if is_retro:
         dt_luanda = datetime(data_alvo.year, data_alvo.month, data_alvo.day, 12, 0, 0, tzinfo=ZoneInfo("Africa/Luanda"))
@@ -170,7 +180,6 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
     )
     db.add(ponto); db.commit(); db.refresh(ponto)
 
-    # regra de atraso só aplica na data alvo, não no hoje
     if tipo=="entrada" and atraso>0 and cfg.regra_atraso_ativa:
         if cfg.periodo_regra == "mes":
             inicio_periodo = data_alvo.replace(day=1)
@@ -202,9 +211,10 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
                 db.add(falta_gerada); db.commit(); db.refresh(falta_gerada)
     return {"ponto": ponto, "atraso_min": atraso, "falta_gerada": falta_gerada, "total_atrasos_periodo": qtd_atrasos, "is_retroativo": is_retro}
 
-def marcar_falta_manual(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, motivo: str, categoria: str = "outros", observacao: str | None = None, data_str: str | None = None, motivo_retroativo: str | None = None, lancado_por_id: uuid.UUID | None = None):
+def marcar_falta_manual(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, motivo: str, categoria: str = "outros", observacao: str | None = None, data_str: str | None = None, motivo_retroativo: str | None = None, lancado_por_id: uuid.UUID | None = None, is_admin: bool = False):
     data_alvo = parse_data(data_str)
     is_retro = data_alvo!= date.today()
+    validar_janela_edicao(data_alvo, is_admin=is_admin)
 
     if is_retro and not motivo_retroativo:
         raise HTTPException(400, "Para falta retroativa, informe motivo_retroativo")

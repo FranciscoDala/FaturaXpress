@@ -300,16 +300,18 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
             if (!funcionario && !form.senha.trim()) { toast.error('Senha obrigatória'); setTab('acesso'); return }
             if (form.senha && form.senha.length < 6) { toast.error('Senha mínima 6'); setTab('acesso'); return }
         }
+        // SUBSTITUI O BLOCO INTEIRO DO onSave:
         onSave({
             nome: form.nome, numero_bi: form.numero_bi, bi: form.numero_bi,
             data_nascimento: form.data_nascimento, genero: form.genero, nacionalidade: form.nacionalidade, naturalidade: form.naturalidade,
             nome_pai: form.nome_pai, nome_mae: form.nome_mae,
             data_emissao_bi: form.data_emissao_bi || null, data_validade_bi: form.data_validade_bi || null, local_emissao_bi: form.local_emissao_bi || null,
-            estado_civil: form.estado_civil, telefone: form.telefone, email: form.tem_acesso ? form.email : null,
+            estado_civil: form.estado_civil, telefone: form.telefone,
+            email: form.email || null, // FIX: email é sempre pessoal, não depende de tem_acesso
             endereco: form.endereco, cidade: form.cidade, provincia: form.provincia, nif: form.nif,
             banco1: form.banco1, banco2: form.banco2, iban: form.banco1 ? form.iban : null, iban2: form.banco2 ? form.iban2 : null,
             contacto_emergencia: form.contacto_emergencia,
-            tem_acesso: form.tem_acesso, senha: form.tem_acesso ? form.senha : undefined, cargo: form.cargo, area_principal_id: form.area_principal_id || null, areas_ids: form.areas_ids
+            tem_acesso: form.tem_acesso, senha: form.senha || undefined, cargo: form.cargo, area_principal_id: form.area_principal_id || null, areas_ids: form.areas_ids
         })
     }
 

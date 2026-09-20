@@ -15,14 +15,8 @@ def criar_funcionario(db: Session, company_id: uuid.UUID, dados: FuncionarioCrea
     if not bi:
         raise HTTPException(400, "Nº BI obrigatório")
 
-    # BI único por empresa
     if db.query(Funcionario).filter(Funcionario.company_id == company_id, Funcionario.numero_bi == bi).first():
         raise HTTPException(400, f"BI {bi} já cadastrado nesta empresa")
-
-    # Email único só se tem_acesso
-    if dados.tem_acesso and dados.email:
-        if db.query(Funcionario).filter(Funcionario.company_id == company_id, Funcionario.email == dados.email.lower()).first():
-            raise HTTPException(400, "Email já existe nessa empresa")
 
     if dados.cargo not in CARGOS_VALIDOS:
         raise HTTPException(400, f"Cargo inválido. Use: {', '.join(CARGOS_VALIDOS)}")
@@ -30,9 +24,16 @@ def criar_funcionario(db: Session, company_id: uuid.UUID, dados: FuncionarioCrea
     if dados.tem_acesso and not dados.senha:
         raise HTTPException(400, "Senha obrigatória para quem tem acesso")
 
+    # Email é sempre pessoal, mesmo sem acesso
+    email_norm = dados.email.lower().strip() if dados.email else None
+
+    # Se tem_acesso, valida unicidade do email de login
+    if dados.tem_acesso and email_norm:
+        if db.query(Funcionario).filter(Funcionario.company_id == company_id, Funcionario.email == email_norm).first():
+            raise HTTPException(400, "Email já existe nessa empresa")
+
     senha_hash = pwd_context.hash(dados.senha) if dados.tem_acesso and dados.senha else None
 
-    # Regra banco igual empresa: só salva IBAN se tiver banco
     iban = dados.iban if dados.banco1 else None
     iban2 = dados.iban2 if dados.banco2 else None
 
@@ -52,7 +53,7 @@ def criar_funcionario(db: Session, company_id: uuid.UUID, dados: FuncionarioCrea
         local_emissao_bi=dados.local_emissao_bi,
         estado_civil=dados.estado_civil,
         telefone=dados.telefone,
-        email=dados.email.lower().strip() if dados.email and dados.tem_acesso else None,
+        email=email_norm, # FIX: sempre salva
         endereco=dados.endereco,
         cidade=dados.cidade,
         provincia=dados.provincia,
@@ -71,8 +72,6 @@ def criar_funcionario(db: Session, company_id: uuid.UUID, dados: FuncionarioCrea
 
     if dados.areas_ids:
         areas = db.query(Area).filter(Area.id.in_(dados.areas_ids), Area.company_id == company_id).all()
-        if len(areas)!= len(dados.areas_ids):
-            raise HTTPException(400, "Uma ou mais áreas não encontradas")
         func.areas = areas
 
     db.add(func)
@@ -95,26 +94,21 @@ def obter_funcionario(db: Session, company_id: uuid.UUID, funcionario_id: uuid.U
 def atualizar_funcionario(db: Session, funcionario: Funcionario, dados: FuncionarioUpdate, company_id: uuid.UUID):
     data = dados.model_dump(exclude_unset=True, exclude={'areas_ids', 'senha'})
 
+    # Normaliza nome
     if 'nome' in data and data['nome']:
         data['nome'] = data['nome'].strip()
+
     if 'cargo' in data and data['cargo'] and data['cargo'] not in CARGOS_VALIDOS:
         raise HTTPException(400, f"Cargo inválido. Use: {', '.join(CARGOS_VALIDOS)}")
 
-    # Regra banco: limpa IBAN se limpar banco
-    if 'banco1' in data and not data['banco1']:
-        data['iban'] = None
-    if 'banco2' in data and not data['banco2']:
-        data['iban2'] = None
-    if 'banco1' in data and data['banco1'] and 'iban' not in data:
-        # mantém iban atual se já tem
-        pass
-    else:
-        if data.get('banco1') and dados.iban is None:
-            pass
-        if data.get('banco1') is None:
-            data['iban'] = None
+    # FIX: normaliza email SEMPRE, mesmo sem acesso
+    if 'email' in data:
+        if data['email'] is None or data['email'] == "":
+            data['email'] = None
+        else:
+            data['email'] = str(data['email']).lower().strip()
 
-    # BI único se trocar
+    # BI único
     if 'numero_bi' in data and data['numero_bi']:
         novo_bi = data['numero_bi'].strip().upper()
         if novo_bi!= funcionario.numero_bi:
@@ -122,15 +116,20 @@ def atualizar_funcionario(db: Session, funcionario: Funcionario, dados: Funciona
                 raise HTTPException(400, "BI já existe")
             data['numero_bi'] = novo_bi
 
-    # senha
+    # Banco/IBAN - limpa IBAN só se banco removido
+    if 'banco1' in data and not data['banco1']:
+        data['iban'] = None
+        data['banco1'] = None
+    if 'banco2' in data and not data['banco2']:
+        data['iban2'] = None
+        data['banco2'] = None
+
+    # Senha
     if dados.senha:
         funcionario.senha_hash = pwd_context.hash(dados.senha)
 
     for k, v in data.items():
-        if k == 'numero_bi' and v:
-            setattr(funcionario, k, v.strip().upper())
-        else:
-            setattr(funcionario, k, v)
+        setattr(funcionario, k, v)
 
     if dados.areas_ids is not None:
         if dados.areas_ids:

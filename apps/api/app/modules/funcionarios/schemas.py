@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, field_validator
 from typing import List, Optional
 from datetime import datetime, date
 from uuid import UUID
@@ -63,6 +63,20 @@ class FuncionarioCreate(BaseModel):
     area_principal_id: Optional[UUID] = None
     areas_ids: List[UUID] = Field(default_factory=list)
 
+    @field_validator('email', mode='before')
+    @classmethod
+    def normalize_email_create(cls, v):
+        if v is None or v == "":
+            return None
+        return str(v).lower().strip()
+
+    @field_validator('numero_bi', 'bi', mode='before')
+    @classmethod
+    def normalize_bi(cls, v):
+        if v is None:
+            return v
+        return str(v).upper().strip()
+
 class FuncionarioUpdate(BaseModel):
     nome: Optional[str] = Field(None, max_length=150)
     numero_bi: Optional[str] = None
@@ -78,7 +92,7 @@ class FuncionarioUpdate(BaseModel):
 
     estado_civil: Optional[str] = None
     telefone: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None # FIX: str ao invés de EmailStr pra permitir limpar e não dar 422
     endereco: Optional[str] = None
     cidade: Optional[str] = None
     provincia: Optional[str] = None
@@ -97,6 +111,24 @@ class FuncionarioUpdate(BaseModel):
     area_principal_id: Optional[UUID] = None
     areas_ids: Optional[List[UUID]] = None
     ativo: Optional[bool] = None
+
+    @field_validator('email', mode='before')
+    @classmethod
+    def normalize_email_update(cls, v):
+        if v is None or v == "":
+            return None
+        v = str(v).lower().strip()
+        return v if v else None
+
+    @field_validator('numero_bi', mode='before')
+    @classmethod
+    def normalize_bi_update(cls, v):
+        if v is None:
+            return v
+        return str(v).upper().strip()
+
+    class Config:
+        extra = "allow"
 
 class FuncionarioResponse(BaseModel):
     id: UUID

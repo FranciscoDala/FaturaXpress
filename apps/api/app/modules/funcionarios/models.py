@@ -1,7 +1,7 @@
 import uuid
 import enum
 from datetime import datetime, timezone, date
-from sqlalchemy import String, Boolean, ForeignKey, DateTime, Table, Column, Date, Text, Enum as SAEnum, Float, Integer
+from sqlalchemy import String, Boolean, ForeignKey, DateTime, Table, Column, Date, Text, Enum as SAEnum, Float, Integer, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
@@ -44,6 +44,7 @@ class StatusRecibo(str, enum.Enum):
 class Funcionario(Base):
     __tablename__ = "funcionarios"
     __table_args__ = (
+        UniqueConstraint('company_id', 'numero_bi', name='uq_funcionarios_company_bi'),
         {"sqlite_autoincrement": False},
     )
 
@@ -51,7 +52,6 @@ class Funcionario(Base):
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
     area_principal_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("areas.id", ondelete="SET NULL"), nullable=True, index=True)
 
-    # --- OBRIGATORIOS BI ---
     nome: Mapped[str] = mapped_column(String(150), nullable=False)
     numero_bi: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     data_nascimento: Mapped[date] = mapped_column(Date, nullable=False)
@@ -64,7 +64,6 @@ class Funcionario(Base):
     data_validade_bi: Mapped[date | None] = mapped_column(Date, nullable=True)
     local_emissao_bi: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
-    # --- OPCIONAIS ---
     estado_civil: Mapped[str] = mapped_column(String(20), default="solteiro")
     telefone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     email: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
@@ -81,7 +80,6 @@ class Funcionario(Base):
     contacto_emergencia: Mapped[str | None] = mapped_column(String(20), nullable=True)
     data_admissao: Mapped[date | None] = mapped_column(Date, nullable=True, default=lambda: date.today())
 
-    # --- ACESSO ---
     tem_acesso: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     senha_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     cargo: Mapped[str] = mapped_column(String(20), default="rh", nullable=False)
@@ -128,7 +126,7 @@ class SaldoFerias(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), index=True)
     funcionario_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id", ondelete="CASCADE"), index=True)
-    ano_referencia: Mapped[int] = mapped_column(Integer, default=datetime.now().year)
+    ano_referencia: Mapped[int] = mapped_column(Integer, default=lambda: datetime.now().year)
     dias_direito: Mapped[int] = mapped_column(Integer, default=22)
     dias_gozados: Mapped[int] = mapped_column(Integer, default=0)
     data_admissao: Mapped[date | None] = mapped_column(Date, nullable=True)

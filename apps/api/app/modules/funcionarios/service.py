@@ -11,8 +11,7 @@ from zoneinfo import ZoneInfo
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 CARGOS_VALIDOS = ["admin", "financeira", "recepcao", "rh"]
-
-LIMITE_DIAS_RH = 6 # hoje + 6 pra trás = 7 dias
+LIMITE_DIAS_RH = 6
 LIMITE_DIAS_ADMIN = 30
 
 def validar_janela_edicao(data_alvo: date, is_admin: bool = False):
@@ -22,9 +21,60 @@ def validar_janela_edicao(data_alvo: date, is_admin: bool = False):
     diff = (hoje - data_alvo).days
     limite = LIMITE_DIAS_ADMIN if is_admin else LIMITE_DIAS_RH
     if diff > limite:
-        if is_admin:
-            raise HTTPException(403, f"Limite máximo de {LIMITE_DIAS_ADMIN} dias atingido (tentou {diff} dias atrás)")
-        raise HTTPException(403, f"Edição bloqueada: só até {LIMITE_DIAS_RH+1} dias (hoje + {LIMITE_DIAS_RH} atrás). Você tentou {diff} dias atrás. Solicite ao Admin.")
+        raise HTTPException(403, f"Edição bloqueada: só até {limite+1} dias. Tentou {diff} dias atrás.")
+
+def _get_nome_lancador(db: Session, lancado_por_id):
+    if not lancado_por_id:
+        return None
+    f = db.query(Funcionario).filter(Funcionario.id == lancado_por_id).first()
+    return f.nome if f else None
+
+def _ponto_to_dict(db: Session, p: Ponto) -> dict:
+    tipo_str = str(p.tipo) if p.tipo else ""
+    if "." in tipo_str:
+        tipo_str = tipo_str.split(".")[-1]
+    return {
+        "id": str(p.id),
+        "company_id": str(p.company_id),
+        "funcionario_id": str(p.funcionario_id),
+        "data": p.data.isoformat() if p.data else None,
+        "tipo": tipo_str,
+        "timestamp": p.timestamp.isoformat() if p.timestamp else None,
+        "dentro_raio": p.dentro_raio,
+        "dispositivo": p.dispositivo,
+        "atraso_min": p.atraso_min,
+        "is_retroativo": bool(p.is_retroativo),
+        "motivo_retroativo": p.motivo_retroativo,
+        "lancado_por_id": str(p.lancado_por_id) if p.lancado_por_id else None,
+        "lancado_por_nome": _get_nome_lancador(db, p.lancado_por_id),
+        "lancado_em": p.lancado_em.isoformat() if p.lancado_em else None,
+        "distancia_m": p.distancia_m,
+        "ip": p.ip,
+    }
+
+def _falta_to_dict(db: Session, f: PedidoRH) -> dict:
+    status_str = str(f.status)
+    if "." in status_str:
+        status_str = status_str.split(".")[-1]
+    tipo_str = str(f.tipo)
+    if "." in tipo_str:
+        tipo_str = tipo_str.split(".")[-1]
+    return {
+        "id": str(f.id),
+        "company_id": str(f.company_id),
+        "funcionario_id": str(f.funcionario_id),
+        "tipo": tipo_str,
+        "data": f.data_inicio.isoformat() if f.data_inicio else None,
+        "data_inicio": f.data_inicio.isoformat() if f.data_inicio else None,
+        "data_fim": f.data_fim.isoformat() if f.data_fim else None,
+        "motivo": f.motivo,
+        "status": status_str,
+        "is_retroativo": bool(f.is_retroativo),
+        "motivo_retroativo": f.motivo_retroativo,
+        "lancado_por_id": str(f.lancado_por_id) if f.lancado_por_id else None,
+        "lancado_por_nome": _get_nome_lancador(db, f.lancado_por_id),
+        "lancado_em": f.lancado_em.isoformat() if f.lancado_em else None,
+    }
 
 def criar_funcionario(db: Session, company_id: uuid.UUID, dados: FuncionarioCreate):
     bi = (dados.numero_bi or dados.bi or "").strip().upper()
@@ -110,15 +160,16 @@ def parse_data(data_str: Optional[str]) -> date:
         raise HTTPException(400, "Data inválida, use YYYY-MM-DD")
 
 def listar_ponto_por_data(db: Session, company_id: uuid.UUID, data_alvo: date):
-    return db.query(Ponto).filter(Ponto.company_id==company_id, Ponto.data==data_alvo).order_by(Ponto.timestamp.desc()).all()
+    pontos = db.query(Ponto).filter(Ponto.company_id==company_id, Ponto.data==data_alvo).order_by(Ponto.timestamp.desc()).all()
+    return [_ponto_to_dict(db, p) for p in pontos]
 
 def listar_faltas_por_data(db: Session, company_id: uuid.UUID, data_alvo: date):
-    return db.query(PedidoRH).filter(
+    faltas = db.query(PedidoRH).filter(
         PedidoRH.company_id==company_id,
         PedidoRH.data_inicio==data_alvo,
         PedidoRH.tipo=="falta_justificada",
-        PedidoRH.status.in_(["pendente","aprovado"])
     ).all()
+    return [_falta_to_dict(db, f) for f in faltas]
 
 def listar_ponto_hoje(db: Session, company_id: uuid.UUID):
     return listar_ponto_por_data(db, company_id, date.today())
@@ -126,7 +177,8 @@ def listar_ponto_hoje(db: Session, company_id: uuid.UUID):
 def listar_ponto_semana(db: Session, company_id: uuid.UUID):
     hoje = date.today()
     inicio = hoje - timedelta(days=hoje.weekday())
-    return db.query(Ponto).filter(Ponto.company_id==company_id, Ponto.data>=inicio).order_by(Ponto.data.desc()).all()
+    pontos = db.query(Ponto).filter(Ponto.company_id==company_id, Ponto.data>=inicio).order_by(Ponto.data.desc()).all()
+    return [_ponto_to_dict(db, p) for p in pontos]
 
 def listar_ponto_periodo(db: Session, company_id: uuid.UUID, periodo: str):
     hoje = date.today()
@@ -134,7 +186,8 @@ def listar_ponto_periodo(db: Session, company_id: uuid.UUID, periodo: str):
         inicio = hoje.replace(day=1)
     else:
         inicio = hoje - timedelta(days=hoje.weekday())
-    return db.query(Ponto).filter(Ponto.company_id==company_id, Ponto.data>=inicio).order_by(Ponto.data.desc()).all()
+    pontos = db.query(Ponto).filter(Ponto.company_id==company_id, Ponto.data>=inicio).order_by(Ponto.data.desc()).all()
+    return [_ponto_to_dict(db, p) for p in pontos]
 
 def listar_faltas_hoje(db: Session, company_id: uuid.UUID):
     return listar_faltas_por_data(db, company_id, date.today())
@@ -144,18 +197,14 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
     data_alvo = parse_data(data_str)
     hoje = date.today()
     is_retro = data_alvo!= hoje
-
     validar_janela_edicao(data_alvo, is_admin=is_admin)
-
     if is_retro and not motivo_retroativo:
-        raise HTTPException(400, "Para ponto retroativo, informe o motivo (ex: Falta de luz)")
-
+        raise HTTPException(400, "Para ponto retroativo, informe o motivo")
     agora_utc = datetime.now(timezone.utc)
     agora_luanda = agora_utc.astimezone(ZoneInfo("Africa/Luanda"))
     atraso = 0
     qtd_atrasos = 0
     falta_gerada = None
-
     if tipo == "entrada":
         try:
             h, m = map(int, cfg.hora_entrada.split(":"))
@@ -166,21 +215,19 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
                 if atraso < 0: atraso = 0
         except:
             atraso = 0
-
     timestamp_final = agora_utc
     if is_retro:
         dt_luanda = datetime(data_alvo.year, data_alvo.month, data_alvo.day, 12, 0, 0, tzinfo=ZoneInfo("Africa/Luanda"))
         timestamp_final = dt_luanda.astimezone(timezone.utc)
-
     ponto = Ponto(
         id=uuid.uuid4(), company_id=company_id, funcionario_id=funcionario_alvo_id,
         data=data_alvo, tipo=tipo, timestamp=timestamp_final, dentro_raio=True, distancia_m=0,
         dispositivo="rh:web", ip=ip, justificado=True, atraso_min=atraso,
-        is_retroativo=is_retro, motivo_retroativo=motivo_retroativo, lancado_por_id=lancado_por_id
+        is_retroativo=is_retro, motivo_retroativo=motivo_retroativo,
+        lancado_por_id=lancado_por_id, lancado_em=agora_utc if is_retro else None
     )
     db.add(ponto); db.commit(); db.refresh(ponto)
-
-    if tipo=="entrada" and atraso>0 and cfg.regra_atraso_ativa:
+    if tipo=="entrada" and atraso>0 and cfg.regra_atraso_ativa and not is_retro:
         if cfg.periodo_regra == "mes":
             inicio_periodo = data_alvo.replace(day=1)
         else:
@@ -199,49 +246,47 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
                 PedidoRH.company_id==company_id,
                 PedidoRH.funcionario_id==funcionario_alvo_id,
                 PedidoRH.data_inicio==data_alvo,
-                PedidoRH.motivo.like(f"%{cfg.qtd_atrasos_para_falta} atrasos%")
             ).first()
             if not ja_tem:
-                falta_gerada = PedidoRH(
+                falta_obj = PedidoRH(
                     id=uuid.uuid4(), company_id=company_id, funcionario_id=funcionario_alvo_id,
                     tipo="falta_justificada", data_inicio=data_alvo, data_fim=data_alvo,
-                    dias_uteis=1, motivo=f"Regra automática: {cfg.qtd_atrasos_para_falta} atrasos no {cfg.periodo_regra} = 1 falta. ({qtd_atrasos} atrasos acumulados)",
-                    status="aprovado", is_retroativo=is_retro, motivo_retroativo="Gerado por regra retroativa"
+                    dias_uteis=1, motivo=f"Regra automática: {cfg.qtd_atrasos_para_falta} atrasos no {cfg.periodo_regra} = 1 falta.",
+                    status="aprovado", is_retroativo=is_retro, motivo_retroativo="Gerado por regra",
+                    lancado_por_id=lancado_por_id, lancado_em=agora_utc if is_retro else None
                 )
-                db.add(falta_gerada); db.commit(); db.refresh(falta_gerada)
-    return {"ponto": ponto, "atraso_min": atraso, "falta_gerada": falta_gerada, "total_atrasos_periodo": qtd_atrasos, "is_retroativo": is_retro}
+                db.add(falta_obj); db.commit(); db.refresh(falta_obj)
+                falta_gerada = _falta_to_dict(db, falta_obj)
+    ponto_dict = _ponto_to_dict(db, ponto)
+    return {"ponto": ponto_dict, "atraso_min": atraso, "falta_gerada": falta_gerada, "total_atrasos_periodo": qtd_atrasos, "is_retroativo": is_retro}
 
 def marcar_falta_manual(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, motivo: str, categoria: str = "outros", observacao: str | None = None, data_str: str | None = None, motivo_retroativo: str | None = None, lancado_por_id: uuid.UUID | None = None, is_admin: bool = False):
     data_alvo = parse_data(data_str)
     is_retro = data_alvo!= date.today()
     validar_janela_edicao(data_alvo, is_admin=is_admin)
-
     if is_retro and not motivo_retroativo:
         raise HTTPException(400, "Para falta retroativa, informe motivo_retroativo")
-
     existe = db.query(PedidoRH).filter(
         PedidoRH.company_id==company_id,
         PedidoRH.funcionario_id==funcionario_id,
         PedidoRH.data_inicio==data_alvo,
         PedidoRH.tipo=="falta_justificada",
-        PedidoRH.status.in_(["pendente","aprovado"])
     ).first()
     if existe:
-        raise HTTPException(400, f"Já existe falta em {data_alvo}: {existe.motivo}")
-
+        raise HTTPException(400, f"Já existe falta em {data_alvo}")
     if categoria == "nao_apareceu":
         texto = f"NAO_APARECEU | {observacao or motivo}"
     elif categoria == "doente":
         texto = f"DOENTE | {observacao or motivo}"
     else:
         texto = f"OUTROS | {observacao or motivo}"
-
+    agora_utc = datetime.now(timezone.utc)
     falta = PedidoRH(
         id=uuid.uuid4(), company_id=company_id, funcionario_id=funcionario_id,
-        tipo="falta_justificada",
-        data_inicio=data_alvo, data_fim=data_alvo,
+        tipo="falta_justificada", data_inicio=data_alvo, data_fim=data_alvo,
         dias_uteis=1, motivo=texto, status="pendente",
-        is_retroativo=is_retro, motivo_retroativo=motivo_retroativo, lancado_por_id=lancado_por_id
+        is_retroativo=is_retro, motivo_retroativo=motivo_retroativo,
+        lancado_por_id=lancado_por_id, lancado_em=agora_utc if is_retro else None
     )
     db.add(falta); db.commit(); db.refresh(falta)
-    return falta
+    return _falta_to_dict(db, falta)

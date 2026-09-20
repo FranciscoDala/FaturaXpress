@@ -104,10 +104,11 @@ class Ponto(Base):
     observacao_justificativa: Mapped[str | None] = mapped_column(Text, nullable=True)
     atraso_min: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    # NOVOS - auditoria retroativa
-    is_retroativo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # AUDITORIA RETRO - SEM RELATIONSHIP PRA NÃO QUEBRAR
+    is_retroativo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     motivo_retroativo: Mapped[str | None] = mapped_column(Text, nullable=True)
-    lancado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id"), nullable=True)
+    lancado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id", ondelete="SET NULL"), nullable=True, index=True)
+    lancado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 class ConfigPonto(Base):
     __tablename__ = "config_ponto"
@@ -150,10 +151,10 @@ class PedidoRH(Base):
     observacao_gestor: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    # NOVOS - auditoria retroativa
-    is_retroativo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_retroativo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     motivo_retroativo: Mapped[str | None] = mapped_column(Text, nullable=True)
-    lancado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id"), nullable=True)
+    lancado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id", ondelete="SET NULL"), nullable=True, index=True)
+    lancado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 class Recibo(Base):
     __tablename__ = "recibos"

@@ -135,7 +135,10 @@ def falta_manual(payload: dict, db: Session = Depends(get_db), company_id: uuid.
     lancado_por_id = payload.get("lancado_por_id")
     if not funcionario_id:
         raise HTTPException(400, "funcionario_id obrigatório")
-    fid = uuid.UUID(funcionario_id)
+    try:
+        fid = uuid.UUID(funcionario_id)
+    except:
+        raise HTTPException(400, "funcionario_id inválido")
     lancado_uuid = None
     is_admin=False
     if lancado_por_id:

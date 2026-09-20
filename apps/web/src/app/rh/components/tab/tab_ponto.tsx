@@ -1,14 +1,27 @@
 import { useEffect, useState, useMemo } from 'react'
 import { api } from '../../../../lib/api'
 import { toast } from 'sonner'
-import { Settings, Search, Loader2, Calendar, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle } from 'lucide-react'
+import { Settings, Search, Loader2, Calendar, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Info, User, Clock } from 'lucide-react'
 import ModalConfigPonto from '../modals/modal_configurar_atraso'
 import ModalMarcarFalta from '../modals/modal_marcar_falta'
 import ModalCalendarioPonto from '../modals/modal_calendario_ponto'
 
 type Func = { id: string; nome: string; area?: string; funcao?: string; cargo?: string; area_principal?: any; funcao_principal?: any }
-type Ponto = { id: string; funcionario_id: string; tipo: string; timestamp: string; dentro_raio: boolean; dispositivo: string; atraso_min?: number; is_retroativo?: boolean }
-type Falta = { id: string; funcionario_id: string; motivo: string; status: string; tipo: string; is_retroativo?: boolean }
+type Ponto = {
+    id: string;
+    funcionario_id: string;
+    tipo: string;
+    timestamp: string;
+    dentro_raio: boolean;
+    dispositivo: string;
+    atraso_min?: number;
+    is_retroativo?: boolean
+    lancado_por_id?: string
+    lancado_por_nome?: string
+    motivo_retroativo?: string
+    lancado_em?: string
+}
+type Falta = { id: string; funcionario_id: string; motivo: string; status: string; tipo: string; is_retroativo?: boolean; lancado_por_nome?: string; motivo_retroativo?: string }
 type Config = { hora_entrada: string; tolerancia_min: number; regra_atraso_ativa: boolean; qtd_atrasos_para_falta: number; periodo_regra: string }
 
 function formatAtraso(min: number) {
@@ -70,6 +83,7 @@ export default function TabPonto() {
     const [openCal, setOpenCal] = useState(false)
     const [search, setSearch] = useState('')
     const [dataSelecionada, setDataSelecionada] = useState(() => isoToday())
+    const [auditPonto, setAuditPonto] = useState<Ponto | null>(null)
     const perPage = 10
     const hoje = isoToday()
     const minDate = addDays(hoje, -6)
@@ -89,7 +103,7 @@ export default function TabPonto() {
                 api.get(`/api/rh/faltas?data=${dataSelecionada}`).catch(() => ({ data: [] }))
             ])
             setFuncs(fRes.data.map((f: any) => ({
-              ...f,
+             ...f,
                 area: f.area_principal?.nome || f.area || 'Geral',
                 funcao: f.funcao_principal?.nome || f.funcao || f.cargo || f.area_principal?.nome || 'Geral'
             })))
@@ -182,21 +196,15 @@ export default function TabPonto() {
         <>
             <div className="bg-white rounded-[16px] border overflow-hidden">
                 <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
-                    {/* AJUSTE CELULAR: data ocupa full width igual busca */}
                     <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2 w-full">
                             <button disabled={!canGoPrev} onClick={() => shiftDay(-1)} className="w-9 h-9 md:w-8 md:h-8 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"><ChevronLeft className="w-4 h-4 text-black" /></button>
-
-                            {/* AQUI ESTÁ O FIX: flex-1 w-full no mobile, auto no desktop */}
                             <button type="button" onClick={() => setOpenCal(true)} className="flex-1 w-full md:w-auto md:flex-none h-[40px] md:h-[36px] px-3 bg-white border rounded-full flex items-center justify-center gap-2 text-[14px] md:text-[13px] font-bold text-black hover:border-black transition">
                                 <Calendar className="w-4 h-4 shrink-0" />
                                 <span className="truncate">{formatDisplay(dataSelecionada)}</span>
                                 <ChevronDown className="w-3.5 h-3.5 shrink-0" />
                             </button>
-
                             <button disabled={!canGoNext} onClick={() => shiftDay(1)} className="w-9 h-9 md:w-8 md:h-8 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"><ChevronRight className="w-4 h-4 text-black" /></button>
-
-                            {/* Config só desktop na mesma linha, no mobile vai pra linha da busca */}
                             <button onClick={() => setOpenCfg(true)} className="hidden md:flex w-9 h-9 rounded-full bg-white border border-gray-200 items-center justify-center hover:bg-gray-50 shadow-sm shrink-0">
                                 <Settings className="w-4 h-4 text-black" />
                             </button>
@@ -237,6 +245,9 @@ export default function TabPonto() {
                                     {falta? (
                                         <div className="mt-1.5 flex flex-wrap gap-1">
                                             <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] text-red-700">Falta • {prettyFalta(falta.motivo)} {falta.is_retroativo && '(retro)'} • pendente justificação</span>
+                                            {falta.is_retroativo && falta.motivo_retroativo && (
+                                                <button onClick={() => toast.info(falta.motivo_retroativo)} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 border border-amber-200 text-[10px] text-amber-800"><Info className="w-3 h-3"/> audit</button>
+                                            )}
                                         </div>
                                     ) : lista.length === 0? (
                                         <div className="mt-1.5 flex flex-wrap gap-1 items-center">
@@ -247,10 +258,24 @@ export default function TabPonto() {
                                         <div className="mt-1.5 flex flex-wrap gap-1.5">
                                             {lista.map(p => {
                                                 const isAtraso = p.atraso_min && p.atraso_min > 0
+                                                const isRetroPonto = p.is_retroativo
+
+                                                const baseCls = `inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] border transition hover:scale-[1.02] active:scale-95 cursor-pointer`
+
                                                 if (isAtraso) {
-                                                    return (<span key={p.id} className="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[11px] text-amber-800 font-medium">entrada {new Date(p.timestamp).toLocaleTimeString('pt-AO')} ({formatAtraso(p.atraso_min!)}) {p.is_retroativo && '• retro'}</span>)
+                                                    return (
+                                                        <button key={p.id} onClick={() => isRetroPonto && setAuditPonto(p)} className={`${baseCls} bg-amber-50 border-amber-200 text-amber-800 font-medium ${isRetroPonto? 'ring-1 ring-amber-300' : ''}`}>
+                                                            entrada {new Date(p.timestamp).toLocaleTimeString('pt-AO')} ({formatAtraso(p.atraso_min!)})
+                                                            {isRetroPonto && <><span className="w-px h-3 bg-amber-300 mx-1"/> <Info className="w-3 h-3"/> retro</>}
+                                                        </button>
+                                                    )
                                                 }
-                                                return (<span key={p.id} className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border ${p.tipo === 'entrada'? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff] font-semibold' : 'bg-gray-50 border-gray-200 text-black/60'}`}>{p.tipo} {new Date(p.timestamp).toLocaleTimeString('pt-AO')} {p.is_retroativo && '• retro'}</span>)
+                                                return (
+                                                    <button key={p.id} onClick={() => isRetroPonto && setAuditPonto(p)} className={`${baseCls} ${p.tipo === 'entrada'? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff] font-semibold' : 'bg-gray-50 border-gray-200 text-black/60'} ${isRetroPonto? 'bg-amber-50! border-amber-200! text-amber-800! ring-1 ring-amber-300' : ''}`}>
+                                                        {p.tipo} {new Date(p.timestamp).toLocaleTimeString('pt-AO')}
+                                                        {isRetroPonto && <><span className="w-px h-3 bg-amber-300 mx-1"/> <Info className="w-3 h-3"/> retro</>}
+                                                    </button>
+                                                )
                                             })}
                                             {atrasos > 0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium">{atrasos} atraso</span>}
                                         </div>
@@ -272,6 +297,41 @@ export default function TabPonto() {
                     </div>
                 )}
             </div>
+
+            {/* MODAL AUDITORIA */}
+            {auditPonto && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setAuditPonto(null)} />
+                    <div className="relative w-full max-w-[360px] bg-white rounded-[20px] border shadow-xl p-4 animate-in zoom-in-95">
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-8 h-8 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center"><AlertTriangle className="w-4 h-4 text-amber-700"/></div>
+                            <h3 className="font-black text-[14px] text-black">Ponto retroativo</h3>
+                            <button onClick={() => setAuditPonto(null)} className="ml-auto w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">✕</button>
+                        </div>
+                        <div className="space-y-2.5 text-[12px]">
+                            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border">
+                                <Clock className="w-4 h-4 text-black/60 shrink-0"/>
+                                <div><p className="text-black/60 text-[11px]">Batido em</p><p className="font-bold text-black">{new Date(auditPonto.timestamp).toLocaleString('pt-AO')} • {auditPonto.tipo}</p></div>
+                            </div>
+                            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border">
+                                <User className="w-4 h-4 text-black/60 shrink-0"/>
+                                <div><p className="text-black/60 text-[11px]">Lançado por</p><p className="font-bold text-black">{auditPonto.lancado_por_nome || auditPonto.lancado_por_id || 'RH (id não retornado)'}</p></div>
+                            </div>
+                            {auditPonto.lancado_em && (
+                                <div className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border">
+                                    <Clock className="w-4 h-4 text-black/60 shrink-0"/>
+                                    <div><p className="text-black/60 text-[11px]">Registro do lançamento</p><p className="font-bold text-black">{new Date(auditPonto.lancado_em).toLocaleString('pt-AO')}</p></div>
+                                </div>
+                            )}
+                            <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                                <p className="text-[11px] text-amber-800/70 font-bold mb-1">Motivo</p>
+                                <p className="text-[12px] text-amber-900 leading-snug">{auditPonto.motivo_retroativo || 'Motivo não informado pela API'}</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setAuditPonto(null)} className="mt-4 w-full h-11 rounded-full bg-black text-white font-bold">Fechar</button>
+                    </div>
+                </div>
+            )}
 
             <ModalCalendarioPonto open={openCal} value={dataSelecionada} onClose={() => setOpenCal(false)} onSelect={setDataSelecionada} />
             <ModalConfigPonto open={openCfg} onClose={() => { setOpenCfg(false); load() }} />

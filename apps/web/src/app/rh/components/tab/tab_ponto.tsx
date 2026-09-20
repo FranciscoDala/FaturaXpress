@@ -1,28 +1,42 @@
 import { useEffect, useState, useMemo } from 'react'
 import { api } from '../../../../lib/api'
 import { toast } from 'sonner'
-import { Settings, Search, Loader2, Calendar, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Info, User, Clock } from 'lucide-react'
+import { Settings, Search, Loader2, Calendar, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Info, User, Clock, X, Download } from 'lucide-react'
 import ModalConfigPonto from '../modals/modal_configurar_atraso'
 import ModalMarcarFalta from '../modals/modal_marcar_falta'
 import ModalCalendarioPonto from '../modals/modal_calendario_ponto'
 
 type Func = { id: string; nome: string; area?: string; funcao?: string; cargo?: string; area_principal?: any; funcao_principal?: any }
-type Ponto = {
-    id: string;
-    funcionario_id: string;
-    tipo: string;
-    timestamp: string;
-    dentro_raio: boolean;
-    dispositivo: string;
-    atraso_min?: number;
+
+type BaseAudit = {
+    id: string
+    funcionario_id: string
     is_retroativo?: boolean
-    lancado_por_id?: string
-    lancado_por_nome?: string
-    motivo_retroativo?: string
-    lancado_em?: string
+    lancado_por_id?: string | null
+    lancado_por_nome?: string | null
+    motivo_retroativo?: string | null
+    lancado_em?: string | null
 }
-type Falta = { id: string; funcionario_id: string; motivo: string; status: string; tipo: string; is_retroativo?: boolean; lancado_por_nome?: string; motivo_retroativo?: string }
+
+type Ponto = BaseAudit & {
+    tipo: string
+    timestamp: string
+    dentro_raio: boolean
+    dispositivo: string
+    atraso_min?: number
+}
+
+type Falta = BaseAudit & {
+    motivo: string
+    status: string
+    tipo: string
+}
+
 type Config = { hora_entrada: string; tolerancia_min: number; regra_atraso_ativa: boolean; qtd_atrasos_para_falta: number; periodo_regra: string }
+
+type AuditPonto = Ponto & { _kind: 'ponto' }
+type AuditFalta = Falta & { _kind: 'falta' }
+type AuditData = AuditPonto | AuditFalta
 
 function formatAtraso(min: number) {
     if (!min || min <= 0) return ''
@@ -69,6 +83,76 @@ function addDays(iso: string, days: number) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+// MODAL SEPARADA - AUDITORIA 100% + TRAVADA NO X + SCROLL INVISIVEL
+function ModalAuditoriaRetro({ data, open, onClose, minDate, hoje, dataSelecionada }: { data: AuditData | null, open: boolean, onClose: ()=>void, minDate: string, hoje: string, dataSelecionada: string }) {
+    useEffect(()=>{
+        if(open){
+            const ob = document.body.style.overflow
+            const oh = document.documentElement.style.overflow
+            document.body.style.overflow='hidden'
+            document.documentElement.style.overflow='hidden'
+            return()=>{
+                document.body.style.overflow=ob
+                document.documentElement.style.overflow=oh
+            }
+        }
+    },[open])
+
+    if(!open ||!data) return null
+
+    const isFalta = data._kind === 'falta'
+
+    return (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className="relative w-full max-w-[380px] bg-white rounded-[20px] border shadow-xl flex flex-col max-h-[85vh] overflow-hidden">
+                <div className="flex items-center gap-2 p-4 border-b shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center"><AlertTriangle className="w-4 h-4 text-amber-700"/></div>
+                    <h3 className="font-black text-[14px] text-black">{isFalta? 'Falta retroativa' : 'Ponto retroativo'}</h3>
+                    <button onClick={onClose} className="ml-auto w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200"><X className="w-4 h-4 text-black"/></button>
+                </div>
+                <div className="overflow-y-auto no-scrollbar p-4 space-y-2.5 overscroll-contain">
+                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border">
+                        <Clock className="w-4 h-4 text-black/60 shrink-0"/>
+                        <div>
+                            <p className="text-black/60 text-[11px]">{isFalta? 'Falta referente a' : 'Batido em'}</p>
+                            <p className="font-bold text-black text-[13px]">
+                                {isFalta? `${formatDisplay(dataSelecionada)} • ${prettyFalta((data as AuditFalta).motivo)}` : `${new Date((data as AuditPonto).timestamp).toLocaleString('pt-AO')} • ${(data as AuditPonto).tipo}`}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border">
+                        <User className="w-4 h-4 text-black/60 shrink-0"/>
+                        <div>
+                            <p className="text-black/60 text-[11px]">Lançado por</p>
+                            <p className="font-bold text-black text-[13px]">{data.lancado_por_nome || 'RH / Sistema'}</p>
+                            {data.lancado_por_id && <p className="text-[11px] text-black/60">ID: {data.lancado_por_id.slice(0,8)}</p>}
+                        </div>
+                    </div>
+                    {data.lancado_em && (
+                        <div className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border">
+                            <Calendar className="w-4 h-4 text-black/60 shrink-0"/>
+                            <div><p className="text-black/60 text-[11px]">Registro do lançamento</p><p className="font-bold text-black text-[13px]">{new Date(data.lancado_em).toLocaleString('pt-AO')}</p></div>
+                        </div>
+                    )}
+                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
+                        <p className="text-[11px] text-amber-800/70 font-bold mb-1 flex items-center gap-1"><Info className="w-3 h-3"/> Motivo registrado</p>
+                        <p className="text-[12px] text-amber-900 leading-snug">{data.motivo_retroativo || (isFalta? (data as AuditFalta).motivo : 'Motivo não informado')}</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
+                        <p className="text-[11px] text-blue-800/70 font-bold">Validação</p>
+                        <p className="text-[11px] text-blue-900 mt-1">Janela 7 dias: {formatDisplay(minDate)} até {formatDisplay(hoje)}. Futuro bloqueado.</p>
+                    </div>
+                </div>
+                <div className="p-4 border-t shrink-0">
+                    <button onClick={onClose} className="w-full h-11 rounded-full bg-black text-white font-bold">Fechar</button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 export default function TabPonto() {
     const [funcs, setFuncs] = useState<Func[]>([])
     const [pontos, setPontos] = useState<Ponto[]>([])
@@ -83,13 +167,12 @@ export default function TabPonto() {
     const [openCal, setOpenCal] = useState(false)
     const [search, setSearch] = useState('')
     const [dataSelecionada, setDataSelecionada] = useState(() => isoToday())
-    const [auditPonto, setAuditPonto] = useState<Ponto | null>(null)
+    const [auditData, setAuditData] = useState<AuditData | null>(null)
     const perPage = 10
     const hoje = isoToday()
     const minDate = addDays(hoje, -6)
     const isHoje = dataSelecionada === hoje
     const isRetro =!isHoje
-
     const canGoPrev = dataSelecionada > minDate
     const canGoNext = dataSelecionada < hoje
 
@@ -103,7 +186,7 @@ export default function TabPonto() {
                 api.get(`/api/rh/faltas?data=${dataSelecionada}`).catch(() => ({ data: [] }))
             ])
             setFuncs(fRes.data.map((f: any) => ({
-             ...f,
+          ...f,
                 area: f.area_principal?.nome || f.area || 'Geral',
                 funcao: f.funcao_principal?.nome || f.funcao || f.cargo || f.area_principal?.nome || 'Geral'
             })))
@@ -130,10 +213,7 @@ export default function TabPonto() {
 
     const pontosPorFunc = useMemo(() => {
         const map = new Map<string, Ponto[]>()
-        pontos.forEach(p => {
-            if (!map.has(p.funcionario_id)) map.set(p.funcionario_id, [])
-            map.get(p.funcionario_id)!.push(p)
-        })
+        pontos.forEach(p => { if (!map.has(p.funcionario_id)) map.set(p.funcionario_id, []); map.get(p.funcionario_id)!.push(p) })
         return map
     }, [pontos])
 
@@ -157,24 +237,18 @@ export default function TabPonto() {
 
     const shiftDay = (dir: number) => {
         const novo = addDays(dataSelecionada, dir)
-        if (novo > hoje) {
-            toast.error("Não pode ir para o futuro")
-            return
-        }
-        if (novo < minDate) {
-            toast.error(`Limite: só até ${formatDisplay(minDate)}`)
-            return
-        }
+        if (novo > hoje) { toast.error("Não pode ir para o futuro"); return }
+        if (novo < minDate) { toast.error(`Limite: só até ${formatDisplay(minDate)}`); return }
         setDataSelecionada(novo)
     }
 
     const bater = async (funcId: string, tipo: string) => {
         setBatendo(funcId)
         try {
-            const payload: any = { funcionario_id: funcId, tipo, data: dataSelecionada }
-            if (isRetro) {
-                payload.motivo_retroativo = `Lançamento retroativo ${formatDisplay(dataSelecionada)} - Falta de luz / correção RH`
-            }
+            const stored = localStorage.getItem('funcionario_logado')
+            const logado = stored? JSON.parse(stored): null
+            const payload: any = { funcionario_id: funcId, tipo, data: dataSelecionada, lancado_por_id: logado?.id }
+            if (isRetro) payload.motivo_retroativo = `Lançamento retroativo ${formatDisplay(dataSelecionada)} - Correção RH`
             const { data } = await api.post('/api/rh/ponto/bater', payload)
             const atraso = data.atraso_min?? data.ponto?.atraso_min?? 0
             if (atraso > 0) toast.warning(`Entrada com ${formatAtraso(atraso)}`)
@@ -186,6 +260,33 @@ export default function TabPonto() {
         } finally { setBatendo(null) }
     }
 
+    const exportPDF = async () => {
+        try{
+            const jsPDF = (await import('jspdf')).default
+            const autoTable = (await import('jspdf-autotable')).default
+            const doc = new jsPDF()
+            doc.setFontSize(14)
+            doc.text(`Relatório Ponto - ${formatDisplay(dataSelecionada)}`, 14, 14)
+            doc.setFontSize(9)
+            doc.text(`Gerado: ${new Date().toLocaleString('pt-AO')} | Janela: ${formatDisplay(minDate)} a ${formatDisplay(hoje)}`,14,20)
+            const body = pontos.map((p:any)=>{
+                const f = funcs.find(x=>x.id===p.funcionario_id)
+                return [f?.nome||p.funcionario_id.slice(0,8), p.tipo, new Date(p.timestamp).toLocaleTimeString('pt-AO'), p.is_retroativo?'SIM':'', p.lancado_por_nome||'', p.motivo_retroativo||'']
+            })
+            autoTable(doc,{ startY:24, head:[['Func','Tipo','Hora','Retro?','Quem','Motivo']], body, styles:{fontSize:8}})
+            const faltasBody = faltas.map((f:any)=>{
+                const func = funcs.find(x=>x.id===f.funcionario_id)
+                return [func?.nome||f.funcionario_id, prettyFalta(f.motivo), f.is_retroativo? 'SIM '+ (f.motivo_retroativo||'') : 'NÃO', f.lancado_por_nome||'']
+            })
+            if(faltasBody.length){
+                autoTable(doc,{ startY:(doc as any).lastAutoTable.finalY+8, head:[['Faltas - Func','Motivo','Retro','Quem lançou']], body:faltasBody, styles:{fontSize:8}})
+            }
+            doc.save(`ponto-${dataSelecionada}.pdf`)
+        }catch{
+            toast.error('Instala jspdf: npm i jspdf jspdf-autotable')
+        }
+    }
+
     if (loading) return (
         <div className="bg-white rounded-[16px] border h-[300px] flex items-center justify-center">
             <Loader2 className="w-6 h-6 animate-spin text-black/40" />
@@ -194,42 +295,37 @@ export default function TabPonto() {
 
     return (
         <>
+            <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
             <div className="bg-white rounded-[16px] border overflow-hidden">
                 <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
                     <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2 w-full">
                             <button disabled={!canGoPrev} onClick={() => shiftDay(-1)} className="w-9 h-9 md:w-8 md:h-8 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"><ChevronLeft className="w-4 h-4 text-black" /></button>
                             <button type="button" onClick={() => setOpenCal(true)} className="flex-1 w-full md:w-auto md:flex-none h-[40px] md:h-[36px] px-3 bg-white border rounded-full flex items-center justify-center gap-2 text-[14px] md:text-[13px] font-bold text-black hover:border-black transition">
-                                <Calendar className="w-4 h-4 shrink-0" />
-                                <span className="truncate">{formatDisplay(dataSelecionada)}</span>
-                                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                                <Calendar className="w-4 h-4 shrink-0" /><span className="truncate">{formatDisplay(dataSelecionada)}</span><ChevronDown className="w-3.5 h-3.5 shrink-0" />
                             </button>
                             <button disabled={!canGoNext} onClick={() => shiftDay(1)} className="w-9 h-9 md:w-8 md:h-8 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"><ChevronRight className="w-4 h-4 text-black" /></button>
-                            <button onClick={() => setOpenCfg(true)} className="hidden md:flex w-9 h-9 rounded-full bg-white border border-gray-200 items-center justify-center hover:bg-gray-50 shadow-sm shrink-0">
-                                <Settings className="w-4 h-4 text-black" />
-                            </button>
+                            <button onClick={exportPDF} className="hidden md:flex h-8 px-3 rounded-full bg-black text-white text-[11px] font-bold items-center gap-1 hover:bg-black/90 shrink-0"><Download className="w-3.5 h-3.5"/> PDF</button>
+                            <button onClick={() => setOpenCfg(true)} className="hidden md:flex w-9 h-9 rounded-full bg-white border border-gray-200 items-center justify-center hover:bg-gray-50 shadow-sm shrink-0"><Settings className="w-4 h-4 text-black" /></button>
                         </div>
-
                         <div className="flex items-center gap-2 w-full">
                             <div className="relative flex-1">
                                 <Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
                                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[40px] md:h-[36px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[13px] md:text-[12px] text-black placeholder:text-black/40 focus:outline-none focus:border-black" />
                             </div>
-                            <button onClick={() => setOpenCfg(true)} className="flex md:hidden w-10 h-10 rounded-full bg-white border border-gray-200 items-center justify-center hover:bg-gray-50 shadow-sm shrink-0">
-                                <Settings className="w-4 h-4 text-black" />
-                            </button>
+                            <button onClick={exportPDF} className="flex md:hidden w-10 h-10 rounded-full bg-black text-white items-center justify-center shadow-sm shrink-0"><Download className="w-4 h-4"/></button>
+                            <button onClick={() => setOpenCfg(true)} className="flex md:hidden w-10 h-10 rounded-full bg-white border border-gray-200 items-center justify-center hover:bg-gray-50 shadow-sm shrink-0"><Settings className="w-4 h-4 text-black" /></button>
                             {isRetro && <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold"><AlertTriangle className="w-3 h-3" /> Retroativo</span>}
                         </div>
                         {isRetro && <span className="md:hidden inline-flex w-fit items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold"><AlertTriangle className="w-3 h-3" /> Retroativo • {formatDisplay(dataSelecionada)}</span>}
                     </div>
-
                     <p className="text-[11px] text-black/60">
                         {config?.regra_atraso_ativa? `ATT: ${config.qtd_atrasos_para_falta} atrasos na ${config.periodo_regra} = 1 falta • ` : ''}
-                        Mostrando {formatDisplay(dataSelecionada)} • Janela editável: {formatDisplay(minDate)} até hoje
+                        Mostrando {formatDisplay(dataSelecionada)} • Janela: {formatDisplay(minDate)} até hoje
                     </p>
                 </div>
 
-                <div className="max-h-[70vh] overflow-y-auto">
+                <div className="max-h-[70vh] overflow-y-auto no-scrollbar overscroll-contain">
                     {paginatedFuncs.length === 0 && <p className="text-center py-8 text-[12px] text-black/50">Nenhum funcionário para "{search}"</p>}
                     {paginatedFuncs.map(f => {
                         const lista = (pontosPorFunc.get(f.id) || []).sort((a, b) => +new Date(b.timestamp) - +new Date(a.timestamp))
@@ -237,17 +333,14 @@ export default function TabPonto() {
                         const temSaida = lista.some(p => p.tipo === 'saida')
                         const falta = faltasPorFunc.get(f.id)
                         const atrasos = faltasPeriodo[f.id] || 0
-
                         return (
                             <div key={f.id} className="px-3 md:px-4 py-2.5 border-b last:border-b-0 flex justify-between items-center gap-3">
                                 <div className="min-w-0 flex-1">
                                     <p className="font-bold text-[13px] text-black truncate">{f.nome} <span className="font-normal text-black/60">• {f.funcao}</span></p>
                                     {falta? (
                                         <div className="mt-1.5 flex flex-wrap gap-1">
-                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] text-red-700">Falta • {prettyFalta(falta.motivo)} {falta.is_retroativo && '(retro)'} • pendente justificação</span>
-                                            {falta.is_retroativo && falta.motivo_retroativo && (
-                                                <button onClick={() => toast.info(falta.motivo_retroativo)} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 border border-amber-200 text-[10px] text-amber-800"><Info className="w-3 h-3"/> audit</button>
-                                            )}
+                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] text-red-700">Falta • {prettyFalta(falta.motivo)} {falta.is_retroativo && '(retro)'} • pendente</span>
+                                            <button onClick={() => setAuditData({...falta, _kind: 'falta' } as AuditData)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-bold hover:bg-amber-100"><Info className="w-3 h-3"/> audit</button>
                                         </div>
                                     ) : lista.length === 0? (
                                         <div className="mt-1.5 flex flex-wrap gap-1 items-center">
@@ -257,21 +350,19 @@ export default function TabPonto() {
                                     ) : (
                                         <div className="mt-1.5 flex flex-wrap gap-1.5">
                                             {lista.map(p => {
-                                                const isAtraso = p.atraso_min && p.atraso_min > 0
-                                                const isRetroPonto = p.is_retroativo
-
+                                                const isAtraso =!!(p.atraso_min && p.atraso_min > 0)
+                                                const isRetroPonto =!!p.is_retroativo
                                                 const baseCls = `inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] border transition hover:scale-[1.02] active:scale-95 cursor-pointer`
-
                                                 if (isAtraso) {
                                                     return (
-                                                        <button key={p.id} onClick={() => isRetroPonto && setAuditPonto(p)} className={`${baseCls} bg-amber-50 border-amber-200 text-amber-800 font-medium ${isRetroPonto? 'ring-1 ring-amber-300' : ''}`}>
+                                                        <button key={p.id} onClick={() => setAuditData({...p, _kind: 'ponto' } as AuditData)} className={`${baseCls} bg-amber-50 border-amber-200 text-amber-800 font-medium ${isRetroPonto? 'ring-1 ring-amber-300' : ''}`}>
                                                             entrada {new Date(p.timestamp).toLocaleTimeString('pt-AO')} ({formatAtraso(p.atraso_min!)})
                                                             {isRetroPonto && <><span className="w-px h-3 bg-amber-300 mx-1"/> <Info className="w-3 h-3"/> retro</>}
                                                         </button>
                                                     )
                                                 }
                                                 return (
-                                                    <button key={p.id} onClick={() => isRetroPonto && setAuditPonto(p)} className={`${baseCls} ${p.tipo === 'entrada'? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff] font-semibold' : 'bg-gray-50 border-gray-200 text-black/60'} ${isRetroPonto? 'bg-amber-50! border-amber-200! text-amber-800! ring-1 ring-amber-300' : ''}`}>
+                                                    <button key={p.id} onClick={() => { if(p.is_retroativo) setAuditData({...p, _kind: 'ponto' } as AuditData) }} className={`${baseCls} ${p.tipo === 'entrada'? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff] font-semibold' : 'bg-gray-50 border-gray-200 text-black/60'} ${isRetroPonto? 'bg-amber-50! border-amber-200! text-amber-800! ring-1 ring-amber-300' : ''} ${!isRetroPonto? 'cursor-default' : ''}`}>
                                                         {p.tipo} {new Date(p.timestamp).toLocaleTimeString('pt-AO')}
                                                         {isRetroPonto && <><span className="w-px h-3 bg-amber-300 mx-1"/> <Info className="w-3 h-3"/> retro</>}
                                                     </button>
@@ -298,40 +389,7 @@ export default function TabPonto() {
                 )}
             </div>
 
-            {/* MODAL AUDITORIA */}
-            {auditPonto && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setAuditPonto(null)} />
-                    <div className="relative w-full max-w-[360px] bg-white rounded-[20px] border shadow-xl p-4 animate-in zoom-in-95">
-                        <div className="flex items-center gap-2 mb-3">
-                            <div className="w-8 h-8 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center"><AlertTriangle className="w-4 h-4 text-amber-700"/></div>
-                            <h3 className="font-black text-[14px] text-black">Ponto retroativo</h3>
-                            <button onClick={() => setAuditPonto(null)} className="ml-auto w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">✕</button>
-                        </div>
-                        <div className="space-y-2.5 text-[12px]">
-                            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border">
-                                <Clock className="w-4 h-4 text-black/60 shrink-0"/>
-                                <div><p className="text-black/60 text-[11px]">Batido em</p><p className="font-bold text-black">{new Date(auditPonto.timestamp).toLocaleString('pt-AO')} • {auditPonto.tipo}</p></div>
-                            </div>
-                            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border">
-                                <User className="w-4 h-4 text-black/60 shrink-0"/>
-                                <div><p className="text-black/60 text-[11px]">Lançado por</p><p className="font-bold text-black">{auditPonto.lancado_por_nome || auditPonto.lancado_por_id || 'RH (id não retornado)'}</p></div>
-                            </div>
-                            {auditPonto.lancado_em && (
-                                <div className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border">
-                                    <Clock className="w-4 h-4 text-black/60 shrink-0"/>
-                                    <div><p className="text-black/60 text-[11px]">Registro do lançamento</p><p className="font-bold text-black">{new Date(auditPonto.lancado_em).toLocaleString('pt-AO')}</p></div>
-                                </div>
-                            )}
-                            <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200">
-                                <p className="text-[11px] text-amber-800/70 font-bold mb-1">Motivo</p>
-                                <p className="text-[12px] text-amber-900 leading-snug">{auditPonto.motivo_retroativo || 'Motivo não informado pela API'}</p>
-                            </div>
-                        </div>
-                        <button onClick={() => setAuditPonto(null)} className="mt-4 w-full h-11 rounded-full bg-black text-white font-bold">Fechar</button>
-                    </div>
-                </div>
-            )}
+            <ModalAuditoriaRetro data={auditData} open={!!auditData} onClose={()=>setAuditData(null)} minDate={minDate} hoje={hoje} dataSelecionada={dataSelecionada} />
 
             <ModalCalendarioPonto open={openCal} value={dataSelecionada} onClose={() => setOpenCal(false)} onSelect={setDataSelecionada} />
             <ModalConfigPonto open={openCfg} onClose={() => { setOpenCfg(false); load() }} />

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { X, Check, Clock, Timer, Settings, ShieldAlert, CalendarRange, ChevronDown } from 'lucide-react'
+import { X, Check, Clock, Timer, Settings, ShieldAlert, CalendarRange, ChevronDown, Loader2 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { api } from '../../../../lib/api'
 import { toast } from 'sonner'
@@ -78,7 +78,11 @@ export default function ModalConfigPonto({ open, onClose }: { open: boolean, onC
 
                 <div className="flex-1 overflow-y-auto no-scrollbar px-6 py-4 flex flex-col gap-[2px]">
                     <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
-                    {loadingCfg? <p className="text-[12px] text-black/50 py-10 text-center">Carregando...</p> : <>
+                    {loadingCfg? (
+                        <div className="py-20 flex items-center justify-center">
+                            <Loader2 className="w-6 h-6 animate-spin text-black/30" />
+                        </div>
+                    ) : <>
                         <p className="text-[11px] font-bold tracking-widest text-black mb-1">HORÁRIO BASE</p>
                         <div className="grid grid-cols-2 gap-[2px]">
                             <div className="relative">
@@ -128,7 +132,7 @@ export default function ModalConfigPonto({ open, onClose }: { open: boolean, onC
 
                 <div className="shrink-0 px-6 py-4 border-t border-gray-100 bg-white flex gap-[2px]">
                     <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50"><X className="w-5 h-5 text-black" /></button>
-                    <button type="button" disabled={saving || loadingCfg} onClick={save} className="flex-1 h-11 rounded-full bg-black text-white font-semibold hover:bg-gray-900 flex items-center justify-center disabled:opacity-50 gap-1.5">{saving? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Check className="w-5 h-5" /> Salvar</>}</button>
+                    <button type="button" disabled={saving || loadingCfg} onClick={save} className="flex-1 h-11 rounded-full bg-black text-white font-semibold hover:bg-gray-900 flex items-center justify-center disabled:opacity-50 gap-1.5">{saving? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-5 h-5" /> Salvar</>}</button>
                 </div>
             </div>
         </div>

@@ -21,7 +21,6 @@ function formatAtraso(min: number) {
 
 function prettyFalta(motivo: string){
     if(!motivo) return "Não apareceu"
-    // se vem "NAO_APARECEU | Não apareceu"
     if(motivo.includes('|')){
         const parte = motivo.split('|')[1]?.trim() || motivo.split('|')[0]?.trim()
         return capitalizarFalta(parte)
@@ -32,12 +31,15 @@ function prettyFalta(motivo: string){
 function capitalizarFalta(txt: string){
     const lower = txt.toLowerCase()
     if(lower.includes('nao_apareceu') || lower.includes('não apareceu')) return 'Não apareceu'
-    if(lower.includes('doente')) return lower.includes('|')? txt.split('|')[1]?.trim() || 'Doente' : 'Doente'
+    if(lower.includes('doente')) {
+        const resto = txt.split('|')[1]?.trim() || ''
+        return resto? resto.charAt(0).toUpperCase() + resto.slice(1).toLowerCase() : 'Doente'
+    }
+    if(lower.includes('falta - rh') || lower.includes('falta -')) return 'Falta - rh'
     if(lower.startsWith('outros')){
         const resto = txt.split('|')[1]?.trim() || txt.replace(/outros\s*\|?/i,'').trim()
-        return resto? `Outros - ${resto.charAt(0).toUpperCase() + resto.slice(1).toLowerCase()}` : 'Outros'
+        return resto? `Outros - ${resto}` : 'Outros'
     }
-    // normaliza primeira letra maiúscula resto minúsculo
     return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase()
 }
 
@@ -65,7 +67,7 @@ export default function TabPonto(){
                 api.get('/api/rh/faltas/hoje').catch(()=>({data:[]}))
             ])
             setFuncs(fRes.data.map((f:any)=>({
-             ...f,
+            ...f,
                 area: f.area_principal?.nome || f.area || 'Geral',
                 funcao: f.funcao_principal?.nome || f.funcao || f.cargo || f.area_principal?.nome || 'Geral'
             })))
@@ -136,17 +138,15 @@ export default function TabPonto(){
     return (
         <>
         <div className="bg-white rounded-[16px] border overflow-hidden">
-            {/* HEADER EM COLUNA NO MOBILE */}
             <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
                 <div>
                     <h3 className="font-bold text-[14px] text-black">Ponto hoje - {new Date().toLocaleDateString('pt-AO')}</h3>
                     {config?.regra_atraso_ativa? (
-                        <p className="text-[10px] text-black/70 mt-0.5">Regra: {config.qtd_atrasos_para_falta} atrasos na {config.periodo_regra} = 1 falta</p>
+                        <p className="text-[10px] text-black/70 mt-0.5">ATT: {config.qtd_atrasos_para_falta} atrasos na {config.periodo_regra} resulta em 1 falta</p>
                     ):(
                         <p className="text-[10px] text-black/50 mt-0.5">Regra de atrasos desativada</p>
                     )}
                 </div>
-                {/* INPUT + COG NA MESMA LINHA EMBAIXO */}
                 <div className="flex items-center gap-2 w-full">
                     <div className="relative flex-1">
                         <Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -175,39 +175,40 @@ export default function TabPonto(){
                                 </p>
 
                                 {falta? (
-                                    <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] bg-red-50 border border-red-200 text-[10px] text-red-700">
-                                        <span className="font-bold">Falta • {prettyFalta(falta.motivo)}</span>
-                                        <span className="opacity-70">• pendente justificação</span>
+                                    <div className="mt-1.5 flex flex-wrap gap-1">
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] text-red-700">
+                                            Falta • {prettyFalta(falta.motivo)} • pendente justificação
+                                        </span>
                                     </div>
                                 ) : lista.length===0? (
-                                    <div className="mt-1 flex items-center gap-1">
-                                        <p className="text-[11px] text-black/60">Sem ponto hoje</p>
-                                        {atrasos>0 && <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-50 text-amber-700 border border-amber-200 font-medium">{atrasos} atraso{atrasos>1?'s':''}</span>}
+                                    <div className="mt-1.5 flex flex-wrap gap-1">
+                                        <span className="text-[11px] text-black/60">Sem ponto hoje</span>
+                                        {atrasos>0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium">{atrasos} atraso</span>}
                                     </div>
                                 ) : (
-                                    <div className="mt-1 flex flex-wrap gap-1.5">
+                                    <div className="mt-1.5 flex flex-wrap gap-1.5">
                                         {lista.map(p=>{
                                             const isAtraso = p.atraso_min && p.atraso_min>0
                                             if(isAtraso){
                                                 return (
-                                                    <span key={p.id} className="inline-flex items-center px-2 py-0.5 rounded-[6px] bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-medium">
+                                                    <span key={p.id} className="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[11px] text-amber-800 font-medium">
                                                         entrada {new Date(p.timestamp).toLocaleTimeString('pt-AO')} ({formatAtraso(p.atraso_min!)})
                                                     </span>
                                                 )
                                             }
                                             return (
-                                                <span key={p.id} className={`inline-flex px-2 py-0.5 rounded-[6px] text-[10px] border ${p.tipo==='entrada'? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff] font-semibold' : 'bg-gray-50 border-gray-200 text-black/60'}`}>
+                                                <span key={p.id} className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border ${p.tipo==='entrada'? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff] font-semibold' : 'bg-gray-50 border-gray-200 text-black/60'}`}>
                                                     {p.tipo} {new Date(p.timestamp).toLocaleTimeString('pt-AO')}
                                                 </span>
                                             )
                                         })}
-                                        {atrasos>0 && <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-50 text-amber-700 border border-amber-200 font-medium">{atrasos} atraso{atrasos>1?'s':''} na {config?.periodo_regra}</span>}
+                                        {atrasos>0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium">{atrasos} atraso</span>}
                                     </div>
                                 )}
                             </div>
                             <div className="flex gap-1.5 shrink-0">
                                 {falta? (
-                                    <span className="h-[26px] px-3 flex items-center text-[11px] bg-red-600 text-white rounded-full font-medium">FALTA</span>
+                                    <span className="h-[26px] px-3 flex items-center text-[11px] bg-red-600 text-white rounded-full font-medium">Falta</span>
                                 ):!temEntrada? (
                                     <>
                                         <button disabled={batendo===f.id} onClick={()=>bater(f.id,'entrada')} className="h-[26px] px-3 bg-[#0095ff] text-white rounded-full text-[11px] font-medium disabled:opacity-50 hover:bg-[#0085e6]">

@@ -40,7 +40,6 @@ def desativar(funcionario_id: uuid.UUID, db: Session = Depends(get_db), company_
     func_service.desativar_funcionario(db, func)
     return None
 
-# Login via BI
 @router.post("/login-bi")
 def login_bi(numero_bi: str, senha: str, db: Session = Depends(get_db)):
     from app.modules.funcionarios.models import Funcionario

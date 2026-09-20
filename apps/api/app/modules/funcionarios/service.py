@@ -24,10 +24,8 @@ def criar_funcionario(db: Session, company_id: uuid.UUID, dados: FuncionarioCrea
     if dados.tem_acesso and not dados.senha:
         raise HTTPException(400, "Senha obrigatória para quem tem acesso")
 
-    # Email é sempre pessoal, mesmo sem acesso
     email_norm = dados.email.lower().strip() if dados.email else None
 
-    # Se tem_acesso, valida unicidade do email de login
     if dados.tem_acesso and email_norm:
         if db.query(Funcionario).filter(Funcionario.company_id == company_id, Funcionario.email == email_norm).first():
             raise HTTPException(400, "Email já existe nessa empresa")
@@ -53,7 +51,7 @@ def criar_funcionario(db: Session, company_id: uuid.UUID, dados: FuncionarioCrea
         local_emissao_bi=dados.local_emissao_bi,
         estado_civil=dados.estado_civil,
         telefone=dados.telefone,
-        email=email_norm, # FIX: sempre salva
+        email=email_norm,
         endereco=dados.endereco,
         cidade=dados.cidade,
         provincia=dados.provincia,
@@ -63,6 +61,7 @@ def criar_funcionario(db: Session, company_id: uuid.UUID, dados: FuncionarioCrea
         iban=iban,
         iban2=iban2,
         contacto_emergencia=dados.contacto_emergencia,
+        data_admissao=dados.data_admissao,
         tem_acesso=dados.tem_acesso,
         senha_hash=senha_hash,
         cargo=dados.cargo,
@@ -94,21 +93,18 @@ def obter_funcionario(db: Session, company_id: uuid.UUID, funcionario_id: uuid.U
 def atualizar_funcionario(db: Session, funcionario: Funcionario, dados: FuncionarioUpdate, company_id: uuid.UUID):
     data = dados.model_dump(exclude_unset=True, exclude={'areas_ids', 'senha'})
 
-    # Normaliza nome
     if 'nome' in data and data['nome']:
         data['nome'] = data['nome'].strip()
 
     if 'cargo' in data and data['cargo'] and data['cargo'] not in CARGOS_VALIDOS:
         raise HTTPException(400, f"Cargo inválido. Use: {', '.join(CARGOS_VALIDOS)}")
 
-    # FIX: normaliza email SEMPRE, mesmo sem acesso
     if 'email' in data:
         if data['email'] is None or data['email'] == "":
             data['email'] = None
         else:
             data['email'] = str(data['email']).lower().strip()
 
-    # BI único
     if 'numero_bi' in data and data['numero_bi']:
         novo_bi = data['numero_bi'].strip().upper()
         if novo_bi!= funcionario.numero_bi:
@@ -116,7 +112,6 @@ def atualizar_funcionario(db: Session, funcionario: Funcionario, dados: Funciona
                 raise HTTPException(400, "BI já existe")
             data['numero_bi'] = novo_bi
 
-    # Banco/IBAN - limpa IBAN só se banco removido
     if 'banco1' in data and not data['banco1']:
         data['iban'] = None
         data['banco1'] = None
@@ -124,7 +119,6 @@ def atualizar_funcionario(db: Session, funcionario: Funcionario, dados: Funciona
         data['iban2'] = None
         data['banco2'] = None
 
-    # Senha
     if dados.senha:
         funcionario.senha_hash = pwd_context.hash(dados.senha)
 

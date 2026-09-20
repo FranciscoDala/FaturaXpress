@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { X, Check, UserPlus, ChevronDown, Lock, Briefcase, Building2, Info, Settings, Shield, MapPin, Landmark, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { createPortal } from 'react-dom'
+
 import { toast } from 'sonner'
 
 const CARGOS = [
@@ -60,8 +62,6 @@ function formatDisplay(iso: string) {
     if (!y || !m || !d) return iso
     return `${d}/${m}/${y}`
 }
-
-import { createPortal } from 'react-dom'
 
 function CustomDatePicker({ value, onChange, placeholder }: { value: string, onChange: (v: string) => void, placeholder: string }) {
     const [open, setOpen] = useState(false)
@@ -315,7 +315,7 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={(e) => e.stopPropagation()} />
             <div className="relative bg-white rounded-[24px] w-full max-w-[560px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF] shrink-0">
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center"><UserPlus className="w-4 h-4 text-[#0095ff]" /></div>

@@ -35,6 +35,21 @@ export default function ModalMarcarFalta({ open, funcionario, onClose, onSaved, 
 
     useEffect(()=>{
         if(open){
+            const originalBody = document.body.style.overflow
+            const originalHtml = document.documentElement.style.overflow
+            document.body.style.overflow = 'hidden'
+            document.documentElement.style.overflow = 'hidden'
+            document.body.style.paddingRight = '0px'
+            return ()=>{
+                document.body.style.overflow = originalBody
+                document.documentElement.style.overflow = originalHtml
+                document.body.style.paddingRight = ''
+            }
+        }
+    },[open])
+
+    useEffect(()=>{
+        if(open){
             setDataFalta(dataSelecionada || isoToday())
             setMotivoRetro('')
             setObs('')
@@ -93,23 +108,26 @@ export default function ModalMarcarFalta({ open, funcionario, onClose, onSaved, 
 
     const modal = (
         <>
+        <style>{`
+          .no-scrollbar::-webkit-scrollbar { display: none; }
+          .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        `}</style>
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}/>
+            {/* OVERLAY NÃO FECHA MAIS */}
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <div className="relative bg-white rounded-[24px] w-full max-w-[460px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)] flex flex-col max-h-[90vh]" onClick={e=>e.stopPropagation()}>
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#FFEAEA] shrink-0">
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center"><AlertTriangle className="w-4 h-4 text-red-600"/></div>
+                    {/* ÚNICO LOCAL QUE FECHA */}
                     <button onClick={onClose} className="w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center hover:bg-gray-50"><X className="w-4 h-4 text-gray-500"/></button>
                 </div>
                 <div className="px-6 pt-5 pb-3 border-b shrink-0">
                     <h3 className="text-[16px] font-bold text-black">Marcar Falta - {funcionario.nome}</h3>
-
-                    {/* SELETOR DE DATA - FULL WIDTH NO CELULAR */}
                     <button type="button" onClick={()=>setOpenCal(true)} className="mt-3 w-full h-[44px] px-3 bg-white border border-gray-200 rounded-full flex items-center justify-between text-[13px] font-bold text-black hover:border-black">
                         <span className="flex items-center gap-2"><Calendar className="w-4 h-4"/> {formatDisplay(dataFalta)}</span>
                         <ChevronDown className="w-4 h-4"/>
                     </button>
                     <p className="text-[11px] text-black/50 mt-1.5">Janela: {formatDisplay(minDate)} até hoje</p>
-
                     <div className="flex items-center gap-2 mt-2">
                         {isRetro && <span className="px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold">Retroativo • {formatDisplay(dataFalta)}</span>}
                     </div>
@@ -117,13 +135,13 @@ export default function ModalMarcarFalta({ open, funcionario, onClose, onSaved, 
                         Falta fica como <b className="text-black">pendente de justificação</b> em {formatDisplay(dataFalta)}.
                     </p>
                 </div>
-                <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-[8px]">
+                <div className="flex-1 overflow-y-auto no-scrollbar px-6 py-4 flex flex-col gap-[8px] overscroll-contain">
                     <Card id="nao_apareceu" label="Não apareceu" sub={`Não apareceu em ${formatDisplay(dataFalta)}`} icon={AlertTriangle}/>
                     <Card id="doente" label="Doente" sub="Aguardando atestado" icon={HeartPulse}/>
                     <Card id="outros" label="Outros" sub="Descreva o motivo abaixo" icon={FileText}/>
 
                     {categoria==='outros'? (
-                        <textarea value={obs} onChange={e=>setObs(e.target.value)} placeholder={`Descreva o motivo da falta em ${formatDisplay(dataFalta)}...`} className="mt-2 w-full min-h-[80px] bg-white border border-gray-200 rounded-[12px] p-3 text-[13px] text-black placeholder:text-black/40 focus:outline-none focus:border-black"/>
+                        <textarea value={obs} onChange={e=>setObs(e.target.value)} placeholder={`Descreva o motivo da falta em ${formatDisplay(dataFalta)}...`} className="mt-2 w-full min-h-[80px] bg-white border border-gray-200 rounded-[12px] p-3 text-[13px] text-black placeholder:text-black/40 focus:outline-none focus:border-black resize-none"/>
                     ) : (
                         <input value={obs} onChange={e=>setObs(e.target.value)} placeholder={`Observação para ${formatDisplay(dataFalta)} (opcional)`} className="mt-1 w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13px] text-black placeholder:text-black/40 focus:outline-none focus:border-black"/>
                     )}
@@ -142,7 +160,7 @@ export default function ModalMarcarFalta({ open, funcionario, onClose, onSaved, 
                 <div className="px-6 py-4 border-t bg-white flex gap-3 shrink-0">
                     <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50"><X className="w-5 h-5 text-black"/></button>
                     <button disabled={saving} onClick={save} className="flex-1 h-11 rounded-full bg-red-600 text-white font-semibold hover:bg-red-700 flex items-center justify-center disabled:opacity-50 gap-1.5">
-                        {saving? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-5 h-5" /> Marcar em {formatDisplay(dataFalta)}</>}
+                        {saving? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-5 h-5" /></>}
                     </button>
                 </div>
             </div>

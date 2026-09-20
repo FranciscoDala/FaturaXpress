@@ -1,10 +1,10 @@
 import { useEffect, useState, useMemo } from 'react'
 import { api } from '../../../../lib/api'
 import { toast } from 'sonner'
-import { Settings, LogIn, LogOut, XCircle } from 'lucide-react'
+import { Settings, Search } from 'lucide-react'
 import ModalConfigPonto from '../modals/modal_configurar_atraso'
 
-type Func = { id: string; nome: string; area?: string; area_principal?: any }
+type Func = { id: string; nome: string; area?: string; funcao?: string; cargo?: string; area_principal?: any; funcao_principal?: any }
 type Ponto = { id: string; funcionario_id: string; tipo: string; timestamp: string; dentro_raio: boolean; dispositivo: string; atraso_min?: number }
 type Config = { hora_entrada: string; tolerancia_min: number; regra_atraso_ativa: boolean; qtd_atrasos_para_falta: number; periodo_regra: string }
 
@@ -26,6 +26,7 @@ export default function TabPonto(){
     const [batendo,setBatendo] = useState<string | null>(null)
     const [page,setPage] = useState(1)
     const [openCfg,setOpenCfg] = useState(false)
+    const [search,setSearch] = useState('')
     const perPage = 10
 
     const load = async () => {
@@ -36,7 +37,11 @@ export default function TabPonto(){
                 api.get('/api/rh/ponto/hoje'),
                 api.get('/api/rh/ponto/config').catch(()=>({data:null}))
             ])
-            setFuncs(fRes.data.map((f:any)=>({...f, area: f.area_principal?.nome || f.area_principal_id || f.area || 'Geral'})))
+            setFuncs(fRes.data.map((f:any)=>({
+               ...f,
+                area: f.area_principal?.nome || f.area || 'Geral',
+                funcao: f.funcao_principal?.nome || f.funcao || f.cargo || f.area_principal?.nome || 'Geral'
+            })))
             setPontos(pRes.data)
             if(cRes.data) setConfig(cRes.data)
             try{
@@ -56,6 +61,8 @@ export default function TabPonto(){
     }
     useEffect(()=>{load()},[])
 
+    useEffect(()=>{ setPage(1) },[search])
+
     const pontosPorFunc = useMemo(()=>{
         const map = new Map<string, Ponto[]>()
         pontos.forEach(p=>{
@@ -65,11 +72,17 @@ export default function TabPonto(){
         return map
     },[pontos])
 
-    const totalPages = Math.ceil(funcs.length / perPage)
+    const filtered = useMemo(()=>{
+        if(!search.trim()) return funcs
+        const s = search.toLowerCase()
+        return funcs.filter(f=> f.nome.toLowerCase().includes(s) || (f.area||'').toLowerCase().includes(s) || (f.funcao||'').toLowerCase().includes(s))
+    },[funcs, search])
+
+    const totalPages = Math.ceil(filtered.length / perPage)
     const paginatedFuncs = useMemo(()=>{
         const start = (page-1)*perPage
-        return funcs.slice(start, start+perPage)
-    },[funcs, page])
+        return filtered.slice(start, start+perPage)
+    },[filtered, page])
 
     const bater = async (funcId: string, tipo: string) => {
         setBatendo(funcId)
@@ -101,17 +114,21 @@ export default function TabPonto(){
     return (
         <>
         <div className="bg-white rounded-[16px] border overflow-hidden">
-            <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-                <div>
+            <div className="p-3 border-b bg-gray-50 flex justify-between items-center gap-2">
+                <div className="min-w-0">
                     <h3 className="font-bold text-[14px] text-black">Ponto hoje - {new Date().toLocaleDateString('pt-AO')}</h3>
                     {config?.regra_atraso_ativa? (
-                        <p className="text-[11px] text-black/70 mt-0.5">Regra: {config.qtd_atrasos_para_falta} atrasos na {config.periodo_regra} = 1 falta</p>
+                        <p className="text-[10px] text-black/70 mt-0.5">Regra: {config.qtd_atrasos_para_falta} atrasos na {config.periodo_regra} = 1 falta</p>
                     ):(
-                        <p className="text-[11px] text-black/50 mt-0.5">Regra de atrasos desativada</p>
+                        <p className="text-[10px] text-black/50 mt-0.5">Regra de atrasos desativada</p>
                     )}
                 </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-black/60 font-medium">{pontos.length} batidas</span>
+                <div className="flex items-center gap-2 shrink-0">
+                    <div className="relative">
+                        <Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-[160px] md:w-[220px] h-[32px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[12px] text-black placeholder:text-black/40 focus:outline-none focus:border-black" />
+                    </div>
+                    <span className="hidden md:block text-[11px] text-black/60 font-medium">{pontos.length} batidas</span>
                     <button onClick={()=>setOpenCfg(true)} className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 shadow-sm">
                         <Settings className="w-4 h-4 text-black"/>
                     </button>
@@ -119,46 +136,57 @@ export default function TabPonto(){
             </div>
 
             <div className="max-h-[70vh] overflow-y-auto">
+                {paginatedFuncs.length===0 && <p className="text-center py-8 text-[12px] text-black/50">Nenhum funcionário para "{search}"</p>}
                 {paginatedFuncs.map(f=>{
                     const lista = (pontosPorFunc.get(f.id) || []).sort((a,b)=>+new Date(b.timestamp)-+new Date(a.timestamp))
                     const temEntrada = lista.some(p=>p.tipo==='entrada')
                     const temSaida = lista.some(p=>p.tipo==='saida')
+                    const entrada = lista.find(p=>p.tipo==='entrada')
                     const atrasos = faltasPeriodo[f.id] || 0
                     const limite = config?.qtd_atrasos_para_falta || 3
 
                     return (
-                        <div key={f.id} className="px-4 py-3 border-b last:border-b-0 flex justify-between items-center gap-3">
+                        <div key={f.id} className="px-4 py-2.5 border-b last:border-b-0 flex justify-between items-center gap-3">
                             <div className="min-w-0">
                                 <p className="font-bold text-[13px] text-black truncate">
-                                    {f.nome} <span className="font-normal text-black/60">• {f.area}</span>
-                                    {atrasos>0 && <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] bg-gray-100 text-black border border-gray-200 font-medium">{atrasos} atraso{atrasos>1?'s':''} na {config?.periodo_regra || 'semana'}</span>}
+                                    {f.nome} <span className="font-normal text-black/60">• {f.funcao}</span>
+                                    {f.area && f.area!==f.funcao && <span className="font-normal text-black/40 text-[11px]"> • {f.area}</span>}
+                                    {atrasos>0 && <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] bg-red-50 text-red-600 border border-red-100 font-medium">{atrasos} atraso{atrasos>1?'s':''}</span>}
                                 </p>
                                 {lista.length===0? (
                                     <p className="text-[11px] text-black/60 mt-0.5">{atrasos>=limite-1 && config?.regra_atraso_ativa? `Atenção: ${limite}º atraso vira falta` : 'Sem ponto hoje'}</p>
                                 ):(
-                                    <p className="text-[11px] text-black/70 truncate mt-0.5">
-                                        {lista.map(p=>`${p.tipo} ${new Date(p.timestamp).toLocaleTimeString('pt-AO')} ${p.atraso_min?`(${formatAtraso(p.atraso_min)})`:''}`).join(' • ')}
+                                    <p className="text-[11px] truncate mt-0.5">
+                                        {lista.map(p=>{
+                                            const isEntrada = p.tipo==='entrada'
+                                            const isAtraso = p.atraso_min && p.atraso_min>0
+                                            return (
+                                                <span key={p.id} className={`${isAtraso? 'text-red-600 font-semibold' : isEntrada? 'text-[#0095ff] font-semibold' : 'text-black/60'} mr-2`}>
+                                                    {p.tipo} {new Date(p.timestamp).toLocaleTimeString('pt-AO')} {p.atraso_min? `(${formatAtraso(p.atraso_min)})` : ''}
+                                                </span>
+                                            )
+                                        })}
                                     </p>
                                 )}
                             </div>
-                            <div className="flex gap-[2px] shrink-0">
+                            <div className="flex gap-1.5 shrink-0">
                                 {!temEntrada && (
                                     <>
-                                        <button disabled={batendo===f.id} onClick={()=>bater(f.id,'entrada')} className="h-[32px] px-3 bg-black text-white rounded-full text-[11px] font-medium flex items-center gap-1.5 disabled:opacity-50 hover:bg-gray-900">
-                                            <LogIn className="w-3.5 h-3.5"/> Entrada
+                                        <button disabled={batendo===f.id} onClick={()=>bater(f.id,'entrada')} className="h-[26px] px-3 bg-[#0095ff] text-white rounded-full text-[11px] font-medium disabled:opacity-50 hover:bg-[#0085e6]">
+                                            Entrada
                                         </button>
-                                        <button disabled={batendo===f.id} onClick={()=>marcarFalta(f.id)} className="h-[32px] px-3 border border-gray-200 bg-white rounded-full text-[11px] text-black flex items-center gap-1 hover:bg-gray-50">
-                                            <XCircle className="w-3.5 h-3.5"/> Falta
+                                        <button disabled={batendo===f.id} onClick={()=>marcarFalta(f.id)} className="h-[26px] px-3 bg-red-50 border border-red-200 text-red-600 rounded-full text-[11px] font-medium hover:bg-red-100">
+                                            Falta
                                         </button>
                                     </>
                                 )}
                                 {temEntrada &&!temSaida && (
-                                    <button disabled={batendo===f.id} onClick={()=>bater(f.id,'saida')} className="h-[32px] px-3 border border-gray-200 rounded-full text-[11px] text-black flex items-center gap-1.5 hover:bg-gray-50">
-                                        <LogOut className="w-3.5 h-3.5"/> Saída
+                                    <button disabled={batendo===f.id} onClick={()=>bater(f.id,'saida')} className="h-[26px] px-3 border border-gray-200 bg-white rounded-full text-[11px] text-black hover:bg-gray-50">
+                                        Saída
                                     </button>
                                 )}
                                 {temEntrada && temSaida && (
-                                    <span className="h-[32px] px-3 flex items-center text-[11px] bg-gray-100 text-black rounded-full border border-gray-200">Completo</span>
+                                    <span className="h-[26px] px-3 flex items-center text-[11px] bg-gray-100 text-black rounded-full border">Completo</span>
                                 )}
                             </div>
                         </div>
@@ -167,10 +195,10 @@ export default function TabPonto(){
             </div>
 
             {totalPages > 1 && (
-                <div className="flex justify-between items-center p-3 border-t bg-gray-50">
-                    <button disabled={page===1} onClick={()=>setPage(p=>p-1)} className="px-3 py-1.5 text-[12px] rounded-full border bg-white text-black disabled:opacity-40">Anterior</button>
-                    <span className="text-[11px] text-black/60">Página {page} de {totalPages}</span>
-                    <button disabled={page===totalPages} onClick={()=>setPage(p=>p+1)} className="px-3 py-1.5 text-[12px] rounded-full bg-black text-white disabled:opacity-40">Próxima</button>
+                <div className="flex justify-between items-center p-2.5 border-t bg-gray-50">
+                    <button disabled={page===1} onClick={()=>setPage(p=>p-1)} className="px-3 py-1 text-[11px] rounded-full border bg-white text-black disabled:opacity-40">Anterior</button>
+                    <span className="text-[11px] text-black/60">Página {page} de {totalPages} • {filtered.length} de {funcs.length}</span>
+                    <button disabled={page===totalPages} onClick={()=>setPage(p=>p+1)} className="px-3 py-1 text-[11px] rounded-full bg-black text-white disabled:opacity-40">Próxima</button>
                 </div>
             )}
         </div>

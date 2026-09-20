@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { X, ChevronLeft, ChevronRight, Lock } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 
 const MONTH_LABEL = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
@@ -30,7 +31,7 @@ interface Props {
 
 export default function ModalCalendarioPonto({ open, value, onClose, onSelect }: Props) {
     const hoje = isoToday()
-    const minDate = addDays(hoje, -6)
+    const minDate = addDays(hoje, -6) // 7 dias no total: hoje + 6 atrás
 
     const [viewMode, setViewMode] = useState<'days' | 'months' | 'years'>('days')
     const [view, setView] = useState(() => {
@@ -78,83 +79,78 @@ export default function ModalCalendarioPonto({ open, value, onClose, onSelect }:
         onClose()
     }
 
-    return (
-        <>
-            {/* MOBILE: absolute dentro da tabela = ocupa toda width da tabela | DESKTOP: fixed centralizado */}
-            <div className="absolute md:fixed inset-0 z-[60] flex items-start md:items-center justify-center pt-[58px] md:pt-0 md:p-4">
-                {/* backdrop - no mobile só escurece a tabela, no desktop a tela toda */}
-                <div className="absolute inset-0 bg-black/40 md:bg-black/60 backdrop-blur-[2px] md:backdrop-blur-sm" onClick={onClose} />
+    const modal = (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative w-full max-w-[360px] bg-white rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.35)] border border-gray-200 overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="h-[60px] px-4 flex items-center justify-between bg-white border-b border-gray-200">
+                    {viewMode === 'days'? (
+                        <>
+                            <button type="button" onClick={() => setView(v => v.month === 0? { year: v.year - 1, month: 11 } : { year: v.year, month: v.month - 1 })} className="w-10 h-10 rounded-full bg-gray-100 border flex items-center justify-center"><ChevronLeft className="w-5 h-5 text-black" /></button>
+                            <div className="flex gap-2">
+                                <button type="button" onClick={() => setViewMode('months')} className="px-4 py-1.5 rounded-full bg-white border border-gray-300 text-[14px] font-black text-black">{MONTH_SHORT[view.month]}</button>
+                                <button type="button" onClick={() => { setYearPage(Math.floor(view.year / 12) * 12); setViewMode('years') }} className="px-4 py-1.5 rounded-full bg-[#0A2540] text-white text-[14px] font-black">{view.year}</button>
+                            </div>
+                            <button type="button" onClick={() => setView(v => v.month === 11? { year: v.year + 1, month: 0 } : { year: v.year, month: v.month + 1 })} className="w-10 h-10 rounded-full bg-gray-100 border flex items-center justify-center"><ChevronRight className="w-5 h-5 text-black" /></button>
+                        </>
+                    ) : (
+                        <>
+                            <button type="button" onClick={() => setYearPage(p => p - 12)} className="w-10 h-10 rounded-full bg-gray-100 border flex items-center justify-center"><ChevronLeft className="w-5 h-5 text-black" /></button>
+                            <span className="text-[15px] font-black text-black">{viewMode === 'months'? view.year : `${yearPage} - ${yearPage + 11}`}</span>
+                            <button type="button" onClick={() => setYearPage(p => p + 12)} className="w-10 h-10 rounded-full bg-gray-100 border flex items-center justify-center"><ChevronRight className="w-5 h-5 text-black" /></button>
+                        </>
+                    )}
+                </div>
 
-                {/* CARD - w-full no mobile = 100% da div pai (tabela) */}
-                <div className="relative w-full md:max-w-[360px] bg-white rounded-t-[20px] md:rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.35)] border border-gray-200 overflow-hidden animate-in slide-in-from-top-4 md:zoom-in-95 duration-200">
-                    <div className="h-[56px] px-4 flex items-center justify-between bg-white border-b border-gray-200">
-                        {viewMode === 'days'? (
-                            <>
-                                <button type="button" onClick={() => setView(v => v.month === 0? { year: v.year - 1, month: 11 } : { year: v.year, month: v.month - 1 })} className="w-9 h-9 rounded-full bg-gray-100 border flex items-center justify-center"><ChevronLeft className="w-5 h-5 text-black" /></button>
-                                <div className="flex gap-2">
-                                    <button type="button" onClick={() => setViewMode('months')} className="px-3 py-1 rounded-full bg-white border border-gray-300 text-[13px] font-black text-black">{MONTH_SHORT[view.month]}</button>
-                                    <button type="button" onClick={() => { setYearPage(Math.floor(view.year / 12) * 12); setViewMode('years') }} className="px-3 py-1 rounded-full bg-[#0A2540] text-white text-[13px] font-black">{view.year}</button>
-                                </div>
-                                <button type="button" onClick={() => setView(v => v.month === 11? { year: v.year + 1, month: 0 } : { year: v.year, month: v.month + 1 })} className="w-9 h-9 rounded-full bg-gray-100 border flex items-center justify-center"><ChevronRight className="w-5 h-5 text-black" /></button>
-                            </>
-                        ) : (
-                            <>
-                                <button type="button" onClick={() => setYearPage(p => p - 12)} className="w-9 h-9 rounded-full bg-gray-100 border flex items-center justify-center"><ChevronLeft className="w-5 h-5 text-black" /></button>
-                                <span className="text-[14px] font-black text-black">{viewMode === 'months'? view.year : `${yearPage} - ${yearPage + 11}`}</span>
-                                <button type="button" onClick={() => setYearPage(p => p + 12)} className="w-9 h-9 rounded-full bg-gray-100 border flex items-center justify-center"><ChevronRight className="w-5 h-5 text-black" /></button>
-                            </>
-                        )}
+                <div className="p-4 bg-white">
+                    <div className="mb-3 flex justify-between text-[11px] bg-gray-50 rounded-full px-3 py-1.5 border">
+                        <span className="text-black/60">Min: {formatDisplay(minDate)}</span>
+                        <span className="text-black font-bold">Max: Hoje</span>
                     </div>
 
-                    <div className="p-3 md:p-4 bg-white">
-                        <div className="mb-3 flex justify-between text-[11px] bg-gray-50 rounded-full px-3 py-1.5 border">
-                            <span className="text-black/60">Min: {formatDisplay(minDate)}</span>
-                            <span className="text-black font-bold">Max: Hoje</span>
-                        </div>
-
-                        {viewMode === 'days' && (
-                            <>
-                                <div className="grid grid-cols-7 gap-1 mb-2">
-                                    {WEEK_LABEL.map((w, i) => <span key={i} className="h-7 flex items-center justify-center text-[11px] font-black text-black">{w}</span>)}
-                                </div>
-                                <div className="grid grid-cols-7 gap-1.5 md:gap-2">
-                                    {days.map((day, idx) => day === null? <div key={`e-${idx}`} className="h-10 md:h-11" /> : (() => {
-                                        const iso = toIso(day)
-                                        const future = isFuture(iso)
-                                        const tooOld = isTooOld(iso)
-                                        const disabled = future || tooOld
-                                        return (
-                                            <button key={idx} type="button" disabled={disabled} onClick={() => handleSelect(day)} className={`h-10 md:h-11 rounded-[10px] md:rounded-[12px] text-[14px] md:text-[15px] font-bold border-2 transition active:scale-90 relative ${disabled? 'bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed' : isSelected(day)? 'bg-[#0A2540] text-white border-[#0A2540]' : isToday(day)? 'bg-white text-black border-black font-black' : 'bg-white text-black border-gray-200 hover:border-black'}`}>
-                                                {day}
-                                                {disabled && <Lock className="w-3 h-3 absolute -top-1 -right-1 text-gray-400" />}
-                                            </button>
-                                        )
-                                    })())}
-                                </div>
-                            </>
-                        )}
-                        {viewMode === 'months' && (
-                            <div className="grid grid-cols-3 gap-2">
-                                {MONTH_LABEL.map((m, i) => (
-                                    <button key={m} type="button" onClick={() => { setView(v => ({...v, month: i })); setViewMode('days') }} className={`h-11 rounded-[10px] text-[12px] font-black border-2 text-black ${view.month === i? 'bg-black text-white border-black' : 'bg-white border-gray-300'}`}>{m}</button>
-                                ))}
+                    {viewMode === 'days' && (
+                        <>
+                            <div className="grid grid-cols-7 gap-1 mb-3">
+                                {WEEK_LABEL.map((w, i) => <span key={i} className="h-7 flex items-center justify-center text-[12px] font-black text-black">{w}</span>)}
                             </div>
-                        )}
-                        {viewMode === 'years' && (
-                            <div className="grid grid-cols-3 gap-2">
-                                {Array.from({ length: 12 }, (_, i) => yearPage + i).map(y => (
-                                    <button key={y} type="button" onClick={() => { setView(v => ({...v, year: y })); setViewMode('days') }} className={`h-11 rounded-[10px] text-[12px] font-black border-2 text-black ${view.year === y? 'bg-black text-white border-black' : 'bg-white border-gray-300'}`}>{y}</button>
-                                ))}
+                            <div className="grid grid-cols-7 gap-2">
+                                {days.map((day, idx) => day === null? <div key={`e-${idx}`} className="h-11" /> : (() => {
+                                    const iso = toIso(day)
+                                    const future = isFuture(iso)
+                                    const tooOld = isTooOld(iso)
+                                    const disabled = future || tooOld
+                                    return (
+                                        <button key={idx} type="button" disabled={disabled} onClick={() => handleSelect(day)} className={`h-11 rounded-[12px] text-[15px] font-bold border-2 transition active:scale-90 relative ${disabled? 'bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed' : isSelected(day)? 'bg-[#0A2540] text-white border-[#0A2540]' : isToday(day)? 'bg-white text-black border-black font-black' : 'bg-white text-black border-gray-200 hover:border-black'}`}>
+                                            {day}
+                                            {disabled && <Lock className="w-3 h-3 absolute -top-1 -right-1 text-gray-400" />}
+                                        </button>
+                                    )
+                                })())}
                             </div>
-                        )}
-
-                        <div className="mt-4 flex gap-2.5">
-                            <button type="button" onClick={() => { onSelect(hoje); onClose() }} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-black text-[14px]">Hoje</button>
-                            <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border-2 border-black text-black font-bold bg-white flex items-center justify-center gap-1 text-[14px]"><X className="w-4 h-4" /> Fechar</button>
+                        </>
+                    )}
+                    {viewMode === 'months' && (
+                        <div className="grid grid-cols-3 gap-2">
+                            {MONTH_LABEL.map((m, i) => (
+                                <button key={m} type="button" onClick={() => { setView(v => ({...v, month: i })); setViewMode('days') }} className={`h-12 rounded-[12px] text-[13px] font-black border-2 text-black ${view.month === i? 'bg-black text-white border-black' : 'bg-white border-gray-300'}`}>{m}</button>
+                            ))}
                         </div>
+                    )}
+                    {viewMode === 'years' && (
+                        <div className="grid grid-cols-3 gap-2">
+                            {Array.from({ length: 12 }, (_, i) => yearPage + i).map(y => (
+                                <button key={y} type="button" onClick={() => { setView(v => ({...v, year: y })); setViewMode('days') }} className={`h-12 rounded-[12px] text-[13px] font-black border-2 text-black ${view.year === y? 'bg-black text-white border-black' : 'bg-white border-gray-300'}`}>{y}</button>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="mt-5 flex gap-3">
+                        <button type="button" onClick={() => { onSelect(hoje); onClose() }} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-black">Hoje</button>
+                        <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border-2 border-black text-black font-bold bg-white flex items-center justify-center gap-1"><X className="w-4 h-4" /> Fechar</button>
                     </div>
                 </div>
             </div>
-        </>
+        </div>
     )
+    return typeof document!== 'undefined'? createPortal(modal, document.body) : null
 }

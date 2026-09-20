@@ -180,7 +180,7 @@ export default function TabPonto() {
 
     return (
         <>
-            <div className="bg-white rounded-[16px] border overflow-hidden">
+            <div className="bg-white rounded-[16px] border overflow-hidden relative">
                 <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                         <div className="flex items-center gap-1">

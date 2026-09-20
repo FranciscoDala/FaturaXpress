@@ -96,26 +96,31 @@ def listar_ponto_semana(db: Session, company_id: uuid.UUID):
     inicio = hoje - timedelta(days=hoje.weekday()) # segunda
     return db.query(Ponto).filter(Ponto.company_id==company_id, Ponto.data>=inicio).order_by(Ponto.data.desc()).all()
 
+from zoneinfo import ZoneInfo
+
 def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid.UUID, tipo: str, ip: str | None = None):
     cfg = get_config_ponto(db, company_id)
-    agora = datetime.now(timezone.utc)
+    agora_utc = datetime.now(timezone.utc)
+    agora_luanda = agora_utc.astimezone(ZoneInfo("Africa/Luanda"))
+
     # calcula atraso só para entrada
     atraso = 0
-    qtd_atrasos = 0  # <-- FIX: inicializa aqui
+    qtd_atrasos = 0
     falta_gerada = None
 
     if tipo == "entrada":
         try:
             h, m = map(int, cfg.hora_entrada.split(":"))
             entrada_min = h*60 + m
-            agora_min = agora.hour*60 + agora.minute
+            agora_min = agora_luanda.hour*60 + agora_luanda.minute
             atraso = agora_min - entrada_min - cfg.tolerancia_min
             if atraso < 0: atraso = 0
-        except: atraso = 0
+        except:
+            atraso = 0
 
     ponto = Ponto(
         id=uuid.uuid4(), company_id=company_id, funcionario_id=funcionario_alvo_id,
-        data=date.today(), tipo=tipo, timestamp=agora, dentro_raio=True, distancia_m=0,
+        data=date.today(), tipo=tipo, timestamp=agora_utc, dentro_raio=True, distancia_m=0,
         dispositivo="rh:web", ip=ip, justificado=True, atraso_min=atraso
     )
     db.add(ponto); db.commit(); db.refresh(ponto)
@@ -158,6 +163,7 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
                 db.add(falta_gerada); db.commit(); db.refresh(falta_gerada)
 
     return {"ponto": ponto, "atraso_min": atraso, "falta_gerada": falta_gerada, "total_atrasos_periodo": qtd_atrasos}
+
 
 
 def marcar_falta_manual(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, motivo: str):

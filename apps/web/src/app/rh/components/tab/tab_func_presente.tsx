@@ -20,7 +20,7 @@ interface Props {
 
 export default function TabPresente({ funcionarios, search, onView, onEdit, onFerias }: Props) {
     if (funcionarios.length === 0) {
-        return <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhum funcionário presente {search ? `para "${search}"` : ''}!</p>
+        return <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhum funcionário presente {search? `para "${search}"` : ''}!</p>
     }
 
     return (
@@ -65,7 +65,7 @@ function FuncionarioCard({
                     <span className="text-[11px] text-gray-400">exp.</span>
                     <div className="flex gap-[2px]">
                         {Array.from({ length: 10 }).map((_, i) => (
-                            <div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5 ? 'bg-green-400' : 'bg-gray-200'}`} />
+                            <div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5? 'bg-green-400' : 'bg-gray-200'}`} />
                         ))}
                     </div>
                 </div>

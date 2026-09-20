@@ -52,6 +52,7 @@ def login_bi(numero_bi: str, senha: str, db: Session = Depends(get_db)):
 
 rh_router = APIRouter(prefix="/rh", tags=["RH - Ponto"])
 
+# FIXAS PRIMEIRO
 @rh_router.get("/ponto/hoje")
 def ponto_hoje(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return func_service.listar_ponto_hoje(db, company_id)
@@ -60,15 +61,29 @@ def ponto_hoje(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(ge
 def ponto_semana(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return func_service.listar_ponto_semana(db, company_id)
 
+@rh_router.get("/ponto/config")
+def get_config(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    return func_service.get_config_ponto(db, company_id)
+
+@rh_router.put("/ponto/config")
+def update_config(payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    cfg = func_service.get_config_ponto(db, company_id)
+    for k,v in payload.items():
+        if hasattr(cfg,k):
+            setattr(cfg,k,v)
+    db.commit(); db.refresh(cfg)
+    return cfg
+
+@rh_router.get("/faltas/hoje")
+def faltas_hoje(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    return func_service.listar_faltas_hoje(db, company_id)
+
+# DINAMICA POR ULTIMO
 @rh_router.get("/ponto/{periodo}")
 def ponto_periodo(periodo: str, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     if periodo not in ["semana","mes"]:
         raise HTTPException(400, "periodo inválido")
     return func_service.listar_ponto_periodo(db, company_id, periodo)
-
-@rh_router.get("/faltas/hoje")
-def faltas_hoje(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    return func_service.listar_faltas_hoje(db, company_id)
 
 @rh_router.post("/ponto/bater")
 def ponto_bater(payload: dict, request: Request, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
@@ -96,16 +111,3 @@ def falta_manual(payload: dict, db: Session = Depends(get_db), company_id: uuid.
         raise HTTPException(400, "funcionario_id obrigatório")
     fid = uuid.UUID(funcionario_id)
     return func_service.marcar_falta_manual(db, company_id, fid, motivo, categoria, observacao)
-
-@rh_router.get("/ponto/config")
-def get_config(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    return func_service.get_config_ponto(db, company_id)
-
-@rh_router.put("/ponto/config")
-def update_config(payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    cfg = func_service.get_config_ponto(db, company_id)
-    for k,v in payload.items():
-        if hasattr(cfg,k):
-            setattr(cfg,k,v)
-    db.commit(); db.refresh(cfg)
-    return cfg

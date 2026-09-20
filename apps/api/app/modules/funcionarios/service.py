@@ -7,6 +7,7 @@ from datetime import date, datetime, timezone, timedelta
 from app.modules.funcionarios.models import Funcionario, Ponto, ConfigPonto, PedidoRH
 from app.modules.funcionarios.schemas import FuncionarioCreate, FuncionarioUpdate
 from app.modules.areas.models import Area
+from zoneinfo import ZoneInfo
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 CARGOS_VALIDOS = ["admin", "financeira", "recepcao", "rh"]
@@ -108,11 +109,9 @@ def listar_faltas_hoje(db: Session, company_id: uuid.UUID):
     return db.query(PedidoRH).filter(
         PedidoRH.company_id==company_id,
         PedidoRH.data_inicio==hoje,
-        PedidoRH.tipo== "falta_justificada",  # só esse que existe no banco
+        PedidoRH.tipo== "falta_justificada",
         PedidoRH.status.in_(["pendente","aprovado"])
     ).all()
-
-from zoneinfo import ZoneInfo
 
 def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid.UUID, tipo: str, ip: str | None = None):
     cfg = get_config_ponto(db, company_id)
@@ -186,9 +185,9 @@ def marcar_falta_manual(db: Session, company_id: uuid.UUID, funcionario_id: uuid
 
     falta = PedidoRH(
         id=uuid.uuid4(), company_id=company_id, funcionario_id=funcionario_id,
-        tipo="falta_justificada",  # usa o que já existe
+        tipo="falta_justificada",
         data_inicio=date.today(), data_fim=date.today(),
-        dias_uteis=1, motivo=texto, status="pendente" # pendente = pendente de justificação
+        dias_uteis=1, motivo=texto, status="pendente"
     )
     db.add(falta); db.commit(); db.refresh(falta)
     return falta

@@ -80,24 +80,14 @@ function CustomDatePicker({ value, onChange, placeholder }: { value: string, onC
         return () => document.removeEventListener('mousedown', h)
     }, [])
 
-    useEffect(() => {
-        if (value) {
-            const d = new Date(value + "T12:00:00")
-            setView({ year: d.getFullYear(), month: d.getMonth() })
-            setYearPage(Math.floor(d.getFullYear() / 12) * 12)
-        }
-    }, [])
-
     const daysInMonth = new Date(view.year, view.month + 1, 0).getDate()
     const startDay = new Date(view.year, view.month, 1).getDay()
     const days: (number | null)[] = [...Array(startDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
-
     const selectDay = (day: number) => {
         const iso = `${view.year}-${String(view.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
         onChange(iso)
         setOpen(false)
     }
-
     const selected = value ? { d: Number(value.split("-")[2]), m: Number(value.split("-")[1]) - 1, y: Number(value.split("-")[0]) } : null
     const isSelected = (day: number) => selected && selected.d === day && selected.m === view.month && selected.y === view.year
     const isToday = (day: number) => {
@@ -107,17 +97,14 @@ function CustomDatePicker({ value, onChange, placeholder }: { value: string, onC
 
     return (
         <div ref={ref} className="relative w-full">
-            <button type="button" onClick={() => { setOpen(!open); if (!open) setViewMode('days') }} className={`w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] flex items-center justify-between focus:outline-none focus:border-[#0095ff] transition ${value ? 'text-black' : 'text-black/40'} ${open ? 'border-[#0095ff] ring-1 ring-[#0095ff]/20' : ''}`}>
-                <span className="flex items-center gap-2 truncate">
-                    <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
-                    {value ? formatDisplay(value) : placeholder}
-                </span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
+            <button type="button" onClick={() => { setOpen(!open); if (!open) setViewMode('days') }} className={`w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] flex items-center justify-between ${value ? 'text-black' : 'text-black/40'} ${open ? 'border-[#0095ff] ring-1 ring-[#0095ff]/20' : ''}`}>
+                <span className="flex items-center gap-2 truncate"><Calendar className="w-4 h-4 text-gray-400 shrink-0" />{value ? formatDisplay(value) : placeholder}</span>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
 
             {open && (
-                <div className="mt-2 w-full bg-white rounded-[20px] shadow-[0_12px_32px_rgba(0,0,0,0.14)] border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
-                    {/* HEADER */}
+                // AQUI O FIX: no mobile quebra a grid e fica 88vw centralizado, no desktop volta pro w-full da coluna
+                <div className="absolute top-[50px] left-1/2 -translate-x-1/2 w-[88vw] max-w-[340px] sm:left-0 sm:translate-x-0 sm:w-full sm:max-w-none z-[80] bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.20)] border border-gray-100 overflow-hidden">
                     <div className="h-[52px] px-3 flex items-center justify-between bg-[#F8FAFF] border-b border-gray-100">
                         {viewMode === 'days' && (
                             <>
@@ -132,7 +119,7 @@ function CustomDatePicker({ value, onChange, placeholder }: { value: string, onC
                         {viewMode === 'months' && (
                             <>
                                 <button type="button" onClick={() => setView(v => ({ ...v, year: v.year - 1 }))} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center"><ChevronLeft className="w-4 h-4" /></button>
-                                <button type="button" onClick={() => setViewMode('days')} className="text-[13px] font-bold">{view.year} • voltar</button>
+                                <span className="text-[13px] font-bold">{view.year}</span>
                                 <button type="button" onClick={() => setView(v => ({ ...v, year: v.year + 1 }))} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center"><ChevronRight className="w-4 h-4" /></button>
                             </>
                         )}
@@ -144,43 +131,37 @@ function CustomDatePicker({ value, onChange, placeholder }: { value: string, onC
                             </>
                         )}
                     </div>
-
                     <div className="p-3">
                         {viewMode === 'days' && (
                             <>
                                 <div className="grid grid-cols-7 gap-1 mb-2">
-                                    {WEEK_LABEL.map((w, i) => <span key={i} className="h-6 flex items-center justify-center text-[10px] font-bold text-gray-400">{w}</span>)}
+                                    {WEEK_LABEL.map((w, i) => <span key={i} className="h-6 flex items-center justify-center text-[11px] font-bold text-gray-400">{w}</span>)}
                                 </div>
                                 <div className="grid grid-cols-7 gap-1">
-                                    {days.map((day, idx) => day === null ? <div key={`empty-${idx}`} className="h-9" /> : (
-                                        <button key={`${view.year}-${view.month}-${day}`} type="button" onClick={() => selectDay(day)} className={`h-9 rounded-[10px] text-[13px] font-medium transition ${isSelected(day) ? 'bg-[#0A2540] text-white' : isToday(day) ? 'bg-[#E6F0FF] text-[#0095ff] border border-[#C2D8FF] font-bold' : 'bg-white border border-gray-100 hover:bg-gray-50 text-gray-800'}`}>
-                                            {day}
-                                        </button>
+                                    {days.map((day, idx) => day === null ? <div key={`e-${idx}`} className="h-10" /> : (
+                                        <button key={idx} type="button" onClick={() => selectDay(day)} className={`h-10 rounded-[12px] text-[14px] font-medium ${isSelected(day) ? 'bg-[#0A2540] text-white' : isToday(day) ? 'bg-[#E6F0FF] text-[#0095ff] border border-[#C2D8FF]' : 'hover:bg-gray-50 border border-gray-100'}`}>{day}</button>
                                     ))}
                                 </div>
                             </>
                         )}
                         {viewMode === 'months' && (
-                            <div className="grid grid-cols-3 gap-1.5">
-                                {MONTH_LABEL.map((m, idx) => (
-                                    <button key={m} type="button" onClick={() => { setView(v => ({ ...v, month: idx })); setViewMode('days') }} className={`h-10 rounded-[10px] text-[12px] font-medium border ${view.month === idx ? 'bg-[#0A2540] text-white border-[#0A2540]' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>{m.slice(0, 3)}</button>
+                            <div className="grid grid-cols-3 gap-2">
+                                {MONTH_LABEL.map((m, i) => (
+                                    <button key={m} type="button" onClick={() => { setView(v => ({ ...v, month: i })); setViewMode('days') }} className={`h-10 rounded-[12px] text-[12px] border ${view.month === i ? 'bg-[#0A2540] text-white' : 'bg-white'}`}>{m}</button>
                                 ))}
                             </div>
                         )}
                         {viewMode === 'years' && (
-                            <div className="grid grid-cols-3 gap-1.5">
+                            <div className="grid grid-cols-3 gap-2">
                                 {Array.from({ length: 12 }, (_, i) => yearPage + i).map(y => (
-                                    <button key={y} type="button" onClick={() => { setView(v => ({ ...v, year: y })); setViewMode('days') }} className={`h-10 rounded-[10px] text-[12px] font-bold border ${view.year === y ? 'bg-[#0A2540] text-white border-[#0A2540]' : selected?.y === y ? 'bg-[#E6F0FF] text-[#0095ff] border-[#C2D8FF]' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>{y}</button>
+                                    <button key={y} type="button" onClick={() => { setView(v => ({ ...v, year: y })); setViewMode('days') }} className={`h-10 rounded-[12px] text-[12px] font-bold border ${view.year === y ? 'bg-[#0A2540] text-white' : 'bg-white'}`}>{y}</button>
                                 ))}
                             </div>
                         )}
-
-                        {viewMode === 'days' && (
-                            <div className="mt-3 flex gap-2">
-                                <button type="button" onClick={() => { onChange(""); setOpen(false) }} className="flex-1 h-9 rounded-full border border-gray-200 text-[12px] bg-white">Limpar</button>
-                                <button type="button" onClick={() => { const t = new Date(); onChange(`${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`); setOpen(false) }} className="flex-1 h-9 rounded-full bg-[#E6F0FF] border border-[#C2D8FF] text-[12px] font-bold text-[#0095ff]">Hoje</button>
-                            </div>
-                        )}
+                        <div className="mt-3 flex gap-2">
+                            <button type="button" onClick={() => { onChange(""); setOpen(false) }} className="flex-1 h-9 rounded-full border text-[12px]">Limpar</button>
+                            <button type="button" onClick={() => { const t = new Date(); onChange(`${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`); setOpen(false) }} className="flex-1 h-9 rounded-full bg-[#E6F0FF] border border-[#C2D8FF] text-[12px] font-bold text-[#0095ff]">Hoje</button>
+                        </div>
                     </div>
                 </div>
             )}

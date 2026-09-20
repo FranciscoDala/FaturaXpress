@@ -50,29 +50,40 @@ def login_bi(numero_bi: str, senha: str, db: Session = Depends(get_db)):
         raise HTTPException(401, "BI ou senha inválidos")
     return {"id": func.id, "nome": func.nome, "cargo": func.cargo, "company_id": func.company_id}
 
-# --- ROTAS RH PONTO - AJUSTE NECESSÁRIO ---
 rh_router = APIRouter(prefix="/rh", tags=["RH - Ponto"])
 
 @rh_router.get("/ponto/hoje")
 def ponto_hoje(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return func_service.listar_ponto_hoje(db, company_id)
 
+@rh_router.get("/ponto/semana")
+def ponto_semana(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    return func_service.listar_ponto_semana(db, company_id)
+
 @rh_router.post("/ponto/bater")
 def ponto_bater(payload: dict, request: Request, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     funcionario_id = payload.get("funcionario_id")
-    tipo = payload.get("tipo") # entrada / saida
+    tipo = payload.get("tipo")
     if not funcionario_id or not tipo:
         raise HTTPException(400, "funcionario_id e tipo obrigatórios")
     try:
         fid = uuid.UUID(funcionario_id)
     except:
         raise HTTPException(400, "funcionario_id inválido")
-    # valida funcionario existe na empresa
     func = func_service.obter_funcionario(db, company_id, fid)
     if not func:
         raise HTTPException(404, "Funcionário não encontrado")
     ip = request.client.host if request.client else None
     return func_service.bater_ponto_rh(db, company_id, fid, tipo, ip)
+
+@rh_router.post("/falta")
+def falta_manual(payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    funcionario_id = payload.get("funcionario_id")
+    motivo = payload.get("motivo","Falta marcada pelo RH")
+    if not funcionario_id:
+        raise HTTPException(400, "funcionario_id obrigatório")
+    fid = uuid.UUID(funcionario_id)
+    return func_service.marcar_falta_manual(db, company_id, fid, motivo)
 
 @rh_router.get("/ponto/config")
 def get_config(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):

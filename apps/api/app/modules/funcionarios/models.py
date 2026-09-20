@@ -47,11 +47,9 @@ class Funcionario(Base):
         UniqueConstraint('company_id', 'numero_bi', name='uq_funcionarios_company_bi'),
         {"sqlite_autoincrement": False},
     )
-
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
     area_principal_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("areas.id", ondelete="SET NULL"), nullable=True, index=True)
-
     nome: Mapped[str] = mapped_column(String(150), nullable=False)
     numero_bi: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     data_nascimento: Mapped[date] = mapped_column(Date, nullable=False)
@@ -63,7 +61,6 @@ class Funcionario(Base):
     data_emissao_bi: Mapped[date | None] = mapped_column(Date, nullable=True)
     data_validade_bi: Mapped[date | None] = mapped_column(Date, nullable=True)
     local_emissao_bi: Mapped[str | None] = mapped_column(String(100), nullable=True)
-
     estado_civil: Mapped[str] = mapped_column(String(20), default="solteiro")
     telefone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     email: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
@@ -71,23 +68,18 @@ class Funcionario(Base):
     cidade: Mapped[str | None] = mapped_column(String(100), nullable=True)
     provincia: Mapped[str | None] = mapped_column(String(50), nullable=True)
     nif: Mapped[str | None] = mapped_column(String(20), nullable=True)
-
     banco1: Mapped[str | None] = mapped_column(String(100), nullable=True)
     banco2: Mapped[str | None] = mapped_column(String(100), nullable=True)
     iban: Mapped[str | None] = mapped_column(String(50), nullable=True)
     iban2: Mapped[str | None] = mapped_column(String(50), nullable=True)
-
     contacto_emergencia: Mapped[str | None] = mapped_column(String(20), nullable=True)
     data_admissao: Mapped[date | None] = mapped_column(Date, nullable=True, default=lambda: date.today())
-
     tem_acesso: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     senha_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     cargo: Mapped[str] = mapped_column(String(20), default="rh", nullable=False)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
-
     areas = relationship("Area", secondary=funcionario_areas, lazy="selectin")
 
 # --- FASE 1 - RH ---
@@ -108,6 +100,7 @@ class Ponto(Base):
     ip: Mapped[str | None] = mapped_column(String(50), nullable=True)
     justificado: Mapped[bool] = mapped_column(Boolean, default=False)
     observacao_justificativa: Mapped[str | None] = mapped_column(Text, nullable=True)
+    atraso_min: Mapped[int] = mapped_column(Integer, default=0) # NOVO
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 class ConfigPonto(Base):
@@ -120,6 +113,10 @@ class ConfigPonto(Base):
     tolerancia_min: Mapped[int] = mapped_column(Integer, default=15)
     exige_foto: Mapped[bool] = mapped_column(Boolean, default=False)
     exige_localizacao: Mapped[bool] = mapped_column(Boolean, default=True)
+    # --- REGRA OPCIONAL ATRASOS -> FALTA ---
+    regra_atraso_ativa: Mapped[bool] = mapped_column(Boolean, default=False) # desligada por padrão
+    qtd_atrasos_para_falta: Mapped[int] = mapped_column(Integer, default=3) # 2,3,4,5,6...
+    periodo_regra: Mapped[str] = mapped_column(String(10), default="semana") # semana ou mes
 
 class SaldoFerias(Base):
     __tablename__ = "saldo_ferias"

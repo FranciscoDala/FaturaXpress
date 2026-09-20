@@ -145,11 +145,11 @@ export default function TabPonto(){
             {/* HEADER - COLUNA NO MOBILE, LINHA NO DESKTOP */}
             <div className="p-3 border-b bg-gray-50 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                 <div>
-                    <h3 className="font-bold text-[14px] text-black">Ponto hoje - {new Date().toLocaleDateString('pt-AO')}</h3>
+                    <h3 className="font-bold text-[14px] text-black">Hoje - {new Date().toLocaleDateString('pt-AO')}</h3>
                     {config?.regra_atraso_ativa? (
-                        <p className="text-[10px] text-black/70 mt-0.5">ATT: {config.qtd_atrasos_para_falta} atrasos na {config.periodo_regra} resulta em 1 falta</p>
+                        <p className="text-[12px] text-black/70 mt-0.5">ATT: {config.qtd_atrasos_para_falta} atrasos na {config.periodo_regra} resulta em 1 falta</p>
                     ):(
-                        <p className="text-[10px] text-black/50 mt-0.5">Regra de atrasos desativada</p>
+                        <p className="text-[12px] text-black/50 mt-0.5">Regra de atrasos desativada</p>
                     )}
                 </div>
                 <div className="flex items-center gap-2 w-full md:w-auto">

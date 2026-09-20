@@ -19,6 +19,28 @@ function formatAtraso(min: number) {
     return `${h}h:${String(m).padStart(2, '0')}min de atraso`
 }
 
+function prettyFalta(motivo: string){
+    if(!motivo) return "Não apareceu"
+    // se vem "NAO_APARECEU | Não apareceu"
+    if(motivo.includes('|')){
+        const parte = motivo.split('|')[1]?.trim() || motivo.split('|')[0]?.trim()
+        return capitalizarFalta(parte)
+    }
+    return capitalizarFalta(motivo)
+}
+
+function capitalizarFalta(txt: string){
+    const lower = txt.toLowerCase()
+    if(lower.includes('nao_apareceu') || lower.includes('não apareceu')) return 'Não apareceu'
+    if(lower.includes('doente')) return lower.includes('|')? txt.split('|')[1]?.trim() || 'Doente' : 'Doente'
+    if(lower.startsWith('outros')){
+        const resto = txt.split('|')[1]?.trim() || txt.replace(/outros\s*\|?/i,'').trim()
+        return resto? `Outros - ${resto.charAt(0).toUpperCase() + resto.slice(1).toLowerCase()}` : 'Outros'
+    }
+    // normaliza primeira letra maiúscula resto minúsculo
+    return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase()
+}
+
 export default function TabPonto(){
     const [funcs,setFuncs] = useState<Func[]>([])
     const [pontos,setPontos] = useState<Ponto[]>([])
@@ -43,7 +65,7 @@ export default function TabPonto(){
                 api.get('/api/rh/faltas/hoje').catch(()=>({data:[]}))
             ])
             setFuncs(fRes.data.map((f:any)=>({
-              ...f,
+             ...f,
                 area: f.area_principal?.nome || f.area || 'Geral',
                 funcao: f.funcao_principal?.nome || f.funcao || f.cargo || f.area_principal?.nome || 'Geral'
             })))
@@ -114,8 +136,9 @@ export default function TabPonto(){
     return (
         <>
         <div className="bg-white rounded-[16px] border overflow-hidden">
-            <div className="p-3 border-b bg-gray-50 flex justify-between items-center gap-2">
-                <div className="min-w-0">
+            {/* HEADER EM COLUNA NO MOBILE */}
+            <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
+                <div>
                     <h3 className="font-bold text-[14px] text-black">Ponto hoje - {new Date().toLocaleDateString('pt-AO')}</h3>
                     {config?.regra_atraso_ativa? (
                         <p className="text-[10px] text-black/70 mt-0.5">Regra: {config.qtd_atrasos_para_falta} atrasos na {config.periodo_regra} = 1 falta</p>
@@ -123,13 +146,13 @@ export default function TabPonto(){
                         <p className="text-[10px] text-black/50 mt-0.5">Regra de atrasos desativada</p>
                     )}
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                    <div className="relative">
+                {/* INPUT + COG NA MESMA LINHA EMBAIXO */}
+                <div className="flex items-center gap-2 w-full">
+                    <div className="relative flex-1">
                         <Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-[160px] md:w-[220px] h-[32px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[12px] text-black placeholder:text-black/40 focus:outline-none focus:border-black" />
+                        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[36px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[12px] text-black placeholder:text-black/40 focus:outline-none focus:border-black" />
                     </div>
-                    <span className="hidden md:block text-[11px] text-black/60 font-medium">{pontos.length} batidas • {faltas.length} faltas</span>
-                    <button onClick={()=>setOpenCfg(true)} className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 shadow-sm">
+                    <button onClick={()=>setOpenCfg(true)} className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 shadow-sm shrink-0">
                         <Settings className="w-4 h-4 text-black"/>
                     </button>
                 </div>
@@ -145,28 +168,41 @@ export default function TabPonto(){
                     const atrasos = faltasPeriodo[f.id] || 0
 
                     return (
-                        <div key={f.id} className="px-4 py-2.5 border-b last:border-b-0 flex justify-between items-center gap-3">
-                            <div className="min-w-0">
+                        <div key={f.id} className="px-3 md:px-4 py-2.5 border-b last:border-b-0 flex justify-between items-center gap-3">
+                            <div className="min-w-0 flex-1">
                                 <p className="font-bold text-[13px] text-black truncate">
                                     {f.nome} <span className="font-normal text-black/60">• {f.funcao}</span>
-                                    {f.area && f.area!==f.funcao && <span className="font-normal text-black/40 text-[11px]"> • {f.area}</span>}
-                                    {atrasos>0 &&!falta && <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] bg-red-50 text-red-600 border border-red-100 font-medium">{atrasos} atraso{atrasos>1?'s':''}</span>}
                                 </p>
+
                                 {falta? (
-                                    <p className="text-[11px] font-semibold text-red-600 mt-0.5">FALTA • {falta.motivo} • pendente justificação</p>
-                                ): lista.length===0? (
-                                    <p className="text-[11px] text-black/60 mt-0.5">Sem ponto hoje</p>
-                                ):(
-                                    <p className="text-[11px] truncate mt-0.5">
+                                    <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] bg-red-50 border border-red-200 text-[10px] text-red-700">
+                                        <span className="font-bold">Falta • {prettyFalta(falta.motivo)}</span>
+                                        <span className="opacity-70">• pendente justificação</span>
+                                    </div>
+                                ) : lista.length===0? (
+                                    <div className="mt-1 flex items-center gap-1">
+                                        <p className="text-[11px] text-black/60">Sem ponto hoje</p>
+                                        {atrasos>0 && <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-50 text-amber-700 border border-amber-200 font-medium">{atrasos} atraso{atrasos>1?'s':''}</span>}
+                                    </div>
+                                ) : (
+                                    <div className="mt-1 flex flex-wrap gap-1.5">
                                         {lista.map(p=>{
                                             const isAtraso = p.atraso_min && p.atraso_min>0
+                                            if(isAtraso){
+                                                return (
+                                                    <span key={p.id} className="inline-flex items-center px-2 py-0.5 rounded-[6px] bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-medium">
+                                                        entrada {new Date(p.timestamp).toLocaleTimeString('pt-AO')} ({formatAtraso(p.atraso_min!)})
+                                                    </span>
+                                                )
+                                            }
                                             return (
-                                                <span key={p.id} className={`${isAtraso? 'text-red-600 font-bold' : p.tipo==='entrada'? 'text-[#0095ff] font-bold' : 'text-black/60'} mr-2`}>
-                                                    {p.tipo} {new Date(p.timestamp).toLocaleTimeString('pt-AO')} {p.atraso_min? `(${formatAtraso(p.atraso_min)})` : ''}
+                                                <span key={p.id} className={`inline-flex px-2 py-0.5 rounded-[6px] text-[10px] border ${p.tipo==='entrada'? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff] font-semibold' : 'bg-gray-50 border-gray-200 text-black/60'}`}>
+                                                    {p.tipo} {new Date(p.timestamp).toLocaleTimeString('pt-AO')}
                                                 </span>
                                             )
                                         })}
-                                    </p>
+                                        {atrasos>0 && <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-50 text-amber-700 border border-amber-200 font-medium">{atrasos} atraso{atrasos>1?'s':''} na {config?.periodo_regra}</span>}
+                                    </div>
                                 )}
                             </div>
                             <div className="flex gap-1.5 shrink-0">

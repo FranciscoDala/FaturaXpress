@@ -22,16 +22,16 @@ class TipoPonto(str, enum.Enum):
 class TipoPedido(str, enum.Enum):
     ferias = "ferias"
     falta_justificada = "falta_justificada"
-    falta = "falta" # novo - falta marcada manual
+    falta = "falta"
     doenca = "doenca"
     licenca_maternidade = "licenca_maternidade"
     licenca_sem_vencimento = "licenca_sem_vencimento"
 
 class StatusPedido(str, enum.Enum):
     pendente = "pendente"
-    pendente_justificacao = "pendente_justificacao" # novo
+    pendente_justificacao = "pendente_justificacao"
     aprovado = "aprovado"
-    justificado = "justificado" # novo - remove falta
+    justificado = "justificado"
     rejeitado = "rejeitado"
     cancelado = "cancelado"
 
@@ -104,6 +104,10 @@ class Ponto(Base):
     observacao_justificativa: Mapped[str | None] = mapped_column(Text, nullable=True)
     atraso_min: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    # NOVOS - auditoria retroativa
+    is_retroativo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    motivo_retroativo: Mapped[str | None] = mapped_column(Text, nullable=True)
+    lancado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id"), nullable=True)
 
 class ConfigPonto(Base):
     __tablename__ = "config_ponto"
@@ -146,6 +150,10 @@ class PedidoRH(Base):
     observacao_gestor: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    # NOVOS - auditoria retroativa
+    is_retroativo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    motivo_retroativo: Mapped[str | None] = mapped_column(Text, nullable=True)
+    lancado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id"), nullable=True)
 
 class Recibo(Base):
     __tablename__ = "recibos"

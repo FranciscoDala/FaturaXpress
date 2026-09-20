@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy.orm import Session
 import uuid
-from typing import List
+from typing import List, Optional
 from app.db.session import get_db
 from app.core.security import get_current_company_id
 from app.modules.funcionarios.schemas import FuncionarioCreate, FuncionarioResponse, FuncionarioUpdate
 from app.modules.funcionarios import service as func_service
+from datetime import date
 
 router = APIRouter(prefix="/funcionarios", tags=["Funcionários"])
 
@@ -52,7 +53,18 @@ def login_bi(numero_bi: str, senha: str, db: Session = Depends(get_db)):
 
 rh_router = APIRouter(prefix="/rh", tags=["RH - Ponto"])
 
-# FIXAS PRIMEIRO
+# NOVOS - PROFISSIONAIS COM QUERY PARAM
+@rh_router.get("/ponto")
+def ponto_por_data(data: Optional[str] = Query(None, description="YYYY-MM-DD"), db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    data_alvo = func_service.parse_data(data)
+    return func_service.listar_ponto_por_data(db, company_id, data_alvo)
+
+@rh_router.get("/faltas")
+def faltas_por_data(data: Optional[str] = Query(None, description="YYYY-MM-DD"), db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    data_alvo = func_service.parse_data(data)
+    return func_service.listar_faltas_por_data(db, company_id, data_alvo)
+
+# FIXAS - mantidas por compatibilidade
 @rh_router.get("/ponto/hoje")
 def ponto_hoje(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return func_service.listar_ponto_hoje(db, company_id)
@@ -78,7 +90,6 @@ def update_config(payload: dict, db: Session = Depends(get_db), company_id: uuid
 def faltas_hoje(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return func_service.listar_faltas_hoje(db, company_id)
 
-# DINAMICA POR ULTIMO
 @rh_router.get("/ponto/{periodo}")
 def ponto_periodo(periodo: str, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     if periodo not in ["semana","mes"]:
@@ -89,6 +100,9 @@ def ponto_periodo(periodo: str, db: Session = Depends(get_db), company_id: uuid.
 def ponto_bater(payload: dict, request: Request, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     funcionario_id = payload.get("funcionario_id")
     tipo = payload.get("tipo")
+    data_str = payload.get("data") # NOVO: YYYY-MM-DD opcional
+    motivo_retroativo = payload.get("motivo_retroativo")
+    lancado_por_id = payload.get("lancado_por_id")
     if not funcionario_id or not tipo:
         raise HTTPException(400, "funcionario_id e tipo obrigatórios")
     try:
@@ -99,7 +113,11 @@ def ponto_bater(payload: dict, request: Request, db: Session = Depends(get_db), 
     if not func:
         raise HTTPException(404, "Funcionário não encontrado")
     ip = request.client.host if request.client else None
-    return func_service.bater_ponto_rh(db, company_id, fid, tipo, ip)
+    lancado_uuid = None
+    if lancado_por_id:
+        try: lancado_uuid = uuid.UUID(lancado_por_id)
+        except: pass
+    return func_service.bater_ponto_rh(db, company_id, fid, tipo, ip, data_str, motivo_retroativo, lancado_uuid)
 
 @rh_router.post("/falta")
 def falta_manual(payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
@@ -107,7 +125,14 @@ def falta_manual(payload: dict, db: Session = Depends(get_db), company_id: uuid.
     motivo = payload.get("motivo","Falta - RH")
     categoria = payload.get("categoria","outros")
     observacao = payload.get("observacao")
+    data_str = payload.get("data")
+    motivo_retroativo = payload.get("motivo_retroativo")
+    lancado_por_id = payload.get("lancado_por_id")
     if not funcionario_id:
         raise HTTPException(400, "funcionario_id obrigatório")
     fid = uuid.UUID(funcionario_id)
-    return func_service.marcar_falta_manual(db, company_id, fid, motivo, categoria, observacao)
+    lancado_uuid = None
+    if lancado_por_id:
+        try: lancado_uuid = uuid.UUID(lancado_por_id)
+        except: pass
+    return func_service.marcar_falta_manual(db, company_id, fid, motivo, categoria, observacao, data_str, motivo_retroativo, lancado_uuid)

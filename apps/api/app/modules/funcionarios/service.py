@@ -79,11 +79,10 @@ def atualizar_funcionario(db: Session, funcionario: Funcionario, dados: Funciona
 def desativar_funcionario(db: Session, funcionario: Funcionario):
     funcionario.ativo = False; db.commit(); return funcionario
 
-# --- PONTO ---
 def get_config_ponto(db: Session, company_id: uuid.UUID):
     cfg = db.query(ConfigPonto).filter(ConfigPonto.company_id==company_id).first()
     if not cfg:
-        cfg = ConfigPonto(company_id=company_id) # já vem com regra desativada
+        cfg = ConfigPonto(company_id=company_id)
         db.add(cfg); db.commit(); db.refresh(cfg)
     return cfg
 
@@ -93,8 +92,25 @@ def listar_ponto_hoje(db: Session, company_id: uuid.UUID):
 
 def listar_ponto_semana(db: Session, company_id: uuid.UUID):
     hoje = date.today()
-    inicio = hoje - timedelta(days=hoje.weekday()) # segunda
+    inicio = hoje - timedelta(days=hoje.weekday())
     return db.query(Ponto).filter(Ponto.company_id==company_id, Ponto.data>=inicio).order_by(Ponto.data.desc()).all()
+
+def listar_ponto_periodo(db: Session, company_id: uuid.UUID, periodo: str):
+    hoje = date.today()
+    if periodo == "mes":
+        inicio = hoje.replace(day=1)
+    else:
+        inicio = hoje - timedelta(days=hoje.weekday())
+    return db.query(Ponto).filter(Ponto.company_id==company_id, Ponto.data>=inicio).order_by(Ponto.data.desc()).all()
+
+def listar_faltas_hoje(db: Session, company_id: uuid.UUID):
+    hoje = date.today()
+    return db.query(PedidoRH).filter(
+        PedidoRH.company_id==company_id,
+        PedidoRH.data_inicio==hoje,
+        PedidoRH.tipo.in_(["falta","falta_justificada"]),
+        PedidoRH.status.in_(["pendente","pendente_justificacao","aprovado"])
+    ).all()
 
 from zoneinfo import ZoneInfo
 
@@ -102,12 +118,9 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
     cfg = get_config_ponto(db, company_id)
     agora_utc = datetime.now(timezone.utc)
     agora_luanda = agora_utc.astimezone(ZoneInfo("Africa/Luanda"))
-
-    # calcula atraso só para entrada
     atraso = 0
     qtd_atrasos = 0
     falta_gerada = None
-
     if tipo == "entrada":
         try:
             h, m = map(int, cfg.hora_entrada.split(":"))
@@ -117,21 +130,17 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
             if atraso < 0: atraso = 0
         except:
             atraso = 0
-
     ponto = Ponto(
         id=uuid.uuid4(), company_id=company_id, funcionario_id=funcionario_alvo_id,
         data=date.today(), tipo=tipo, timestamp=agora_utc, dentro_raio=True, distancia_m=0,
         dispositivo="rh:web", ip=ip, justificado=True, atraso_min=atraso
     )
     db.add(ponto); db.commit(); db.refresh(ponto)
-
-    # --- REGRA OPCIONAL ---
     if tipo=="entrada" and atraso>0 and cfg.regra_atraso_ativa:
         if cfg.periodo_regra == "mes":
             inicio_periodo = date.today().replace(day=1)
         else:
             inicio_periodo = date.today() - timedelta(days=date.today().weekday())
-
         pontos_periodo = db.query(Ponto).filter(
             Ponto.company_id==company_id,
             Ponto.funcionario_id==funcionario_alvo_id,
@@ -140,7 +149,6 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
             Ponto.atraso_min>0
         ).all()
         qtd_atrasos = len(pontos_periodo)
-
         if qtd_atrasos >= cfg.qtd_atrasos_para_falta:
             ja_tem = db.query(PedidoRH).filter(
                 PedidoRH.company_id==company_id,
@@ -150,27 +158,38 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
             ).first()
             if not ja_tem:
                 falta_gerada = PedidoRH(
-                    id=uuid.uuid4(),
-                    company_id=company_id,
-                    funcionario_id=funcionario_alvo_id,
-                    tipo="falta_justificada",
-                    data_inicio=date.today(),
-                    data_fim=date.today(),
-                    dias_uteis=1,
-                    motivo=f"Regra automática: {cfg.qtd_atrasos_para_falta} atrasos no {cfg.periodo_regra} = 1 falta. ({qtd_atrasos} atrasos acumulados)",
+                    id=uuid.uuid4(), company_id=company_id, funcionario_id=funcionario_alvo_id,
+                    tipo="falta_justificada", data_inicio=date.today(), data_fim=date.today(),
+                    dias_uteis=1, motivo=f"Regra automática: {cfg.qtd_atrasos_para_falta} atrasos no {cfg.periodo_regra} = 1 falta. ({qtd_atrasos} atrasos acumulados)",
                     status="aprovado"
                 )
                 db.add(falta_gerada); db.commit(); db.refresh(falta_gerada)
-
     return {"ponto": ponto, "atraso_min": atraso, "falta_gerada": falta_gerada, "total_atrasos_periodo": qtd_atrasos}
 
+def marcar_falta_manual(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, motivo: str, categoria: str = "outros", observacao: str | None = None):
+    # verifica se já tem falta hoje
+    existe = db.query(PedidoRH).filter(
+        PedidoRH.company_id==company_id,
+        PedidoRH.funcionario_id==funcionario_id,
+        PedidoRH.data_inicio==date.today(),
+        PedidoRH.tipo.in_(["falta","falta_justificada"]),
+        PedidoRH.status.in_(["pendente","pendente_justificacao","aprovado"])
+    ).first()
+    if existe:
+        raise HTTPException(400, f"Já existe falta marcada hoje: {existe.motivo}")
 
+    texto_motivo = motivo
+    if categoria == "nao_apareceu":
+        texto_motivo = f"Não apareceu - {motivo}" if motivo!= "Não apareceu" else "Não apareceu - sem aviso prévio"
+    elif categoria == "doente":
+        texto_motivo = f"Doente - {motivo}" if motivo!= "Doente" else "Doente - aguardando atestado"
+    elif categoria == "outros" and observacao:
+        texto_motivo = f"Outros: {observacao}"
 
-def marcar_falta_manual(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, motivo: str):
     falta = PedidoRH(
         id=uuid.uuid4(), company_id=company_id, funcionario_id=funcionario_id,
-        tipo="falta_justificada", data_inicio=date.today(), data_fim=date.today(),
-        dias_uteis=1, motivo=motivo, status="aprovado"
+        tipo="falta", data_inicio=date.today(), data_fim=date.today(),
+        dias_uteis=1, motivo=texto_motivo, status="pendente_justificacao"
     )
     db.add(falta); db.commit(); db.refresh(falta)
     return falta

@@ -3,9 +3,11 @@ import { api } from '../../../../lib/api'
 import { toast } from 'sonner'
 import { Settings, Search } from 'lucide-react'
 import ModalConfigPonto from '../modals/modal_configurar_atraso'
+import ModalMarcarFalta from '../modals/modal_marcar_falta'
 
 type Func = { id: string; nome: string; area?: string; funcao?: string; cargo?: string; area_principal?: any; funcao_principal?: any }
 type Ponto = { id: string; funcionario_id: string; tipo: string; timestamp: string; dentro_raio: boolean; dispositivo: string; atraso_min?: number }
+type Falta = { id: string; funcionario_id: string; motivo: string; status: string; tipo: string }
 type Config = { hora_entrada: string; tolerancia_min: number; regra_atraso_ativa: boolean; qtd_atrasos_para_falta: number; periodo_regra: string }
 
 function formatAtraso(min: number) {
@@ -20,29 +22,33 @@ function formatAtraso(min: number) {
 export default function TabPonto(){
     const [funcs,setFuncs] = useState<Func[]>([])
     const [pontos,setPontos] = useState<Ponto[]>([])
+    const [faltas,setFaltas] = useState<Falta[]>([])
     const [faltasPeriodo,setFaltasPeriodo] = useState<Record<string, number>>({})
     const [config,setConfig] = useState<Config | null>(null)
     const [loading,setLoading] = useState(true)
     const [batendo,setBatendo] = useState<string | null>(null)
     const [page,setPage] = useState(1)
     const [openCfg,setOpenCfg] = useState(false)
+    const [openFalta,setOpenFalta] = useState<{open:boolean, func: Func|null}>({open:false, func:null})
     const [search,setSearch] = useState('')
     const perPage = 10
 
     const load = async () => {
         setLoading(true)
         try{
-            const [fRes, pRes, cRes] = await Promise.all([
+            const [fRes, pRes, cRes, faltaRes] = await Promise.all([
                 api.get('/api/funcionarios'),
                 api.get('/api/rh/ponto/hoje'),
-                api.get('/api/rh/ponto/config').catch(()=>({data:null}))
+                api.get('/api/rh/ponto/config').catch(()=>({data:null})),
+                api.get('/api/rh/faltas/hoje').catch(()=>({data:[]}))
             ])
             setFuncs(fRes.data.map((f:any)=>({
-               ...f,
+              ...f,
                 area: f.area_principal?.nome || f.area || 'Geral',
                 funcao: f.funcao_principal?.nome || f.funcao || f.cargo || f.area_principal?.nome || 'Geral'
             })))
             setPontos(pRes.data)
+            setFaltas(faltaRes.data)
             if(cRes.data) setConfig(cRes.data)
             try{
                 const periodo = cRes.data?.periodo_regra || 'semana'
@@ -60,7 +66,6 @@ export default function TabPonto(){
         }finally{setLoading(false)}
     }
     useEffect(()=>{load()},[])
-
     useEffect(()=>{ setPage(1) },[search])
 
     const pontosPorFunc = useMemo(()=>{
@@ -71,6 +76,12 @@ export default function TabPonto(){
         })
         return map
     },[pontos])
+
+    const faltasPorFunc = useMemo(()=>{
+        const map = new Map<string, Falta>()
+        faltas.forEach(f=> map.set(f.funcionario_id, f))
+        return map
+    },[faltas])
 
     const filtered = useMemo(()=>{
         if(!search.trim()) return funcs
@@ -98,17 +109,6 @@ export default function TabPonto(){
         }finally{setBatendo(null)}
     }
 
-    const marcarFalta = async (funcId: string) => {
-        setBatendo(funcId)
-        try{
-            await api.post('/api/rh/falta', { funcionario_id: funcId, motivo: "Falta - RH" })
-            toast.success('Falta marcada')
-            await load()
-        }catch(e:any){
-            toast.error(e?.response?.data?.detail || 'Erro ao marcar falta')
-        }finally{setBatendo(null)}
-    }
-
     if(loading) return <p className="text-center py-10 bg-white border rounded-[16px] text-black">Carregando ponto...</p>
 
     return (
@@ -128,7 +128,7 @@ export default function TabPonto(){
                         <Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
                         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-[160px] md:w-[220px] h-[32px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[12px] text-black placeholder:text-black/40 focus:outline-none focus:border-black" />
                     </div>
-                    <span className="hidden md:block text-[11px] text-black/60 font-medium">{pontos.length} batidas</span>
+                    <span className="hidden md:block text-[11px] text-black/60 font-medium">{pontos.length} batidas • {faltas.length} faltas</span>
                     <button onClick={()=>setOpenCfg(true)} className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 shadow-sm">
                         <Settings className="w-4 h-4 text-black"/>
                     </button>
@@ -141,9 +141,8 @@ export default function TabPonto(){
                     const lista = (pontosPorFunc.get(f.id) || []).sort((a,b)=>+new Date(b.timestamp)-+new Date(a.timestamp))
                     const temEntrada = lista.some(p=>p.tipo==='entrada')
                     const temSaida = lista.some(p=>p.tipo==='saida')
-                    const entrada = lista.find(p=>p.tipo==='entrada')
+                    const falta = faltasPorFunc.get(f.id)
                     const atrasos = faltasPeriodo[f.id] || 0
-                    const limite = config?.qtd_atrasos_para_falta || 3
 
                     return (
                         <div key={f.id} className="px-4 py-2.5 border-b last:border-b-0 flex justify-between items-center gap-3">
@@ -151,17 +150,18 @@ export default function TabPonto(){
                                 <p className="font-bold text-[13px] text-black truncate">
                                     {f.nome} <span className="font-normal text-black/60">• {f.funcao}</span>
                                     {f.area && f.area!==f.funcao && <span className="font-normal text-black/40 text-[11px]"> • {f.area}</span>}
-                                    {atrasos>0 && <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] bg-red-50 text-red-600 border border-red-100 font-medium">{atrasos} atraso{atrasos>1?'s':''}</span>}
+                                    {atrasos>0 &&!falta && <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] bg-red-50 text-red-600 border border-red-100 font-medium">{atrasos} atraso{atrasos>1?'s':''}</span>}
                                 </p>
-                                {lista.length===0? (
-                                    <p className="text-[11px] text-black/60 mt-0.5">{atrasos>=limite-1 && config?.regra_atraso_ativa? `Atenção: ${limite}º atraso vira falta` : 'Sem ponto hoje'}</p>
+                                {falta? (
+                                    <p className="text-[11px] font-semibold text-red-600 mt-0.5">FALTA • {falta.motivo} • pendente justificação</p>
+                                ): lista.length===0? (
+                                    <p className="text-[11px] text-black/60 mt-0.5">Sem ponto hoje</p>
                                 ):(
                                     <p className="text-[11px] truncate mt-0.5">
                                         {lista.map(p=>{
-                                            const isEntrada = p.tipo==='entrada'
                                             const isAtraso = p.atraso_min && p.atraso_min>0
                                             return (
-                                                <span key={p.id} className={`${isAtraso? 'text-red-600 font-semibold' : isEntrada? 'text-[#0095ff] font-semibold' : 'text-black/60'} mr-2`}>
+                                                <span key={p.id} className={`${isAtraso? 'text-red-600 font-bold' : p.tipo==='entrada'? 'text-[#0095ff] font-bold' : 'text-black/60'} mr-2`}>
                                                     {p.tipo} {new Date(p.timestamp).toLocaleTimeString('pt-AO')} {p.atraso_min? `(${formatAtraso(p.atraso_min)})` : ''}
                                                 </span>
                                             )
@@ -170,22 +170,22 @@ export default function TabPonto(){
                                 )}
                             </div>
                             <div className="flex gap-1.5 shrink-0">
-                                {!temEntrada && (
+                                {falta? (
+                                    <span className="h-[26px] px-3 flex items-center text-[11px] bg-red-600 text-white rounded-full font-medium">FALTA</span>
+                                ):!temEntrada? (
                                     <>
                                         <button disabled={batendo===f.id} onClick={()=>bater(f.id,'entrada')} className="h-[26px] px-3 bg-[#0095ff] text-white rounded-full text-[11px] font-medium disabled:opacity-50 hover:bg-[#0085e6]">
                                             Entrada
                                         </button>
-                                        <button disabled={batendo===f.id} onClick={()=>marcarFalta(f.id)} className="h-[26px] px-3 bg-red-50 border border-red-200 text-red-600 rounded-full text-[11px] font-medium hover:bg-red-100">
+                                        <button onClick={()=>setOpenFalta({open:true, func:f})} className="h-[26px] px-3 bg-red-50 border border-red-200 text-red-600 rounded-full text-[11px] font-medium hover:bg-red-100">
                                             Falta
                                         </button>
                                     </>
-                                )}
-                                {temEntrada &&!temSaida && (
+                                ):!temSaida? (
                                     <button disabled={batendo===f.id} onClick={()=>bater(f.id,'saida')} className="h-[26px] px-3 border border-gray-200 bg-white rounded-full text-[11px] text-black hover:bg-gray-50">
                                         Saída
                                     </button>
-                                )}
-                                {temEntrada && temSaida && (
+                                ):(
                                     <span className="h-[26px] px-3 flex items-center text-[11px] bg-gray-100 text-black rounded-full border">Completo</span>
                                 )}
                             </div>
@@ -197,13 +197,14 @@ export default function TabPonto(){
             {totalPages > 1 && (
                 <div className="flex justify-between items-center p-2.5 border-t bg-gray-50">
                     <button disabled={page===1} onClick={()=>setPage(p=>p-1)} className="px-3 py-1 text-[11px] rounded-full border bg-white text-black disabled:opacity-40">Anterior</button>
-                    <span className="text-[11px] text-black/60">Página {page} de {totalPages} • {filtered.length} de {funcs.length}</span>
+                    <span className="text-[11px] text-black/60">Página {page} de {totalPages}</span>
                     <button disabled={page===totalPages} onClick={()=>setPage(p=>p+1)} className="px-3 py-1 text-[11px] rounded-full bg-black text-white disabled:opacity-40">Próxima</button>
                 </div>
             )}
         </div>
 
         <ModalConfigPonto open={openCfg} onClose={()=>{setOpenCfg(false); load()}} />
+        <ModalMarcarFalta open={openFalta.open} funcionario={openFalta.func} onClose={()=>setOpenFalta({open:false, func:null})} onSaved={()=>{setOpenFalta({open:false, func:null}); load()}} />
         </>
     )
 }

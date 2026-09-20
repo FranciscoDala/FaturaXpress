@@ -60,6 +60,16 @@ def ponto_hoje(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(ge
 def ponto_semana(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return func_service.listar_ponto_semana(db, company_id)
 
+@rh_router.get("/ponto/{periodo}")
+def ponto_periodo(periodo: str, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    if periodo not in ["semana","mes"]:
+        raise HTTPException(400, "periodo inválido")
+    return func_service.listar_ponto_periodo(db, company_id, periodo)
+
+@rh_router.get("/faltas/hoje")
+def faltas_hoje(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    return func_service.listar_faltas_hoje(db, company_id)
+
 @rh_router.post("/ponto/bater")
 def ponto_bater(payload: dict, request: Request, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     funcionario_id = payload.get("funcionario_id")
@@ -79,11 +89,13 @@ def ponto_bater(payload: dict, request: Request, db: Session = Depends(get_db), 
 @rh_router.post("/falta")
 def falta_manual(payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     funcionario_id = payload.get("funcionario_id")
-    motivo = payload.get("motivo","Falta marcada pelo RH")
+    motivo = payload.get("motivo","Falta - RH")
+    categoria = payload.get("categoria","outros")
+    observacao = payload.get("observacao")
     if not funcionario_id:
         raise HTTPException(400, "funcionario_id obrigatório")
     fid = uuid.UUID(funcionario_id)
-    return func_service.marcar_falta_manual(db, company_id, fid, motivo)
+    return func_service.marcar_falta_manual(db, company_id, fid, motivo, categoria, observacao)
 
 @rh_router.get("/ponto/config")
 def get_config(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):

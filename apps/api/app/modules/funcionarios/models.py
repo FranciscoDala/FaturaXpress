@@ -22,13 +22,16 @@ class TipoPonto(str, enum.Enum):
 class TipoPedido(str, enum.Enum):
     ferias = "ferias"
     falta_justificada = "falta_justificada"
+    falta = "falta" # novo - falta marcada manual
     doenca = "doenca"
     licenca_maternidade = "licenca_maternidade"
     licenca_sem_vencimento = "licenca_sem_vencimento"
 
 class StatusPedido(str, enum.Enum):
     pendente = "pendente"
+    pendente_justificacao = "pendente_justificacao" # novo
     aprovado = "aprovado"
+    justificado = "justificado" # novo - remove falta
     rejeitado = "rejeitado"
     cancelado = "cancelado"
 
@@ -82,7 +85,6 @@ class Funcionario(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
     areas = relationship("Area", secondary=funcionario_areas, lazy="selectin")
 
-# --- FASE 1 - RH ---
 class Ponto(Base):
     __tablename__ = "pontos"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -100,7 +102,7 @@ class Ponto(Base):
     ip: Mapped[str | None] = mapped_column(String(50), nullable=True)
     justificado: Mapped[bool] = mapped_column(Boolean, default=False)
     observacao_justificativa: Mapped[str | None] = mapped_column(Text, nullable=True)
-    atraso_min: Mapped[int] = mapped_column(Integer, default=0) # NOVO
+    atraso_min: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 class ConfigPonto(Base):
@@ -113,10 +115,9 @@ class ConfigPonto(Base):
     tolerancia_min: Mapped[int] = mapped_column(Integer, default=15)
     exige_foto: Mapped[bool] = mapped_column(Boolean, default=False)
     exige_localizacao: Mapped[bool] = mapped_column(Boolean, default=True)
-    # --- REGRA OPCIONAL ATRASOS -> FALTA ---
-    regra_atraso_ativa: Mapped[bool] = mapped_column(Boolean, default=False) # desligada por padrão
-    qtd_atrasos_para_falta: Mapped[int] = mapped_column(Integer, default=3) # 2,3,4,5,6...
-    periodo_regra: Mapped[str] = mapped_column(String(10), default="semana") # semana ou mes
+    regra_atraso_ativa: Mapped[bool] = mapped_column(Boolean, default=False)
+    qtd_atrasos_para_falta: Mapped[int] = mapped_column(Integer, default=3)
+    periodo_regra: Mapped[str] = mapped_column(String(10), default="semana")
 
 class SaldoFerias(Base):
     __tablename__ = "saldo_ferias"

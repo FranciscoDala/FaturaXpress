@@ -31,7 +31,7 @@ interface Props {
 
 export default function ModalCalendarioPonto({ open, value, onClose, onSelect }: Props) {
     const hoje = isoToday()
-    const minDate = addDays(hoje, -6) // 7 dias no total: hoje + 6 atrás
+    const minDate = addDays(hoje, -6)
 
     const [viewMode, setViewMode] = useState<'days' | 'months' | 'years'>('days')
     const [view, setView] = useState(() => {

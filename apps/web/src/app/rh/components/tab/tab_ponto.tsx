@@ -89,7 +89,7 @@ export default function TabPonto() {
                 api.get(`/api/rh/faltas?data=${dataSelecionada}`).catch(() => ({ data: [] }))
             ])
             setFuncs(fRes.data.map((f: any) => ({
-               ...f,
+              ...f,
                 area: f.area_principal?.nome || f.area || 'Geral',
                 funcao: f.funcao_principal?.nome || f.funcao || f.cargo || f.area_principal?.nome || 'Geral'
             })))
@@ -182,25 +182,39 @@ export default function TabPonto() {
         <>
             <div className="bg-white rounded-[16px] border overflow-hidden">
                 <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                        <div className="flex items-center gap-1">
-                            <button disabled={!canGoPrev} onClick={() => shiftDay(-1)} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"><ChevronLeft className="w-4 h-4 text-black" /></button>
-                            <button type="button" onClick={() => setOpenCal(true)} className="h-[36px] px-3 bg-white border rounded-full flex items-center gap-2 text-[13px] font-bold text-black hover:border-black transition">
-                                <Calendar className="w-4 h-4" /> {formatDisplay(dataSelecionada)} <ChevronDown className="w-3.5 h-3.5" />
+                    {/* AJUSTE CELULAR: data ocupa full width igual busca */}
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 w-full">
+                            <button disabled={!canGoPrev} onClick={() => shiftDay(-1)} className="w-9 h-9 md:w-8 md:h-8 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"><ChevronLeft className="w-4 h-4 text-black" /></button>
+
+                            {/* AQUI ESTÁ O FIX: flex-1 w-full no mobile, auto no desktop */}
+                            <button type="button" onClick={() => setOpenCal(true)} className="flex-1 w-full md:w-auto md:flex-none h-[40px] md:h-[36px] px-3 bg-white border rounded-full flex items-center justify-center gap-2 text-[14px] md:text-[13px] font-bold text-black hover:border-black transition">
+                                <Calendar className="w-4 h-4 shrink-0" />
+                                <span className="truncate">{formatDisplay(dataSelecionada)}</span>
+                                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
                             </button>
-                            <button disabled={!canGoNext} onClick={() => shiftDay(1)} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"><ChevronRight className="w-4 h-4 text-black" /></button>
-                            {isRetro && <span className="ml-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold"><AlertTriangle className="w-3 h-3" /> Retroativo</span>}
-                        </div>
-                        <div className="flex items-center gap-2 w-full md:w-auto">
-                            <div className="relative flex-1 md:w-[300px] md:flex-none">
-                                <Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[36px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[12px] text-black placeholder:text-black/40 focus:outline-none focus:border-black" />
-                            </div>
-                            <button onClick={() => setOpenCfg(true)} className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 shadow-sm shrink-0">
+
+                            <button disabled={!canGoNext} onClick={() => shiftDay(1)} className="w-9 h-9 md:w-8 md:h-8 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"><ChevronRight className="w-4 h-4 text-black" /></button>
+
+                            {/* Config só desktop na mesma linha, no mobile vai pra linha da busca */}
+                            <button onClick={() => setOpenCfg(true)} className="hidden md:flex w-9 h-9 rounded-full bg-white border border-gray-200 items-center justify-center hover:bg-gray-50 shadow-sm shrink-0">
                                 <Settings className="w-4 h-4 text-black" />
                             </button>
                         </div>
+
+                        <div className="flex items-center gap-2 w-full">
+                            <div className="relative flex-1">
+                                <Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[40px] md:h-[36px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[13px] md:text-[12px] text-black placeholder:text-black/40 focus:outline-none focus:border-black" />
+                            </div>
+                            <button onClick={() => setOpenCfg(true)} className="flex md:hidden w-10 h-10 rounded-full bg-white border border-gray-200 items-center justify-center hover:bg-gray-50 shadow-sm shrink-0">
+                                <Settings className="w-4 h-4 text-black" />
+                            </button>
+                            {isRetro && <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold"><AlertTriangle className="w-3 h-3" /> Retroativo</span>}
+                        </div>
+                        {isRetro && <span className="md:hidden inline-flex w-fit items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold"><AlertTriangle className="w-3 h-3" /> Retroativo • {formatDisplay(dataSelecionada)}</span>}
                     </div>
+
                     <p className="text-[11px] text-black/60">
                         {config?.regra_atraso_ativa? `ATT: ${config.qtd_atrasos_para_falta} atrasos na ${config.periodo_regra} = 1 falta • ` : ''}
                         Mostrando {formatDisplay(dataSelecionada)} • Janela editável: {formatDisplay(minDate)} até hoje

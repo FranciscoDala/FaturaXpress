@@ -31,7 +31,7 @@ interface Props {
 
 export default function ModalCalendarioPonto({ open, value, onClose, onSelect }: Props) {
     const hoje = isoToday()
-    const minDate = addDays(hoje, -6) // 7 dias no total: hoje + 6 atrás
+    const minDate = addDays(hoje, -6)
 
     const [viewMode, setViewMode] = useState<'days' | 'months' | 'years'>('days')
     const [view, setView] = useState(() => {
@@ -80,9 +80,10 @@ export default function ModalCalendarioPonto({ open, value, onClose, onSelect }:
     }
 
     const modal = (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center p-0 md:p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative w-full max-w-[360px] bg-white rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.35)] border border-gray-200 overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* MOBILE: w-full ocupa toda width da tabela / DESKTOP: max-w-[360px] */}
+            <div className="relative w-full md:max-w-[360px] bg-white rounded-t-[24px] md:rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.35)] border border-gray-200 overflow-hidden animate-in slide-in-from-bottom md:zoom-in-95 duration-200 max-h-[90vh] md:max-h-none overflow-y-auto">
                 <div className="h-[60px] px-4 flex items-center justify-between bg-white border-b border-gray-200">
                     {viewMode === 'days'? (
                         <>
@@ -144,7 +145,7 @@ export default function ModalCalendarioPonto({ open, value, onClose, onSelect }:
                         </div>
                     )}
 
-                    <div className="mt-5 flex gap-3">
+                    <div className="mt-5 flex gap-3 pb-[env(safe-area-inset-bottom)]">
                         <button type="button" onClick={() => { onSelect(hoje); onClose() }} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-black">Hoje</button>
                         <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border-2 border-black text-black font-bold bg-white flex items-center justify-center gap-1"><X className="w-4 h-4" /> Fechar</button>
                     </div>

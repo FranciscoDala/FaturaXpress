@@ -14,6 +14,7 @@ from app.modules.realtime.router import router as realtime_router
 from app.modules.assinatura.router import router as assinatura_router
 from app.modules.areas.router import router as areas_router
 from app.modules.funcionarios.router import router as funcionarios_router
+from app.modules.funcionarios.router import rh_router as rh_ponto_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -75,6 +76,7 @@ app.include_router(realtime_router, prefix="/api")
 app.include_router(assinatura_router, prefix="/api")
 app.include_router(areas_router, prefix="/api")
 app.include_router(funcionarios_router, prefix="/api")
+app.include_router(rh_ponto_router, prefix="/api")
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):

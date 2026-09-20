@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 import uuid
 from typing import List
@@ -49,3 +49,40 @@ def login_bi(numero_bi: str, senha: str, db: Session = Depends(get_db)):
     if not func or not func.senha_hash or not pwd_context.verify(senha, func.senha_hash):
         raise HTTPException(401, "BI ou senha inválidos")
     return {"id": func.id, "nome": func.nome, "cargo": func.cargo, "company_id": func.company_id}
+
+# --- ROTAS RH PONTO - AJUSTE NECESSÁRIO ---
+rh_router = APIRouter(prefix="/rh", tags=["RH - Ponto"])
+
+@rh_router.get("/ponto/hoje")
+def ponto_hoje(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    return func_service.listar_ponto_hoje(db, company_id)
+
+@rh_router.post("/ponto/bater")
+def ponto_bater(payload: dict, request: Request, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    funcionario_id = payload.get("funcionario_id")
+    tipo = payload.get("tipo") # entrada / saida
+    if not funcionario_id or not tipo:
+        raise HTTPException(400, "funcionario_id e tipo obrigatórios")
+    try:
+        fid = uuid.UUID(funcionario_id)
+    except:
+        raise HTTPException(400, "funcionario_id inválido")
+    # valida funcionario existe na empresa
+    func = func_service.obter_funcionario(db, company_id, fid)
+    if not func:
+        raise HTTPException(404, "Funcionário não encontrado")
+    ip = request.client.host if request.client else None
+    return func_service.bater_ponto_rh(db, company_id, fid, tipo, ip)
+
+@rh_router.get("/ponto/config")
+def get_config(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    return func_service.get_config_ponto(db, company_id)
+
+@rh_router.put("/ponto/config")
+def update_config(payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    cfg = func_service.get_config_ponto(db, company_id)
+    for k,v in payload.items():
+        if hasattr(cfg,k):
+            setattr(cfg,k,v)
+    db.commit(); db.refresh(cfg)
+    return cfg

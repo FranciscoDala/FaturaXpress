@@ -140,3 +140,36 @@ def desativar_funcionario(db: Session, funcionario: Funcionario):
     funcionario.ativo = False
     db.commit()
     return funcionario
+
+# --- PONTO - ADIÇÃO NECESSÁRIA PARA RH BATER POR OUTRO ---
+from datetime import date, datetime, timezone
+from app.modules.funcionarios.models import Ponto, ConfigPonto
+
+def get_config_ponto(db: Session, company_id: uuid.UUID):
+    cfg = db.query(ConfigPonto).filter(ConfigPonto.company_id==company_id).first()
+    if not cfg:
+        cfg = ConfigPonto(company_id=company_id)
+        db.add(cfg); db.commit(); db.refresh(cfg)
+    return cfg
+
+def listar_ponto_hoje(db: Session, company_id: uuid.UUID):
+    hoje = date.today()
+    return db.query(Ponto).filter(Ponto.company_id==company_id, Ponto.data==hoje).order_by(Ponto.timestamp.desc()).all()
+
+def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid.UUID, tipo: str, ip: str | None = None):
+    # RH bate - sem validar raio, sem foto, justificado True
+    ponto = Ponto(
+        id=uuid.uuid4(),
+        company_id=company_id,
+        funcionario_id=funcionario_alvo_id,
+        data=date.today(),
+        tipo=tipo,
+        timestamp=datetime.now(timezone.utc),
+        dentro_raio=True,
+        distancia_m=0,
+        dispositivo="rh:web",
+        ip=ip,
+        justificado=True
+    )
+    db.add(ponto); db.commit(); db.refresh(ponto)
+    return ponto

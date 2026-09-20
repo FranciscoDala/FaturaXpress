@@ -12,9 +12,7 @@ import { api } from '../../lib/api'
 
 type RHTab = 'presente' | 'ferias'
 
-const LS_KEYS = {
-    tab: 'rh_tab',
-}
+const LS_KEYS = { tab: 'rh_tab' }
 
 const PLAN_LIMITS: Record<string, { label: string }> = {
     free: { label: 'FREE' },
@@ -23,19 +21,10 @@ const PLAN_LIMITS: Record<string, { label: string }> = {
     diamond: { label: 'DIAMOND' },
 }
 
-const FUNC_MOCK = [
-    { id: '1', nome: 'Ana Silva', cargo: 'Gestora RH', area: 'RH', foto: '', status: 'ativo' as const, email: 'ana@empresa.com', telefone: '930000001' },
-    { id: '2', nome: 'João Pedro', cargo: 'Recrutador', area: 'RH', foto: '', status: 'ferias' as const, email: 'joao@empresa.com', telefone: '930000002' },
-    { id: '3', nome: 'Casimiro Quiala', cargo: 'Contabilista', area: 'Financeiro', foto: '', status: 'ativo' as const, email: 'casimiro@empresa.com', telefone: '930438947' },
-    { id: '4', nome: 'Deolinda Rodrigues', cargo: 'Vendedora', area: 'Comercial', foto: '', status: 'ativo' as const, email: 'deolinda@empresa.com', telefone: '930000003' },
-]
-
 function getInitialFromStorage(searchParams: URLSearchParams) {
     const urlTab = searchParams.get('rtab') as RHTab | null
     const lsTab = localStorage.getItem(LS_KEYS.tab) as RHTab | null
-    return {
-        tab: urlTab || lsTab || 'presente' as RHTab,
-    }
+    return { tab: urlTab || lsTab || 'presente' as RHTab }
 }
 
 export default function RHPage() {
@@ -51,6 +40,9 @@ export default function RHPage() {
     const [modalFuncOpen, setModalFuncOpen] = useState(false)
     const [funcSelecionado, setFuncSelecionado] = useState<any>(null)
     const [savingFunc, setSavingFunc] = useState(false)
+
+    const [funcionarios, setFuncionarios] = useState<any[]>([])
+    const [loadingFunc, setLoadingFunc] = useState(true)
 
     const [rhTab, setRhTab] = useState<RHTab>(init.tab)
     const [search, setSearch] = useState('')
@@ -78,10 +70,31 @@ export default function RHPage() {
             setUsuario(user)
             const nome = comp.nome || comp.companyName || localStorage.getItem("company_name")
             if (nome) { setCompanyName(nome); localStorage.setItem("company_name", nome) }
-        } catch { }
+        } catch {}
     }, [])
 
-    useEffect(() => { fetchMe() }, [fetchMe])
+    const fetchFuncionarios = useCallback(async () => {
+        setLoadingFunc(true)
+        try {
+            const { data } = await api.get('/api/funcionarios')
+            // normaliza para o TabPresente esperar: area, cargo, status
+            const mapped = data.map((f: any) => ({
+               ...f,
+                area: f.area_principal?.nome || f.area_principal_id || 'Geral',
+                cargo: f.cargo || 'rh',
+                status: f.status || (f.ativo === false? 'ferias' : 'ativo'),
+                telefone: f.telefone || f.contacto_emergencia || '',
+                email: f.email || ''
+            }))
+            setFuncionarios(mapped)
+        } catch {
+            toast.error('Erro ao carregar funcionários')
+        } finally {
+            setLoadingFunc(false)
+        }
+    }, [])
+
+    useEffect(() => { fetchMe(); fetchFuncionarios() }, [fetchMe, fetchFuncionarios])
 
     useEffect(() => {
         localStorage.setItem(LS_KEYS.tab, rhTab)
@@ -119,28 +132,22 @@ export default function RHPage() {
     const handleLogout = () => setModalSairOpen(true)
     const handleConfirmLogout = () => { localStorage.clear(); toast.success("Sessão encerrada"); setModalSairOpen(false); navigate('/login') }
 
-    // MODAL FUNCIONARIO
     const handleOpenCreateFunc = () => { setFuncSelecionado(null); setModalFuncOpen(true); setOpenNovo(false) }
     const handleOpenEditFunc = (f: any) => { setFuncSelecionado(f); setModalFuncOpen(true) }
 
     const handleSaveFuncionario = async (data: any) => {
         setSavingFunc(true)
         try {
-            if (funcSelecionado) {
-                await api.put(`/api/funcionarios/${funcSelecionado.id}`, {
-                    nome: data.nome,
-                    cargo: data.cargo,
-                    area_principal_id: data.area_principal_id || null,
-                    areas_ids: data.areas_ids,
-                    ativo: true
-                })
+            if (funcSelecionado?.id) {
+                await api.put(`/api/funcionarios/${funcSelecionado.id}`, data)
                 toast.success('Funcionário atualizado')
             } else {
                 await api.post('/api/funcionarios', data)
                 toast.success('Funcionário criado')
             }
             setModalFuncOpen(false)
-            // fetchFuncionarios() aqui quando tiveres API real
+            setFuncSelecionado(null)
+            await fetchFuncionarios()
         } catch (e: any) {
             toast.error(e?.response?.data?.detail || 'Erro ao salvar funcionário')
         } finally { setSavingFunc(false) }
@@ -148,25 +155,26 @@ export default function RHPage() {
 
     const funcionariosFiltrados = useMemo(() => {
         const q = search.toLowerCase().trim()
-        if (!q) return FUNC_MOCK
-        return FUNC_MOCK.filter(f =>
-            f.nome.toLowerCase().includes(q) ||
-            f.cargo.toLowerCase().includes(q) ||
-            f.area.toLowerCase().includes(q)
+        if (!q) return funcionarios
+        return funcionarios.filter(f =>
+            f.nome?.toLowerCase().includes(q) ||
+            f.cargo?.toLowerCase().includes(q) ||
+            String(f.area).toLowerCase().includes(q) ||
+            f.numero_bi?.toLowerCase().includes(q)
         )
-    }, [search])
+    }, [search, funcionarios])
 
     const presentes = funcionariosFiltrados.filter(f => f.status === 'ativo')
     const ferias = funcionariosFiltrados.filter(f => f.status === 'ferias')
-    const totalPresentes = FUNC_MOCK.filter(f => f.status === 'ativo').length
-    const totalFerias = FUNC_MOCK.filter(f => f.status === 'ferias').length
+    const totalPresentes = funcionarios.filter(f => f.status === 'ativo').length
+    const totalFerias = funcionarios.filter(f => f.status === 'ferias').length
 
     return (
         <div className="min-h-screen bg-white relative">
             <GlobalAreas />
             <ModalConfirmSair open={modalSairOpen} companyName={companyName} onClose={() => setModalSairOpen(false)} onConfirm={handleConfirmLogout} />
             <ModalUsuario open={modalUsuarioOpen} usuario={usuario} empresa={empresa} onClose={() => setModalUsuarioOpen(false)} />
-            <ModalFuncionario open={modalFuncOpen} funcionario={funcSelecionado} saving={savingFunc} onClose={() => setModalFuncOpen(false)} onSave={handleSaveFuncionario} />
+            <ModalFuncionario open={modalFuncOpen} funcionario={funcSelecionado} saving={savingFunc} onClose={() => { setModalFuncOpen(false); setFuncSelecionado(null) }} onSave={handleSaveFuncionario} />
 
             <div className="max-w-[1100px] mx-auto">
                 <div className="relative px-4 sm:px-8 lg:px-12 pt-6 pb-6 border-b border-gray-100 overflow-hidden bg-gradient-to-br from-[#E8F2FF] via-[#F0F7FF] to-white">
@@ -188,13 +196,13 @@ export default function RHPage() {
                                 <div className="flex flex-col items-start text-left flex-1 min-w-0">
                                     <h1 className="text-[16px] sm:text-[19px] font-bold text-[#1a202c] uppercase tracking-wide leading-tight truncate max-w-[180px] sm:max-w-[320px]">{companyName || 'CONNECT'}</h1>
                                     <div className="mt-2.5 space-y-0 text-[12px] sm:text-[13px] text-gray-700 leading-[1.4]">
-                                        <p><span className="font-medium text-gray-500">NIF:</span> {empresa?.nif || '50924984'}</p>
-                                        <p><span className="font-medium text-gray-500">Tel:</span> {empresa?.telefone || empresa?.phone || '+244930438947'}</p>
-                                        <p className="truncate max-w-[220px] sm:max-w-none"><span className="font-medium text-gray-500">Email:</span> {empresa?.email || 'killerbless12@gmail.com'}</p>
-                                        <p className="line-clamp-2"><span className="font-medium text-gray-500">Endereço:</span> {(empresa?.endereco || empresa?.address || 'Sassamba')} • {empresa?.cidade || empresa?.city || 'Saurimo'} • {empresa?.provincia || empresa?.province || 'Lunda-Sul'}</p>
+                                        <p><span className="font-medium text-gray-500">NIF:</span> {empresa?.nif || '---'}</p>
+                                        <p><span className="font-medium text-gray-500">Tel:</span> {empresa?.telefone || empresa?.phone || '---'}</p>
+                                        <p className="truncate max-w-[220px] sm:max-w-none"><span className="font-medium text-gray-500">Email:</span> {empresa?.email || '---'}</p>
+                                        <p className="line-clamp-2"><span className="font-medium text-gray-500">Endereço:</span> {(empresa?.endereco || empresa?.address || '---')} • {empresa?.cidade || empresa?.city || ''} • {empresa?.provincia || empresa?.province || ''}</p>
                                     </div>
                                     <div className="mt-4 space-y-0 w-full">
-                                        <p className="text-[11px] text-gray-500">Funcionários - {FUNC_MOCK.length} registados</p>
+                                        <p className="text-[11px] text-gray-500">Funcionários - {loadingFunc? '...' : `${funcionarios.length} registados`}</p>
                                         <p className="text-[11px] text-gray-500">Ativos - <span className="text-[#22c55e] font-bold text-[13px]">{totalPresentes} ativos</span></p>
                                         <p className="text-[11px] text-gray-600 font-medium">Férias - {totalFerias} este mês</p>
                                     </div>
@@ -229,8 +237,8 @@ export default function RHPage() {
                         </div>
                     </div>
                     <style>{`
-          .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; }
-          .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
+         .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; }
+         .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
             @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }
           `}</style>
                 </div>
@@ -254,8 +262,12 @@ export default function RHPage() {
                         </div>
 
                         <div id="tabela">
-                            {rhTab === 'presente' && <TabPresente funcionarios={presentes} search={search} onEdit={handleOpenEditFunc} />}
-                            {rhTab === 'ferias' && <TabFerias funcionarios={ferias} search={search} onEdit={handleOpenEditFunc} />}
+                            {loadingFunc? <p className="text-center py-16 bg-white rounded-[20px] border text-black/50">Carregando funcionários do DB...</p> : (
+                                <>
+                                    {rhTab === 'presente' && <TabPresente funcionarios={presentes} search={search} onEdit={handleOpenEditFunc} />}
+                                    {rhTab === 'ferias' && <TabFerias funcionarios={ferias} search={search} onEdit={handleOpenEditFunc} />}
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>

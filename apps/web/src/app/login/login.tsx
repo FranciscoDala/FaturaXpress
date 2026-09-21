@@ -131,8 +131,10 @@ export default function LoginPage() {
                             {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ArrowRight className="w-5 h-5" />}
                         </button>
                     </div>
-                    {tab === 'empresa' && (
-                        <p className="text-center text-[13px] text-gray-600 mt-3">Não tem conta? <Link to="/register" className="text-[#0095ff] font-semibold">Registra-se</Link></p>
+                    {(tab === 'empresa' || tab === 'funcionario') && (
+                        <p className="text-center text-[13px] text-gray-600 mt-3">
+                            Não tem conta? <Link to="/register" className="text-[#0095ff] font-semibold">Registra-se</Link>
+                        </p>
                     )}
                 </form>
             </div>

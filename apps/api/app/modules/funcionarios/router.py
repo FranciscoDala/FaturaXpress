@@ -83,42 +83,8 @@ async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Dep
         raise HTTPException(500, f"Falha no upload: {e}")
 
 
-@rh_router.get("/falta/{falta_id}/anexo")
-def falta_get_anexo(falta_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    falta = db.query(func_service.PedidoRH).filter(
-        func_service.PedidoRH.id==falta_id,
-        func_service.PedidoRH.company_id==company_id
-    ).first()
-    if not falta or not falta.justificativa_anexo_url:
-        raise HTTPException(404, "Anexo não encontrado")
 
-    url = falta.justificativa_anexo_url
-    # se por acaso ainda for base64 antigo, retorna erro amigável
-    if url.startswith("data:"):
-        raise HTTPException(400, "Anexo antigo em base64, faça upload novamente")
 
-    try:
-        r = httpx.get(url, follow_redirects=True, timeout=30.0)
-        if r.status_code!= 200:
-            raise HTTPException(r.status_code, f"Cloudinary retornou {r.status_code}")
-
-        content_type = r.headers.get("content-type", "application/pdf")
-        ext = "pdf" if "pdf" in content_type or url.endswith(".pdf") else "jpg"
-        filename = f"comprovante-{falta_id}.{ext}"
-
-        return StreamingResponse(
-            io.BytesIO(r.content),
-            media_type=content_type,
-            headers={
-                "Content-Disposition": f'inline; filename="{filename}"',
-                "Cache-Control": "public, max-age=3600"
-            }
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(f"[PROXY ANEXO] {e}")
-        raise HTTPException(500, f"Erro ao carregar anexo: {e}")
 
 # --- SEUS ROUTERS EXISTENTES (mantidos) ---
 @router.post("", response_model=FuncionarioResponse, status_code=201)

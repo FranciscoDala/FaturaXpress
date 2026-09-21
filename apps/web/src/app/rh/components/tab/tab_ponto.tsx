@@ -46,7 +46,7 @@ function ModalAuditoriaRetro({ data, open, onClose, minDate, hoje, dataSeleciona
     )
 }
 
-export default function TabPonto({ empresa }: { empresa?: any }) {
+export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?: any }) {
     const [funcs, setFuncs] = useState<Func[]>([])
     const [pontos, setPontos] = useState<Ponto[]>([])
     const [faltas, setFaltas] = useState<Falta[]>([])

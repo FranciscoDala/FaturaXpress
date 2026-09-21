@@ -3,8 +3,10 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 import uuid
 import io
-from typing import List, Optional
+import re
+import time
 import logging
+from typing import List, Optional
 
 from jose import jwt, JWTError
 
@@ -36,12 +38,12 @@ async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Dep
         import app.core.upload_Imagem as up_mod
         import importlib
         cloudinary_lib = getattr(up_mod, "cloudinary", None) or importlib.import_module("cloudinary")
-        import cloudinary.utils
 
+        # FIX DEFINITIVO: PDF como image para ser público igual a imagem
         res = cloudinary_lib.uploader.upload(
             io.BytesIO(contents),
             folder=f"faltas/{company_id}",
-            resource_type="auto",
+            resource_type="image", # era "auto" -> quebrava PDF
             type="upload",
             access_mode="public",
             use_filename=True,
@@ -49,27 +51,11 @@ async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Dep
             overwrite=False
         )
 
-        public_id = res.get("public_id")
         url = res.get("secure_url")
-
-        # AJUSTE CRÍTICO: PDF precisa URL assinada senão dá 401
-        if is_pdf and public_id:
-            # gera URL assinada válida por 1 ano
-            signed_url, _ = cloudinary.utils.cloudinary_url(
-                public_id,
-                resource_type="raw",
-                type="upload",
-                sign_url=True,
-                secure=True
-            )
-            url = signed_url
-            logger.info(f"[UPLOAD FALTA] PDF assinado url={url}")
-        else:
-            logger.info(f"[UPLOAD FALTA] IMAGEM url={url}")
-
         if not url:
             raise Exception("Cloudinary sem url")
 
+        logger.info(f"[UPLOAD FALTA] {'PDF' if is_pdf else 'IMAGEM'} url={url}")
         return {"url": url, "tipo": "pdf" if is_pdf else "imagem"}
 
     except HTTPException:
@@ -89,57 +75,72 @@ def falta_get_anexo(
     raw_token = None
     auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
     if auth_header and auth_header.lower().startswith("bearer "):
-        raw_token = auth_header.split(" ",1)[1].strip()
+        raw_token = auth_header.split(" ", 1)[1].strip()
     elif token:
         raw_token = token
+
     if not raw_token:
-        raise HTTPException(401, "Not authenticated")
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
     try:
         payload = jwt.decode(raw_token, settings.SECRET_KEY, algorithms=["HS256"])
-    except:
-        raise HTTPException(401, "Token inválido")
+    except Exception as e:
+        logger.error(f"[ANEXO] token inválido {e}")
+        raise HTTPException(status_code=401, detail="Token inválido")
 
     falta_any = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id == falta_id).first()
     if not falta_any or not falta_any.justificativa_anexo_url:
-        raise HTTPException(404, "Sem anexo")
+        raise HTTPException(404, "Falta sem anexo")
 
     stored_url = falta_any.justificativa_anexo_url
 
-    # IMG: abre direto
+    # CASO 1: já é image (seu caso stream_h0toxl.png e novos PDFs) -> abre direto
     if "/image/upload" in stored_url:
         return RedirectResponse(stored_url, status_code=302)
 
-    # PDF: raw precisa download privado
-    try:
-        import cloudinary.utils, time, re
+    # CASO 2: PDF antigo em raw (seu stream_flhlgk) -> tenta converter pra image
+    if "/raw/upload" in stored_url:
+        try:
+            # raw/upload/s--qqI2A6Bo--/v1/faltas/.../stream_flhlgk -> image/upload/v1/faltas/.../stream_flhlgk.pdf
+            # ou.../image/upload/faltas/.../stream_flhlgk
+            image_url = stored_url.replace("/raw/upload/", "/image/upload/")
+            image_url = re.sub(r'/s--[A-Za-z0-9_-]+/', '/', image_url)
+            # garante extensão.pdf se não tiver
+            if not image_url.lower().endswith(".pdf"):
+                if "?" in image_url:
+                    base, qs = image_url.split("?", 1)
+                    image_url = base + ".pdf?" + qs
+                else:
+                    image_url = image_url + ".pdf"
+            logger.info(f"[ANEXO] RAW convertido para IMAGE {stored_url} -> {image_url}")
+            return RedirectResponse(image_url, status_code=302)
+        except Exception as e:
+            logger.error(f"[ANEXO] falha converter raw->image {e}")
 
-        # extrai public_id: faltas/7e0a1660.../stream_flhlgk
-        m = re.search(r'faltas/([^?]+)', stored_url)
-        if m:
-            public_id_raw = m.group(1)
-            # limpa v1/, s--.../,.pdf
-            public_id_raw = re.sub(r'^v\d+/', '', public_id_raw)
-            public_id_raw = re.sub(r'^s--[A-Za-z0-9_-]+/', '', public_id_raw)
-            public_id_raw = public_id_raw.replace('.pdf','').split('?')[0]
-            public_id = f"faltas/{public_id_raw}"
+        # fallback: tenta private_download_url assinado
+        try:
+            import cloudinary.utils
+            m = re.search(r'faltas/([^?]+)', stored_url)
+            if m:
+                raw_id = m.group(1)
+                raw_id = re.sub(r'^v\d+/', '', raw_id)
+                raw_id = re.sub(r'^s--[A-Za-z0-9_-]+/', '', raw_id)
+                raw_id = raw_id.replace('.pdf','').split('?')[0]
+                public_id = f"faltas/{raw_id}"
+                expires_at = int(time.time()) + 60*60*24*30
+                signed = cloudinary.utils.private_download_url(
+                    public_id,
+                    resource_type="raw",
+                    type="upload",
+                    expires_at=expires_at,
+                    attachment=False
+                )
+                return RedirectResponse(signed, status_code=302)
+        except Exception as e:
+            logger.error(f"[ANEXO] falha private_download {e}")
 
-            # METODO QUE FUNCIONA PARA RAW
-            expires_at = int(time.time()) + 60*60*24*30
-            signed = cloudinary.utils.private_download_url(
-                public_id,
-                resource_type="raw",
-                type="upload",
-                expires_at=expires_at,
-                attachment=False
-            )
-            logger.info(f"[PDF FIX] {public_id} -> {signed}")
-            return RedirectResponse(signed, status_code=302)
-    except Exception as e:
-        logger.exception(f"[PDF FIX ERRO] {e}")
-
+    # fallback final
     return RedirectResponse(stored_url, status_code=302)
-
 
 # --- SEUS ROUTERS EXISTENTES (mantidos) ---
 @router.post("", response_model=FuncionarioResponse, status_code=201)

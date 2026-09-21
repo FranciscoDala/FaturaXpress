@@ -222,7 +222,7 @@ export default function RHPage() {
                                     <p className="text-[15px] font-bold leading-none">{loadingFunc? '...' : totalFuncionarios}</p>
                                     <p className="text-[11px] text-gray-500 mt-[2px]">Funcionários</p>
                                 </button>
-                                <button onClick={() => setRhTab('ferias')} className={`flex-1 py-2.5 flex flex-col justify-center items-center text-center transition ${rhTab === 'ferias'? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
+                                <button onClick={() => setRhTab('ponto')} className={`flex-1 py-2.5 flex flex-col justify-center items-center text-center transition ${rhTab === 'ponto'? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
                                     <p className="text-[15px] font-bold leading-none">{totalPresentesHoje}</p>
                                     <p className="text-[11px] text-gray-500 mt-[2px]">Presentes</p>
                                 </button>

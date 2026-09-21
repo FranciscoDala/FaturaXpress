@@ -1,4 +1,5 @@
-import { Eye, Pencil, CalendarCheck } from 'lucide-react'
+import { Eye, Pencil, CalendarCheck, Lock } from 'lucide-react'
+import { useMemo } from 'react'
 
 interface Funcionario {
     id: string
@@ -18,16 +19,47 @@ interface Props {
     onReativar?: (f: Funcionario) => void
 }
 
+const CARGOS_PERMISSOES: Record<string, string[]> = {
+    admin: ["*"],
+    rh: ["gerir_funcionarios", "ver_funcionarios", "ver_ferias", "editar_funcionarios", "reativar_funcionarios"],
+    financeira: ["ver_faturas"],
+    recepcao: ["ver_faturas"]
+}
+
+function temPermissao(cargo: string, perm: string) {
+    if (cargo === 'admin') return true
+    const perms = CARGOS_PERMISSOES[cargo] || []
+    return perms.includes(perm) || perms.includes("*")
+}
+
 export default function TabFerias({ funcionarios, search, onView, onEdit, onReativar }: Props) {
+    const funcionarioLogado = useMemo(() => {
+        try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
+    }, [])
+
+    const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
+    const podeVer = funcionarioLogado? temPermissao(cargoAtual, 'ver_ferias') || temPermissao(cargoAtual, 'ver_funcionarios') || cargoAtual === 'admin' : true
+    const podeEditar = funcionarioLogado? temPermissao(cargoAtual, 'editar_funcionarios') || temPermissao(cargoAtual, 'gerir_funcionarios') || cargoAtual === 'admin' : true
+    const podeReativar = funcionarioLogado? temPermissao(cargoAtual, 'reativar_funcionarios') || temPermissao(cargoAtual, 'gerir_funcionarios') || cargoAtual === 'admin' : true
+
+    if (!podeVer) {
+        return (
+            <div className="text-center py-16 bg-white rounded-[20px] border">
+                <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2"/>
+                <p className="text-black/60 text-[13px]">Seu cargo <b>{cargoAtual}</b> não pode ver férias</p>
+            </div>
+        )
+    }
+
     if (funcionarios.length === 0) {
-        return <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhum funcionário de férias {search ? `para "${search}"` : ''}!</p>
+        return <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhum funcionário de férias {search? `para "${search}"` : ''}!</p>
     }
 
     return (
         <div className="w-full">
             <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 {funcionarios.map((f) => (
-                    <FuncionarioCard key={f.id} func={f} onView={onView} onEdit={onEdit} onReativar={onReativar} />
+                    <FuncionarioCard key={f.id} func={f} onView={onView} onEdit={onEdit} onReativar={onReativar} podeEditar={podeEditar} podeReativar={podeReativar} cargoAtual={cargoAtual} />
                 ))}
             </div>
         </div>
@@ -38,12 +70,18 @@ function FuncionarioCard({
     func,
     onView,
     onEdit,
-    onReativar
+    onReativar,
+    podeEditar,
+    podeReativar,
+    cargoAtual
 }: {
     func: Funcionario
     onView?: Props['onView']
     onEdit?: Props['onEdit']
     onReativar?: Props['onReativar']
+    podeEditar: boolean
+    podeReativar: boolean
+    cargoAtual: string
 }) {
     const initials = func.nome.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
 
@@ -58,6 +96,9 @@ function FuncionarioCard({
                         {initials}
                     </div>
                 </div>
+                {!podeEditar && (
+                    <div className="absolute top-3 left-3 bg-black/70 text-white px-2 py-1 rounded-full text-[9px] font-bold">{cargoAtual?.toUpperCase()} - SOMENTE LEITURA</div>
+                )}
             </div>
 
             <div className="pt-14 px-5 pb-4 min-w-0 overflow-hidden">
@@ -65,12 +106,12 @@ function FuncionarioCard({
                     <span className="text-[11px] text-gray-400">exp.</span>
                     <div className="flex gap-[2px]">
                         {Array.from({ length: 10 }).map((_, i) => (
-                            <div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5 ? 'bg-yellow-400' : 'bg-gray-200'}`} />
+                            <div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5? 'bg-yellow-400' : 'bg-gray-200'}`} />
                         ))}
                     </div>
                 </div>
 
-                <h3 className="font-bold text-[16px] text-gray-900 leading-tight truncate block w-full max-w-full overflow-hidden text-ellipsis whitespace-nowrap" title={func.nome}>
+                <h3 className="font-bold text-[16px] text-gray-900 leading-tight truncate" title={func.nome}>
                     {func.nome}
                 </h3>
 
@@ -82,7 +123,7 @@ function FuncionarioCard({
                 </div>
 
                 <div className="mt-3 min-w-0">
-                    <span className="inline-flex items-center max-w-full truncate px-2.5 py-[3px] rounded-full border border-[#F2C9B8] bg-[#FFF6F1] text-[10px] font-medium text-[#B85A3A] leading-tight tracking-wide overflow-hidden">
+                    <span className="inline-flex items-center max-w-full truncate px-2.5 py-[3px] rounded-full border border-[#F2C9B8] bg-[#FFF6F1] text-[10px] font-medium text-[#B85A3A] leading-tight">
                         Em férias - ausente este mês
                     </span>
                 </div>
@@ -92,11 +133,21 @@ function FuncionarioCard({
                 <button onClick={() => onView?.(func)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group" title="Ver">
                     <Eye className="w-4 h-4 text-gray-600 group-hover:text-blue-600" />
                 </button>
-                <button onClick={() => onEdit?.(func)} className="py-3.5 flex justify-center border-x border-gray-100 hover:bg-gray-50 transition group" title="Editar">
-                    <Pencil className="w-4 h-4 text-gray-600 group-hover:text-blue-600" />
+
+                <button
+                    onClick={() => podeEditar && onEdit?.(func)}
+                    disabled={!podeEditar}
+                    className={`py-3.5 flex justify-center border-x border-gray-100 transition group ${podeEditar? 'hover:bg-gray-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}
+                    title={podeEditar? "Editar" : "Só admin/RH"}>
+                    <Pencil className={`w-4 h-4 ${podeEditar? 'text-gray-600 group-hover:text-blue-600' : 'text-gray-400'}`} />
                 </button>
-                <button onClick={() => onReativar?.(func)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group" title="Reativar">
-                    <CalendarCheck className="w-4 h-4 text-gray-600 group-hover:text-green-600" />
+
+                <button
+                    onClick={() => podeReativar && onReativar?.(func)}
+                    disabled={!podeReativar}
+                    className={`py-3.5 flex justify-center transition group ${podeReativar? 'hover:bg-gray-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}
+                    title={podeReativar? "Reativar" : "Só admin/RH"}>
+                    <CalendarCheck className={`w-4 h-4 ${podeReativar? 'text-gray-600 group-hover:text-green-600' : 'text-gray-400'}`} />
                 </button>
             </div>
         </div>

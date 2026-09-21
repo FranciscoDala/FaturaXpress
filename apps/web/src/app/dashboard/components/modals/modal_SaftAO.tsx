@@ -1,10 +1,23 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { X, FileDown, Check, ChevronDown, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { X, FileDown, Check, ChevronDown, Calendar, ChevronLeft, ChevronRight, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../../../../lib/api'
 
 const MONTH_LABEL = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+
+const CARGOS_PERMISSOES: Record<string, string[]> = {
+    admin: ["*"],
+    financeira: ["exportar_saft"],
+    recepcao: [],
+    rh: []
+}
+
+function temPermissao(cargo: string, perm: string) {
+    if (cargo === 'admin') return true
+    const perms = CARGOS_PERMISSOES[cargo] || []
+    return perms.includes(perm) || perms.includes("*")
+}
 
 const genMeses = () => {
     const list: { value: string; label: string; year: number; month: number }[] = []
@@ -31,7 +44,14 @@ export default function ModalSaftAO({ open, onClose }: Props) {
     const [loading, setLoading] = useState(false)
     const [anoView, setAnoView] = useState(new Date().getFullYear())
 
+    const funcionarioLogado = useMemo(() => {
+        try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
+    }, [])
+    const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
+    const podeExportar = funcionarioLogado? temPermissao(cargoAtual, 'exportar_saft') || cargoAtual === 'admin' : true
+
     const exportar = async () => {
+        if (!podeExportar) { toast.error('Sem permissão'); return }
         setLoading(true)
         try {
             const res = await api.get(`/api/faturas/saf-t`, {
@@ -71,6 +91,20 @@ export default function ModalSaftAO({ open, onClose }: Props) {
 
     if (!open) return null
     const current = MESES.find(m => m.value === mes)
+
+    if (!podeExportar) {
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/60" onClick={onClose}/>
+                <div className="relative bg-white rounded-[24px] p-8 text-center max-w-[380px] w-full shadow-xl">
+                    <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2"/>
+                    <p className="font-black text-[16px]">Sem permissão</p>
+                    <p className="text-[13px] text-black/60 mt-2 font-medium">Cargo <b>{cargoAtual.toUpperCase()}</b> não pode exportar SAFT. Só ADMIN e FINANCEIRA.</p>
+                    <button onClick={onClose} className="mt-5 w-full h-11 bg-black text-white rounded-full font-black">Fechar</button>
+                </div>
+            </div>
+        )
+    }
 
     const calendarPicker = (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
@@ -122,15 +156,18 @@ export default function ModalSaftAO({ open, onClose }: Props) {
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center">
                         <FileDown className="w-4 h-4 text-[#0095ff]" />
                     </div>
-                    <button onClick={onClose} className="w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center hover:bg-gray-50">
-                        <X className="w-4 h-4 text-black" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] bg-black text-white px-2 py-1 rounded-full font-black">{cargoAtual.toUpperCase()} • SAFT</span>
+                        <button onClick={onClose} className="w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center hover:bg-gray-50">
+                            <X className="w-4 h-4 text-black" />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="px-6 pt-5 pb-6 overflow-y-auto overscroll-contain flex-1 bg-white">
                     <h3 className="text-[18px] font-black text-black leading-tight">Exportar SAFT-AO</h3>
                     <p className="text-[13.5px] text-black/60 mt-3 leading-relaxed font-medium">
-                        Ficheiro oficial <span className="font-black text-black">AGT Angola</span> com FT + NC + Hash. Prazo até dia 15.
+                        Ficheiro oficial <span className="font-black text-black">AGT Angola</span> com FT + NC + Hash. Prazo até dia 15. • {cargoAtual.toUpperCase()}
                     </p>
 
                     <div className="relative mt-5">
@@ -143,7 +180,7 @@ export default function ModalSaftAO({ open, onClose }: Props) {
                     </div>
 
                     <div className="mt-4 bg-white border-2 border-black rounded-[16px] p-3.5 text-[12px] text-black font-medium">
-                        <p className="font-black text-black text-[12px] mb-1.5">Conteúdo AGT</p>
+                        <p className="font-black text-black text-[12px] mb-1.5">Conteúdo AGT • só ADMIN/FINANCEIRA</p>
                         <p className="text-black">• FT com hash cadeia SHA256</p>
                         <p className="text-black">• NC com total negativo + FT origem</p>
                         <p className="text-black">• Marca comunicado_agt automático</p>

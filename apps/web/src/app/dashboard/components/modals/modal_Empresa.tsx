@@ -1,5 +1,18 @@
-import { useEffect, useState, useRef } from 'react'
-import { X, Check, Building2, ChevronDown, Upload, Landmark, MapPin } from 'lucide-react'
+import { useEffect, useState, useRef, useMemo } from 'react'
+import { X, Check, Building2, ChevronDown, Upload, Landmark, MapPin, Lock } from 'lucide-react'
+
+const CARGOS_PERMISSOES: Record<string, string[]> = {
+    admin: ["*"],
+    financeira: [],
+    recepcao: [],
+    rh: []
+}
+
+function temPermissao(cargo: string, perm: string) {
+    if (cargo === 'admin') return true
+    const perms = CARGOS_PERMISSOES[cargo] || []
+    return perms.includes(perm) || perms.includes("*")
+}
 
 const BANCOS_ANGOLA = [
     "BAI - Banco Angolano de Investimentos",
@@ -107,7 +120,7 @@ function CustomSelect({ value, options, onChange, placeholder, disabled, icon: I
     )
 }
 
-function BancoSelect({ value, onChange, placeholder }: { value?: string, onChange: (v: string | undefined) => void, placeholder: string }) {
+function BancoSelect({ value, onChange, placeholder, disabled }: { value?: string, onChange: (v: string | undefined) => void, placeholder: string, disabled?: boolean }) {
     const [open, setOpen] = useState(false)
     const ref = useRef<HTMLDivElement>(null)
 
@@ -119,14 +132,14 @@ function BancoSelect({ value, onChange, placeholder }: { value?: string, onChang
 
     return (
         <div ref={ref} className="relative w-full">
-            <button type="button" onClick={() => setOpen(!open)} className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black flex items-center justify-between focus:outline-none focus:border-[#0095ff] transition">
+            <button type="button" disabled={disabled} onClick={() =>!disabled && setOpen(!open)} className={`w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black flex items-center justify-between focus:outline-none focus:border-[#0095ff] transition ${disabled? 'opacity-60 cursor-not-allowed' : ''}`}>
                 <span className="flex items-center gap-2 truncate">
                     <Landmark className="w-4 h-4 text-gray-500 shrink-0" />
                     <span className={value? 'text-black' : 'text-black/40'}>{value || placeholder}</span>
                 </span>
                 <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open? 'rotate-180' : ''}`} />
             </button>
-            {open && (
+            {open &&!disabled && (
                 <div className="absolute z-50 top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5 max-h-[220px] overflow-y-auto no-scrollbar">
                     {BANCOS_ANGOLA.map(b => (
                         <button key={b} type="button" onClick={() => { onChange(b); setOpen(false) }} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[12.5px] flex items-center justify-between transition ${value === b? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-50 text-gray-700'}`}>
@@ -145,6 +158,12 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
     const [logoFile, setLogoFile] = useState<File | null>(null)
     const [logoPreview, setLogoPreview] = useState<string | null>(null)
 
+    const funcionarioLogado = useMemo(() => {
+        try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
+    }, [])
+    const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
+    const podeEditar = funcionarioLogado? cargoAtual === 'admin' || temPermissao(cargoAtual, 'editar_empresa') : true
+
     useEffect(() => {
         if (open) {
             setForm(initialData)
@@ -160,6 +179,20 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
     }, [logoPreview, logoFile])
 
     if (!open) return null
+
+    if (!podeEditar) {
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}/>
+                <div className="relative bg-white rounded-[24px] p-8 text-center max-w-[360px] w-full">
+                    <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2"/>
+                    <p className="font-bold">Sem permissão</p>
+                    <p className="text-[13px] text-gray-500 mt-1">Cargo <b>{cargoAtual.toUpperCase()}</b> não pode editar empresa</p>
+                    <button onClick={onClose} className="mt-4 w-full h-11 bg-black text-white rounded-full">Fechar</button>
+                </div>
+            </div>
+        )
+    }
 
     const inputClass = "w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black placeholder:text-black/40 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition"
 
@@ -180,6 +213,7 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
+        if (!podeEditar) return
         const payload = {
             email: form.email,
             phone: form.phone,
@@ -207,6 +241,7 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center">
                         <Building2 className="w-4 h-4 text-[#0095ff]" />
                     </div>
+                    <span className="text-[10px] bg-black text-white px-3 py-1 rounded-full font-bold">{cargoAtual.toUpperCase()} • ADMIN</span>
                     <button onClick={onClose} className="w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center hover:bg-gray-50">
                         <X className="w-4 h-4 text-gray-500" />
                     </button>
@@ -214,14 +249,13 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
 
                 <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
                     <h3 className="text-[18px] font-bold text-gray-900 leading-tight">Editar Empresa</h3>
-                    <p className="text-[13.5px] text-gray-500 mt-1">Atualize logo, contacto e dados bancários</p>
+                    <p className="text-[13.5px] text-gray-500 mt-1">Atualize logo, contacto e dados bancários • só ADMIN</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
                     <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-4">
                         <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
 
-                        {/* OCULTO - NOME E NIF NAO APARECEM MAS VAI NO PAYLOAD */}
                         <input type="hidden" value={form.companyName} readOnly />
                         <input type="hidden" value={form.nif} readOnly />
 
@@ -263,7 +297,7 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
                             </div>
 
                             <div className="h-[1px] bg-gray-100 my-3" />
-                            <p className="text-[11px] font-bold tracking-widest text-black mb-2">DADOS BANCÁRIOS</p>
+                            <p className="text-[11px] font-bold tracking-widest text-black mb-2">DADOS BANCÁRIOS • ADMIN</p>
 
                             <div className="flex flex-col gap-[2px]">
                                 <BancoSelect value={form.banco1} onChange={(v) => setForm({...form, banco1: v, iban: v? form.iban : '' })} placeholder="Selecionar banco 1" />
@@ -285,7 +319,7 @@ export default function ModalEmpresa({ open, initialData, saving, onClose, onSav
                         <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50">
                             <X className="w-5 h-5 text-gray-600" />
                         </button>
-                        <button type="submit" disabled={saving} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50">
+                        <button type="submit" disabled={saving ||!podeEditar} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50">
                             {saving? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
                         </button>
                     </div>

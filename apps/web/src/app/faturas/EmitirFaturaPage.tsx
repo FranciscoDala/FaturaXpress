@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Settings } from 'lucide-react'
+import { ArrowLeft, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmitirFaturaSkeleton } from '../../components/EmitirFaturaSkeleton'
 import { useRealtime } from '../../hooks/useRealtime'
@@ -27,11 +27,23 @@ const PLAN_LIMITS: Record<string, { label: string, max: number | null }> = {
     diamond: { label: 'DIAMOND', max: null },
 }
 
+const CARGOS_PERMISSOES: Record<string, string[]> = {
+    admin: ["*"],
+    financeira: ["ver_faturas", "emitir_fatura", "emitir_proforma", "ver_proforma", "ver_ft"],
+    rh: [],
+    recepcao: ["ver_proforma", "emitir_proforma", "ver_ft"]
+}
+
+function temPermissao(cargo: string, perm: string) {
+    if (cargo === 'admin') return true
+    const perms = CARGOS_PERMISSOES[cargo] || []
+    return perms.includes(perm) || perms.includes("*")
+}
+
 export default function EmitirFaturaPage() {
     const navigate = useNavigate()
     const [searchParams, setSearchParams] = useSearchParams()
     const clienteId = searchParams.get('cliente_id')
-    const [sidebarAreasOpen, setSidebarAreasOpen] = useState(false)
 
     const [cliente, setCliente] = useState<Cliente | null>(null)
     const [empresa, setEmpresa] = useState<any>(null)
@@ -49,6 +61,14 @@ export default function EmitirFaturaPage() {
     const [faturasTodas, setFaturasTodas] = useState<any[]>([])
     const [loadingCounts, setLoadingCounts] = useState(true)
     const [loadingEmpresa, setLoadingEmpresa] = useState(true)
+
+    const funcionarioLogado = useMemo(() => {
+        try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
+    }, [])
+    const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
+    const podeVerProforma = funcionarioLogado? temPermissao(cargoAtual, 'ver_proforma') || temPermissao(cargoAtual, 'ver_faturas') || cargoAtual === 'admin' : true
+    const podeVerFT = funcionarioLogado? temPermissao(cargoAtual, 'ver_ft') || temPermissao(cargoAtual, 'ver_faturas') || cargoAtual === 'admin' : true
+    const podeEmitir = funcionarioLogado? temPermissao(cargoAtual, 'emitir_fatura') || temPermissao(cargoAtual, 'emitir_proforma') || cargoAtual === 'admin' : true
 
     useEffect(() => {
         if (window.location.search) {
@@ -97,7 +117,7 @@ export default function EmitirFaturaPage() {
         api.get('/api/auth/me').then(r => {
             const comp = r.data.company || r.data
             setEmpresa({
-          ...comp,
+         ...comp,
                 nome: comp.nome || comp.companyName,
                 endereco: comp.endereco || comp.address,
                 cidade: comp.cidade || comp.city,
@@ -133,6 +153,16 @@ export default function EmitirFaturaPage() {
     useEffect(() => {
         if (clienteId) fetchFaturas()
     }, [clienteId, fetchFaturas])
+
+    // Ajusta tab se cargo não pode ver
+    useEffect(() => {
+        if (!podeVerProforma && activeTab === 'curso' && podeVerFT) setActiveTab('emitidas')
+        if (!podeVerFT && activeTab === 'emitidas' && podeVerProforma) setActiveTab('curso')
+        if (!podeEmitir && activeTab === 'emitir') {
+            if (podeVerProforma) setActiveTab('curso')
+            else if (podeVerFT) setActiveTab('emitidas')
+        }
+    }, [cargoAtual])
 
     const { ncOrigensEmitidas, ftOnlyEmitidas, ftAtivasEmitidas } = useMemo(() => {
         const origens = new Set<string>()
@@ -176,12 +206,22 @@ export default function EmitirFaturaPage() {
         )
     }
 
+    if (!podeVerProforma &&!podeVerFT &&!podeEmitir) {
+        return (
+            <div className="min-h-screen bg-white flex items-center justify-center p-6">
+                <div className="text-center max-w-[360px] bg-white border rounded-[24px] p-8 shadow-sm">
+                    <Lock className="w-8 h-8 mx-auto text-gray-300 mb-3"/>
+                    <p className="font-bold text-[16px]">Sem permissão</p>
+                    <p className="text-[13px] text-gray-500 mt-2">Cargo <b>{cargoAtual.toUpperCase()}</b> não tem acesso a faturas</p>
+                    <button onClick={() => navigate('/app/dashboard')} className="mt-4 w-full h-11 bg-black text-white rounded-full text-[13px] font-bold">Voltar</button>
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div className="min-h-screen bg-white relative">
-
-            {/* SIDEBAR RIGHT */}
             <GlobalAreas />
-
             <div className="max-w-[1100px] mx-auto">
                 <div className="relative px-4 sm:px-8 lg:px-12 pt-6 pb-6 border-b border-gray-100 overflow-hidden bg-gradient-to-br from-[#E8F2FF] via-[#F0F7FF] to-white">
                     <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
@@ -202,7 +242,7 @@ export default function EmitirFaturaPage() {
                         <div className="flex-1 w-full min-w-0">
                             <div className="flex flex-row justify-between items-start gap-3 w-full">
                                 <div className="flex flex-col items-start text-left flex-1 min-w-0">
-                                    <h1 className="text-[16px] sm:text-[19px] font-bold text-[#1a202c] uppercase tracking-wide leading-tight truncate max-w-[180px] sm:max-w-[320px]">{cliente?.nome || 'CLIENTE AVULSO'}</h1>
+                                    <h1 className="text-[16px] sm:text-[19px] font-bold text-[#1a202c] uppercase tracking-wide leading-tight truncate max-w-[180px] sm:max-w-[320px]">{cliente?.nome || 'CLIENTE AVULSO'} <span className="text-[10px] bg-black text-white px-2 py-1 rounded-full ml-2">{cargoAtual.toUpperCase()}</span></h1>
                                     <div className="mt-2.5 space-y-0 text-[12px] sm:text-[13px] text-gray-700 leading-[1.4]">
                                         <p><span className="font-medium text-gray-500">NIF:</span> {cliente?.nif || '999999999'}</p>
                                         <p><span className="font-medium text-gray-500">Tel:</span> {cliente?.telefone || '---'}</p>
@@ -228,33 +268,36 @@ export default function EmitirFaturaPage() {
                                 </div>
                             </div>
                             <div className="mt-5 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
-                                <button onClick={() => setActiveTab('curso')} className={`flex-1 py-2 ${activeTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                {podeVerProforma && <button onClick={() => setActiveTab('curso')} className={`flex-1 py-2 ${activeTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
                                     <p className="text-[13px] font-bold">{loadingCounts? '...' : faturasCurso.length}</p>
                                     <p className="text-[11px] text-gray-500">Proforma PP</p>
-                                </button>
-                                <button onClick={() => setActiveTab('emitidas')} className={`flex-1 py-2 border-l ${activeTab === 'emitidas'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                </button>}
+                                {podeVerFT && <button onClick={() => setActiveTab('emitidas')} className={`flex-1 py-2 border-l ${activeTab === 'emitidas'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
                                     <p className="text-[13px] font-bold">{loadingCounts? '...' : ftOnlyEmitidas.length}</p>
                                     <p className="text-[11px] text-gray-500">Fatura AGT FT</p>
-                                </button>
-                                <button onClick={() => setActiveTab('emitir')} className={`flex-[0.6] border-l text-[13px] font-semibold ${activeTab === 'emitir'? 'bg-[#0095ff] text-white' : 'bg-[#8ecfff] text-white'}`}>+ Emitir</button>
+                                </button>}
+                                {podeEmitir && <button onClick={() => setActiveTab('emitir')} className={`flex-[0.6] border-l text-[13px] font-semibold ${activeTab === 'emitir'? 'bg-[#0095ff] text-white' : 'bg-[#8ecfff] text-white'}`}>+ Emitir</button>}
+                                {!podeVerProforma &&!podeVerFT &&!podeEmitir && <div className="flex-1 py-2 flex items-center justify-center gap-2 text-[11px] text-gray-400"><Lock className="w-3.5 h-3.5"/> Sem acesso</div>}
                             </div>
                         </div>
                     </div>
                     <style>{`
-         .bubble { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border: 1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-         .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
-         .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
-         .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
-         .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
-         .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
-         .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
+        .bubble { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border: 1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+        .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
+        .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
+        .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
+        .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
+        .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
+        .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
                 @keyframes floatBubble { 0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.55; } 25% { transform: translateY(-15px) translateX(10px) scale(1.05); opacity: 0.85; } 50% { transform: translateY(-25px) translateX(-5px) scale(0.95); opacity: 0.45; } 75% { transform: translateY(-10px) translateX(-10px) scale(1.02); opacity: 0.7; } }
                     `}</style>
                 </div>
                 <div className="w-full py-6">
-                    {(activeTab === 'emitir' ||!clienteId) && <TabEmitir clienteId={clienteId || undefined} onEmitida={() => { if (clienteId) { fetchFaturas(); setActiveTab('curso'); toast.success('Fatura criada!', { description: clienteId? 'Proforma gerada com sucesso.' : 'Documento avulso gerado.' }) } else { navigate('/app/dashboard') } }} />}
-                    {clienteId && activeTab === 'curso' && <TabCurso faturas={faturasCurso} cliente={cliente!} empresa={empresa} onRefresh={fetchFaturas} />}
-                    {clienteId && activeTab === 'emitidas' && <TabEmitidas faturas={faturasEmitidas} cliente={cliente!} empresa={empresa} onRefresh={fetchFaturas} />}
+                    {podeEmitir && (activeTab === 'emitir' ||!clienteId) && <TabEmitir clienteId={clienteId || undefined} onEmitida={() => { if (clienteId) { fetchFaturas(); setActiveTab('curso'); toast.success('Fatura criada!', { description: clienteId? 'Proforma gerada com sucesso.' : 'Documento avulso gerado.' }) } else { navigate('/app/dashboard') } }} />}
+                    {clienteId && activeTab === 'curso' && podeVerProforma && <TabCurso faturas={faturasCurso} cliente={cliente!} empresa={empresa} onRefresh={fetchFaturas} />}
+                    {clienteId && activeTab === 'emitidas' && podeVerFT && <TabEmitidas faturas={faturasEmitidas} cliente={cliente!} empresa={empresa} onRefresh={fetchFaturas} />}
+                    {clienteId && activeTab === 'curso' &&!podeVerProforma && <div className="px-4 text-center py-10 bg-white border rounded-[20px] text-[13px] text-gray-500">Sem permissão para ver Proformas</div>}
+                    {clienteId && activeTab === 'emitidas' &&!podeVerFT && <div className="px-4 text-center py-10 bg-white border rounded-[20px] text-[13px] text-gray-500">Sem permissão para ver FT</div>}
                 </div>
             </div>
         </div>

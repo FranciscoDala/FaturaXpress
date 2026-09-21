@@ -1,82 +1,126 @@
-import { Leaf, ChevronLeft, Home, PencilRuler, ChartLine, Factory, ClipboardList } from 'lucide-react'
+import { Leaf, ChevronLeft, Home, PencilRuler, ChartLine, Factory, ClipboardList, Lock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useMemo } from 'react'
 
-const MENU = [
-  { id: '1', label: 'Painel', Icon: Home, path: '/app/dashboard' },
-  { id: '2', label: 'Recursos Humanos', Icon: Factory, path: '/app/rh', active: true },
-  { id: '3', label: 'Reduce', Icon: PencilRuler },
-  { id: '4', label: 'Analyze', Icon: ChartLine },
-  { id: '5', label: 'Report', Icon: ClipboardList },
+const CARGOS_PERMISSOES: Record<string, string[]> = {
+    admin: ["*"],
+    financeira: ["dashboard", "faturas", "clientes", "produtos", "relatorios"],
+    recepcao: ["dashboard", "proformas", "clientes"],
+    rh: ["rh"]
+}
+
+function temAcesso(cargo: string, area: string) {
+    if (cargo === 'admin') return true
+    const perms = CARGOS_PERMISSOES[cargo] || []
+    return perms.includes(area) || perms.includes("*")
+}
+
+const MENU_BASE = [
+    { id: '1', label: 'Painel', Icon: Home, path: '/app/dashboard', area: 'dashboard' },
+    { id: '2', label: 'Recursos Humanos', Icon: Factory, path: '/app/rh', area: 'rh' },
+    { id: '3', label: 'Faturas', Icon: PencilRuler, path: '/app/faturas', area: 'faturas' },
+    { id: '4', label: 'Clientes', Icon: ChartLine, path: '/app/clientes', area: 'clientes' },
+    { id: '5', label: 'Produtos', Icon: ClipboardList, path: '/app/produtos', area: 'produtos' },
 ]
 
 export default function SidebarAreas({ open, onClose }: { open: boolean, onClose: () => void }) {
-  const navigate = useNavigate()
+    const navigate = useNavigate()
 
-  return (
-    <>
-      <div className={`fixed inset-0 bg-black/20 backdrop-blur-[3px] z-[9998] transition-opacity ${open? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose} />
+    const funcionarioLogado = useMemo(() => {
+        try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
+    }, [])
+    const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
 
-      <div className={`fixed top-2 right-2 bottom-2 w-[300px] z-[9999] transition-transform duration-300 ${open? 'translate-x-0' : 'translate-x-[110%]'}`}>
-        <div className="relative h-full w-full rounded-[24px] bg-gradient-to-br from-[#E8F2FF] via-[#F0F7FF] to-white border border-[#d6e8ff] p-2.5 flex flex-col shadow-[0_8px_40px_rgba(0,149,255,0.15)] overflow-hidden">
+    const MENU = MENU_BASE.map(m => ({
+        ...m,
+        disabled: !temAcesso(cargoAtual, m.area),
+        active: m.area === 'rh'
+    }))
 
-          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-            <div className="bubble bubble-1"></div>
-            <div className="bubble bubble-2"></div>
-            <div className="bubble bubble-3"></div>
-            <div className="bubble bubble-4"></div>
-          </div>
+    return (
+        <>
+            <div className={`fixed inset-0 bg-black/20 backdrop-blur-[3px] z-[9998] transition-opacity ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose} />
 
-          <div className="relative z-10 flex flex-col h-full">
-            <div className="flex items-center justify-between px-1 pt-1 pb-4">
-              <div className="w-9 h-9 rounded-full bg-white border border-[#d6e8ff] shadow-sm flex items-center justify-center">
-                <Leaf className="w-5 h-5 text-[#0095ff] fill-[#E8F2FF]" />
-              </div>
-              <button onClick={onClose} className="w-7 h-7 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50">
-                <ChevronLeft className="w-3.5 h-3.5 text-gray-700" />
-              </button>
-            </div>
+            <div className={`fixed top-2 right-2 bottom-2 w-[300px] z-[9999] transition-transform duration-300 ${open ? 'translate-x-0' : 'translate-x-[110%]'}`}>
+                <div className="relative h-full w-full rounded-[24px] bg-gradient-to-br from-[#E8F2FF] via-[#F0F7FF] to-white border border-[#d6e8ff] p-2.5 flex flex-col shadow-[0_8px_40px_rgba(0,149,255,0.15)] overflow-hidden">
 
-            <div className="flex flex-col gap-[5px]">
-              {MENU.map((m) => {
-                const isActive = (m as any).active
-                if (isActive) {
-                  return (
-                    <div key={m.id} className="relative h-[40px] -mr-2.5">
-                      <div className="absolute inset-0 bg-white rounded-l-full rounded-r-[6px] border border-[#e6f0ff] shadow-[0_2px_10px_rgba(0,149,255,0.10)]" />
-                      <button
-                        onClick={() => { onClose(); m.path && navigate(m.path) }}
-                        className="relative z-10 w-full h-full flex items-center gap-2.5 px-4 text-[#0095ff] font-semibold text-[13.5px]"
-                      >
-                        <m.Icon className="w-[16px] h-[16px]" />
-                        {m.label}
-                      </button>
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+                        <div className="bubble bubble-1"></div>
+                        <div className="bubble bubble-2"></div>
+                        <div className="bubble bubble-3"></div>
+                        <div className="bubble bubble-4"></div>
                     </div>
-                  )
-                }
-                return (
-                  <button
-                    key={m.id}
-                    onClick={() => { onClose(); (m as any).path && navigate((m as any).path) }}
-                    className="h-[40px] rounded-full bg-white/70 backdrop-blur border border-[#e6f0ff] flex items-center gap-2.5 px-4 text-gray-700 text-[13.5px] font-medium hover:bg-white text-left"
-                  >
-                    <m.Icon className="w-[16px] h-[16px] text-[#0095ff]/70" />
-                    {m.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
 
-          <style>{`
-         .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.18), rgba(0,149,255,0.04) 65%); border:1px solid rgba(0,149,255,0.12); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.08); animation: floatBubble 8s infinite ease-in-out; }
-         .bubble-1 { width:70px; height:70px; left:8%; top:18%; }
-         .bubble-2 { width:100px; height:100px; left:60%; top:8%; }
-         .bubble-3 { width:50px; height:50px; left:30%; top:65%; }
-         .bubble-4 { width:36px; height:36px; left:75%; top:50%; }
+                    <div className="relative z-10 flex flex-col h-full">
+                        <div className="flex items-center justify-between px-1 pt-1 pb-4">
+                            <div className="w-9 h-9 rounded-full bg-white border border-[#d6e8ff] shadow-sm flex items-center justify-center">
+                                <Leaf className="w-5 h-5 text-[#0095ff] fill-[#E8F2FF]" />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] bg-black text-white px-2 py-1 rounded-full font-bold">{cargoAtual.toUpperCase()}</span>
+                                <button onClick={onClose} className="w-7 h-7 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50">
+                                    <ChevronLeft className="w-3.5 h-3.5 text-gray-700" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-[5px]">
+                            {MENU.map((m) => {
+                                if (m.disabled) {
+                                    return (
+                                        <div key={m.id} className="h-[40px] rounded-full bg-gray-100 border border-gray-200 flex items-center gap-2.5 px-4 text-gray-400 text-[13.5px] font-medium cursor-not-allowed">
+                                            <Lock className="w-[16px] h-[16px]" />
+                                            {m.label}
+                                            <span className="ml-auto text-[9px] bg-gray-200 px-1.5 py-0.5 rounded-full">BLOQ</span>
+                                        </div>
+                                    )
+                                }
+                                const isActive = (m as any).active
+                                if (isActive) {
+                                    return (
+                                        <div key={m.id} className="relative h-[40px] -mr-2.5">
+                                            <div className="absolute inset-0 bg-white rounded-l-full rounded-r-[6px] border border-[#e6f0ff] shadow-[0_2px_10px_rgba(0,149,255,0.10)]" />
+                                            <button
+                                                onClick={() => { onClose(); m.path && navigate(m.path) }}
+                                                className="relative z-10 w-full h-full flex items-center gap-2.5 px-4 text-[#0095ff] font-semibold text-[13.5px]"
+                                            >
+                                                <m.Icon className="w-[16px] h-[16px]" />
+                                                {m.label}
+                                            </button>
+                                        </div>
+                                    )
+                                }
+                                return (
+                                    <button
+                                        key={m.id}
+                                        onClick={() => { onClose(); (m as any).path && navigate((m as any).path) }}
+                                        className="h-[40px] rounded-full bg-white/70 backdrop-blur border border-[#e6f0ff] flex items-center gap-2.5 px-4 text-gray-700 text-[13.5px] font-medium hover:bg-white text-left"
+                                    >
+                                        <m.Icon className="w-[16px] h-[16px] text-[#0095ff]/70" />
+                                        {m.label}
+                                    </button>
+                                )
+                            })}
+                        </div>
+
+                        <div className="mt-auto px-2 py-3 text-[11px] text-gray-500">
+                            {cargoAtual === 'rh' && 'RH só acessa Recursos Humanos'}
+                            {cargoAtual === 'recepcao' && 'Recepção: dashboard + proformas + clientes'}
+                            {cargoAtual === 'financeira' && 'Financeira: tudo exceto RH'}
+                            {cargoAtual === 'admin' && 'Admin: acesso total'}
+                        </div>
+                    </div>
+
+                    <style>{`
+        .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.18), rgba(0,149,255,0.04) 65%); border:1px solid rgba(0,149,255,0.12); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.08); animation: floatBubble 8s infinite ease-in-out; }
+        .bubble-1 { width:70px; height:70px; left:8%; top:18%; }
+        .bubble-2 { width:100px; height:100px; left:60%; top:8%; }
+        .bubble-3 { width:50px; height:50px; left:30%; top:65%; }
+        .bubble-4 { width:36px; height:36px; left:75%; top:50%; }
             @keyframes floatBubble { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
           `}</style>
-        </div>
-      </div>
-    </>
-  )
+                </div>
+            </div>
+        </>
+    )
 }

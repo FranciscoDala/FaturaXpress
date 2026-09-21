@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from 'react'
-import { X, Check, User, MapPin, ChevronDown, FileText, Loader2, AlertTriangle, CheckCircle, ShieldCheck, ArrowRight, Phone, Mail } from 'lucide-react'
+import { useEffect, useState, useRef, useMemo } from 'react'
+import { X, Check, User, MapPin, ChevronDown, FileText, Loader2, AlertTriangle, CheckCircle, ShieldCheck, ArrowRight, Phone, Mail, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../../../../lib/api'
 
@@ -21,6 +21,19 @@ interface Props {
     cliente: Cliente | null
     onClose: () => void
     onSuccess: () => void
+}
+
+const CARGOS_PERMISSOES: Record<string, string[]> = {
+    admin: ["*"],
+    financeira: ["gerir_clientes", "criar_cliente", "editar_cliente"],
+    recepcao: ["gerir_clientes", "criar_cliente", "editar_cliente"],
+    rh: []
+}
+
+function temPermissao(cargo: string, perm: string) {
+    if (cargo === 'admin') return true
+    const perms = CARGOS_PERMISSOES[cargo] || []
+    return perms.includes(perm) || perms.includes("*")
 }
 
 const PROVINCIAS = [
@@ -136,6 +149,12 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
         nome: '', nif: '', email: '', telefone: '', endereco: '', cidade: '', provincia: ''
     })
 
+    const funcionarioLogado = useMemo(() => {
+        try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
+    }, [])
+    const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
+    const podeGerir = funcionarioLogado? temPermissao(cargoAtual, 'gerir_clientes') || temPermissao(cargoAtual, 'criar_cliente') || cargoAtual === 'admin' : true
+
     const isEditMode =!!cliente
     const municipiosDisponiveis = form.provincia? (MUNICIPIOS[form.provincia] || []) : []
     const isNaoActivo = agtData?.estado &&!agtData.estado.toLowerCase().includes('activ')
@@ -164,6 +183,20 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
 
     if (!open) return null
 
+    if (!podeGerir) {
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/60" onClick={onClose}/>
+                <div className="relative bg-white rounded-[24px] p-8 text-center max-w-[360px] w-full">
+                    <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2"/>
+                    <p className="font-bold">Sem permissão</p>
+                    <p className="text-[13px] text-gray-500 mt-1">Cargo <b>{cargoAtual.toUpperCase()}</b> não pode gerir clientes</p>
+                    <button onClick={onClose} className="mt-4 w-full h-11 bg-black text-white rounded-full">Fechar</button>
+                </div>
+            </div>
+        )
+    }
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setForm({...form, [e.target.name]: e.target.value })
     }
@@ -182,7 +215,6 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
             toast.error("Digite NIF ex: 5002063956 ou 999999999", { position: 'top-center' })
             return
         }
-        // CONSUMIDOR FINAL sempre permite
         if (nifClean === "999999999") {
             setAgtData({ nome: "CONSUMIDOR FINAL", tipo: "CONSUMIDOR", estado: "Activo" })
             setForm(prev => ({...prev, nome: "CONSUMIDOR FINAL", nif: nifClean }))
@@ -231,7 +263,6 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                 const localRes = await api.post('/api/clientes/validar-nif', { nif: nifClean })
                 const localData = localRes.data
                 if (localData.exists && localData.cliente) {
-                    // TRAVA - NAO DEIXA CRIAR COM NIF REPETIDO
                     setNifExists(true)
                     setClienteExistente(localData.cliente)
                     setForm({
@@ -244,7 +275,7 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                         provincia: localData.cliente.provincia || ''
                     })
                     toast.error(`NIF já cadastrado: ${localData.cliente.nome}`, { description: `Este NIF ${nifClean} já existe. Não pode duplicar.`, position: 'top-center' })
-                    setNifValidated(true) // mostra o card mas bloqueia save
+                    setNifValidated(true)
                 } else {
                     setNifExists(false)
                     setClienteExistente(null)
@@ -286,12 +317,11 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!podeGerir) { toast.error('Sem permissão'); return }
         if (!nifValidated &&!isEditMode) {
             toast.error("Valide o NIF na AGT primeiro", { position: 'top-center' })
             return
         }
-
-        // SE NIF JA EXISTE E NAO É EDICAO, BLOQUEIA TOTAL
         if (!isEditMode && nifExists && clienteExistente) {
             toast.error(`NIF já cadastrado: ${clienteExistente.nome}`, {
                 description: `Este NIF ${form.nif} já está cadastrado. Não pode criar duplicado.`,
@@ -299,8 +329,6 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
             })
             return
         }
-
-        // VALIDACAO DOS INPUTS ABAIXO - igual register
         if (!form.email.trim()) {
             toast.error("Preencha o email do cliente", { position: 'top-center' })
             return
@@ -325,12 +353,10 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
         setLoading(true)
         try {
             if (isEditMode && cliente) {
-                // edicao - nao manda nome/nif
                 const payload = { email: form.email.trim(), telefone: form.telefone.trim(), endereco: form.endereco.trim(), cidade: form.cidade.trim(), provincia: form.provincia.trim() }
                 await api.put(`/api/clientes/${cliente.id}`, payload)
                 toast.success('Cliente atualizado', { position: 'top-center' })
             } else {
-                // criacao - so se NIF novo ou 999999999
                 const payload = {
                   nome: (agtData?.nome || form.nome).trim(),
                   nif: form.nif.trim(),
@@ -355,7 +381,6 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
             } else if (detail?.msg) {
                 msg = detail.msg
             }
-            console.log('ERRO CLIENTE:', err.response?.data)
             toast.error(msg, { position: 'top-center' })
         } finally { setLoading(false) }
     }
@@ -372,12 +397,12 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center"><User className="w-4 h-4 text-[#0095ff]" /></div>
                     <div className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full border shadow-sm ${nifValidated? 'text-green-700 bg-green-50 border-green-300' : 'text-[#0095ff] bg-white border-gray-200'}`}>
                         {nifValidated? <CheckCircle className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-                        {nifValidated? `NIF: ${form.nif.toUpperCase()}` : "Validação AGT"}
+                        {nifValidated? `NIF: ${form.nif.toUpperCase()} • ${cargoAtual.toUpperCase()}` : `Validação AGT • ${cargoAtual.toUpperCase()}`}
                     </div>
                 </div>
 
                 <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
-                    <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{isEditMode? 'Editar Cliente' : 'Novo Cliente'}</h3>
+                    <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{isEditMode? 'Editar Cliente' : 'Novo Cliente'} <span className="text-[10px] bg-black text-white px-2 py-1 rounded-full ml-1">{cargoAtual.toUpperCase()}</span></h3>
                     <p className="text-[13.5px] text-gray-500 mt-1 leading-relaxed">
                         {isEditMode? 'Nome e NIF não podem ser alterados.' : nifValidated? (isNaoActivo? 'Cliente não activo - será fatura avulso' : nifExists? `NIF já cadastrado: ${clienteExistente?.nome} - não pode duplicar` : 'Preencha os dados para criar') : 'Adiciona o NIF do cliente para ser validado no Contribuinte da Administração Geral Tributária!'}
                     </p>
@@ -385,7 +410,7 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                         <div className={`mt-[8px] flex items-center gap-1.5 px-3 py-1.5 rounded-full border w-fit ${isNaoActivo? 'bg-red-50 border-red-200' : nifExists? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
                             {isNaoActivo? <AlertTriangle className="w-3.5 h-3.5 text-red-600" /> : nifExists? <AlertTriangle className="w-3.5 h-3.5 text-red-600" /> : <CheckCircle className="w-3.5 h-3.5 text-green-600" />}
                             <span className={`text-[11px] font-semibold ${isNaoActivo? 'text-red-700' : nifExists? 'text-red-700' : 'text-green-700'}`}>
-                                {isNaoActivo? 'Cliente não activo - fatura avulso' : nifExists? 'NIF já existe - não pode duplicar' : `NIF validado pela AGT`}
+                                {isNaoActivo? 'Cliente não activo - fatura avulso' : nifExists? 'NIF já existe - não pode duplicar' : `NIF validado pela AGT • ${cargoAtual.toUpperCase()}`}
                             </span>
                         </div>
                     )}
@@ -455,8 +480,8 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                     <button
                         type="button"
                         onClick={nifValidated? (e) => handleSubmit(e as any) : handleValidarNif}
-                        disabled={validatingNif || loading || (!nifValidated &&!form.nif) || (!isEditMode && nifExists)}
-                        className={`flex-1 h-11 rounded-full font-semibold flex items-center justify-center gap-2 transition ${(!isEditMode && nifExists)? 'bg-red-100 text-red-700 border border-red-200 cursor-not-allowed' : 'bg-[#0095ff] text-white hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)]'} disabled:opacity-60`}
+                        disabled={validatingNif || loading || (!nifValidated &&!form.nif) || (!isEditMode && nifExists) ||!podeGerir}
+                        className={`flex-1 h-11 rounded-full font-semibold flex items-center justify-center gap-2 transition ${(!isEditMode && nifExists) ||!podeGerir? 'bg-red-100 text-red-700 border border-red-200 cursor-not-allowed' : 'bg-[#0095ff] text-white hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)]'} disabled:opacity-60`}
                     >
                         {validatingNif || loading? (
                             <Loader2 className="w-5 h-5 animate-spin" />

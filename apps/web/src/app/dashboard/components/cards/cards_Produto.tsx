@@ -1,4 +1,5 @@
-import { FileText, Pencil, Trash2 } from 'lucide-react'
+import { FileText, Pencil, Trash2, Lock } from 'lucide-react'
+import { useMemo } from 'react'
 import { CardsProdutosSkeleton } from '../../../../components/CardsSkeleton'
 
 interface Produto {
@@ -28,28 +29,61 @@ interface Props {
     onView?: (p: Produto) => void
 }
 
+const CARGOS_PERMISSOES: Record<string, string[]> = {
+    admin: ["*"],
+    financeira: ["ver_produtos", "editar_produtos", "ver_faturas", "emitir_ft", "emitir_pp"],
+    recepcao: ["ver_produtos", "ver_faturas", "emitir_ft", "emitir_pp"],
+    rh: ["ver_funcionarios"]
+}
+
+function temPermissao(cargo: string, perm: string) {
+    if (cargo === 'admin') return true
+    const perms = CARGOS_PERMISSOES[cargo] || []
+    return perms.includes(perm) || perms.includes("*")
+}
+
 export default function CardsProdutos({ produtos, loading, onEdit, onDelete, onView }: Props) {
     const formatPrice = (val: any) => {
         const n = typeof val === 'string'? parseFloat(val) : val
         return isNaN(n)? '0' : n.toFixed(0)
     }
 
+    const funcionarioLogado = useMemo(() => {
+        try {
+            const raw = localStorage.getItem("funcionario")
+            if (!raw) return null
+            return JSON.parse(raw)
+        } catch { return null }
+    }, [])
+
+    const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
+    const podeVer = funcionarioLogado? temPermissao(cargoAtual, 'ver_produtos') || cargoAtual === 'admin' : true
+    const podeEditar = funcionarioLogado? temPermissao(cargoAtual, 'editar_produtos') || cargoAtual === 'admin' : true
+    const podeApagar = funcionarioLogado? cargoAtual === 'admin' : true
+
     if (loading) return <CardsProdutosSkeleton />
+    if (!podeVer) {
+        return (
+            <div className="text-center py-16 bg-white rounded-[20px] border">
+                <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2"/>
+                <p className="text-black/60 text-[13px]">Seu cargo <b>{cargoAtual}</b> não pode ver produtos</p>
+            </div>
+        )
+    }
     if (produtos.length === 0) return <p className="text-center text-black py-16 bg-white rounded-[20px] border font-medium">Nenhum produto/serviço encontrado!</p>
 
     return (
         <div className="w-full">
-            {/* MESMA ESTRUTURA DO CLIENTE */}
             <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 {produtos.map(p => (
-                    <ProductCard key={p.id} produto={p} formatPrice={formatPrice} onEdit={onEdit} onDelete={onDelete} onView={onView} />
+                    <ProductCard key={p.id} produto={p} formatPrice={formatPrice} onEdit={onEdit} onDelete={onDelete} onView={onView} podeEditar={podeEditar} podeApagar={podeApagar} cargoAtual={cargoAtual} />
                 ))}
             </div>
         </div>
     )
 }
 
-function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
+function ProductCard({ produto, formatPrice, onEdit, onDelete, onView, podeEditar, podeApagar, cargoAtual }: any) {
     const initials = produto.nome.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
     const tipo = (produto.tipo || 'produto').toLowerCase()
     const isServico = tipo === 'servico'
@@ -69,6 +103,9 @@ function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
                         </div>
                     )}
                 </div>
+                {!podeEditar && (
+                    <div className="absolute top-3 left-3 bg-black/70 text-white px-2 py-1 rounded-full text-[9px] font-bold">{cargoAtual?.toUpperCase()} - SOMENTE LEITURA</div>
+                )}
             </div>
 
             <div className="pt-14 px-5 pb-4">
@@ -103,11 +140,21 @@ function ProductCard({ produto, formatPrice, onEdit, onDelete, onView }: any) {
                 <button onClick={() => onView?.(produto)} className="py-3.5 flex items-center justify-center hover:bg-gray-50 border-r border-gray-100 group">
                     <FileText className="w-4 h-4 text-black group-hover:text-blue-600" />
                 </button>
-                <button onClick={() => onEdit?.(produto)} className="py-3.5 flex items-center justify-center hover:bg-gray-50 border-r border-gray-100 group">
-                    <Pencil className="w-4 h-4 text-black group-hover:text-orange-600" />
+
+                {/* EDITAR - só financeira e admin */}
+                <button
+                    onClick={() => podeEditar && onEdit?.(produto)}
+                    disabled={!podeEditar}
+                    className={`py-3.5 flex items-center justify-center border-r border-gray-100 group ${podeEditar? 'hover:bg-gray-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}>
+                    <Pencil className={`w-4 h-4 ${podeEditar? 'text-black group-hover:text-orange-600' : 'text-gray-400'}`} />
                 </button>
-                <button onClick={() => onDelete?.(produto)} className="py-3.5 flex items-center justify-center hover:bg-red-50 group">
-                    <Trash2 className="w-4 h-4 text-black group-hover:text-red-600" />
+
+                {/* APAGAR - só admin */}
+                <button
+                    onClick={() => podeApagar && onDelete?.(produto)}
+                    disabled={!podeApagar}
+                    className={`py-3.5 flex items-center justify-center group ${podeApagar? 'hover:bg-red-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}>
+                    <Trash2 className={`w-4 h-4 ${podeApagar? 'text-black group-hover:text-red-600' : 'text-gray-400'}`} />
                 </button>
             </div>
         </div>

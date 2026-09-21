@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { api } from '../../../../lib/api'
 import { toast } from 'sonner'
-import { Settings, Search, Loader2, Calendar, ChevronDown, AlertTriangle, Info, FileText } from 'lucide-react'
+import { Settings, Search, Loader2, Calendar, ChevronDown, AlertTriangle, Info, FileText, Lock } from 'lucide-react'
 import ModalConfigPonto from '../modals/modal_configurar_atraso'
 import ModalMarcarFalta from '../modals/modal_marcar_falta'
 import ModalCalendarioPonto from '../modals/modal_calendario_ponto'
@@ -16,6 +16,19 @@ type Config = { hora_entrada: string; tolerancia_min: number; regra_atraso_ativa
 type AuditPonto = Ponto & { _kind: 'ponto' }
 type AuditFalta = Falta & { _kind: 'falta' }
 type AuditData = AuditPonto | AuditFalta
+
+const CARGOS_PERMISSOES: Record<string, string[]> = {
+    admin: ["*"],
+    rh: ["gerir_funcionarios", "ver_ponto", "bater_ponto", "config_ponto", "gerir_faltas", "aprovar_faltas"],
+    financeira: ["ver_faturas"],
+    recepcao: ["ver_faturas", "bater_ponto_proprio"]
+}
+
+function temPermissao(cargo: string, perm: string) {
+    if (cargo === 'admin') return true
+    const perms = CARGOS_PERMISSOES[cargo] || []
+    return perms.includes(perm) || perms.includes("*")
+}
 
 function formatAtraso(min: number) { if (!min || min <= 0) return ''; if (min < 60) return `${min}min de atraso`; const h = Math.floor(min / 60); const m = min % 60; if (m === 0) return `${h}h de atraso`; return `${h}h:${String(m).padStart(2,'0')}min de atraso` }
 function prettyFalta(motivo: string) { if (!motivo) return "Não apareceu"; if (motivo.includes('|')) { const parte = motivo.split('|')[1]?.trim() || motivo.split('|')[0]?.trim(); return capitalizarFalta(parte) } return capitalizarFalta(motivo) }
@@ -45,6 +58,16 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
     const minDate = addDays(hoje, -6)
     const isHoje = dataSelecionada === hoje
     const isRetro =!isHoje
+
+    const funcionarioLogado = useMemo(() => {
+        try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
+    }, [])
+
+    const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
+    const podeVer = funcionarioLogado? temPermissao(cargoAtual, 'ver_ponto') || temPermissao(cargoAtual, 'gerir_funcionarios') || cargoAtual === 'admin' : true
+    const podeBater = funcionarioLogado? temPermissao(cargoAtual, 'bater_ponto') || temPermissao(cargoAtual, 'gerir_funcionarios') || cargoAtual === 'admin' : true
+    const podeConfig = funcionarioLogado? temPermissao(cargoAtual, 'config_ponto') || cargoAtual === 'admin' : true
+    const podeGerirFalta = funcionarioLogado? temPermissao(cargoAtual, 'gerir_faltas') || cargoAtual === 'admin' : true
 
     const load = async () => {
         setLoading(true)
@@ -78,10 +101,12 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
     const paginatedFuncs = useMemo(() => { const start = (page - 1) * perPage; return filtered.slice(start, start + perPage) }, [filtered, page])
 
     const bater = async (funcId: string, tipo: string) => {
+        if (!podeBater) { toast.error('Sem permissão para bater ponto'); return }
+        if (isRetro &&!podeGerirFalta) { toast.error('Só admin/RH pode lançar retroativo'); return }
         setBatendo(funcId)
         try {
             const stored = localStorage.getItem('funcionario_logado'); const logado = stored? JSON.parse(stored): null
-            const payload: any = { funcionario_id: funcId, tipo, data: dataSelecionada, lancado_por_id: logado?.id }
+            const payload: any = { funcionario_id: funcId, tipo, data: dataSelecionada, lancado_por_id: logado?.id || funcionarioLogado?.id }
             if (isRetro) payload.motivo_retroativo = `Lançamento retroativo ${formatDisplay(dataSelecionada)} - Correção RH`
             const { data } = await api.post('/api/rh/ponto/bater', payload)
             const atraso = (data as any).atraso_min?? (data as any).ponto?.atraso_min?? 0
@@ -89,6 +114,15 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
             if ((data as any).falta_gerada) toast.error(`FALTA GERADA: ${config?.qtd_atrasos_para_falta} atrasos`)
             await load()
         } catch (e: any) { toast.error(e?.response?.data?.detail || 'Erro ao bater ponto') } finally { setBatendo(null) }
+    }
+
+    if (!podeVer) {
+        return (
+            <div className="bg-white rounded-[16px] border p-10 text-center">
+                <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2"/>
+                <p className="text-[13px] text-gray-500">Seu cargo <b>{cargoAtual}</b> não tem acesso ao ponto</p>
+            </div>
+        )
     }
 
     if (loading) return (<div className="bg-white rounded-[16px] border h-[300px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-black/40" /></div>)
@@ -104,7 +138,8 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
                                 <span className="flex items-center gap-2 truncate"><Calendar className="w-4 h-4 shrink-0" />{formatDisplay(dataSelecionada)}</span>
                                 <ChevronDown className="w-3.5 h-3.5 shrink-0" />
                             </button>
-                            {isRetro && <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold whitespace-nowrap"><AlertTriangle className="w-3 h-3" /> Retroativo</span>}
+                            {isRetro && <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold whitespace-nowrap"><AlertTriangle className="w-3 h-3" /> Retroativo {cargoAtual.toUpperCase()}</span>}
+                            {!podeBater && <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 border text-[10px] font-bold">SOMENTE LEITURA</span>}
                         </div>
                         <div className="flex items-center gap-2 w-full md:w-auto">
                             <div className="relative flex-1 md:flex-none md:w-[300px]">
@@ -115,12 +150,16 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
                                 <FileText className="w-4 h-4" />
                                 <span className="hidden md:inline text-[11px] font-bold">Relatório</span>
                             </button>
-                            <button onClick={() => setOpenCfg(true)} className="w-10 h-10 md:w-9 md:h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 shadow-sm shrink-0">
-                                <Settings className="w-4 h-4 text-black" />
-                            </button>
+                            {podeConfig? (
+                                <button onClick={() => setOpenCfg(true)} className="w-10 h-10 md:w-9 md:h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 shadow-sm shrink-0">
+                                    <Settings className="w-4 h-4 text-black" />
+                                </button>
+                            ) : (
+                                <div className="w-10 h-10 md:w-9 md:h-9 rounded-full bg-gray-100 border flex items-center justify-center opacity-50"><Settings className="w-4 h-4 text-gray-400" /></div>
+                            )}
                         </div>
                     </div>
-                    <p className="text-[11px] text-black/60">Lista de presença de todos funcionarios da empresa</p>
+                    <p className="text-[11px] text-black/60">Lista de presença de todos funcionarios da empresa • {cargoAtual}</p>
                 </div>
 
                 <div className="max-h-[70vh] overflow-y-auto no-scrollbar overscroll-contain">
@@ -171,7 +210,7 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
                                     )}
                                 </div>
                                 <div className="flex gap-1.5 shrink-0">
-                                  {falta? (<span className="h-[26px] px-3 flex items-center text-[11px] bg-red-600 text-white rounded-full font-medium">Falta</span>) :!temEntrada? (<><button disabled={batendo === f.id} onClick={() => bater(f.id, 'entrada')} className="h-[26px] px-3 bg-[#0095ff] text-white rounded-full text-[11px] font-medium disabled:opacity-50 hover:bg-[#0085e6]">Entrada</button><button onClick={() => setOpenFalta({ open: true, func: f })} className="h-[26px] px-3 bg-red-50 border border-red-200 text-red-600 rounded-full text-[11px] font-medium hover:bg-red-100">Falta</button></>) :!temSaida? (<button disabled={batendo === f.id} onClick={() => bater(f.id, 'saida')} className="h-[26px] px-3 border border-gray-200 bg-white rounded-full text-[11px] text-black hover:bg-gray-50">Saída</button>) : (<span className="h-[26px] px-3 flex items-center text-[11px] bg-gray-100 text-black rounded-full border">Completo</span>)}
+                                  {falta? (<span className="h-[26px] px-3 flex items-center text-[11px] bg-red-600 text-white rounded-full font-medium">Falta</span>) :!temEntrada? (<><button disabled={batendo === f.id ||!podeBater} onClick={() => bater(f.id, 'entrada')} className={`h-[26px] px-3 rounded-full text-[11px] font-medium disabled:opacity-50 ${podeBater? 'bg-[#0095ff] text-white hover:bg-[#0085e6]' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>Entrada</button><button disabled={!podeGerirFalta} onClick={() => podeGerirFalta && setOpenFalta({ open: true, func: f })} className={`h-[26px] px-3 rounded-full text-[11px] font-medium ${podeGerirFalta? 'bg-red-50 border border-red-200 text-red-600 hover:bg-red-100' : 'bg-gray-100 text-gray-400 cursor-not-allowed border'}`}>Falta</button></>) :!temSaida? (<button disabled={batendo === f.id ||!podeBater} onClick={() => bater(f.id, 'saida')} className={`h-[26px] px-3 border rounded-full text-[11px] ${podeBater? 'bg-white text-black hover:bg-gray-50' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>Saída</button>) : (<span className="h-[26px] px-3 flex items-center text-[11px] bg-gray-100 text-black rounded-full border">Completo</span>)}
                                 </div>
                             </div>
                         )
@@ -180,10 +219,19 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
                 {totalPages > 1 && (<div className="flex justify-between items-center p-2.5 border-t bg-gray-50"><button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-3 py-1 text-[11px] rounded-full border bg-white text-black disabled:opacity-40">Anterior</button><span className="text-[11px] text-black/60">Página {page} de {totalPages} • {formatDisplay(dataSelecionada)}</span><button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="px-3 py-1 text-[11px] rounded-full bg-black text-white disabled:opacity-40">Próxima</button></div>)}
             </div>
             {openRelatorio && <RelatorioAuditoriaPonto dataSelecionada={dataSelecionada} pontos={pontos} faltas={faltas} funcs={funcs} empresa={empresa} minDate={minDate} hoje={hoje} onClose={()=>setOpenRelatorio(false)} />}
-            <ModalGestaoFalta data={auditData} open={!!auditData} onClose={()=>setAuditData(null)} onSaved={load} dataSelecionada={dataSelecionada} usuario={usuario} />
+            {podeGerirFalta && <ModalGestaoFalta data={auditData} open={!!auditData} onClose={()=>setAuditData(null)} onSaved={load} dataSelecionada={dataSelecionada} usuario={usuario} />}
+            {!podeGerirFalta && auditData && (
+                <div className="fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[16px] p-6 max-w-[400px] w-full">
+                        <h3 className="font-bold">Detalhe da falta</h3>
+                        <p className="text-[13px] mt-2">{prettyFalta((auditData as any).motivo)}</p>
+                        <button onClick={()=>setAuditData(null)} className="mt-4 w-full h-10 bg-black text-white rounded-full">Fechar</button>
+                    </div>
+                </div>
+            )}
             <ModalCalendarioPonto open={openCal} value={dataSelecionada} onClose={() => setOpenCal(false)} onSelect={setDataSelecionada} />
-            <ModalConfigPonto open={openCfg} onClose={() => { setOpenCfg(false); load() }} />
-            <ModalMarcarFalta open={openFalta.open} funcionario={openFalta.func} dataSelecionada={dataSelecionada} onClose={() => setOpenFalta({ open: false, func: null })} onSaved={() => { setOpenFalta({ open: false, func: null }); load() }} />
+            {podeConfig && <ModalConfigPonto open={openCfg} onClose={() => { setOpenCfg(false); load() }} />}
+            {podeGerirFalta && <ModalMarcarFalta open={openFalta.open} funcionario={openFalta.func} dataSelecionada={dataSelecionada} onClose={() => setOpenFalta({ open: false, func: null })} onSaved={() => { setOpenFalta({ open: false, func: null }); load() }} />}
         </>
     )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { X, Check, UserPlus, ChevronDown, Lock, Briefcase, Building2, Info, Settings, Shield, MapPin, Landmark, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
@@ -45,6 +45,20 @@ const MUNICIPIOS: Record<string, string[]> = {
     "Zaire": ["Mbanza Kongo", "Cuimba", "Nóqui", "Nzeto", "Soyo", "Tomboco"]
 }
 
+const CARGOS_PERMISSOES: Record<string, string[]> = {
+    admin: ["*"],
+    rh: ["gerir_funcionarios", "criar_funcionarios", "editar_funcionarios"],
+    financeira: [],
+    recepcao: []
+}
+const HIERARQUIA: Record<string, number> = { admin: 4, rh: 3, financeira: 2, recepcao: 1 }
+
+function temPermissao(cargo: string, perm: string) {
+    if (cargo === 'admin') return true
+    const perms = CARGOS_PERMISSOES[cargo] || []
+    return perms.includes(perm) || perms.includes("*")
+}
+
 type Tab = 'obrigatorio' | 'opcional' | 'acesso'
 interface FuncionarioForm {
     nome: string; numero_bi: string; data_nascimento: string; genero: string; nacionalidade: string; naturalidade: string; nome_pai: string; nome_mae: string; data_emissao_bi: string; data_validade_bi: string; local_emissao_bi: string; estado_civil: string; telefone: string; email: string; endereco: string; cidade: string; provincia: string; nif: string; banco1?: string; banco2?: string; iban?: string; iban2?: string; contacto_emergencia: string; tem_acesso: boolean; senha: string; cargo: string; area_principal_id?: string; areas_ids: string[];
@@ -61,7 +75,6 @@ function formatDisplay(iso: string) {
     if (!y ||!m ||!d) return iso
     return `${d}/${m}/${y}`
 }
-
 function isUUID(v: string) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 }
@@ -230,6 +243,20 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
         tem_acesso: false, senha: '', cargo: 'rh', area_principal_id: '', areas_ids: []
     })
 
+    const funcionarioLogado = useMemo(() => {
+        try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
+    }, [])
+
+    const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
+    const podeGerir = funcionarioLogado? temPermissao(cargoAtual, 'gerir_funcionarios') || cargoAtual === 'admin' : true
+    const nivelAtual = HIERARQUIA[cargoAtual] || 0
+
+    // RH não pode criar admin
+    const cargosDisponiveis = useMemo(() => {
+        if (cargoAtual === 'admin') return CARGOS
+        return CARGOS.filter(c => (HIERARQUIA[c.value] || 0) <= nivelAtual)
+    }, [cargoAtual, nivelAtual])
+
     useEffect(() => {
         if(open){
             api.get('/api/areas').then((r:any)=>{
@@ -254,6 +281,20 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
 
     if (!open) return null
 
+    if (!podeGerir) {
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/60" onClick={onClose}/>
+                <div className="relative bg-white rounded-[24px] p-8 text-center max-w-[360px] w-full">
+                    <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2"/>
+                    <p className="font-bold">Sem permissão</p>
+                    <p className="text-[13px] text-gray-500 mt-1">Cargo <b>{cargoAtual}</b> não pode gerir funcionários</p>
+                    <button onClick={onClose} className="mt-4 w-full h-11 bg-black text-white rounded-full">Fechar</button>
+                </div>
+            </div>
+        )
+    }
+
     const municipiosDisponiveis = form.provincia? (MUNICIPIOS[form.provincia] || []) : []
     const handleProvinceChange = (prov: string) => setForm(prev => ({...prev, provincia: prov, cidade: '' }))
     const handleCityChange = (cidade: string) => setForm(prev => ({...prev, cidade }))
@@ -266,6 +307,7 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
+        if (!podeGerir) { toast.error('Sem permissão'); return }
         if (!form.nome.trim()) { toast.error('Nome completo obrigatório'); setTab('obrigatorio'); return }
         if (!form.numero_bi.trim()) { toast.error('Nº do BI obrigatório'); setTab('obrigatorio'); return }
         if (!form.data_nascimento) { toast.error('Data nascimento obrigatória'); setTab('obrigatorio'); return }
@@ -275,6 +317,8 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
             if (!funcionario &&!form.senha.trim()) { toast.error('Senha obrigatória'); setTab('acesso'); return }
             if (form.senha && form.senha.length < 6) { toast.error('Senha mínima 6'); setTab('acesso'); return }
         }
+        const nivelNovo = HIERARQUIA[form.cargo] || 0
+        if (nivelNovo > nivelAtual && cargoAtual!== 'admin') { toast.error(`RH não pode criar cargo ${form.cargo}`); return }
 
         const areaPrincipalFinal = form.area_principal_id && isUUID(form.area_principal_id)? form.area_principal_id : null
         const areasIdsFinal = form.areas_ids.filter(id=>isUUID(id))
@@ -304,8 +348,8 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
                     <button onClick={onClose} className="w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center hover:bg-gray-50"><X className="w-4 h-4 text-gray-500" /></button>
                 </div>
                 <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
-                    <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{funcionario? 'Editar Funcionário' : 'Novo Funcionário'}</h3>
-                    <p className="text-[13.5px] text-gray-500 mt-1">Cadastro completo via BI</p>
+                    <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{funcionario? 'Editar Funcionário' : 'Novo Funcionário'} <span className="text-[10px] bg-black text-white px-2 py-1 rounded-full ml-2">{cargoAtual.toUpperCase()}</span></h3>
+                    <p className="text-[13.5px] text-gray-500 mt-1">Cadastro completo via BI • só {cargoAtual} pode criar até seu nível</p>
                     <div className="flex gap-[2px] mt-4 overflow-x-auto no-scrollbar">
                         <TabButton id="obrigatorio" label="Obrigatórios" icon={Info} />
                         <TabButton id="opcional" label="Opcionais" icon={Settings} />
@@ -384,8 +428,8 @@ export default function ModalFuncionario({ open, funcionario, saving, onClose, o
                                             <input value={form.senha} onChange={e => setForm({...form, senha: e.target.value })} type="password" placeholder={funcionario? "Nova senha (vazio mantém)" : "Senha (mín. 6) *"} className={`${inputClass} pl-10`} />
                                         </div>
                                         <div className="h-[1px] bg-gray-100 my-2" />
-                                        <p className="text-[11px] font-bold tracking-widest text-black mb-2">NÍVEL DE ACESSO</p>
-                                        <CustomSelect value={form.cargo} onChange={v => setForm({...form, cargo: v })} placeholder="Nível de acesso *" options={CARGOS} icon={Briefcase} />
+                                        <p className="text-[11px] font-bold tracking-widest text-black mb-2">NÍVEL DE ACESSO - você é {cargoAtual.toUpperCase()} não pode criar acima</p>
+                                        <CustomSelect value={form.cargo} onChange={v => setForm({...form, cargo: v })} placeholder="Nível de acesso *" options={cargosDisponiveis} icon={Briefcase} />
                                         {areasReais.length > 0? (
                                             <>
                                                 <CustomSelect value={form.area_principal_id || ''} onChange={v => setForm({...form, area_principal_id: v })} placeholder="Área principal" options={areasReais} icon={Building2} />

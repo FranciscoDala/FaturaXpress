@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Menu, Download, Printer, Share2 } from 'lucide-react'
+import { Menu, Download, Printer, Share2, Lock } from 'lucide-react'
 
 interface Props {
     dataSelecionada: string
@@ -13,6 +13,19 @@ interface Props {
     onClose: ()=>void
 }
 
+const CARGOS_PERMISSOES: Record<string, string[]> = {
+    admin: ["*"],
+    rh: ["gerir_funcionarios", "ver_ponto", "ver_relatorio_ponto", "gerar_relatorio"],
+    financeira: ["ver_relatorio_ponto", "ver_faturas"],
+    recepcao: ["ver_ponto"]
+}
+
+function temPermissao(cargo: string, perm: string) {
+    if (cargo === 'admin') return true
+    const perms = CARGOS_PERMISSOES[cargo] || []
+    return perms.includes(perm) || perms.includes("*")
+}
+
 function fmtHora(iso?: string){ if(!iso) return '---'; return new Date(iso).toLocaleTimeString('pt-AO') }
 function fmtDisplay(iso: string){ if(!iso) return '---'; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}` }
 function prettyFalta(motivo: string){ if(!motivo) return "Nao apareceu"; if(motivo.includes('|')) return motivo.split('|')[1]?.trim() || motivo; return motivo }
@@ -20,6 +33,14 @@ function toTitle(str: string){ if(!str) return '---'; return str.toLowerCase().r
 function formatAtraso(min: number){ if(!min || min <=0) return '---'; if(min < 60) return `${min}min atraso`; const h = Math.floor(min/60); const m = min % 60; return m===0? `${h}h atraso` : `${h}h${String(m).padStart(2,'0')}min atraso` }
 
 export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, faltas, funcs, empresa, usuario, minDate, hoje, onClose }: Props){
+    const funcionarioLogado = useMemo(() => {
+        try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
+    }, [])
+
+    const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
+    const podeVerRelatorio = funcionarioLogado? temPermissao(cargoAtual, 'ver_relatorio_ponto') || temPermissao(cargoAtual, 'ver_ponto') || temPermissao(cargoAtual, 'gerir_funcionarios') || cargoAtual === 'admin' : true
+    const podeBaixar = funcionarioLogado? temPermissao(cargoAtual, 'gerar_relatorio') || temPermissao(cargoAtual, 'ver_relatorio_ponto') || cargoAtual === 'admin' : true
+
     const emp = {
         nome: empresa?.nome || empresa?.companyName || '---',
         nif: empresa?.nif || '---',
@@ -48,6 +69,19 @@ export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, falta
         })
     },[funcs,pontos,faltas,usuarioLogadoNome])
 
+    if (!podeVerRelatorio) {
+        return (
+            <div className="fixed inset-0 z-[10000] bg-white flex items-center justify-center p-6">
+                <div className="text-center">
+                    <Lock className="w-10 h-10 mx-auto text-gray-300 mb-3"/>
+                    <p className="font-bold">Sem permissão para ver relatório</p>
+                    <p className="text-[13px] text-gray-500 mt-1">Cargo <b>{cargoAtual}</b> não tem acesso</p>
+                    <button onClick={onClose} className="mt-4 px-6 py-2 bg-black text-white rounded-full text-[13px]">Fechar</button>
+                </div>
+            </div>
+        )
+    }
+
     const FolhaTela = () => (
         <div id="relatorio-pdf" className="relative bg-white text-black w-[210mm] min-w-[210mm] min-h-[297mm] p-[10mm] flex flex-col border border-gray-200 overflow-hidden mx-auto" style={{ fontFamily: "var(--fonte-principal)" }}>
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
@@ -59,7 +93,7 @@ export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, falta
                     <div className="text-[11px] leading-[15px]"><p className="font-bold text-[14px] capitalize">{emp.nome.toLowerCase()}</p><p>NIF: {emp.nif}</p><p>Endereço: {emp.endereco}</p><p>Contactos: {emp.telefone}</p><p>Email: {emp.email}</p><p className="capitalize">{emp.cidade.toLowerCase()}</p></div>
                 </div>
                 <div className="flex justify-between items-start mt-6 border-b border-dotted border-gray-300 pb-3">
-                    <div className="text-[9px] leading-[13px] max-w-[400px]"><p className="font-bold text-[12px]">AUDITORIA DE PONTO</p><p className="mt-1">Data: {fmtDisplay(dataSelecionada)}</p><p>Período: {fmtDisplay(minDate)} até {fmtDisplay(hoje)}</p><p className="mt-1">Total: {funcs.length} | Presentes: {linhas.filter(l=>l.status!=='Falta' && l.status!=='Sem Registo').length} | Faltas: {linhas.filter(l=>l.status==='Falta').length}</p></div>
+                    <div className="text-[9px] leading-[13px] max-w-[400px]"><p className="font-bold text-[12px]">AUDITORIA DE PONTO - {cargoAtual.toUpperCase()}</p><p className="mt-1">Data: {fmtDisplay(dataSelecionada)}</p><p>Período: {fmtDisplay(minDate)} até {fmtDisplay(hoje)}</p><p className="mt-1">Total: {funcs.length} | Presentes: {linhas.filter(l=>l.status!=='Falta' && l.status!=='Sem Registo').length} | Faltas: {linhas.filter(l=>l.status==='Falta').length}</p></div>
                     <div className="text-right leading-[14px]"><p className="font-bold text-[15px]">{fmtDisplay(dataSelecionada)}</p><p className="text-[#777] text-[11px] mt-1">Relatório Diário</p><p className="font-bold text-[12px] mt-1">Original</p><p className="text-[10px] mt-1">Emissão: {new Date().toLocaleString('pt-AO')}</p></div>
                 </div>
                 <div className="mt-4 grid grid-cols-[90px_95px_95px_125px_1fr] gap-[5px]">
@@ -87,7 +121,7 @@ export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, falta
                     <div className="flex-1 border border-[#999] min-w-0 overflow-hidden"><div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] font-bold"><div className="flex-1 border-r border-[#999] py-[6px] px-1">RESUMO</div><div className="w-[50px] border-r border-[#999] py-[6px] text-center shrink-0">QTD</div><div className="w-[125px] border-r border-[#999] py-[6px] text-center shrink-0">PRESENTES</div><div className="w-[125px] py-[6px] text-center shrink-0">FALTAS</div></div><div className="flex text-[11px]"><div className="flex-1 border-r border-[#999] py-[6px] px-1 bg-[rgba(255,255,255,0.40)] truncate">Ponto do dia {fmtDisplay(dataSelecionada)}</div><div className="w-[50px] border-r border-[#999] py-[6px] text-center bg-[rgba(255,255,255,0.40)] shrink-0">{funcs.length}</div><div className="w-[125px] border-r border-[#999] py-[6px] text-right pr-2 bg-[rgba(255,255,255,0.40)] shrink-0">{linhas.filter(l=>l.status!=='Falta' && l.status!=='Sem Registo').length}</div><div className="w-[125px] py-[6px] text-right pr-2 bg-[rgba(255,255,255,0.40)] shrink-0">{linhas.filter(l=>l.status==='Falta').length}</div></div></div>
                     <div className="w-[300px] shrink-0"><div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999]"><div className="flex-1 py-[7px] px-2 text-right">Total Funcionários</div><div className="w-[135px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-2 shrink-0">{funcs.length}</div></div><div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999] border-t-0"><div className="flex-1 py-[7px] px-2 text-right">Presentes</div><div className="w-[135px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-2 shrink-0">{linhas.filter(l=>l.status!=='Falta' && l.status!=='Sem Registo').length}</div></div><div className="flex bg-[rgba(194,194,194,0.75)] text-[11px] font-bold border border-[#999] border-t-0"><div className="flex-1 py-[7px] px-2 text-right">FALTAS</div><div className="w-[135px] bg-[rgba(255,255,255,0.65)] border-l border-[#999] py-[7px] text-right pr-2 font-bold shrink-0">{linhas.filter(l=>l.status==='Falta').length}</div></div></div>
                 </div>
-                <div className="mt-4 bg-[rgba(255,255,255,0.40)] p-2 text-[11px] border border-dashed border-gray-300 rounded"><p className="font-bold mb-1">Observações:</p><p>Documento gerado automaticamente por {toTitle(usuarioLogadoNome)} - Sistema de ponto.</p></div>
+                <div className="mt-4 bg-[rgba(255,255,255,0.40)] p-2 text-[11px] border border-dashed border-gray-300 rounded"><p className="font-bold mb-1">Observações:</p><p>Documento gerado automaticamente por {toTitle(usuarioLogadoNome)} - Sistema de ponto. Cargo: {cargoAtual}</p></div>
                 <div className="mt-auto pt-8 flex flex-col items-center justify-center text-center"><p className="w-[260px] border-t border-black pt-2 text-[12px]">Assinatura Rh - {toTitle(usuarioLogadoNome)}</p>
                 </div>
             </div>
@@ -103,16 +137,25 @@ export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, falta
                 #relatorio-pdf{transform:scale(0.45);transform-origin:top center;margin-bottom:-55%;width:210mm!important;min-width:210mm!important}
               }
               @media print{.no-print{display:none!important} #relatorio-pdf-wrapper{overflow:visible!important} #relatorio-pdf{transform:none!important; margin:0!important; box-shadow:none!important; border:none!important} }
-              /* esconde scroll duplo */
               #relatorio-pdf-wrapper::-webkit-scrollbar{width:8px}
             `}</style>
 
             <div className="no-print h-[44px] bg-[#323233] flex items-center justify-between px-2 text-white shrink-0">
-                <div className="flex items-center gap-2 min-w-0"><button onClick={onClose} className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded shrink-0"><Menu className="w-4 h-4" /></button><p className="text-[11px] md:text-[13px] font-bold uppercase truncate">Folha De Ponto - {fmtDisplay(dataSelecionada)}</p></div>
-                <div className="flex items-center gap-1 shrink-0"><span className="bg-[#1e1e1e] text-[10px] px-1.5 py-0.5 rounded">1 / 1</span><button onClick={onClose} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Share2 className="w-4 h-4"/></button><button onClick={()=>window.print()} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Download className="w-4 h-4"/></button><button onClick={()=>window.print()} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Printer className="w-4 h-4"/></button></div>
+                <div className="flex items-center gap-2 min-w-0"><button onClick={onClose} className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded shrink-0"><Menu className="w-4 h-4" /></button><p className="text-[11px] md:text-[13px] font-bold uppercase truncate">Folha De Ponto - {fmtDisplay(dataSelecionada)} {cargoAtual.toUpperCase()}</p></div>
+                <div className="flex items-center gap-1 shrink-0">
+                    <span className="bg-[#1e1e1e] text-[10px] px-1.5 py-0.5 rounded">1 / 1</span>
+                    {podeBaixar? (
+                        <>
+                        <button onClick={onClose} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Share2 className="w-4 h-4"/></button>
+                        <button onClick={()=>window.print()} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Download className="w-4 h-4"/></button>
+                        <button onClick={()=>window.print()} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Printer className="w-4 h-4"/></button>
+                        </>
+                    ) : (
+                        <span className="text-[10px] bg-white/10 px-2 py-1 rounded-full">Somente visualização</span>
+                    )}
+                </div>
             </div>
 
-            {/* UNICO SCROLL-Y AQUI */}
             <div id="relatorio-pdf-wrapper">
                 <FolhaTela />
             </div>

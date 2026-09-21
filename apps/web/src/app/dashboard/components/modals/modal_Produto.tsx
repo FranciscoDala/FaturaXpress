@@ -1,7 +1,20 @@
-import { useState, useRef, ChangeEvent, useEffect } from 'react'
-import { X, Check, Package, Settings, Info, Upload, ChevronDown } from 'lucide-react'
+import { useState, useRef, ChangeEvent, useEffect, useMemo } from 'react'
+import { X, Check, Package, Settings, Info, Upload, ChevronDown, Lock } from 'lucide-react'
 import { api } from '../../../../lib/api'
 import { toast } from 'sonner'
+
+const CARGOS_PERMISSOES: Record<string, string[]> = {
+    admin: ["*"],
+    financeira: ["gerir_produtos", "criar_produto", "editar_produto"],
+    recepcao: [],
+    rh: []
+}
+
+function temPermissao(cargo: string, perm: string) {
+    if (cargo === 'admin') return true
+    const perms = CARGOS_PERMISSOES[cargo] || []
+    return perms.includes(perm) || perms.includes("*")
+}
 
 interface Produto {
     id?: string
@@ -92,6 +105,12 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
     const fileInputRef = useRef<HTMLInputElement>(null)
     const isEditing =!!produto?.id
 
+    const funcionarioLogado = useMemo(() => {
+        try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
+    }, [])
+    const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
+    const podeGerir = funcionarioLogado? temPermissao(cargoAtual, 'gerir_produtos') || temPermissao(cargoAtual, 'criar_produto') || cargoAtual === 'admin' : true
+
     const [form, setForm] = useState({
         nome: '', codigo: '', preco_venda: '', tipo: 'produto',
         useImagem: false, imagem_file: null as File | null, imagem_preview: '',
@@ -103,11 +122,10 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
         controlar_stock: true, stock_atual: '0', stock_minimo: '0'
     })
 
-    // REGRA IVA AUTOMATICA POR TIPO
     const handleTipoChange = (novoTipo: string) => {
         if (novoTipo === 'servico' || novoTipo === 'kit') {
             setForm(prev => ({
-               ...prev,
+              ...prev,
                 tipo: novoTipo,
                 useIva: false,
                 iva: '0',
@@ -116,7 +134,7 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
             }))
         } else {
             setForm(prev => ({
-               ...prev,
+              ...prev,
                 tipo: novoTipo,
                 useIva: true,
                 iva: prev.iva === '0'? '14' : prev.iva,
@@ -176,6 +194,7 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!podeGerir) { toast.error(`Cargo ${cargoAtual} sem permissão`); return }
         setLoading(true)
         try {
             const finalBarCode = form.codigo_barras || generateBarCode()
@@ -251,6 +270,20 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
 
     if (!open) return null
 
+    if (!podeGerir) {
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/60" onClick={onClose}/>
+                <div className="relative bg-white rounded-[24px] p-8 text-center max-w-[360px] w-full">
+                    <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2"/>
+                    <p className="font-bold">Sem permissão</p>
+                    <p className="text-[13px] text-gray-500 mt-1">Cargo <b>{cargoAtual.toUpperCase()}</b> não pode gerir produtos. Só ADMIN e FINANCEIRA.</p>
+                    <button onClick={onClose} className="mt-4 w-full h-11 bg-black text-white rounded-full">Fechar</button>
+                </div>
+            </div>
+        )
+    }
+
     const inputClass = "w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-2 text-[13.5px] text-black placeholder:text-black/60 focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition outline-none"
     const checkBoxCard = "flex items-center gap-2 h-[44px] px-2 border border-gray-200 rounded-[12px] cursor-pointer bg-white hover:bg-gray-50 transition shrink-0 w-full"
 
@@ -270,9 +303,12 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center">
                         <Package className="w-4 h-4 text-[#ff7a00]" />
                     </div>
-                    <button onClick={onClose} className="w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center hover:bg-gray-50">
-                        <X className="w-4 h-4 text-gray-500" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] bg-black text-white px-2 py-1 rounded-full font-bold">{cargoAtual.toUpperCase()} • {podeGerir? 'EDITAR' : 'SEM ACESSO'}</span>
+                        <button onClick={onClose} className="w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center hover:bg-gray-50">
+                            <X className="w-4 h-4 text-gray-500" />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
@@ -286,8 +322,8 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
 
                 <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-4">
                     <style>{`
-                     .no-scrollbar::-webkit-scrollbar { display: none; }
-                     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                   .no-scrollbar::-webkit-scrollbar { display: none; }
+                   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
                     `}</style>
 
                     {tab === 'obrigatorio' && (
@@ -382,7 +418,7 @@ export default function ProdutoModal({ open, produto, onClose, onSuccess }: Prop
                     <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition">
                         <X className="w-5 h-5 text-gray-600" />
                     </button>
-                    <button type="submit" disabled={loading} onClick={handleSubmit as any} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50 transition">
+                    <button type="submit" disabled={loading ||!podeGerir} onClick={handleSubmit as any} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50 transition">
                         {loading? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5" />}
                     </button>
                 </div>

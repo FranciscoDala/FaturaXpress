@@ -10,6 +10,19 @@ interface Props {
     setIsFullscreen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
+const CARGOS_PERMISSOES: Record<string, string[]> = {
+    admin: ["*"],
+    financeira: ["ver_faturas", "baixar_fatura"],
+    rh: [],
+    recepcao: ["ver_faturas"]
+}
+
+function temPermissao(cargo: string, perm: string) {
+    if (cargo === 'admin') return true
+    const perms = CARGOS_PERMISSOES[cargo] || []
+    return perms.includes(perm) || perms.includes("*")
+}
+
 const LogoDefault = ({ nome, size = 'small' }: { nome?: string; size?: 'small' | 'large' }) => {
     const inicial = (nome || 'T').charAt(0).toUpperCase()
     if (size === 'large') {
@@ -29,6 +42,12 @@ const LogoDefault = ({ nome, size = 'small' }: { nome?: string; size?: 'small' |
 
 export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
     const itensRaw = fatura?.itens || fatura?.items || []
+
+    const funcionarioLogado = useMemo(() => {
+        try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
+    }, [])
+    const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
+    const podeBaixar = funcionarioLogado? temPermissao(cargoAtual, 'baixar_fatura') || cargoAtual === 'admin' : true
 
     const clienteSafe = cliente || {
         nome: fatura?.cliente_nome || 'Consumidor Final',
@@ -122,7 +141,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
     const totalBase = Number(fatura?.subtotal || totais.liquido || 0).toFixed(2)
 
     const qrContent = (isOficial || isNC)
- ? `A:${(emp.nif || '').toString().padStart(10, '0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco || 'Luanda').slice(0, 35)}*L1:${emp.cidade || 'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior || ''}`
+? `A:${(emp.nif || '').toString().padStart(10, '0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco || 'Luanda').slice(0, 35)}*L1:${emp.cidade || 'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior || ''}`
         : `${getNumero(fatura)}|${fatura?.id}`
 
     const tituloDoc = isNC? 'NOTA DE CRÉDITO' : isOficial? 'FACTURA' : 'FACTURA PROFORMA'
@@ -135,10 +154,16 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
                 {hasLogo? <img src={emp.logo_url} alt="marca" className="w-[650px] h-[650px] object-contain opacity-[0.10]" /> : <LogoDefault nome={emp.nome} size="large" />}
             </div>
+            {/* WATERMARK PERMISSÃO */}
+            {!podeBaixar && (
+                <div className="absolute inset-0 z-[5] flex items-center justify-center pointer-events-none">
+                    <p className="text-[80px] font-black text-black/[0.06] rotate-[-25deg] tracking-widest">SÓ LEITURA - {cargoAtual.toUpperCase()}</p>
+                </div>
+            )}
             <div className="relative z-10 flex flex-col flex-1">
                 <div className="flex gap-3">
                     {hasLogo? <img src={emp.logo} className="w-[110px] h-[90px] object-contain shrink-0" alt="logo" /> : <LogoDefault nome={emp.nome} />}
-                    <div className="text-[11px] leading-[15px]"><p className="font-bold text-[14px]">{mask(emp.nome)}</p><p>NIF: {mask(emp.nif)}</p><p>Endereço: {mask(emp.endereco)}</p><p>Contactos: {mask(emp.telefone)}</p><p>Email: {mask(emp.email)}</p><p>{mask(emp.cidade)}</p></div>
+                    <div className="text-[11px] leading-[15px]"><p className="font-bold text-[14px]">{mask(emp.nome)}</p><p>NIF: {mask(emp.nif)}</p><p>Endereço: {mask(emp.endereco)}</p><p>Contactos: {mask(emp.telefone)}</p><p>Email: {mask(emp.email)}</p><p>{mask(emp.cidade)} • {cargoAtual.toUpperCase()} {podeBaixar? '' : '(cópia leitura)'}</p></div>
                 </div>
 
                 <div className={`flex justify-between items-start mt-6 border-b border-dotted border-gray-300 pb-3 ${isNC? 'bg-[#FFF0F0]' : ''}`}>
@@ -155,8 +180,8 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                     <div className="flex gap-3 items-start">
                         <div className="text-right leading-[14px]">
                             <p className={`font-bold text-[15px] ${isNC? 'text-red-600' : ''}`}>{numeroDoc || 'PROFORMA'}</p>
-                            <p className="text-[#777] text-[11px] mt-1">{isNC? 'Anula FT' : isOficial? 'Regime Geral' : 'Sem valor fiscal'}</p>
-                            <p className="font-bold text-[12px] mt-1">{isNC? 'CÓPIA NC' : isOficial? 'Original' : 'Proforma'}</p>
+                            <p className="text-[#777] text-[11px] mt-1">{isNC? 'Anula FT' : isOficial? 'Regime Geral' : 'Sem valor fiscal'} {podeBaixar? '' : '• LEITURA'}</p>
+                            <p className="font-bold text-[12px] mt-1">{isNC? 'CÓPIA NC' : isOficial? 'Original' : 'Proforma'} {cargoAtual.toUpperCase()}</p>
                             <p className="text-[10px] mt-1">Emissão: {fmtDataHora(dataEmissao)}</p>
                             <p className="text-[10px]">Venc: {fmtData(fatura?.data_vencimento || fatura?.validade_proforma)}</p>
                         </div>
@@ -235,7 +260,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                     </table>
                 </div>
 
-                {/* AJUSTE COLUNAS - AQUI ESTAVA A CONFUSÃO */}
                 <div className="flex mt-2 gap-1">
                     <div className="flex-1 border border-[#999] min-w-0 overflow-hidden">
                         <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] font-bold">
@@ -273,7 +297,7 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                     {!emp.iban &&!emp.iban2 && <p>IBAN ---</p>}
                 </div>
                 {fatura?.observacoes && <div className="mt-2 text-[11px]"><b>Observações:</b> {fatura.observacoes}</div>}
-                <div className="mt-auto border-t border-black flex justify-between items-center bg-[rgba(255,255,255,0.40)] px-1 pt-3"><span className="text-[9px] font-bold">Licenciado a: {mask(emp.nome)} | NIF: {mask(emp.nif)} | {mask(emp.endereco)} | Hash AGT validado</span><span className="text-[9px] font-bold">Pág. 1 de 1</span></div>
+                <div className="mt-auto border-t border-black flex justify-between items-center bg-[rgba(255,255,255,0.40)] px-1 pt-3"><span className="text-[9px] font-bold">Licenciado a: {mask(emp.nome)} | NIF: {mask(emp.nif)} | {mask(emp.endereco)} | Hash AGT validado | Acesso: {cargoAtual.toUpperCase()} {podeBaixar? '• cópia oficial' : '• cópia leitura sem valor fiscal'}</span><span className="text-[9px] font-bold">Pág. 1 de 1</span></div>
             </div>
         </div>
     )

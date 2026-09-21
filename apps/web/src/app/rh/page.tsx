@@ -80,7 +80,7 @@ export default function RHPage() {
         try {
             const { data } = await api.get('/api/funcionarios')
             const mapped = data.map((f: any) => ({
-              ...f,
+             ...f,
                 area: f.area_principal?.nome || f.area_principal_id || 'Geral',
                 cargo: f.cargo || 'rh',
                 status: f.status || (f.ativo === false? 'ferias' : 'ativo'),
@@ -221,7 +221,6 @@ export default function RHPage() {
                                     </button>
                                 </div>
                             </div>
-                            {/* TABS HEADER */}
                             <div className="mt-5 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
                                 <button onClick={() => setRhTab('presente')} className={`flex-1 py-2 ${rhTab === 'presente'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
                                     <p className="text-[13px] font-bold">{totalPresentes}</p><p className="text-[11px] text-gray-500">Presentes</p>
@@ -244,8 +243,8 @@ export default function RHPage() {
                         </div>
                     </div>
                     <style>{`
-        .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; }
-        .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
+       .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; }
+       .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
             @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }
           `}</style>
                 </div>
@@ -278,7 +277,7 @@ export default function RHPage() {
                                 <>
                                     {rhTab === 'presente' && <TabPresente funcionarios={presentes} search={search} onEdit={handleOpenEditFunc} />}
                                     {rhTab === 'ferias' && <TabFerias funcionarios={ferias} search={search} onEdit={handleOpenEditFunc} />}
-                                    {rhTab === 'ponto' && <TabPonto />}
+                                    {rhTab === 'ponto' && <TabPonto empresa={empresa} />}
                                     {rhTab === 'pedidos' && <TabPedidos />}
                                     {rhTab === 'recibos' && <TabRecibos />}
                                 </>

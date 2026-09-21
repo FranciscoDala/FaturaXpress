@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { X } from 'lucide-react'
 
 interface Props {
@@ -6,7 +6,7 @@ interface Props {
     pontos: any[]
     faltas: any[]
     funcs: any[]
-    empresa?: any // agora recebe da TabPonto
+    empresa?: any
     minDate: string
     hoje: string
     onClose: ()=>void
@@ -17,37 +17,15 @@ function fmtHora(iso?: string){ if(!iso) return '---'; return new Date(iso).toLo
 function fmtDisplay(iso: string){ if(!iso) return '---'; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}` }
 function prettyFalta(motivo: string){ if(!motivo) return "Nao apareceu"; if(motivo.includes('|')) return motivo.split('|')[1]?.trim() || motivo; return motivo }
 
-export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, faltas, funcs, empresa: empresaProp, minDate, hoje, onClose }: Props){
-    const [empresa, setEmpresa] = useState<any>(empresaProp || null)
-
-    useEffect(()=>{
-        if(empresaProp){ setEmpresa(empresaProp); return }
-        // CARREGA EM TEMPO REAL DO LOCALSTORAGE - SEM API, SEM 404, SEM TOAST
-        try{
-            const keys = ['empresa', 'empresa_logada', 'empresa_atual', 'dados_empresa', 'company', 'user', 'auth', 'funcionario_logado']
-            for(const k of keys){
-                const raw = localStorage.getItem(k)
-                if(!raw) continue
-                const parsed = JSON.parse(raw)
-                // se for {empresa: {...}} ou direto {...}
-                const cand = parsed?.empresa || parsed?.company || parsed?.empresa_logada || parsed
-                if(cand?.nome || cand?.companyName || cand?.nif){
-                    setEmpresa(cand)
-                    return
-                }
-            }
-        }catch{}
-        setEmpresa({ nome: 'Empresa', nif: '---' })
-    },[empresaProp])
-
+export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, faltas, funcs, empresa, minDate, hoje, onClose }: Props){
     const emp = {
-        nome: empresa?.nome || empresa?.companyName || empresa?.razao_social || '---',
-        nif: empresa?.nif || empresa?.nif_empresa || '---',
-        endereco: empresa?.endereco || empresa?.morada || empresa?.address || '---',
-        telefone: empresa?.telefone || empresa?.contactos || empresa?.phone || '---',
+        nome: empresa?.nome || empresa?.companyName || '---',
+        nif: empresa?.nif || '---',
+        endereco: empresa?.endereco || empresa?.morada || '---',
+        telefone: empresa?.telefone || empresa?.phone || '---',
         email: empresa?.email || '---',
-        cidade: empresa?.cidade || empresa?.city || '',
-        logo: empresa?.logo_url || empresa?.logo || empresa?.image_url || ''
+        cidade: empresa?.cidade || '',
+        logo: empresa?.logo_url || empresa?.image_url || empresa?.logo || ''
     }
 
     const linhas = useMemo(()=>{
@@ -91,7 +69,7 @@ export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, falta
                 </div>
 
                 <div className="mt-4 text-[10px] flex justify-between font-bold">
-                    <p>Periodo retroativo: {fmtDisplay(minDate)} ate {fmtDisplay(hoje)}</p>
+                    <p>Periodo: {fmtDisplay(minDate)} ate {fmtDisplay(hoje)}</p>
                     <p>Total: {funcs.length} | Presentes: {linhas.filter(l=>l.status!=='FALTA' && l.status!=='SEM REGISTO').length} | Faltas: {linhas.filter(l=>l.status==='FALTA').length}</p>
                 </div>
 
@@ -101,7 +79,7 @@ export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, falta
                 </table>
 
                 <div className="mt-6 text-[9px] leading-[13px] border-t-2 border-black pt-3 flex justify-between">
-                    <div><p>Documento gerado automaticamente.</p><p>Conversao: 177min = 2h57min | 308min = 5h08min</p></div>
+                    <div><p>Documento gerado automaticamente.</p></div>
                     <div className="text-right"><p>Assinatura RH: _________________________</p></div>
                 </div>
             </div>

@@ -46,7 +46,7 @@ function ModalAuditoriaRetro({ data, open, onClose, minDate, hoje, dataSeleciona
     )
 }
 
-export default function TabPonto() {
+export default function TabPonto({ empresa }: { empresa?: any }) {
     const [funcs, setFuncs] = useState<Func[]>([])
     const [pontos, setPontos] = useState<Ponto[]>([])
     const [faltas, setFaltas] = useState<Falta[]>([])
@@ -164,7 +164,7 @@ export default function TabPonto() {
                 </div>
                 {totalPages > 1 && (<div className="flex justify-between items-center p-2.5 border-t bg-gray-50"><button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-3 py-1 text-[11px] rounded-full border bg-white text-black disabled:opacity-40">Anterior</button><span className="text-[11px] text-black/60">Página {page} de {totalPages} • {formatDisplay(dataSelecionada)}</span><button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="px-3 py-1 text-[11px] rounded-full bg-black text-white disabled:opacity-40">Próxima</button></div>)}
             </div>
-            {openRelatorio && <RelatorioAuditoriaPonto dataSelecionada={dataSelecionada} pontos={pontos} faltas={faltas} funcs={funcs} minDate={minDate} hoje={hoje} onClose={()=>setOpenRelatorio(false)} />}
+            {openRelatorio && <RelatorioAuditoriaPonto dataSelecionada={dataSelecionada} pontos={pontos} faltas={faltas} funcs={funcs} empresa={empresa} minDate={minDate} hoje={hoje} onClose={()=>setOpenRelatorio(false)} />}
             <ModalAuditoriaRetro data={auditData} open={!!auditData} onClose={()=>setAuditData(null)} minDate={minDate} hoje={hoje} dataSelecionada={dataSelecionada} />
             <ModalCalendarioPonto open={openCal} value={dataSelecionada} onClose={() => setOpenCal(false)} onSelect={setDataSelecionada} />
             <ModalConfigPonto open={openCfg} onClose={() => { setOpenCfg(false); load() }} />

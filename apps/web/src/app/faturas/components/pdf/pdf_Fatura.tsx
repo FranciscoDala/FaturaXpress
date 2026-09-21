@@ -30,7 +30,6 @@ const LogoDefault = ({ nome, size = 'small' }: { nome?: string; size?: 'small' |
 
 export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
     const itensRaw = fatura?.itens || fatura?.items || []
-
     const clienteSafe = cliente || {
         nome: fatura?.cliente_nome || 'Consumidor Final',
         nif: fatura?.cliente_nif || '999999999',
@@ -41,7 +40,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
         codigo: fatura?.cliente_id?.slice(0, 8) || 'AVULSO',
         id: fatura?.cliente_id || null
     }
-
     const { itens, totais } = useMemo(() => {
         const parsed = itensRaw.map((it: any) => {
             const qtd = Number(it.quantidade?? it.qtd?? it.qty?? 1)
@@ -111,7 +109,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
     const mask = (v: string) => v && v.trim()!== ''? v : '---'
     const isOficial = fatura?.tipo_documento === 'fatura'
     const isNC = isNotaCredito(fatura)
-
     const dataEmissao = fatura?.data_emissao || fatura?.created_at
     const numeroDoc = isNC? fatura.numero_nota_credito : fatura?.numero_fatura || getNumero(fatura)
     const dataISO = dataEmissao? new Date(dataEmissao).toISOString().split('T')[0] : ''
@@ -120,11 +117,9 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
     const totalGeral = Number(fatura?.total_geral || totais.pagar || 0).toFixed(2)
     const totalIva = Number(fatura?.total_iva || totais.iva || 0).toFixed(2)
     const totalBase = Number(fatura?.subtotal || totais.liquido || 0).toFixed(2)
-
     const qrContent = (isOficial || isNC)
 ? `A:${(emp.nif || '').toString().padStart(10, '0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco || 'Luanda').slice(0, 35)}*L1:${emp.cidade || 'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior || ''}`
         : `${getNumero(fatura)}|${fatura?.id}`
-
     const tituloDoc = isNC? 'NOTA DE CRÉDITO' : isOficial? 'FACTURA' : 'FACTURA PROFORMA'
     const sigla1 = emp.banco1? emp.banco1.split('-')[0].trim() : ''
     const sigla2 = emp.banco2? emp.banco2.split('-')[0].trim() : ''
@@ -190,28 +185,8 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
                 </div>
                 <div className="w-full mt-2">
                     <table className="w-full border-collapse table-fixed">
-                        <colgroup>
-                          <col style={{ width: '12%' }} />
-                          <col style={{ width: '28%' }} />
-                          <col style={{ width: '6%' }} />
-                          <col style={{ width: '6%' }} />
-                          <col style={{ width: '15%' }} />
-                          <col style={{ width: '9%' }} />
-                          <col style={{ width: '7%' }} />
-                          <col style={{ width: '17%' }} />
-                        </colgroup>
-                        <thead>
-                          <tr className="bg-[rgba(194,194,194,0.65)] text-[11px] font-bold">
-                            <th className="border border-[#999] py-[7px] px-1 text-left">REFERÊNCIA</th>
-                            <th className="border border-[#999] py-[7px] px-1 text-left">PRODUTO / SERVIÇO</th>
-                            <th className="border border-[#999] py-[7px]">QTD.</th>
-                            <th className="border border-[#999] py-[7px]">UN.</th>
-                            <th className="border border-[#999] py-[7px]">PREÇO UNIT.</th>
-                            <th className="border border-[#999] py-[7px]">DESCONTO</th>
-                            <th className="border border-[#999] py-[7px]">TAXA</th>
-                            <th className="border border-[#999] py-[7px] text-right">VALOR (AKZ)</th>
-                          </tr>
-                        </thead>
+                        <colgroup><col style={{ width: '12%' }} /><col style={{ width: '28%' }} /><col style={{ width: '6%' }} /><col style={{ width: '6%' }} /><col style={{ width: '15%' }} /><col style={{ width: '9%' }} /><col style={{ width: '7%' }} /><col style={{ width: '17%' }} /></colgroup>
+                        <thead><tr className="bg-[rgba(194,194,194,0.65)] text-[11px] font-bold"><th className="border border-[#999] py-[7px] px-1 text-left">REFERÊNCIA</th><th className="border border-[#999] py-[7px] px-1 text-left">PRODUTO / SERVIÇO</th><th className="border border-[#999] py-[7px]">QTD.</th><th className="border border-[#999] py-[7px]">UN.</th><th className="border border-[#999] py-[7px]">PREÇO UNIT.</th><th className="border border-[#999] py-[7px]">DESCONTO</th><th className="border border-[#999] py-[7px]">TAXA</th><th className="border border-[#999] py-[7px] text-right">VALOR (AKZ)</th></tr></thead>
                         <tbody>
                             {itens.map((it: any, i: number) => (
                                 <tr key={i} className="text-[11px] h-[28px]">
@@ -231,31 +206,16 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
                 </div>
                 <div className="flex mt-2 gap-1">
                     <div className="flex-1 border border-[#999] min-w-0 overflow-hidden">
-                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] font-bold">
-                          <div className="flex-1 border-r border-[#999] py-[6px] px-1">IMPOSTO</div>
-                          <div className="w-[50px] border-r border-[#999] py-[6px] text-center shrink-0">TAXA</div>
-                          <div className="w-[125px] border-r border-[#999] py-[6px] text-center shrink-0">INCIDÊNCIA</div>
-                          <div className="w-[125px] py-[6px] text-center shrink-0">VALOR</div>
-                        </div>
+                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] font-bold"><div className="flex-1 border-r border-[#999] py-[6px] px-1">IMPOSTO</div><div className="w-[50px] border-r border-[#999] py-[6px] text-center shrink-0">TAXA</div><div className="w-[125px] border-r border-[#999] py-[6px] text-center shrink-0">INCIDÊNCIA</div><div className="w-[125px] py-[6px] text-center shrink-0">VALOR</div></div>
                         {Object.entries(totais.ivaPorTaxa).map(([taxa, d]: any) => {
                             const isIsento = taxa === 'Isento'
-                            return (
-                            <div key={taxa} className="flex text-[11px]">
-                              <div className="flex-1 border-r border-[#999] py-[6px] px-1 bg-[rgba(255,255,255,0.40)] truncate">{isIsento? '*M04 Isento' : `IVA ${taxa}`}</div>
-                              <div className="w-[50px] border-r border-[#999] py-[6px] text-center bg-[rgba(255,255,255,0.40)] shrink-0">{taxa}</div>
-                              <div className="w-[125px] border-r border-[#999] py-[6px] text-right pr-2 bg-[rgba(255,255,255,0.40)] shrink-0">{fmt(d.incidencia)}</div>
-                              <div className="w-[125px] py-[6px] text-right pr-2 bg-[rgba(255,255,255,0.40)] shrink-0">{fmt(d.valor)}</div>
-                            </div>
-                        )})}
+                            return (<div key={taxa} className="flex text-[11px]"><div className="flex-1 border-r border-[#999] py-[6px] px-1 bg-[rgba(255,255,255,0.40)] truncate">{isIsento? '*M04 Isento' : `IVA ${taxa}`}</div><div className="w-[50px] border-r border-[#999] py-[6px] text-center bg-[rgba(255,255,255,0.40)] shrink-0">{taxa}</div><div className="w-[125px] border-r border-[#999] py-[6px] text-right pr-2 bg-[rgba(255,255,255,0.40)] shrink-0">{fmt(d.incidencia)}</div><div className="w-[125px] py-[6px] text-right pr-2 bg-[rgba(255,255,255,0.40)] shrink-0">{fmt(d.valor)}</div></div>)})}
                     </div>
                     <div className="w-[300px] shrink-0">
                         <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999]"><div className="flex-1 py-[7px] px-2 text-right">Total Líquido</div><div className="w-[135px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-2 shrink-0">{fmt(totais.liquido)}</div></div>
                         <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999] border-t-0"><div className="flex-1 py-[7px] px-2 text-right">Total Desconto</div><div className="w-[135px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-2 shrink-0">{fmt(totais.desconto)}</div></div>
                         <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999] border-t-0"><div className="flex-1 py-[7px] px-2 text-right">Total IVA</div><div className="w-[135px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-2 shrink-0">{fmt(totais.iva)}</div></div>
-                        <div className={`flex text-[11px] font-bold border border-[#999] border-t-0 ${isNC? 'bg-[#FFD6D6]' : 'bg-[rgba(194,194,194,0.75)]'}`}>
-                          <div className="flex-1 py-[7px] px-2 text-right">TOTAL A PAGAR (AKZ)</div>
-                          <div className="w-[135px] bg-[rgba(255,255,255,0.65)] border-l border-[#999] py-[7px] text-right pr-2 font-bold shrink-0">{fmt(totais.pagar)}</div>
-                        </div>
+                        <div className={`flex text-[11px] font-bold border border-[#999] border-t-0 ${isNC? 'bg-[#FFD6D6]' : 'bg-[rgba(194,194,194,0.75)]'}`}><div className="flex-1 py-[7px] px-2 text-right">TOTAL A PAGAR (AKZ)</div><div className="w-[135px] bg-[rgba(255,255,255,0.65)] border-l border-[#999] py-[7px] text-right pr-2 font-bold shrink-0">{fmt(totais.pagar)}</div></div>
                     </div>
                 </div>
                 <div className="mt-4 bg-[rgba(255,255,255,0.40)] p-2 text-[11px] border border-dashed border-gray-300 rounded">
@@ -271,19 +231,18 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
     )
 
     return (
-        <div className="fixed inset-0 z-[10000] bg-[#525659] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-[10000] bg-[#525659] overflow-y-auto overflow-x-hidden">
             <style>{`
               @import url('https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap');
-              #fatura-pdf-wrapper{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;display:flex;justify-content:center;width:100%;background:transparent}
+              #fatura-pdf-wrapper{display:flex;justify-content:center;width:100%;background:transparent}
               #fatura-pdf{transform-origin:top center}
               @media (max-width:768px){
                 #fatura-pdf{transform:scale(0.45);transform-origin:top center;margin-bottom:-55%;width:210mm!important;min-width:210mm!important}
               }
-              @media print{.no-print{display:none!important} #fatura-pdf-wrapper{overflow:visible!important} #fatura-pdf{transform:none!important; margin:0!important; box-shadow:none!important; border:none!important} }
+              @media print{.no-print{display:none!important} #fatura-pdf{transform:none!important; margin:0!important; box-shadow:none!important; border:none!important} }
             `}</style>
 
-            {/* BARRA PADRÃO PDF IGUAL OUTROS */}
-            <div className="no-print h-[44px] bg-[#323233] flex items-center justify-between px-2 text-white shrink-0">
+            <div className="no-print sticky top-0 z-20 h-[44px] bg-[#323233] flex items-center justify-between px-2 text-white">
                 <div className="flex items-center gap-2 min-w-0">
                     <button onClick={onClose} className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded shrink-0"><Menu className="w-4 h-4" /></button>
                     <p className="text-[11px] md:text-[13px] font-bold uppercase truncate">{tituloDoc} - {numeroDoc}</p>
@@ -296,7 +255,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
                 </div>
             </div>
 
-            {/* UNICO SCROLL-Y AQUI */}
             <div id="fatura-pdf-wrapper">
                 <FolhaTela />
             </div>

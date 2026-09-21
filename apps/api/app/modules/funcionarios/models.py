@@ -1,7 +1,7 @@
 import uuid
 import enum
 from datetime import datetime, timezone, date
-from sqlalchemy import String, Boolean, ForeignKey, DateTime, Table, Column, Date, Text, Enum as SAEnum, Float, Integer, UniqueConstraint
+from sqlalchemy import String, Boolean, ForeignKey, DateTime, Table, Column, Date, Text, Enum as SAEnum, Float, Integer, UniqueConstraint, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
@@ -30,6 +30,8 @@ class TipoPedido(str, enum.Enum):
 class StatusPedido(str, enum.Enum):
     pendente = "pendente"
     pendente_justificacao = "pendente_justificacao"
+    aguardando_admin = "aguardando_admin"
+    encaminhado_admin = "encaminhado_admin"
     aprovado = "aprovado"
     justificado = "justificado"
     rejeitado = "rejeitado"
@@ -43,6 +45,12 @@ class TipoRecibo(str, enum.Enum):
 class StatusRecibo(str, enum.Enum):
     rascunho = "rascunho"
     publicado = "publicado"
+
+class DonoAtual(str, enum.Enum):
+    rh = "rh"
+    admin = "admin"
+    financeira = "financeira"
+    recepcao = "recepcao"
 
 class Funcionario(Base):
     __tablename__ = "funcionarios"
@@ -58,7 +66,7 @@ class Funcionario(Base):
     data_nascimento: Mapped[date] = mapped_column(Date, nullable=False)
     genero: Mapped[str] = mapped_column(String(10), nullable=False)
     nacionalidade: Mapped[str] = mapped_column(String(50), default="Angolana")
-    naturalidade: Mapped[str] = mapped_column(String(100), nullable=True)
+    naturalidade: Mapped[str | None] = mapped_column(String(100), nullable=True)
     nome_pai: Mapped[str] = mapped_column(String(150), nullable=False)
     nome_mae: Mapped[str] = mapped_column(String(150), nullable=False)
     data_emissao_bi: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -81,6 +89,7 @@ class Funcionario(Base):
     senha_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     cargo: Mapped[str] = mapped_column(String(20), default="rh", nullable=False)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    ultimo_reset_atrasos: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
     areas = relationship("Area", secondary=funcionario_areas, lazy="selectin")
@@ -154,13 +163,17 @@ class PedidoRH(Base):
     motivo_retroativo: Mapped[str | None] = mapped_column(Text, nullable=True)
     lancado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id", ondelete="SET NULL"), nullable=True, index=True)
     lancado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    # JUSTIFICATIVA REAL
     justificativa_tipo: Mapped[str | None] = mapped_column(String(50), nullable=True)
     justificativa_obs: Mapped[str | None] = mapped_column(Text, nullable=True)
     justificativa_anexo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     justificado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     justificado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id", ondelete="SET NULL"), nullable=True, index=True)
     abonada: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    dono_atual: Mapped[str] = mapped_column(String(20), default="rh", nullable=False, index=True)
+    area_origem: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    encaminhado_para_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    encaminhado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    encaminhado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id", ondelete="SET NULL"), nullable=True)
 
 class Recibo(Base):
     __tablename__ = "recibos"
@@ -177,3 +190,17 @@ class Recibo(Base):
     status: Mapped[str] = mapped_column(SAEnum(StatusRecibo), default=StatusRecibo.rascunho.value)
     publicado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class Notificacao(Base):
+    __tablename__ = "notificacoes"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=False)
+    tipo: Mapped[str] = mapped_column(String(30), nullable=False)
+    referencia_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    area_origem: Mapped[str] = mapped_column(String(20), nullable=False)
+    area_destino: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    dono_atual: Mapped[str] = mapped_column(String(20), default="rh", nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="pendente", nullable=False, index=True)
+    lida: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)

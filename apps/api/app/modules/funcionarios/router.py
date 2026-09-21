@@ -6,8 +6,7 @@ from app.db.session import get_db
 from app.core.security import get_current_company_id
 from app.modules.funcionarios.schemas import FuncionarioCreate, FuncionarioResponse, FuncionarioUpdate
 from app.modules.funcionarios import service as func_service
-from datetime import date
-from app.modules.funcionarios.models import Funcionario
+from app.modules.funcionarios.models import Funcionario, Notificacao
 
 router = APIRouter(prefix="/funcionarios", tags=["Funcionários"])
 
@@ -44,13 +43,12 @@ def desativar(funcionario_id: uuid.UUID, db: Session = Depends(get_db), company_
 
 @router.post("/login-bi")
 def login_bi(numero_bi: str, senha: str, db: Session = Depends(get_db)):
-    from app.modules.funcionarios.models import Funcionario
     from app.modules.funcionarios.service import pwd_context
     bi = numero_bi.strip().upper()
     func = db.query(Funcionario).filter(Funcionario.numero_bi == bi, Funcionario.tem_acesso == True, Funcionario.ativo == True).first()
     if not func or not func.senha_hash or not pwd_context.verify(senha, func.senha_hash):
         raise HTTPException(401, "BI ou senha inválidos")
-    return {"id": func.id, "nome": func.nome, "cargo": func.cargo, "company_id": func.company_id}
+    return {"id": str(func.id), "nome": func.nome, "cargo": func.cargo, "company_id": str(func.company_id)}
 
 rh_router = APIRouter(prefix="/rh", tags=["RH - Ponto"])
 
@@ -150,11 +148,9 @@ def falta_manual(payload: dict, db: Session = Depends(get_db), company_id: uuid.
         except: pass
     return func_service.marcar_falta_manual(db, company_id, fid, motivo, categoria, observacao, data_str, motivo_retroativo, lancado_uuid, is_admin=is_admin)
 
-
-
 @rh_router.post("/falta/{falta_id}/justificar")
 def falta_justificar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    tipo = payload.get("tipo", "atestado") # atestado, declaracao, licenca, outros
+    tipo = payload.get("tipo", "atestado")
     obs = payload.get("observacao")
     anexo_url = payload.get("anexo_url")
     justificado_por_id = payload.get("justificado_por_id")
@@ -172,6 +168,13 @@ def falta_aprovar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_
         aid = uuid.UUID(aprovado_por_id) if aprovado_por_id else None
     except:
         aid = None
+    # trava de dono
+    falta = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id==falta_id, func_service.PedidoRH.company_id==company_id).first()
+    if falta and getattr(falta, "dono_atual", "rh")=="admin":
+        # só admin pode aprovar aqui
+        solicitante = db.query(Funcionario).filter(Funcionario.id==aid).first() if aid else None
+        if not solicitante or solicitante.cargo!= "admin":
+            raise HTTPException(403, "Falta já encaminhada para admin. Só admin pode aprovar.")
     return func_service.aprovar_falta(db, company_id, falta_id, aid, obs)
 
 @rh_router.post("/falta/{falta_id}/rejeitar")
@@ -182,8 +185,62 @@ def falta_rejeitar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get
         aid = uuid.UUID(aprovado_por_id) if aprovado_por_id else None
     except:
         aid = None
+    falta = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id==falta_id, func_service.PedidoRH.company_id==company_id).first()
+    if falta and getattr(falta, "dono_atual", "rh")=="admin":
+        solicitante = db.query(Funcionario).filter(Funcionario.id==aid).first() if aid else None
+        if not solicitante or solicitante.cargo!= "admin":
+            raise HTTPException(403, "Falta já encaminhada para admin. Só admin pode rejeitar.")
     return func_service.rejeitar_falta(db, company_id, falta_id, aid, obs)
 
 @rh_router.delete("/falta/{falta_id}")
 def falta_remover(falta_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return func_service.remover_falta(db, company_id, falta_id)
+
+@rh_router.post("/falta/{falta_id}/encaminhar-admin")
+def falta_encaminhar_admin(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    encaminhado_por_id = payload.get("encaminhado_por_id")
+    try:
+        eid = uuid.UUID(encaminhado_por_id) if encaminhado_por_id else None
+    except:
+        eid = None
+    return func_service.encaminhar_falta_para_admin(db, company_id, falta_id, eid)
+
+@rh_router.get("/notificacoes")
+def notificacoes(area: str = Query(..., description="rh, admin, financeira, recepcao"), status: Optional[str] = None, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    if area not in ["rh","admin","financeira","recepcao"]:
+        raise HTTPException(400, "Area inválida")
+    return func_service.listar_notificacoes(db, company_id, area, status)
+
+@rh_router.post("/notificacoes/{notificacao_id}/lida")
+def notificacao_lida(notificacao_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    notif = db.query(Notificacao).filter(Notificacao.id == notificacao_id, Notificacao.company_id == company_id).first()
+    if not notif:
+        raise HTTPException(404, "Notificação não encontrada")
+    notif.lida = True
+    notif.status = "lida"
+    db.commit()
+    return {"ok": True}
+
+
+
+@rh_router.post("/atrasos/{funcionario_id}/aplicar")
+def atraso_aplicar(funcionario_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    aplicado_por_id = payload.get("aplicado_por_id")
+    try:
+        aid = uuid.UUID(aplicado_por_id) if aplicado_por_id else None
+    except:
+        aid = None
+    return func_service.aplicar_falta_por_atraso(db, company_id, funcionario_id, aid)
+
+@rh_router.post("/atrasos/{funcionario_id}/ignorar")
+def atraso_ignorar(funcionario_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    return func_service.ignorar_atrasos(db, company_id, funcionario_id)
+
+@rh_router.post("/atrasos/{funcionario_id}/encaminhar-admin")
+def atraso_encaminhar(funcionario_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    encaminhado_por_id = payload.get("encaminhado_por_id")
+    try:
+        eid = uuid.UUID(encaminhado_por_id) if encaminhado_por_id else None
+    except:
+        eid = None
+    return func_service.encaminhar_atraso_para_admin(db, company_id, funcionario_id, eid)

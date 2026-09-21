@@ -156,3 +156,15 @@ class FuncionarioResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class NotificacaoResponse(BaseModel):
+    notificacao_id: UUID
+    tipo: str
+    area_origem: str
+    area_destino: str
+    dono_atual: str
+    status_notificacao: str
+    lida: bool
+    created_at: datetime
+    falta: dict | None = None

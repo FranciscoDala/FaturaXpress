@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { User, Crown, Power, Search, Menu } from 'lucide-react'
+import { User, Crown, Power, Search, Menu, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import GlobalAreas from '../../components/GlobalAreas'
 import ModalConfirmSair from '../dashboard/components/modals/modal_ConfirmSair'
@@ -16,6 +16,20 @@ import { api } from '../../lib/api'
 type RHTab = 'presente' | 'ferias' | 'ponto' | 'pedidos' | 'recibos'
 const LS_KEYS = { tab: 'rh_tab' }
 const PLAN_LIMITS: Record<string, { label: string }> = { free: { label: 'FREE' }, plus: { label: 'PLUS' }, premium: { label: 'PREMIUM' }, diamond: { label: 'DIAMOND' }, }
+
+const CARGOS_PERMISSOES: Record<string, string[]> = {
+    admin: ["*"],
+    financeira: ["emitir_ft", "emitir_pp", "ver_faturas", "ver_relatorios"],
+    recepcao: ["emitir_ft", "emitir_pp", "ver_faturas"],
+    rh: ["gerir_funcionarios", "gerir_areas", "ver_funcionarios", "ver_ponto", "ver_pedidos"]
+}
+
+function temPermissao(cargo: string | undefined, perm: string) {
+    if (!cargo) return false
+    if (cargo === 'admin') return true
+    const perms = CARGOS_PERMISSOES[cargo.toLowerCase()] || []
+    return perms.includes(perm) || perms.includes("*")
+}
 
 function getInitialFromStorage(searchParams: URLSearchParams) {
     const urlTab = searchParams.get('rtab') as RHTab | null
@@ -49,20 +63,42 @@ export default function RHPage() {
         if (!raw) return ''
         return raw.replace(/^http:\/\//i, 'https://')
     }, [empresa])
+
+    // IGUAL DASHBOARD - pega funcionario logado separado, não substitui empresa
+    const funcionarioLogado = useMemo(() => {
+        try {
+            const raw = localStorage.getItem("funcionario")
+            if (!raw) return null
+            return JSON.parse(raw)
+        } catch { return null }
+    }, [empresa])
+
+    const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
+    const isAdmin = cargoAtual === 'admin'
+    const podeGerirRH = isAdmin || temPermissao(cargoAtual, 'gerir_funcionarios')
+    const podeVerPonto = isAdmin || temPermissao(cargoAtual, 'ver_ponto') || temPermissao(cargoAtual, 'gerir_funcionarios')
+
     const planId = (empresa?.subscription_plan || 'free').toLowerCase()
     const planInfo = PLAN_LIMITS[planId] || PLAN_LIMITS.free
 
     const fetchMe = useCallback(async () => {
         try {
-            const r = await api.get('/api/auth/me')
+            const tipo = localStorage.getItem("login_tipo") || "company"
+            const url = tipo === "funcionario"? "/api/auth/me-funcionario" : "/api/auth/me"
+            const r = await api.get(url)
             const comp = r.data.company || r.data
-            const user = r.data.user || r.data
+            const user = r.data.funcionario || r.data.user || r.data
             setEmpresa(comp)
             setUsuario(user)
+            if (r.data.funcionario) {
+                localStorage.setItem("funcionario", JSON.stringify(r.data.funcionario))
+            }
             const nome = comp.nome || comp.companyName || localStorage.getItem("company_name")
             if (nome) { setCompanyName(nome); localStorage.setItem("company_name", nome) }
-        } catch {}
-    }, [])
+        } catch (err: any) {
+            if (err?.response?.status === 401) { localStorage.clear(); navigate('/login') }
+        }
+    }, [navigate])
 
     const fetchFuncionarios = useCallback(async () => {
         setLoadingFunc(true)
@@ -104,8 +140,14 @@ export default function RHPage() {
 
     const handleLogout = () => setModalSairOpen(true)
     const handleConfirmLogout = () => { localStorage.clear(); toast.success("Sessão encerrada"); setModalSairOpen(false); navigate('/login') }
-    const handleOpenCreateFunc = () => { setFuncSelecionado(null); setModalFuncOpen(true); setOpenNovo(false) }
-    const handleOpenEditFunc = (f: any) => { setFuncSelecionado(f); setModalFuncOpen(true) }
+    const handleOpenCreateFunc = () => {
+        if (!podeGerirRH) { toast.error('Sem permissão', {description: 'Só admin e RH podem criar'}); return }
+        setFuncSelecionado(null); setModalFuncOpen(true); setOpenNovo(false)
+    }
+    const handleOpenEditFunc = (f: any) => {
+        if (!podeGerirRH) { toast.error('Sem permissão'); return }
+        setFuncSelecionado(f); setModalFuncOpen(true)
+    }
     const handleSaveFuncionario = async (data: any) => {
         setSavingFunc(true)
         try {
@@ -125,6 +167,20 @@ export default function RHPage() {
     const totalPresentes = funcionarios.filter(f => f.status === 'ativo').length
     const totalFerias = funcionarios.filter(f => f.status === 'ferias').length
 
+    // BLOQUEIO IGUAL DASHBOARD - se for financeira/recepcao, não pode ver RH
+    if (funcionarioLogado &&!podeGerirRH &&!podeVerPonto) {
+        return (
+            <div className="min-h-screen bg-white flex items-center justify-center p-6">
+                <div className="max-w-[400px] w-full bg-white border rounded-[24px] p-8 text-center shadow-lg">
+                    <div className="w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center mx-auto"><AlertTriangle className="w-6 h-6 text-red-600"/></div>
+                    <h2 className="text-[18px] font-bold mt-4">Sem acesso ao RH</h2>
+                    <p className="text-[13px] text-gray-500 mt-2">Seu cargo <b>{cargoAtual}</b> não tem permissão para gerir funcionários.</p>
+                    <button onClick={()=>navigate('/app/dashboard')} className="mt-6 w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold">Voltar ao Dashboard</button>
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div className="min-h-screen bg-white relative">
             <GlobalAreas />
@@ -143,7 +199,14 @@ export default function RHPage() {
                         <div className="flex-1 w-full min-w-0">
                             <div className="flex flex-row justify-between items-start gap-3 w-full">
                                 <div className="flex flex-col items-start text-left flex-1 min-w-0">
-                                    <h1 className="text-[16px] sm:text-[19px] font-bold text-[#1a202c] uppercase tracking-wide leading-tight truncate max-w-[180px] sm:max-w-[320px]">{companyName || 'CONNECT'}</h1>
+                                    <div className="flex items-center flex-wrap gap-2">
+                                        <h1 className="text-[16px] sm:text-[19px] font-bold text-[#1a202c] uppercase tracking-wide leading-tight truncate max-w-[180px] sm:max-w-[320px]">{companyName || 'CONNECT'}</h1>
+                                        {funcionarioLogado && (
+                                            <span className="inline-flex items-center px-2.5 py-[3px] rounded-full bg-[#E6F0FF] border border-blue-200 text-[10px] font-bold text-[#0095ff] tracking-wide">
+                                                {funcionarioLogado.cargo?.toUpperCase()} • {funcionarioLogado.nome?.split(' ')[0]}
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="mt-2.5 space-y-0 text-[12px] sm:text-[13px] text-gray-700 leading-[1.4]"><p><span className="font-medium text-gray-500">NIF:</span> {empresa?.nif || '---'}</p><p><span className="font-medium text-gray-500">Tel:</span> {empresa?.telefone || empresa?.phone || '---'}</p><p className="truncate max-w-[220px] sm:max-w-none"><span className="font-medium text-gray-500">Email:</span> {empresa?.email || '---'}</p></div>
                                     <div className="mt-4 space-y-0 w-full"><p className="text-[11px] text-gray-500">Funcionários - {loadingFunc? '...' : `${funcionarios.length} registados`}</p><p className="text-[11px] text-gray-500">Ativos - <span className="text-[#22c55e] font-bold text-[13px]">{totalPresentes} ativos</span></p><p className="text-[11px] text-gray-600 font-medium">Férias - {totalFerias} este mês</p></div>
                                 </div>
@@ -160,7 +223,25 @@ export default function RHPage() {
                     </div>
                     <style>{`.bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; }.bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; } @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }`}</style>
                 </div>
-                {openNovo && (<div data-novo-dropdown style={{ top: novoDropdownPos.top, left: novoDropdownPos.left, width: novoDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999]"><button onClick={() => { setRhTab('presente'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] ${rhTab === 'presente'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-100'} text-black`}>Presentes</button><button onClick={() => { setRhTab('ferias'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] ${rhTab === 'ferias'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-100'} text-black`}>Férias</button><button onClick={() => { setRhTab('ponto'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] ${rhTab === 'ponto'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-100'} text-black`}>Ponto hoje</button><button onClick={() => { setRhTab('pedidos'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] ${rhTab === 'pedidos'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-100'} text-black`}>Pedidos RH</button><button onClick={() => { setRhTab('recibos'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] ${rhTab === 'recibos'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-100'} text-black`}>Recibos</button><div className="h-[1px] bg-gray-200 my-2 mx-2" /><button onClick={handleOpenCreateFunc} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] hover:bg-gray-100 text-black">+ Novo funcionário</button></div>)}
+                {openNovo && (
+                <div data-novo-dropdown style={{ top: novoDropdownPos.top, left: novoDropdownPos.left, width: novoDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999]">
+                    <button onClick={() => { setRhTab('presente'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] ${rhTab === 'presente'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-100'} text-black`}>Presentes</button>
+                    <button onClick={() => { setRhTab('ferias'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] ${rhTab === 'ferias'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-100'} text-black`}>Férias</button>
+                    {podeVerPonto && (
+                        <>
+                        <button onClick={() => { setRhTab('ponto'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] ${rhTab === 'ponto'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-100'} text-black`}>Ponto hoje</button>
+                        <button onClick={() => { setRhTab('pedidos'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] ${rhTab === 'pedidos'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-100'} text-black`}>Pedidos RH</button>
+                        <button onClick={() => { setRhTab('recibos'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] ${rhTab === 'recibos'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-100'} text-black`}>Recibos</button>
+                        </>
+                    )}
+                    <div className="h-[1px] bg-gray-200 my-2 mx-2" />
+                    {podeGerirRH? (
+                        <button onClick={handleOpenCreateFunc} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] hover:bg-gray-100 text-black font-semibold">+ Novo funcionário</button>
+                    ) : (
+                        <div className="px-4 py-3 text-[11px] text-gray-400">Sem permissão para criar</div>
+                    )}
+                </div>
+                )}
                 <div className="w-full py-6"><div className="w-full px-4 sm:px-0 mt-0">{(rhTab === 'presente' || rhTab === 'ferias') && (<div className="flex gap-4 overflow-x-auto pb-3 mb-4 [&::-webkit-scrollbar]:hidden"><div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] flex-shrink-0"><Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder={rhTab === 'ferias'? 'Buscar em férias' : 'Buscar funcionário'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow" /></div></div>)}
                         <div id="tabela">{loadingFunc? <p className="text-center py-16 bg-white rounded-[20px] border text-black/50">Carregando...</p> : (<>{rhTab === 'presente' && <TabPresente funcionarios={presentes} search={search} onEdit={handleOpenEditFunc} />}{rhTab === 'ferias' && <TabFerias funcionarios={ferias} search={search} onEdit={handleOpenEditFunc} />}{rhTab === 'ponto' && <TabPonto empresa={empresa} usuario={usuario} />}{rhTab === 'pedidos' && <TabPedidos />}{rhTab === 'recibos' && <TabRecibos />}</>)}</div>
                     </div>

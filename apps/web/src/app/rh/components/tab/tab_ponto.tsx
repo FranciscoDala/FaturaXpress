@@ -120,7 +120,6 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
             <div className="bg-white rounded-[16px] border overflow-hidden">
                 <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 w-full">
-                        {/* DATE + RETROATIVO na mesma linha, lado a lado */}
                         <div className="w-full md:w-auto flex items-center gap-2">
                             <button type="button" onClick={() => setOpenCal(true)} className="flex-1 md:flex-none md:w-auto min-w-0 h-[40px] md:h-[36px] px-3 bg-white border rounded-full flex items-center justify-between gap-2 text-[14px] md:text-[13px] font-bold text-black hover:border-black transition shrink">
                                 <span className="flex items-center gap-2 truncate"><Calendar className="w-4 h-4 shrink-0" />{formatDisplay(dataSelecionada)}</span>
@@ -157,7 +156,42 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
                         return (
                             <div key={f.id} className="px-3 md:px-4 py-2.5 border-b last:border-b-0 flex justify-between items-center gap-3">
                                 <div className="min-w-0 flex-1"><p className="font-bold text-[13px] text-black truncate">{f.nome} <span className="font-normal text-black/60">• {f.funcao}</span></p>
-                                    {falta? (<div className="mt-1.5 flex flex-wrap gap-1"><span className="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] text-red-700">Falta • {prettyFalta(falta.motivo)} {falta.is_retroativo && '(retro)'} • pendente</span><button onClick={() => setAuditData({...falta, _kind: 'falta' } as AuditData)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-bold hover:bg-amber-100"><Info className="w-3 h-3"/> audit</button></div>) : lista.length === 0? (<div className="mt-1.5 flex flex-wrap gap-1 items-center"><span className="text-[11px] text-black/60">Sem ponto em {formatDisplay(dataSelecionada)}</span>{atrasos > 0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium">{atrasos} atraso</span>}</div>) : (<div className="mt-1.5 flex flex-wrap gap-1.5">{lista.map(p => { const isAtraso =!!(p.atraso_min && p.atraso_min > 0); const isRetroPonto =!!p.is_retroativo; const baseCls = `inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] border transition hover:scale-[1.02] active:scale-95 cursor-pointer`; if (isAtraso) { return (<button key={p.id} onClick={() => setAuditData({...p, _kind: 'ponto' } as AuditData)} className={`${baseCls} bg-amber-50 border-amber-200 text-amber-800 font-medium ${isRetroPonto? 'ring-1 ring-amber-300' : ''}`}>entrada {new Date(p.timestamp).toLocaleTimeString('pt-AO')} ({formatAtraso(p.atraso_min!)}){isRetroPonto && <><span className="w-px h-3 bg-amber-300 mx-1"/> <Info className="w-3 h-3"/> retro</>}</button>) } return (<button key={p.id} onClick={() => { if(p.is_retroativo) setAuditData({...p, _kind: 'ponto' } as AuditData) }} className={`${baseCls} ${p.tipo === 'entrada'? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff] font-semibold' : 'bg-gray-50 border-gray-200 text-black/60'} ${isRetroPonto? 'bg-amber-50! border-amber-200! text-amber-800! ring-1 ring-amber-300' : ''} ${!isRetroPonto? 'cursor-default' : ''}`}>{p.tipo} {new Date(p.timestamp).toLocaleTimeString('pt-AO')}{isRetroPonto && <><span className="w-px h-3 bg-amber-300 mx-1"/> <Info className="w-3 h-3"/> retro</>}</button>) })}{atrasos > 0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium">{atrasos} atraso</span>}</div>)}
+                                    {falta? (
+                                      <div className="mt-1.5 flex flex-wrap gap-1">
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] text-red-700">
+                                          Falta • {prettyFalta(falta.motivo)} {falta.is_retroativo && '(retro)'} • pendente
+                                        </span>
+                                        <button onClick={() => setAuditData({...falta, _kind: 'falta' } as AuditData)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-bold hover:bg-amber-100">
+                                          <Info className="w-3 h-3"/> Ver motivo
+                                        </button>
+                                      </div>
+                                    ) : lista.length === 0? (
+                                      <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                                        <span className="text-[11px] text-black/60">Sem ponto em {formatDisplay(dataSelecionada)}</span>
+                                        {atrasos > 0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium">{atrasos} atraso</span>}
+                                      </div>
+                                    ) : (
+                                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                        {lista.map(p => {
+                                          const isAtraso =!!(p.atraso_min && p.atraso_min > 0);
+                                          const isRetroPonto =!!p.is_retroativo;
+                                          const baseCls = `inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] border transition hover:scale-[1.02] active:scale-95 cursor-pointer`;
+                                          if (isAtraso) {
+                                            return (
+                                              <button key={p.id} onClick={() => setAuditData({...p, _kind: 'ponto' } as AuditData)} className={`${baseCls} bg-amber-50 border-amber-200 text-amber-800 font-medium ${isRetroPonto? 'ring-1 ring-amber-300' : ''}`}>
+                                                entrada {new Date(p.timestamp).toLocaleTimeString('pt-AO')} ({formatAtraso(p.atraso_min!)}){isRetroPonto && <><span className="w-px h-3 bg-amber-300 mx-1"/> <Info className="w-3 h-3"/> Ver motivo</>}
+                                              </button>
+                                            )
+                                          }
+                                          return (
+                                            <button key={p.id} onClick={() => { if(p.is_retroativo) setAuditData({...p, _kind: 'ponto' } as AuditData) }} className={`${baseCls} ${p.tipo === 'entrada'? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff] font-semibold' : 'bg-gray-50 border-gray-200 text-black/60'} ${isRetroPonto? 'bg-amber-50! border-amber-200! text-amber-800! ring-1 ring-amber-300' : ''} ${!isRetroPonto? 'cursor-default' : ''}`}>
+                                              {p.tipo} {new Date(p.timestamp).toLocaleTimeString('pt-AO')}{isRetroPonto && <><span className="w-px h-3 bg-amber-300 mx-1"/> <Info className="w-3 h-3"/> Ver motivo</>}
+                                            </button>
+                                          )
+                                        })}
+                                        {atrasos > 0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium">{atrasos} atraso</span>}
+                                      </div>
+                                    )}
                                 </div>
                                 <div className="flex gap-1.5 shrink-0">{falta? (<span className="h-[26px] px-3 flex items-center text-[11px] bg-red-600 text-white rounded-full font-medium">Falta</span>) :!temEntrada? (<><button disabled={batendo === f.id} onClick={() => bater(f.id, 'entrada')} className="h-[26px] px-3 bg-[#0095ff] text-white rounded-full text-[11px] font-medium disabled:opacity-50 hover:bg-[#0085e6]">Entrada</button><button onClick={() => setOpenFalta({ open: true, func: f })} className="h-[26px] px-3 bg-red-50 border border-red-200 text-red-600 rounded-full text-[11px] font-medium hover:bg-red-100">Falta</button></>) :!temSaida? (<button disabled={batendo === f.id} onClick={() => bater(f.id, 'saida')} className="h-[26px] px-3 border border-gray-200 bg-white rounded-full text-[11px] text-black hover:bg-gray-50">Saída</button>) : (<span className="h-[26px] px-3 flex items-center text-[11px] bg-gray-100 text-black rounded-full border">Completo</span>)}</div>
                             </div>

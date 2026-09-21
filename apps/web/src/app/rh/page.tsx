@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { User, Crown, Power, Search, Menu, AlertTriangle } from 'lucide-react'
+import { User, Crown, Power, Search, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import GlobalAreas from '../../components/GlobalAreas'
 import ModalConfirmSair from '../dashboard/components/modals/modal_ConfirmSair'
@@ -53,10 +53,6 @@ export default function RHPage() {
     const [loadingFunc, setLoadingFunc] = useState(true)
     const [rhTab, setRhTab] = useState<RHTab>(init.tab)
     const [search, setSearch] = useState('')
-    const [openNovo, setOpenNovo] = useState(false)
-    const novoWrapperRef = useRef<HTMLDivElement>(null)
-    const novoBtnRef = useRef<HTMLButtonElement>(null)
-    const [novoDropdownPos, setNovoDropdownPos] = useState({ top: 0, left: 0, width: 320 })
 
     const logoUrlSafe = useMemo(() => {
         const raw = empresa?.logo_url || empresa?.image_url || ''
@@ -64,7 +60,6 @@ export default function RHPage() {
         return raw.replace(/^http:\/\//i, 'https://')
     }, [empresa])
 
-    // IGUAL DASHBOARD - pega funcionario logado separado, não substitui empresa
     const funcionarioLogado = useMemo(() => {
         try {
             const raw = localStorage.getItem("funcionario")
@@ -110,39 +105,30 @@ export default function RHPage() {
     }, [])
 
     useEffect(() => { fetchMe(); fetchFuncionarios() }, [fetchMe, fetchFuncionarios])
-    useEffect(() => { localStorage.setItem(LS_KEYS.tab, rhTab); const params = new URLSearchParams(searchParams); params.set('rtab', rhTab); setSearchParams(params, { replace: true }) }, [rhTab])
 
-    const updateNovoPos = () => {
-        if (novoBtnRef.current) {
-            const r = novoBtnRef.current.getBoundingClientRect()
-            const width = 320
-            const isMobile = window.innerWidth < 768
-            const left = isMobile? window.innerWidth - width - 16 : r.right - width
-            setNovoDropdownPos({ top: r.bottom + 8, left: Math.max(16, left), width })
-        }
-    }
-    useEffect(() => { if (openNovo) updateNovoPos() }, [openNovo])
     useEffect(() => {
-        if (!openNovo) return
-        const handle = () => updateNovoPos()
-        window.addEventListener('scroll', handle, true)
-        window.addEventListener('resize', handle)
-        return () => { window.removeEventListener('scroll', handle, true); window.removeEventListener('resize', handle) }
-    }, [openNovo])
+        localStorage.setItem(LS_KEYS.tab, rhTab);
+        const params = new URLSearchParams(searchParams);
+        params.set('rtab', rhTab);
+        setSearchParams(params, { replace: true })
+    }, [rhTab])
+
+    // sidebar -> RH
     useEffect(() => {
-        const close = (e: MouseEvent) => {
-            const target = e.target as HTMLElement
-            if (novoWrapperRef.current &&!novoWrapperRef.current.contains(e.target as Node) &&!target.closest('[data-novo-dropdown]')) setOpenNovo(false)
+        const handler = (e: any) => { if (e.detail?.rtab) setRhTab(e.detail.rtab) }
+        window.addEventListener('rh-nav' as any, handler)
+        window.addEventListener('sidebar-nav-rh' as any, handler)
+        return () => {
+            window.removeEventListener('rh-nav' as any, handler)
+            window.removeEventListener('sidebar-nav-rh' as any, handler)
         }
-        document.addEventListener('mousedown', close)
-        return () => document.removeEventListener('mousedown', close)
     }, [])
 
     const handleLogout = () => setModalSairOpen(true)
     const handleConfirmLogout = () => { localStorage.clear(); toast.success("Sessão encerrada"); setModalSairOpen(false); navigate('/login') }
     const handleOpenCreateFunc = () => {
         if (!podeGerirRH) { toast.error('Sem permissão', {description: 'Só admin e RH podem criar'}); return }
-        setFuncSelecionado(null); setModalFuncOpen(true); setOpenNovo(false)
+        setFuncSelecionado(null); setModalFuncOpen(true);
     }
     const handleOpenEditFunc = (f: any) => {
         if (!podeGerirRH) { toast.error('Sem permissão'); return }
@@ -167,7 +153,6 @@ export default function RHPage() {
     const totalPresentes = funcionarios.filter(f => f.status === 'ativo').length
     const totalFerias = funcionarios.filter(f => f.status === 'ferias').length
 
-    // BLOQUEIO IGUAL DASHBOARD - se for financeira/recepcao, não pode ver RH
     if (funcionarioLogado &&!podeGerirRH &&!podeVerPonto) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center p-6">
@@ -212,36 +197,36 @@ export default function RHPage() {
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0 pl-2"><div className="relative"><div className="absolute -top-3 -right-2 z-10"><span className="text-[8px] font-bold tracking-wide bg-white border border-yellow-200 text-yellow-700 px-1.5 py-[1px] rounded-full shadow-sm">{planInfo.label}</span></div><button onClick={() => navigate('/assinatura')} className="w-10 h-10 rounded-full bg-white border border-yellow-200 shadow flex items-center justify-center text-[#f59e0b] hover:bg-yellow-50 transition"><Crown className="w-[18px] h-[18px]" /></button></div><button onClick={handleLogout} className="w-10 h-10 rounded-full bg-[#FF3B30] border border-[#FF3B30] shadow flex items-center justify-center text-white hover:bg-[#e6352b] transition"><Power className="w-[18px] h-[18px]" /></button></div>
                             </div>
-                            <div className="mt-5 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
-                                <button onClick={() => setRhTab('presente')} className={`flex-1 py-2 ${rhTab === 'presente'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}><p className="text-[13px] font-bold">{totalPresentes}</p><p className="text-[11px] text-gray-500">Presentes</p></button>
-                                <button onClick={() => setRhTab('ferias')} className={`flex-1 py-2 border-l ${rhTab === 'ferias'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}><p className="text-[13px] font-bold">{totalFerias}</p><p className="text-[11px] text-gray-500">Férias</p></button>
-                                <button onClick={() => setRhTab('ponto')} className={`flex-1 py-2 border-l ${rhTab === 'ponto'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}><p className="text-[13px] font-bold">●</p><p className="text-[11px] text-gray-500">Ponto</p></button>
-                                <button onClick={() => setRhTab('pedidos')} className={`flex-1 py-2 border-l ${rhTab === 'pedidos'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}><p className="text-[13px] font-bold">!</p><p className="text-[11px] text-gray-500">Pedidos</p></button>
-                                <div ref={novoWrapperRef} className="flex-[0.6] border-l relative"><button ref={novoBtnRef} onClick={() => setOpenNovo(!openNovo)} className={`w-full h-full flex items-center justify-center ${openNovo? 'bg-[#0095ff] text-white' : 'bg-white text-gray-800 hover:bg-gray-50'}`}><Menu className="w-5 h-5" /></button></div>
+
+                            {/* CARDS ESTILO DASHBOARD - SEM MENU 3 BARRAS */}
+                            <div className="mt-5 flex gap-2 max-w-[560px] w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                <button onClick={() => setRhTab('presente')} className={`min-w-[110px] flex-1 h-[62px] rounded-[20px] border bg-white px-4 flex flex-col justify-center text-left shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all ${rhTab === 'presente'? 'border-[#0095ff] ring-2 ring-[#0095ff]/20 bg-[#F0F7FF]' : 'border-gray-200 hover:border-gray-300'}`}>
+                                    <p className={`text-[18px] font-bold leading-none ${rhTab === 'presente'? 'text-[#0095ff]' : 'text-gray-900'}`}>{totalPresentes}</p>
+                                    <p className="text-[11px] text-gray-500 mt-1 font-medium">Presentes</p>
+                                </button>
+                                <button onClick={() => setRhTab('ferias')} className={`min-w-[110px] flex-1 h-[62px] rounded-[20px] border bg-white px-4 flex flex-col justify-center text-left shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all ${rhTab === 'ferias'? 'border-[#0095ff] ring-2 ring-[#0095ff]/20 bg-[#F0F7FF]' : 'border-gray-200 hover:border-gray-300'}`}>
+                                    <p className={`text-[18px] font-bold leading-none ${rhTab === 'ferias'? 'text-[#0095ff]' : 'text-gray-900'}`}>{totalFerias}</p>
+                                    <p className="text-[11px] text-gray-500 mt-1 font-medium">Férias</p>
+                                </button>
+                                <button onClick={() => setRhTab('ponto')} className={`min-w-[86px] flex-1 h-[62px] rounded-[20px] border bg-white px-4 flex flex-col justify-center text-left shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all ${rhTab === 'ponto'? 'border-[#0095ff] ring-2 ring-[#0095ff]/20 bg-[#F0F7FF]' : 'border-gray-200 hover:border-gray-300'}`}>
+                                    <p className={`text-[14px] font-bold leading-none ${rhTab === 'ponto'? 'text-[#0095ff]' : 'text-gray-900'}`}>●</p>
+                                    <p className="text-[11px] text-gray-500 mt-1 font-medium">Ponto</p>
+                                </button>
+                                <button onClick={() => setRhTab('pedidos')} className={`min-w-[86px] flex-1 h-[62px] rounded-[20px] border bg-white px-4 flex flex-col justify-center text-left shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all ${rhTab === 'pedidos'? 'border-[#0095ff] ring-2 ring-[#0095ff]/20 bg-[#F0F7FF]' : 'border-gray-200 hover:border-gray-300'}`}>
+                                    <p className={`text-[14px] font-bold leading-none ${rhTab === 'pedidos'? 'text-[#0095ff]' : 'text-gray-900'}`}>!</p>
+                                    <p className="text-[11px] text-gray-500 mt-1 font-medium">Pedidos</p>
+                                </button>
+                                {podeGerirRH && (
+                                    <button onClick={handleOpenCreateFunc} className="min-w-[110px] h-[62px] rounded-[20px] bg-[#0095ff] border border-[#0095ff] text-white px-4 flex flex-col justify-center items-center shadow-[0_4px_20px_rgba(0,149,255,0.25)] hover:bg-[#0084e6]">
+                                        <p className="text-[18px] font-bold leading-none">+</p>
+                                        <p className="text-[11px] mt-1 font-medium">Funcionário</p>
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
                     <style>{`.bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; }.bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; } @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }`}</style>
                 </div>
-                {openNovo && (
-                <div data-novo-dropdown style={{ top: novoDropdownPos.top, left: novoDropdownPos.left, width: novoDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999]">
-                    <button onClick={() => { setRhTab('presente'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] ${rhTab === 'presente'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-100'} text-black`}>Presentes</button>
-                    <button onClick={() => { setRhTab('ferias'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] ${rhTab === 'ferias'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-100'} text-black`}>Férias</button>
-                    {podeVerPonto && (
-                        <>
-                        <button onClick={() => { setRhTab('ponto'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] ${rhTab === 'ponto'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-100'} text-black`}>Ponto hoje</button>
-                        <button onClick={() => { setRhTab('pedidos'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] ${rhTab === 'pedidos'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-100'} text-black`}>Pedidos RH</button>
-                        <button onClick={() => { setRhTab('recibos'); setOpenNovo(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] ${rhTab === 'recibos'? 'bg-[#E6F0FF] font-semibold' : 'hover:bg-gray-100'} text-black`}>Recibos</button>
-                        </>
-                    )}
-                    <div className="h-[1px] bg-gray-200 my-2 mx-2" />
-                    {podeGerirRH? (
-                        <button onClick={handleOpenCreateFunc} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] hover:bg-gray-100 text-black font-semibold">+ Novo funcionário</button>
-                    ) : (
-                        <div className="px-4 py-3 text-[11px] text-gray-400">Sem permissão para criar</div>
-                    )}
-                </div>
-                )}
                 <div className="w-full py-6"><div className="w-full px-4 sm:px-0 mt-0">{(rhTab === 'presente' || rhTab === 'ferias') && (<div className="flex gap-4 overflow-x-auto pb-3 mb-4 [&::-webkit-scrollbar]:hidden"><div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] flex-shrink-0"><Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder={rhTab === 'ferias'? 'Buscar em férias' : 'Buscar funcionário'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow" /></div></div>)}
                         <div id="tabela">{loadingFunc? <p className="text-center py-16 bg-white rounded-[20px] border text-black/50">Carregando...</p> : (<>{rhTab === 'presente' && <TabPresente funcionarios={presentes} search={search} onEdit={handleOpenEditFunc} />}{rhTab === 'ferias' && <TabFerias funcionarios={ferias} search={search} onEdit={handleOpenEditFunc} />}{rhTab === 'ponto' && <TabPonto empresa={empresa} usuario={usuario} />}{rhTab === 'pedidos' && <TabPedidos />}{rhTab === 'recibos' && <TabRecibos />}</>)}</div>
                     </div>

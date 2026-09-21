@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Pencil, Database, Search, Crown, Settings2, FileText, PlusCircle } from 'lucide-react'
+import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Pencil, Database, Search, Crown } from 'lucide-react'
 import { toast } from 'sonner'
 import { DashboardSkeleton } from '../../components/DashboardSkeleton'
 import { useRealtime } from '../../hooks/useRealtime'
@@ -15,7 +15,7 @@ import CardsProdutos from './components/cards/cards_Produto'
 import TabEmitir from '../faturas/components/tab/tab_faturaEmitir'
 import TabCurso from '../faturas/components/tab/tab_faturaEmcurso'
 import TabEmitidas from '../faturas/components/tab/tab_faturaEmitida'
-import SidebarAreas from './components/sidebar/sidebar_Areas'
+import GlobalAreas from '../../components/GlobalAreas'
 import { api } from '../../lib/api'
 
 interface Cliente { id: string; nome: string; nif: string; email: string | null; telefone: string | null; endereco: string | null; cidade: string | null; provincia: string | null }
@@ -75,7 +75,6 @@ export default function DashboardPage() {
     const [modalSaftOpen, setModalSaftOpen] = useState(false)
     const [modalEmpresaOpen, setModalEmpresaOpen] = useState(false)
     const [modalSairOpen, setModalSairOpen] = useState(false)
-    const [sidebarAreasOpen, setSidebarAreasOpen] = useState(false)
     const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null)
     const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(null)
 
@@ -142,7 +141,9 @@ export default function DashboardPage() {
         return faturasFTAtivas.reduce((s: any, f: any) => s + Number(f.total_geral || f.total || 0), 0)
     }, [faturasFTAtivas])
 
-    const totalDocs = useMemo(() => faturasCurso.length + faturasFTOnly.length, [faturasCurso, faturasFTOnly])
+    const totalDocs = useMemo(() => {
+        return faturasCurso.length + faturasFTOnly.length
+    }, [faturasCurso, faturasFTOnly])
 
     const planId = (empresa?.subscription_plan || 'free').toLowerCase()
     const planInfo = PLAN_LIMITS[planId] || PLAN_LIMITS.free
@@ -166,22 +167,21 @@ export default function DashboardPage() {
 
     const isInitialLoading =!empresa && (loading || loadingFaturas)
 
-    // SYNC URL + LS sem loop
     useEffect(() => {
-        if (localStorage.getItem(LS_KEYS.view) === homeView && localStorage.getItem(LS_KEYS.ftab) === faturaTab && localStorage.getItem(LS_KEYS.list) === listView) return
+        const currView = localStorage.getItem(LS_KEYS.view)
+        const currFtab = localStorage.getItem(LS_KEYS.ftab)
+        const currList = localStorage.getItem(LS_KEYS.list)
+        if (currView === homeView && currFtab === faturaTab && currList === listView) return
         localStorage.setItem(LS_KEYS.view, homeView)
         localStorage.setItem(LS_KEYS.ftab, faturaTab)
         localStorage.setItem(LS_KEYS.list, listView)
         const params = new URLSearchParams(searchParams)
-        if (params.get('view')!== homeView || params.get('ftab')!== faturaTab || params.get('list')!== listView) {
-            params.set('view', homeView)
-            params.set('ftab', faturaTab)
-            params.set('list', listView)
-            setSearchParams(params, { replace: true })
-        }
+        params.set('view', homeView)
+        params.set('ftab', faturaTab)
+        params.set('list', listView)
+        setSearchParams(params, { replace: true })
     }, [homeView, faturaTab, listView])
 
-    // LISTENER DA SIDEBAR
     useEffect(() => {
         const handler = (e: any) => {
             if (e.detail?.view) setHomeView(e.detail.view)
@@ -191,16 +191,6 @@ export default function DashboardPage() {
         window.addEventListener('sidebar-nav' as any, handler)
         return () => window.removeEventListener('sidebar-nav' as any, handler)
     }, [])
-
-    // REAGIR A?view=gestao&list=clientes direto na URL
-    useEffect(() => {
-        const v = searchParams.get('view') as HomeView | null
-        const f = searchParams.get('ftab') as FaturaTab | null
-        const l = searchParams.get('list') as ListView | null
-        if (v && v!== homeView) setHomeView(v)
-        if (f && f!== faturaTab) setFaturaTab(f)
-        if (l && l!== listView) setListView(l)
-    }, [searchParams])
 
     const fetchFaturasGeral = useCallback(async () => {
         try {
@@ -212,9 +202,15 @@ export default function DashboardPage() {
                    .map((f: any) => String(f.proforma_origem_id))
             )
             const curso = all.filter((f: any) =>
-                f.tipo_documento === 'proforma' && f.status === 'em_curso' &&!proformasConvertidasIds.has(String(f.id))
+                f.tipo_documento === 'proforma' &&
+                f.status === 'em_curso' &&
+               !proformasConvertidasIds.has(String(f.id))
             )
-            const emitidas = all.filter((f: any) => f.tipo_documento === 'fatura' || f.tipo_documento === 'nota_credito' ||!!f.hash_agt)
+            const emitidas = all.filter((f: any) =>
+                f.tipo_documento === 'fatura' ||
+                f.tipo_documento === 'nota_credito' ||
+               !!f.hash_agt
+            )
             setFaturasCurso(curso)
             setFaturasEmitidas(emitidas)
         } catch { } finally { setLoadingFaturas(false) }
@@ -222,12 +218,12 @@ export default function DashboardPage() {
 
     const fetchClientes = useCallback(async () => {
         try { setLoading(true); const skip = (page - 1) * limit; const res = await api.get('/api/clientes', { params: { skip, limit, search } }); setClientes(res.data.items); if (listView === 'clientes') setTotal(res.data.total) }
-        catch { toast.error('Erro ao carregar clientes') } finally { setLoading(false) }
+        catch { toast.error('Erro ao carregar clientes', { description: 'Verifique sua conexão.' }) } finally { setLoading(false) }
     }, [page, limit, search, listView])
 
     const fetchProdutos = useCallback(async () => {
         try { setLoading(true); const skip = (page - 1) * limit; const res = await api.get('/api/produtos', { params: { skip, limit, search } }); setProdutos(res.data.items); setTotal(res.data.total) }
-        catch { toast.error('Erro ao carregar produtos') } finally { setLoading(false) }
+        catch { toast.error('Erro ao carregar produtos', { description: 'Tente novamente.' }) } finally { setLoading(false) }
     }, [page, limit, search])
 
     const fetchEmpresa = useCallback(async () => {
@@ -239,12 +235,21 @@ export default function DashboardPage() {
             setEmpresa(comp)
             const nome = comp.nome || comp.companyName || localStorage.getItem("company_name")
             if (nome) { setCompanyName(nome); localStorage.setItem("company_name", nome) }
-            if (r.data.funcionario) localStorage.setItem("funcionario", JSON.stringify(r.data.funcionario))
+            if (r.data.funcionario) {
+                localStorage.setItem("funcionario", JSON.stringify(r.data.funcionario))
+            }
             setFormEmpresa({
                 companyName: comp.nome || comp.companyName || '',
-                nif: comp.nif || '', email: comp.email || '', phone: comp.telefone || comp.phone || '',
-                address: comp.endereco || comp.address || '', city: comp.cidade || comp.city || '', province: comp.provincia || comp.province || '',
-                iban: comp.iban || '', iban2: comp.iban2 || '', banco1: comp.banco1 || comp.banco || '', banco2: comp.banco2 || '',
+                nif: comp.nif || '',
+                email: comp.email || '',
+                phone: comp.telefone || comp.phone || '',
+                address: comp.endereco || comp.address || '',
+                city: comp.cidade || comp.city || '',
+                province: comp.provincia || comp.province || '',
+                iban: comp.iban || '',
+                iban2: comp.iban2 || '',
+                banco1: comp.banco1 || comp.banco || '',
+                banco2: comp.banco2 || '',
                 logo_url: (comp.logo_url || comp.image_url || '').replace(/^http:\/\//i, 'https://'),
                 image_url: (comp.image_url || comp.logo_url || '').replace(/^http:\/\//i, 'https://')
             })
@@ -255,7 +260,9 @@ export default function DashboardPage() {
         onEvent: (msg) => {
             if (modalClienteOpen || modalProdutoOpen || modalEmpresaOpen) return
             if (msg.event === 'faturas:changed') setTimeout(() => fetchFaturasGeral(), 400)
-            if (msg.event === 'clientes:changed') setTimeout(() => { fetchClientes(); fetchFaturasGeral() }, 400)
+            if (msg.event === 'clientes:changed') {
+                setTimeout(() => { fetchClientes(); fetchFaturasGeral() }, 400)
+            }
             if (msg.event === 'produtos:changed') setTimeout(() => fetchProdutos(), 400)
             if (msg.event === 'company:changed') setTimeout(() => fetchEmpresa(), 400)
         }
@@ -305,7 +312,13 @@ export default function DashboardPage() {
         return () => document.removeEventListener('mousedown', close)
     }, [])
 
-    if (isInitialLoading) return <div className="min-h-screen bg-white"><DashboardSkeleton /></div>
+    if (isInitialLoading) {
+        return (
+            <div className="min-h-screen bg-white">
+                <DashboardSkeleton />
+            </div>
+        )
+    }
 
     const handleOpenCreateCliente = () => { setClienteSelecionado(null); setModalClienteOpen(true); setOpenNovo(false) }
     const handleOpenEditCliente = (c: Cliente) => { setClienteSelecionado(c); setModalClienteOpen(true) }
@@ -313,7 +326,7 @@ export default function DashboardPage() {
     const handleOpenEditProduto = (p: Produto) => { setProdutoSelecionado(p); setModalProdutoOpen(true) }
     const handleEmitirFatura = (c: Cliente) => navigate(`/faturas/nova?cliente_id=${c.id}`)
     const handleLogout = () => setModalSairOpen(true)
-    const handleConfirmLogout = () => { localStorage.clear(); toast.success("Sessão encerrada"); setModalSairOpen(false); navigate('/login') }
+    const handleConfirmLogout = () => { localStorage.clear(); toast.success("Sessão encerrada", { description: "Até breve!" }); setModalSairOpen(false); navigate('/login') }
 
     const handleNovoAction = (v: string) => {
         setOpenNovo(false)
@@ -326,7 +339,10 @@ export default function DashboardPage() {
     }
 
     const handleRequestDeleteCliente = (id: string) => {
-        if (clientesComFatura.has(id)) { toast.error('Não pode apagar - tem faturas SAFT'); return }
+        if (clientesComFatura.has(id)) {
+            toast.error('Não pode apagar', { description: 'Este cliente já tem faturas emitidas no SAFT.' })
+            return
+        }
         const c = clientes.find(x => x.id === id);
         setDeleteTarget({ type: 'cliente', id, nome: c?.nome || 'este cliente' })
     }
@@ -336,27 +352,54 @@ export default function DashboardPage() {
         setDeleting(true)
         try {
             if (deleteTarget.type === 'cliente') {
-                await api.delete(`/api/clientes/${deleteTarget.id}`); toast.success('Cliente apagado'); fetchClientes(); fetchFaturasGeral()
+                await api.delete(`/api/clientes/${deleteTarget.id}`);
+                toast.success('Cliente apagado', { description: `${deleteTarget.nome} foi removido.` });
+                fetchClientes();
+                fetchFaturasGeral()
             } else {
-                await api.delete(`/api/produtos/${deleteTarget.id}`); toast.success('Produto apagado'); fetchProdutos()
+                await api.delete(`/api/produtos/${deleteTarget.id}`);
+                toast.success('Produto apagado', { description: `${deleteTarget.nome} foi removido.` });
+                fetchProdutos()
             }
             setDeleteTarget(null)
-        } catch (err: any) { toast.error(err.response?.data?.detail || 'Erro ao apagar') } finally { setDeleting(false) }
+        } catch (err: any) {
+            const detail = err.response?.data?.detail || err.message
+            if (detail?.toLowerCase().includes("fatura") || detail?.toLowerCase().includes("saft")) {
+                toast.error('Não pode apagar', { description: 'Este cliente já tem faturas emitidas no SAFT.' })
+            } else if (err.response?.status === 500) {
+                toast.error('Erro no servidor', { description: 'Cliente tem movimentações, não pode ser apagado.' })
+            } else {
+                toast.error(detail || 'Erro ao apagar', { description: typeof detail === 'string'? detail : undefined })
+            }
+        } finally { setDeleting(false) }
     }
 
     const handleSaveEmpresa = async (data: EmpresaFormFull) => {
         setSavingEmpresa(true)
         try {
             if (data.logoFile) {
-                const fd = new FormData(); fd.append('logo', data.logoFile)
+                const fd = new FormData()
+                fd.append('logo', data.logoFile)
                 await api.put('/api/auth/company/logo', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
             }
             await api.put('/api/auth/company', {
-                companyName: data.companyName, nif: data.nif, email: data.email, phone: data.phone,
-                address: data.address, city: data.city, province: data.province, banco1: data.banco1, banco2: data.banco2, iban: data.iban, iban2: data.iban2,
+                companyName: data.companyName,
+                nif: data.nif,
+                email: data.email,
+                phone: data.phone,
+                address: data.address,
+                city: data.city,
+                province: data.province,
+                banco1: data.banco1,
+                banco2: data.banco2,
+                iban: data.iban,
+                iban2: data.iban2,
             })
-            toast.success('Empresa atualizada'); setModalEmpresaOpen(false); fetchEmpresa()
-        } catch (e: any) { toast.error(e?.response?.data?.detail || 'Erro') } finally { setSavingEmpresa(false) }
+            toast.success('Empresa atualizada', { description: 'Dados salvos com sucesso.' })
+            setModalEmpresaOpen(false)
+            fetchEmpresa()
+        }
+        catch (e: any) { toast.error('Erro ao atualizar empresa', { description: e?.response?.data?.detail || 'Verifique os dados.' }) } finally { setSavingEmpresa(false) }
     }
 
     const ProdutoModalAny = ProdutoModal as any
@@ -364,10 +407,19 @@ export default function DashboardPage() {
 
     return (
         <div className="min-h-screen bg-white relative">
-            <SidebarAreas open={sidebarAreasOpen} onClose={() => setSidebarAreasOpen(false)} />
 
-            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => { setTimeout(() => fetchClientes(), 200) }} />
-            <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => { setTimeout(() => fetchProdutos(), 200) }} />
+            <GlobalAreas />
+
+            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => {
+                setOpenListSelect(false); setOpenNovo(false);
+                toast.success(clienteSelecionado? 'Cliente atualizado' : 'Cliente criado', { description: clienteSelecionado? 'Dados atualizados.' : 'Cliente adicionado com sucesso.' });
+                setTimeout(() => fetchClientes(), 200)
+            }} />
+            <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => {
+                setOpenListSelect(false); setOpenNovo(false);
+                toast.success(produtoSelecionado? 'Produto atualizado' : 'Produto criado', { description: 'Operação concluída.' });
+                setTimeout(() => fetchProdutos(), 200)
+            }} />
             <ModalEmpresa open={modalEmpresaOpen} initialData={formEmpresa} saving={savingEmpresa} onClose={() => setModalEmpresaOpen(false)} onSave={handleSaveEmpresa} />
             <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget?.nome} loading={deleting} onClose={() => setDeleteTarget(null)} onConfirm={handleConfirmDelete} />
             <ModalSaftAO open={modalSaftOpen} onClose={() => setModalSaftOpen(false)} />
@@ -406,37 +458,94 @@ export default function DashboardPage() {
                                         <p><span className="font-medium text-gray-500">Tel:</span> {empresa?.telefone || empresa?.phone || '+244930438947'}</p>
                                         <p className="truncate max-w-[220px] sm:max-w-none"><span className="font-medium text-gray-500">Email:</span> {empresa?.email || 'killerbless12@gmail.com'}</p>
                                         <p className="line-clamp-2"><span className="font-medium text-gray-500">Endereço:</span> {(empresa?.endereco || empresa?.address || 'Sassamba')} • {empresa?.cidade || empresa?.city || 'Saurimo'} • {empresa?.provincia || empresa?.province || 'Lunda-Sul'}</p>
+                                        {(empresa?.iban || empresa?.iban2) && (
+                                            <p className="break-all text-[11px]"><span className="font-medium text-gray-500">IBAN:</span> {empresa?.iban}{empresa?.iban2? ` | ${empresa?.iban2}` : ''}</p>
+                                        )}
                                     </div>
                                     <div className="mt-4 space-y-0 w-full">
                                         <p className="text-[11px] text-gray-500">Faturas emitidas - {loadingFaturas? '...' : `${totalDocs} docs`}</p>
                                         <p className="text-[11px] text-gray-500">Total pago faturas(agt) - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas? '...' : `${totalFaturado.toFixed(2)} KZ`}</span></p>
-                                        <p className="text-[11px] text-gray-600 font-medium">Faturas por mês - {loadingFaturas? '...' : planInfo.max? `${faturasMes}(${planInfo.max})` : `${faturasMes} (Ilimitado)`}</p>
+                                        <p className="text-[11px] text-gray-600 font-medium">
+                                            Faturas por mês - {loadingFaturas? '...' : planInfo.max? `${faturasMes}(${planInfo.max}) este mês` : `${faturasMes}, este mês (Ilimitado)`}
+                                        </p>
+                                        {isAtLimit && (
+                                            <div className="mt-2">
+                                                <span className="inline-flex items-center px-2.5 py-[3px] rounded-full border bg-white border-gray-200 text-gray-700 text-[10px] font-medium leading-tight shadow-sm">
+                                                    Limite {planInfo.label} atingido - atualiza seu plano
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2 shrink-0 pl-2">
-                                    <button onClick={() => setSidebarAreasOpen(true)} className="w-10 h-10 rounded-full bg-white border shadow flex items-center justify-center"><Menu className="w-5 h-5" /></button>
-                                    <button onClick={() => navigate('/assinatura')} className="w-10 h-10 rounded-full bg-white border border-yellow-200 shadow flex items-center justify-center text-[#f59e0b]"><Crown className="w-[18px] h-[18px]" /></button>
-                                    <button onClick={handleLogout} className="w-10 h-10 rounded-full bg-[#FF3B30] border shadow flex items-center justify-center text-white"><Power className="w-[18px] h-[18px]" /></button>
-                                </div>
-                            </div>
-                            <div className="mt-5 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
-                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className={`flex-1 py-2 ${homeView === 'faturas' && faturaTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                    <p className="text-[13px] font-bold">{loadingFaturas? '...' : faturasCurso.length}</p>
-                                    <p className="text-[11px] text-gray-500">Proforma PP</p>
-                                </button>
-                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('emitidas') }} className={`flex-1 py-2 border-l ${homeView === 'faturas' && faturaTab === 'emitidas'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                    <p className="text-[13px] font-bold">{loadingFaturas? '...' : faturasFTOnly.length}</p>
-                                    <p className="text-[11px] text-gray-500">Fatura AGT FT</p>
-                                </button>
-                                <div ref={novoWrapperRef} className="flex-[0.6] border-l relative">
-                                    <button ref={novoBtnRef} onClick={() => setOpenNovo(!openNovo)} className={`w-full h-full flex items-center justify-center ${openNovo? 'bg-[#0095ff] text-white' : 'bg-white text-gray-800'}`}>
-                                        <Menu className="w-5 h-5" />
+                                <div className="flex items-center gap-3 shrink-0 pl-2">
+                                    <div className="relative">
+                                        <div className="absolute -top-3 -right-2 z-10">
+                                            <span className="text-[8px] font-bold tracking-wide bg-white border border-yellow-200 text-yellow-700 px-1.5 py-[1px] rounded-full shadow-sm">
+                                                {planInfo.label}
+                                            </span>
+                                        </div>
+                                        <button onClick={() => navigate('/assinatura')} className="w-10 h-10 rounded-full bg-white border border-yellow-200 shadow-[0_2px_12px_rgba(0,0,0,0.06)] flex items-center justify-center text-[#f59e0b] hover:bg-yellow-50 transition shrink-0">
+                                            <Crown className="w-[18px] h-[18px]" />
+                                        </button>
+                                    </div>
+                                    <button onClick={handleLogout} className="w-10 h-10 rounded-full bg-[#FF3B30] border border-[#FF3B30] shadow-[0_2px_12px_rgba(255,59,48,0.25)] flex items-center justify-center text-white hover:bg-[#e6352b] transition shrink-0">
+                                        <Power className="w-[18px] h-[18px]" />
                                     </button>
                                 </div>
                             </div>
+
+                            {/* APENAS PP e FT COM ESTILO CARD */}
+                            <div className="mt-5 flex gap-2 max-w-[520px] w-full">
+                                <button
+                                    onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }}
+                                    className={`flex-1 h-[62px] rounded-[20px] border bg-white px-4 flex flex-col justify-center text-left shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all
+                                    ${homeView === 'faturas' && faturaTab === 'curso'? 'border-[#0095ff] ring-2 ring-[#0095ff]/20 bg-[#F0F7FF]' : 'border-gray-200 hover:border-gray-300'}`}
+                                >
+                                    <p className={`text-[18px] font-bold leading-none ${homeView === 'faturas' && faturaTab === 'curso'? 'text-[#0095ff]' : 'text-gray-900'}`}>{loadingFaturas? '...' : faturasCurso.length}</p>
+                                    <p className="text-[11px] text-gray-500 mt-1 font-medium">Proforma PP</p>
+                                </button>
+
+                                <button
+                                    onClick={() => { setHomeView('faturas'); setFaturaTab('emitidas') }}
+                                    className={`flex-1 h-[62px] rounded-[20px] border bg-white px-4 flex flex-col justify-center text-left shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all
+                                    ${homeView === 'faturas' && faturaTab === 'emitidas'? 'border-[#0095ff] ring-2 ring-[#0095ff]/20 bg-[#F0F7FF]' : 'border-gray-200 hover:border-gray-300'}`}
+                                >
+                                    <p className={`text-[18px] font-bold leading-none ${homeView === 'faturas' && faturaTab === 'emitidas'? 'text-[#0095ff]' : 'text-gray-900'}`}>{loadingFaturas? '...' : faturasFTOnly.length}</p>
+                                    <p className="text-[11px] text-gray-500 mt-1 font-medium">Fatura AGT FT</p>
+                                </button>
+                            </div>
                         </div>
                     </div>
+                    <style>{`
+          .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+          .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
+                      @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }
+                    `}</style>
                 </div>
+
+                {openNovo && (
+                    <div data-novo-dropdown style={{ top: novoDropdownPos.top, left: novoDropdownPos.left, width: novoDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999]">
+                        <button onClick={() => handleNovoAction('ver_faturas')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'faturas'? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
+                            <Receipt className="w-4 h-4 text-black" /> Faturas
+                        </button>
+                        <button onClick={() => handleNovoAction('ver_registros')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao'? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
+                            <Database className="w-4 h-4 text-black" /> Registros
+                        </button>
+                        <div className="h-[1px] bg-gray-200 my-2 mx-2" />
+                        <button onClick={() => handleNovoAction('emitir')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-100 text-black">
+                            <Receipt className="w-4 h-4 text-black" /> Emitir fatura
+                        </button>
+                        <button onClick={() => handleNovoAction('cliente')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-100 text-black">
+                            <Users className="w-4 h-4 text-black" /> Novo cliente
+                        </button>
+                        <button onClick={() => handleNovoAction('produto')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-100 text-black">
+                            <Package className="w-4 h-4 text-black" /> Novo produto
+                        </button>
+                        <button onClick={() => handleNovoAction('saft')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-100 text-black">
+                            <FileDown className="w-4 h-4 text-black" /> Exportar SAFT(agt)
+                        </button>
+                    </div>
+                )}
 
                 <div className="w-full py-6">
                     {homeView === 'faturas' && (
@@ -447,31 +556,44 @@ export default function DashboardPage() {
                         </div>
                     )}
                     {homeView === 'gestao' && (
-                        <div className="w-full px-4 sm:px-0 mt-0">
-                            <div className="flex gap-4 overflow-x-auto pb-3 mb-4 [&::-webkit-scrollbar]:hidden">
-                                <div ref={listWrapperRef} className="relative min-w-full md:min-w-[320px] md:max-w-[320px] flex-shrink-0 z-40">
+                        <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+                            <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                <div ref={listWrapperRef} className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-40">
                                     <button ref={listBtnRef} onClick={() => setOpenListSelect(!openListSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
                                         <span className="text-gray-900 capitalize">{LIST_OPTIONS.find(o => o.value === listView)?.label || listView}</span>
                                         <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openListSelect? 'rotate-180' : ''}`} />
                                     </button>
                                 </div>
-                                <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] flex-shrink-0">
+                                <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-0">
                                     <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                                    <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder={listView === 'clientes'? 'Buscar cliente' : 'Buscar produto'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100" />
+                                    <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder={listView === 'clientes'? 'Buscar cliente por nome ou NIF' : listView === 'servicos'? 'Buscar serviço por nome' : 'Buscar produto por nome ou código'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
                                 </div>
                             </div>
                             {openListSelect && (
                                 <div data-list-dropdown style={{ top: listDropdownPos.top, left: listDropdownPos.left, width: listDropdownPos.width }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999]">
                                     {LIST_OPTIONS.map(opt => (
-                                        <button key={opt.value} onClick={() => { setListView(opt.value as any); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between ${listView === opt.value? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
-                                            {opt.label} {listView === opt.value && <Check className="w-4 h-4" />}
+                                        <button key={opt.value} onClick={() => { setListView(opt.value as any); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === opt.value? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
+                                            {opt.label} {listView === opt.value && <Check className="w-4 h-4 text-black" />}
                                         </button>
                                     ))}
                                 </div>
                             )}
                             <div id="tabela">
                                 {listView === 'clientes'? (
-                                    <TabelaClientes clientes={clientes} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditCliente} onDelete={handleRequestDeleteCliente} onEmitirFatura={handleEmitirFatura} clientesComFatura={clientesComFatura as any} />
+                                    <TabelaClientes
+                                        clientes={clientes}
+                                        loading={loading}
+                                        search={search}
+                                        setSearch={setSearch}
+                                        page={page}
+                                        setPage={setPage}
+                                        total={total}
+                                        limit={limit}
+                                        onEdit={handleOpenEditCliente}
+                                        onDelete={handleRequestDeleteCliente}
+                                        onEmitirFatura={handleEmitirFatura}
+                                        clientesComFatura={clientesComFatura as any}
+                                    />
                                 ) : (
                                     <CardsProdutos produtos={produtosFiltrados} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditProduto} onDelete={handleRequestDeleteProduto} />
                                 )}

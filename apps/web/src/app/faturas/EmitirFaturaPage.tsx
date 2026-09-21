@@ -117,7 +117,7 @@ export default function EmitirFaturaPage() {
         api.get('/api/auth/me').then(r => {
             const comp = r.data.company || r.data
             setEmpresa({
-         ...comp,
+      ...comp,
                 nome: comp.nome || comp.companyName,
                 endereco: comp.endereco || comp.address,
                 cidade: comp.cidade || comp.city,
@@ -154,7 +154,6 @@ export default function EmitirFaturaPage() {
         if (clienteId) fetchFaturas()
     }, [clienteId, fetchFaturas])
 
-    // Ajusta tab se cargo não pode ver
     useEffect(() => {
         if (!podeVerProforma && activeTab === 'curso' && podeVerFT) setActiveTab('emitidas')
         if (!podeVerFT && activeTab === 'emitidas' && podeVerProforma) setActiveTab('curso')
@@ -267,28 +266,50 @@ export default function EmitirFaturaPage() {
                                     </button>
                                 </div>
                             </div>
-                            <div className="mt-5 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
-                                {podeVerProforma && <button onClick={() => setActiveTab('curso')} className={`flex-1 py-2 ${activeTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                    <p className="text-[13px] font-bold">{loadingCounts? '...' : faturasCurso.length}</p>
-                                    <p className="text-[11px] text-gray-500">Proforma PP</p>
-                                </button>}
-                                {podeVerFT && <button onClick={() => setActiveTab('emitidas')} className={`flex-1 py-2 border-l ${activeTab === 'emitidas'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                    <p className="text-[13px] font-bold">{loadingCounts? '...' : ftOnlyEmitidas.length}</p>
-                                    <p className="text-[11px] text-gray-500">Fatura AGT FT</p>
-                                </button>}
-                                {podeEmitir && <button onClick={() => setActiveTab('emitir')} className={`flex-[0.6] border-l text-[13px] font-semibold ${activeTab === 'emitir'? 'bg-[#0095ff] text-white' : 'bg-[#8ecfff] text-white'}`}>+ Emitir</button>}
-                                {!podeVerProforma &&!podeVerFT &&!podeEmitir && <div className="flex-1 py-2 flex items-center justify-center gap-2 text-[11px] text-gray-400"><Lock className="w-3.5 h-3.5"/> Sem acesso</div>}
+
+                            {/* CARDS PP / FT - SEM BARRAS */}
+                            <div className="mt-5 flex gap-2 max-w-[520px] w-full">
+                                {podeVerProforma && (
+                                    <button
+                                        onClick={() => setActiveTab('curso')}
+                                        className={`flex-1 h-[62px] rounded-[20px] border bg-white px-4 flex flex-col justify-center text-left shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all
+                                        ${activeTab === 'curso'? 'border-[#0095ff] ring-2 ring-[#0095ff]/20 bg-[#F0F7FF]' : 'border-gray-200 hover:border-gray-300'}`}
+                                    >
+                                        <p className={`text-[18px] font-bold leading-none ${activeTab === 'curso'? 'text-[#0095ff]' : 'text-gray-900'}`}>{loadingCounts? '...' : faturasCurso.length}</p>
+                                        <p className="text-[11px] text-gray-500 mt-1 font-medium">Proforma PP</p>
+                                    </button>
+                                )}
+                                {podeVerFT && (
+                                    <button
+                                        onClick={() => setActiveTab('emitidas')}
+                                        className={`flex-1 h-[62px] rounded-[20px] border bg-white px-4 flex flex-col justify-center text-left shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all
+                                        ${activeTab === 'emitidas'? 'border-[#0095ff] ring-2 ring-[#0095ff]/20 bg-[#F0F7FF]' : 'border-gray-200 hover:border-gray-300'}`}
+                                    >
+                                        <p className={`text-[18px] font-bold leading-none ${activeTab === 'emitidas'? 'text-[#0095ff]' : 'text-gray-900'}`}>{loadingCounts? '...' : ftOnlyEmitidas.length}</p>
+                                        <p className="text-[11px] text-gray-500 mt-1 font-medium">Fatura AGT FT</p>
+                                    </button>
+                                )}
+                                {podeEmitir && (
+                                    <button
+                                        onClick={() => setActiveTab('emitir')}
+                                        className={`w-[110px] h-[62px] rounded-[20px] border flex flex-col justify-center items-center shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all
+                                        ${activeTab === 'emitir'? 'bg-[#0095ff] border-[#0095ff] text-white' : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'}`}
+                                    >
+                                        <p className="text-[20px] font-bold leading-none">+</p>
+                                        <p className="text-[11px] mt-1 font-medium">Emitir</p>
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
                     <style>{`
-        .bubble { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border: 1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-        .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
-        .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
-        .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
-        .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
-        .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
-        .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
+      .bubble { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border: 1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
+      .bubble-1 { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
+      .bubble-2 { width: 120px; height: 120px; left: 70%; top: 10%; animation-delay: 1s; animation-duration: 10s; }
+      .bubble-3 { width: 60px; height: 60px; left: 40%; top: 60%; animation-delay: 2s; }
+      .bubble-4 { width: 40px; height: 40px; left: 85%; top: 50%; animation-delay: 0.5s; animation-duration: 7s; }
+      .bubble-5 { width: 100px; height: 100px; left: 5%; top: 70%; animation-delay: 1.5s; animation-duration: 9s; }
+      .bubble-6 { width: 50px; height: 50px; left: 55%; top: 15%; animation-delay: 2.5s; }
                 @keyframes floatBubble { 0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.55; } 25% { transform: translateY(-15px) translateX(10px) scale(1.05); opacity: 0.85; } 50% { transform: translateY(-25px) translateX(-5px) scale(0.95); opacity: 0.45; } 75% { transform: translateY(-10px) translateX(-10px) scale(1.02); opacity: 0.7; } }
                     `}</style>
                 </div>

@@ -128,10 +128,6 @@ export default function SidebarAreas({ open, onClose }: { open: boolean, onClose
                                 )
                             })}
                         </div>
-
-                        <div className="mt-auto pt-3 px-2 text-[11px] text-gray-500 shrink-0">
-                            {isRH? 'RH → tab_func_presente / ferias / ponto' : 'Fatura → tab_faturaEmitida<br/>Clientes → tabela_Cliente'}
-                        </div>
                     </div>
                     <style>{`.bubble{position:absolute;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(0,149,255,0.18),rgba(0,149,255,0.04) 65%);border:1px solid rgba(0,149,255,0.12);animation:floatBubble 8s infinite ease-in-out}.bubble-1{width:70px;height:70px;left:8%;top:18%}.bubble-2{width:100px;height:100px;left:60%;top:8%}.bubble-3{width:50px;height:50px;left:30%;top:65%}.bubble-4{width:36px;height:36px;left:75%;top:50%}@keyframes floatBubble{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}`}</style>
                 </div>

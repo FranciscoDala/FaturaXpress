@@ -27,9 +27,11 @@ export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, falta
         telefone: empresa?.telefone || empresa?.phone || '---',
         email: empresa?.email || '---',
         cidade: empresa?.cidade || '',
-        logo: empresa?.logo_url || empresa?.image_url || empresa?.logo || ''
+        logo: empresa?.logo_url || empresa?.image_url || empresa?.logo || '',
+        logo_url: empresa?.logo_url || empresa?.image_url || ''
     }
-    const usuarioLogadoNome = usuario?.nome || usuario?.name || usuario?.full_name || usuario?.email || empresa?.nome || '---'
+    const hasLogo =!!emp.logo && emp.logo.trim()!== ''
+    const usuarioLogadoNome = usuario?.nome || usuario?.name || usuario?.full_name || empresa?.nome || '---'
 
     const linhas = useMemo(()=>{
         const porPonto = new Map<string, any[]>(); pontos.forEach(p=>{ if(!porPonto.has(p.funcionario_id)) porPonto.set(p.funcionario_id, []); porPonto.get(p.funcionario_id)!.push(p) })
@@ -41,96 +43,151 @@ export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, falta
             let statusRaw = 'SEM REGISTO'; if(falta) statusRaw='FALTA'; else if(entrada && saida) statusRaw='CONCLUIDO'; else if(entrada) statusRaw='ENTRADA'; else if(saida) statusRaw='SAIDA'
             let status = ''; if(statusRaw==='FALTA') status='Falta'; else if(statusRaw==='CONCLUIDO') status='Concluído'; else if(statusRaw==='ENTRADA') status='Entrada'; else if(statusRaw==='SAIDA') status='Saída'; else status='Sem Registo'
             const motivo = falta? (falta.motivo_retroativo || prettyFalta(falta.motivo)) : (entrada?.motivo_retroativo || (entrada?.atraso_min? formatAtraso(entrada.atraso_min) : 'Presente'))
-
-            // RESPONSAVEL = nome real do user logado
-            let responsavel = ''
-            if (falta?.lancado_por_nome) responsavel = falta.lancado_por_nome
-            else if (entrada?.lancado_por_nome || saida?.lancado_por_nome) responsavel = entrada?.lancado_por_nome || saida?.lancado_por_nome || ''
-            else if (falta) responsavel = usuarioLogadoNome // falta marcada pelo RH logado
-            else if (lista.length > 0) responsavel = toTitle(func.nome) // ponto batido pelo próprio funcionário
-            else responsavel = usuarioLogadoNome
-
+            let responsavel = ''; if(falta?.lancado_por_nome) responsavel = falta.lancado_por_nome; else if(entrada?.lancado_por_nome || saida?.lancado_por_nome) responsavel = entrada?.lancado_por_nome || saida?.lancado_por_nome || ''; else if(falta) responsavel = usuarioLogadoNome; else if(lista.length>0) responsavel = toTitle(func.nome); else responsavel = usuarioLogadoNome
             return { nome: toTitle(func.nome), entrada: entrada? fmtHora(entrada.timestamp) : '---', saida: saida? fmtHora(saida.timestamp) : '---', status, motivo: toTitle(motivo), retro: isRetro? 'Sim' : 'Não', responsavel: toTitle(responsavel) }
         })
     },[funcs,pontos,faltas,usuarioLogadoNome])
 
+    const FolhaTela = () => (
+        <div id="relatorio-pdf" className="relative bg-white text-black w-[210mm] min-w-[210mm] min-h-[297mm] p-[10mm] flex flex-col border border-gray-200 overflow-hidden mx-auto" style={{ fontFamily: "var(--fonte-principal)" }}>
+            {/* MARCA DAGUA */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+                {hasLogo? <img src={emp.logo_url} alt="marca" className="w-[650px] h-[650px] object-contain opacity-[0.10]" /> : <div className="w-[550px] h-[550px] bg-[#1a1a1a] rounded-full flex items-center justify-center text-white font-black text-[220px] opacity-[0.06]">{emp.nome.charAt(0).toUpperCase()}</div>}
+            </div>
+
+            <div className="relative z-10 flex flex-col flex-1">
+                {/* HEADER IGUAL FATURA */}
+                <div className="flex gap-3">
+                    {hasLogo? <img src={emp.logo} className="w-[110px] h-[90px] object-contain shrink-0" alt="logo" /> : <div className="w-[110px] h-[90px] flex flex-col items-center justify-center shrink-0"><div className="w-[70px] h-[70px] bg-black rounded-full flex items-center justify-center text-white font-black text-[36px]">{emp.nome.charAt(0).toUpperCase()}</div><div className="mt-1 bg-black text-white text-[9px] font-bold px-2 py-[2px]">{emp.nome.toUpperCase().slice(0,10)}</div></div>}
+                    <div className="text-[11px] leading-[15px]"><p className="font-bold text-[14px] capitalize">{emp.nome.toLowerCase()}</p><p>NIF: {emp.nif}</p><p>Endereço: {emp.endereco}</p><p>Contactos: {emp.telefone}</p><p>Email: {emp.email}</p><p className="capitalize">{emp.cidade.toLowerCase()}</p></div>
+                </div>
+
+                <div className="flex justify-between items-start mt-6 border-b border-dotted border-gray-300 pb-3">
+                    <div className="text-[9px] leading-[13px] max-w-[300px]">
+                        <p className="font-bold text-[12px]">AUDITORIA DE PONTO</p>
+                        <p className="mt-1">Data: {fmtDisplay(dataSelecionada)}</p>
+                        <p>Período: {fmtDisplay(minDate)} até {fmtDisplay(hoje)}</p>
+                        <p className="mt-1">Total: {funcs.length} | Presentes: {linhas.filter(l=>l.status!=='Falta' && l.status!=='Sem Registo').length} | Faltas: {linhas.filter(l=>l.status==='Falta').length}</p>
+                    </div>
+                    <div className="flex gap-3 items-start">
+                        <div className="text-right leading-[14px]">
+                            <p className="font-bold text-[15px]">{fmtDisplay(dataSelecionada)}</p>
+                            <p className="text-[#777] text-[11px] mt-1">Relatório Diário</p>
+                            <p className="font-bold text-[12px] mt-1">Original</p>
+                            <p className="text-[10px] mt-1">Emissão: {new Date().toLocaleString('pt-AO')}</p>
+                        </div>
+                        <div className="w-[90px] h-[90px] shrink-0 border p-1 bg-white flex items-center justify-center">
+                            <div className="text-[8px] text-center leading-[10px]">QR<br/>Ponto<br/>{fmtDisplay(dataSelecionada)}</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* BLOCO INFO IGUAL FATURA */}
+                <div className="mt-4 grid grid-cols-[90px_95px_95px_125px_115px_1fr] gap-[5px]">
+                    {[
+                        { k: 'DATA', v: fmtDisplay(dataSelecionada) },
+                        { k: 'PERÍODO', v: `${fmtDisplay(minDate)}` },
+                        { k: 'ATÉ', v: fmtDisplay(hoje) },
+                        { k: 'TOTAL FUNC.', v: `${funcs.length}` },
+                        { k: 'RESPONSÁVEL', v: usuarioLogadoNome.slice(0,10) },
+                        { k: 'OPERADOR', v: usuarioLogadoNome.slice(0,10) },
+                    ].map(b => (
+                        <div key={b.k} className="border border-[#bbb] py-[5px] px-1 bg-[rgba(255,255,255,0.40)]"><p className="font-bold text-[10px] truncate">{b.k}</p><p className="text-center text-[11px] mt-[2px] truncate">{b.v}</p></div>
+                    ))}
+                </div>
+
+                {/* TABELA COPIADA DA FATURA */}
+                <div className="w-full mt-2">
+                    <table className="w-full border-collapse table-fixed">
+                        <colgroup>
+                          <col style={{ width: '26%' }} />
+                          <col style={{ width: '12%' }} />
+                          <col style={{ width: '12%' }} />
+                          <col style={{ width: '14%' }} />
+                          <col style={{ width: '16%' }} />
+                          <col style={{ width: '8%' }} />
+                          <col style={{ width: '12%' }} />
+                        </colgroup>
+                        <thead>
+                          <tr className="bg-[rgba(194,194,194,0.65)] text-[11px] font-bold">
+                            <th className="border border-[#999] py-[7px] px-1 text-left">FUNCIONARIO</th>
+                            <th className="border border-[#999] py-[7px]">ENTRADA</th>
+                            <th className="border border-[#999] py-[7px]">SAIDA</th>
+                            <th className="border border-[#999] py-[7px]">STATUS</th>
+                            <th className="border border-[#999] py-[7px] text-left">MOTIVO</th>
+                            <th className="border border-[#999] py-[7px]">RETRO?</th>
+                            <th className="border border-[#999] py-[7px] text-left">RESPONSAVEL</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                            {linhas.map((l,i)=>(
+                                <tr key={i} className="text-[11px] h-[28px]">
+                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate overflow-hidden whitespace-nowrap font-bold">{l.nome}</td>
+                                  <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{l.entrada}</td>
+                                  <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{l.saida}</td>
+                                  <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)] truncate">{l.status}</td>
+                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate overflow-hidden whitespace-nowrap">{l.motivo}</td>
+                                  <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{l.retro}</td>
+                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate overflow-hidden whitespace-nowrap">{l.responsavel}</td>
+                                </tr>
+                            ))}
+                            {Array.from({ length: Math.max(0, 10 - linhas.length) }).map((_, k) => (<tr key={k} className="h-[28px]"><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td></tr>))}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="flex mt-2 gap-1">
+                    <div className="flex-1 border border-[#999] min-w-0 overflow-hidden">
+                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] font-bold"><div className="flex-1 border-r border-[#999] py-[6px] px-1">RESUMO</div><div className="w-[50px] border-r border-[#999] py-[6px] text-center shrink-0">QTD</div><div className="w-[125px] border-r border-[#999] py-[6px] text-center shrink-0">PRESENTES</div><div className="w-[125px] py-[6px] text-center shrink-0">FALTAS</div></div>
+                        <div className="flex text-[11px]"><div className="flex-1 border-r border-[#999] py-[6px] px-1 bg-[rgba(255,255,255,0.40)] truncate">Ponto do dia {fmtDisplay(dataSelecionada)}</div><div className="w-[50px] border-r border-[#999] py-[6px] text-center bg-[rgba(255,255,255,0.40)] shrink-0">{funcs.length}</div><div className="w-[125px] border-r border-[#999] py-[6px] text-right pr-2 bg-[rgba(255,255,255,0.40)] shrink-0">{linhas.filter(l=>l.status!=='Falta' && l.status!=='Sem Registo').length}</div><div className="w-[125px] py-[6px] text-right pr-2 bg-[rgba(255,255,255,0.40)] shrink-0">{linhas.filter(l=>l.status==='Falta').length}</div></div>
+                    </div>
+                    <div className="w-[300px] shrink-0">
+                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999]"><div className="flex-1 py-[7px] px-2 text-right">Total Funcionários</div><div className="w-[135px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-2 shrink-0">{funcs.length}</div></div>
+                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999] border-t-0"><div className="flex-1 py-[7px] px-2 text-right">Presentes</div><div className="w-[135px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-2 shrink-0">{linhas.filter(l=>l.status!=='Falta' && l.status!=='Sem Registo').length}</div></div>
+                        <div className="flex bg-[rgba(194,194,194,0.75)] text-[11px] font-bold border border-[#999] border-t-0"><div className="flex-1 py-[7px] px-2 text-right">FALTAS</div><div className="w-[135px] bg-[rgba(255,255,255,0.65)] border-l border-[#999] py-[7px] text-right pr-2 font-bold shrink-0">{linhas.filter(l=>l.status==='Falta').length}</div></div>
+                    </div>
+                </div>
+
+                <div className="mt-4 bg-[rgba(255,255,255,0.40)] p-2 text-[11px] border border-dashed border-gray-300 rounded">
+                    <p className="font-bold mb-1">Observações:</p>
+                    <p>Documento gerado automaticamente por {toTitle(usuarioLogadoNome)} - Sistema de ponto.</p>
+                </div>
+
+                <div className="mt-auto pt-8 flex flex-col items-center justify-center text-center">
+                    <p className="w-[260px] border-t border-black pt-2 text-[12px]">Assinatura Rh - {toTitle(usuarioLogadoNome)}</p>
+                    <p className="mt-1 text-[10px]">Carimbo Da Empresa</p>
+                </div>
+
+                <div className="mt-auto border-t border-black flex justify-between items-center bg-[rgba(255,255,255,0.40)] px-1 pt-3"><span className="text-[9px] font-bold">Licenciado a: {emp.nome} | NIF: {emp.nif} | {emp.endereco}</span><span className="text-[9px] font-bold">Pág. 1 de 1</span></div>
+            </div>
+        </div>
+    )
+
     return (
         <div className="fixed inset-0 z-[10000] bg-[#525659] overflow-y-auto overflow-x-hidden">
-            <style>{`@media print{.no-print{display:none!important} #relatorio{box-shadow:none!important; margin:0!important; width:100%!important; max-width:210mm!important} } *{word-wrap:break-word}`}</style>
+            <style>{`
+              @import url('https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap');
+              #relatorio-pdf-wrapper{display:flex;justify-content:center;width:100%;overflow-x:hidden;background:transparent}
+              #relatorio-pdf{transform-origin:top center}
+              @media (max-width:768px){
+                #relatorio-pdf-wrapper{overflow-x:hidden!important;width:100%!important}
+                #relatorio-pdf{transform:scale(0.45);transform-origin:top center;margin-bottom:-55%;width:210mm!important;min-width:210mm!important}
+              }
+              @media print{.no-print{display:none!important} #relatorio-pdf-wrapper{overflow:visible!important} #relatorio-pdf{transform:none!important; margin:0!important; box-shadow:none!important; border:none!important} }
+            `}</style>
 
             <div className="no-print sticky top-0 z-20 h-[44px] bg-[#323233] flex items-center justify-between px-2 text-white">
-                <div className="flex items-center gap-2 min-w-0"><button onClick={onClose} className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded shrink-0"><Menu className="w-4 h-4" /></button><p className="text-[11px] md:text-[13px] font-bold uppercase truncate">Folha De Ponto Padrão</p></div>
+                <div className="flex items-center gap-2 min-w-0"><button onClick={onClose} className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded shrink-0"><Menu className="w-4 h-4" /></button><p className="text-[11px] md:text-[13px] font-bold uppercase truncate">Folha De Ponto - {fmtDisplay(dataSelecionada)}</p></div>
                 <div className="flex items-center gap-1 shrink-0">
                     <span className="bg-[#1e1e1e] text-[10px] px-1.5 py-0.5 rounded">1 / 1</span>
-                    <div className="flex items-center gap-1 ml-1">
-                        <button onClick={onClose} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Share2 className="w-4 h-4"/></button>
-                        <button onClick={()=>window.print()} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Download className="w-4 h-4"/></button>
-                        <button onClick={()=>window.print()} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Printer className="w-4 h-4"/></button>
-                    </div>
+                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Share2 className="w-4 h-4"/></button>
+                    <button onClick={()=>window.print()} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Download className="w-4 h-4"/></button>
+                    <button onClick={()=>window.print()} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Printer className="w-4 h-4"/></button>
                 </div>
             </div>
 
-            <div className="w-full flex justify-center p-0 md:p-6">
-                <div id="relatorio" className="w-full md:max-w-[210mm] bg-white text-black font-[Arial] shadow-none md:shadow-[0_0_25px_rgba(0,0,0,0.6)] p-3 md:p-[12mm] box-border">
-                    <div className="flex flex-col md:flex-row md:justify-between gap-3 border-b-2 border-black pb-3">
-                        <div className="flex gap-2 min-w-0">
-                            {emp.logo? <img src={emp.logo} className="w-[48px] h-[48px] md:w-[70px] md:h-[70px] object-contain shrink-0" /> : <div className="w-[48px] h-[48px] md:w-[70px] md:h-[70px] flex items-center justify-center font-black text-[18px] shrink-0 bg-gray-100">{emp.nome.charAt(0).toUpperCase()}</div>}
-                            <div className="text-[11px] md:text-[14px] leading-[15px] md:leading-[18px] min-w-0 flex-1 break-words">
-                                <p className="font-bold text-[12px] md:text-[15px] capitalize leading-tight">{emp.nome.toLowerCase()}</p>
-                                <p className="text-[10px] md:text-[13px]">Nif: {emp.nif}</p>
-                                <p className="capitalize text-[10px] md:text-[13px]">{emp.endereco.toLowerCase()}</p>
-                                <p className="text-[10px] md:text-[13px] break-all">Tel: {emp.telefone} | {emp.email}</p>
-                                <p className="capitalize text-[10px] md:text-[13px]">{emp.cidade.toLowerCase()}</p>
-                            </div>
-                        </div>
-                        <div className="flex md:flex-col justify-between md:justify-start md:text-right gap-2 shrink-0">
-                            <p className="font-bold text-[11px] md:text-[13px] border-2 border-black px-2 py-1 text-center w-fit md:w-auto">Auditoria De Ponto</p>
-                            <div className="text-[10px] md:text-[12px]"><p>Data: {fmtDisplay(dataSelecionada)}</p><p className="text-[9px] md:text-[10px]">Emissão: {new Date().toLocaleString('pt-AO')}</p></div>
-                        </div>
-                    </div>
-
-                    <div className="mt-3 text-[10px] md:text-[13px] flex flex-col md:flex-row md:justify-between gap-1 font-bold capitalize">
-                        <p>Período: {fmtDisplay(minDate)} até {fmtDisplay(hoje)}</p>
-                        <p>Total: {funcs.length} | Presentes: {linhas.filter(l=>l.status!=='Falta' && l.status!=='Sem Registo').length} | Faltas: {linhas.filter(l=>l.status==='Falta').length}</p>
-                    </div>
-
-                    <div className="w-full mt-3 overflow-hidden">
-                        <table className="w-full table-fixed border-collapse border border-black text-[10px] md:text-[13px]">
-                            <thead>
-                                <tr className="bg-black text-white">
-                                    <th className="border border-black p-1 md:p-2 text-left font-normal w-[28%]">Funcionario</th>
-                                    <th className="border border-black p-1 md:p-2 font-normal w-[13%]">Entrada</th>
-                                    <th className="border border-black p-1 md:p-2 font-normal w-[10%]">Saida</th>
-                                    <th className="border border-black p-1 md:p-2 font-normal w-[14%]">Status</th>
-                                    <th className="border border-black p-1 md:p-2 text-left font-normal w-[14%]">Motivo</th>
-                                    <th className="border border-black p-1 md:p-2 font-normal w-[8%]">Retro?</th>
-                                    <th className="border border-black p-1 md:p-2 text-left font-normal w-[13%]">Responsavel</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {linhas.map((l,i)=>(
-                                    <tr key={i} className="h-[32px] md:h-[36px]">
-                                        <td className="border border-black px-1 md:px-2 font-bold break-words leading-[11px] md:leading-normal">{l.nome}</td>
-                                        <td className="border border-black text-center px-0.5">{l.entrada}</td>
-                                        <td className="border border-black text-center">{l.saida}</td>
-                                        <td className="border border-black text-center px-0.5 leading-[10px] md:leading-normal">{l.status}</td>
-                                        <td className="border border-black px-1 break-words leading-[10px] md:leading-normal">{l.motivo}</td>
-                                        <td className="border border-black text-center">{l.retro}</td>
-                                        <td className="border border-black px-1 break-words leading-[10px] md:leading-normal">{l.responsavel}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div className="mt-6 text-[10px] md:text-[12px] border-t-2 border-black pt-3">
-                        <p>Documento gerado automaticamente por {toTitle(usuarioLogadoNome)}.</p>
-                        <div className="mt-20 md:mt-36 flex flex-col items-center justify-center text-center">
-                            <p className="w-[200px] md:w-[260px] border-t border-black pt-2 text-[12px] md:text-[14px]">Assinatura Rh</p>
-                            <p className="mt-1 text-[9px] md:text-[11px]">Carimbo Da Empresa</p>
-                        </div>
-                    </div>
-                </div>
+            <div id="relatorio-pdf-wrapper">
+                <FolhaTela />
             </div>
         </div>
     )

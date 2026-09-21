@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { X, Menu, Download, Printer, Share2 } from 'lucide-react'
+import { Menu, Download, Printer, Share2 } from 'lucide-react'
 
 interface Props {
     dataSelecionada: string
@@ -50,63 +50,55 @@ export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, falta
 
     const FolhaTela = () => (
         <div id="relatorio-pdf" className="relative bg-white text-black w-[210mm] min-w-[210mm] min-h-[297mm] p-[10mm] flex flex-col border border-gray-200 overflow-hidden mx-auto" style={{ fontFamily: "var(--fonte-principal)" }}>
-            {/* MARCA DAGUA */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                {hasLogo? <img src={emp.logo_url} alt="marca" className="w-[650px] h-[650px] object-contain opacity-[0.10]" /> : <div className="w-[550px] h-[550px] bg-[#1a1a1a] rounded-full flex items-center justify-center text-white font-black text-[220px] opacity-[0.06]">{emp.nome.charAt(0).toUpperCase()}</div>}
+                {hasLogo? <img src={emp.logo_url} alt="marca" className="w-[650px] h-[650px] object-contain opacity-[0.10]" /> : <div className="w-[550px] h-[550px] bg-black rounded-full flex items-center justify-center text-white font-black text-[220px] opacity-[0.06]">{emp.nome.charAt(0).toUpperCase()}</div>}
             </div>
 
             <div className="relative z-10 flex flex-col flex-1">
-                {/* HEADER IGUAL FATURA */}
                 <div className="flex gap-3">
                     {hasLogo? <img src={emp.logo} className="w-[110px] h-[90px] object-contain shrink-0" alt="logo" /> : <div className="w-[110px] h-[90px] flex flex-col items-center justify-center shrink-0"><div className="w-[70px] h-[70px] bg-black rounded-full flex items-center justify-center text-white font-black text-[36px]">{emp.nome.charAt(0).toUpperCase()}</div><div className="mt-1 bg-black text-white text-[9px] font-bold px-2 py-[2px]">{emp.nome.toUpperCase().slice(0,10)}</div></div>}
                     <div className="text-[11px] leading-[15px]"><p className="font-bold text-[14px] capitalize">{emp.nome.toLowerCase()}</p><p>NIF: {emp.nif}</p><p>Endereço: {emp.endereco}</p><p>Contactos: {emp.telefone}</p><p>Email: {emp.email}</p><p className="capitalize">{emp.cidade.toLowerCase()}</p></div>
                 </div>
 
                 <div className="flex justify-between items-start mt-6 border-b border-dotted border-gray-300 pb-3">
-                    <div className="text-[9px] leading-[13px] max-w-[300px]">
+                    <div className="text-[9px] leading-[13px] max-w-[400px]">
                         <p className="font-bold text-[12px]">AUDITORIA DE PONTO</p>
                         <p className="mt-1">Data: {fmtDisplay(dataSelecionada)}</p>
                         <p>Período: {fmtDisplay(minDate)} até {fmtDisplay(hoje)}</p>
                         <p className="mt-1">Total: {funcs.length} | Presentes: {linhas.filter(l=>l.status!=='Falta' && l.status!=='Sem Registo').length} | Faltas: {linhas.filter(l=>l.status==='Falta').length}</p>
                     </div>
-                    <div className="flex gap-3 items-start">
-                        <div className="text-right leading-[14px]">
-                            <p className="font-bold text-[15px]">{fmtDisplay(dataSelecionada)}</p>
-                            <p className="text-[#777] text-[11px] mt-1">Relatório Diário</p>
-                            <p className="font-bold text-[12px] mt-1">Original</p>
-                            <p className="text-[10px] mt-1">Emissão: {new Date().toLocaleString('pt-AO')}</p>
-                        </div>
-                        <div className="w-[90px] h-[90px] shrink-0 border p-1 bg-white flex items-center justify-center">
-                            <div className="text-[8px] text-center leading-[10px]">QR<br/>Ponto<br/>{fmtDisplay(dataSelecionada)}</div>
-                        </div>
+                    <div className="text-right leading-[14px]">
+                        <p className="font-bold text-[15px]">{fmtDisplay(dataSelecionada)}</p>
+                        <p className="text-[#777] text-[11px] mt-1">Relatório Diário</p>
+                        <p className="font-bold text-[12px] mt-1">Original</p>
+                        <p className="text-[10px] mt-1">Emissão: {new Date().toLocaleString('pt-AO')}</p>
                     </div>
                 </div>
 
-                {/* BLOCO INFO IGUAL FATURA */}
-                <div className="mt-4 grid grid-cols-[90px_95px_95px_125px_115px_1fr] gap-[5px]">
+                {/* SEM OPERADOR - AGORA 5 COLUNAS */}
+                <div className="mt-4 grid grid-cols-[90px_95px_95px_125px_1fr] gap-[5px]">
                     {[
                         { k: 'DATA', v: fmtDisplay(dataSelecionada) },
-                        { k: 'PERÍODO', v: `${fmtDisplay(minDate)}` },
+                        { k: 'PERÍODO', v: fmtDisplay(minDate) },
                         { k: 'ATÉ', v: fmtDisplay(hoje) },
                         { k: 'TOTAL FUNC.', v: `${funcs.length}` },
-                        { k: 'RESPONSÁVEL', v: usuarioLogadoNome.slice(0,10) },
-                        { k: 'OPERADOR', v: usuarioLogadoNome.slice(0,10) },
+                        { k: 'RESPONSÁVEL', v: usuarioLogadoNome.slice(0,20) },
                     ].map(b => (
                         <div key={b.k} className="border border-[#bbb] py-[5px] px-1 bg-[rgba(255,255,255,0.40)]"><p className="font-bold text-[10px] truncate">{b.k}</p><p className="text-center text-[11px] mt-[2px] truncate">{b.v}</p></div>
                     ))}
                 </div>
 
-                {/* TABELA COPIADA DA FATURA */}
+                {/* TABELA - RESPONSAVEL CORRIGIDO */}
                 <div className="w-full mt-2">
                     <table className="w-full border-collapse table-fixed">
                         <colgroup>
-                          <col style={{ width: '26%' }} />
-                          <col style={{ width: '12%' }} />
-                          <col style={{ width: '12%' }} />
-                          <col style={{ width: '14%' }} />
-                          <col style={{ width: '16%' }} />
+                          <col style={{ width: '24%' }} />
+                          <col style={{ width: '11%' }} />
+                          <col style={{ width: '11%' }} />
+                          <col style={{ width: '13%' }} />
+                          <col style={{ width: '15%' }} />
                           <col style={{ width: '8%' }} />
-                          <col style={{ width: '12%' }} />
+                          <col style={{ width: '18%' }} />
                         </colgroup>
                         <thead>
                           <tr className="bg-[rgba(194,194,194,0.65)] text-[11px] font-bold">
@@ -116,7 +108,7 @@ export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, falta
                             <th className="border border-[#999] py-[7px]">STATUS</th>
                             <th className="border border-[#999] py-[7px] text-left">MOTIVO</th>
                             <th className="border border-[#999] py-[7px]">RETRO?</th>
-                            <th className="border border-[#999] py-[7px] text-left">RESPONSAVEL</th>
+                            <th className="border border-[#999] py-[7px] px-1 text-left text-[10px] leading-[11px]">RESPONSAVEL</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -128,10 +120,10 @@ export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, falta
                                   <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)] truncate">{l.status}</td>
                                   <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate overflow-hidden whitespace-nowrap">{l.motivo}</td>
                                   <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{l.retro}</td>
-                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate overflow-hidden whitespace-nowrap">{l.responsavel}</td>
+                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate overflow-hidden whitespace-nowrap" title={l.responsavel}>{l.responsavel}</td>
                                 </tr>
                             ))}
-                            {Array.from({ length: Math.max(0, 10 - linhas.length) }).map((_, k) => (<tr key={k} className="h-[28px]"><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td></tr>))}
+                            {Array.from({ length: Math.max(0, 12 - linhas.length) }).map((_, k) => (<tr key={k} className="h-[28px]"><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td></tr>))}
                         </tbody>
                     </table>
                 </div>
@@ -157,20 +149,18 @@ export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, falta
                     <p className="w-[260px] border-t border-black pt-2 text-[12px]">Assinatura Rh - {toTitle(usuarioLogadoNome)}</p>
                     <p className="mt-1 text-[10px]">Carimbo Da Empresa</p>
                 </div>
-
-                <div className="mt-auto border-t border-black flex justify-between items-center bg-[rgba(255,255,255,0.40)] px-1 pt-3"><span className="text-[9px] font-bold">Licenciado a: {emp.nome} | NIF: {emp.nif} | {emp.endereco}</span><span className="text-[9px] font-bold">Pág. 1 de 1</span></div>
             </div>
         </div>
     )
 
     return (
-        <div className="fixed inset-0 z-[10000] bg-[#525659] overflow-y-auto overflow-x-hidden">
+        <div className="fixed inset-0 z-[10000] bg-[#525659] overflow-y-auto">
             <style>{`
               @import url('https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap');
-              #relatorio-pdf-wrapper{display:flex;justify-content:center;width:100%;overflow-x:hidden;background:transparent}
+              #relatorio-pdf-wrapper{display:flex;justify-content:center;width:100%;background:transparent}
               #relatorio-pdf{transform-origin:top center}
               @media (max-width:768px){
-                #relatorio-pdf-wrapper{overflow-x:hidden!important;width:100%!important}
+                #relatorio-pdf-wrapper{width:100%!important}
                 #relatorio-pdf{transform:scale(0.45);transform-origin:top center;margin-bottom:-55%;width:210mm!important;min-width:210mm!important}
               }
               @media print{.no-print{display:none!important} #relatorio-pdf-wrapper{overflow:visible!important} #relatorio-pdf{transform:none!important; margin:0!important; box-shadow:none!important; border:none!important} }

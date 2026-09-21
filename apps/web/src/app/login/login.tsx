@@ -87,7 +87,7 @@ export default function LoginPage() {
                         <button type="button" onClick={() => setTab('empresa')} className={`flex-1 h-9 rounded-full text-[13px] font-semibold flex items-center justify-center gap-1.5 transition ${tab === 'empresa' ? 'bg-white shadow text-black' : 'text-gray-500'}`}><Building2 className="w-4 h-4" /> Empresa</button>
                         <button type="button" onClick={() => setTab('funcionario')} className={`flex-1 h-9 rounded-full text-[13px] font-semibold flex items-center justify-center gap-1.5 transition ${tab === 'funcionario' ? 'bg-white shadow text-black' : 'text-gray-500'}`}><User className="w-4 h-4" /> Funcionário</button>
                     </div>
-                    <h1 className="text-[18px] font-bold text-gray-900 mt-4">{tab === 'empresa' ? 'FT-Xpress Empresa' : 'Acesso Funcionário'}</h1>
+                    <h1 className="text-[18px] font-bold text-gray-900 mt-4">{tab === 'empresa' ? 'FT-Xpress Empresa' : 'FT-Xpress Funcionário'}</h1>
                     <p className="text-[13px] text-gray-500 mt-1">{tab === 'empresa' ? 'Insere NIF da empresa e senha' : 'Insere Nº BI e senha'}</p>
                 </div>
 

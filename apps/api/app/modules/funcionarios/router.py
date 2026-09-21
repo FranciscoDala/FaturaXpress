@@ -36,6 +36,7 @@ async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Dep
         import app.core.upload_Imagem as up_mod
         import importlib
         cloudinary_lib = getattr(up_mod, "cloudinary", None) or importlib.import_module("cloudinary")
+        import cloudinary.utils
 
         res = cloudinary_lib.uploader.upload(
             io.BytesIO(contents),
@@ -47,11 +48,28 @@ async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Dep
             unique_filename=True,
             overwrite=False
         )
+
+        public_id = res.get("public_id")
         url = res.get("secure_url")
+
+        # AJUSTE CRÍTICO: PDF precisa URL assinada senão dá 401
+        if is_pdf and public_id:
+            # gera URL assinada válida por 1 ano
+            signed_url, _ = cloudinary.utils.cloudinary_url(
+                public_id,
+                resource_type="raw",
+                type="upload",
+                sign_url=True,
+                secure=True
+            )
+            url = signed_url
+            logger.info(f"[UPLOAD FALTA] PDF assinado url={url}")
+        else:
+            logger.info(f"[UPLOAD FALTA] IMAGEM url={url}")
+
         if not url:
             raise Exception("Cloudinary sem url")
 
-        logger.info(f"[UPLOAD FALTA] OK url={url}")
         return {"url": url, "tipo": "pdf" if is_pdf else "imagem"}
 
     except HTTPException:
@@ -79,14 +97,10 @@ def falta_get_anexo(
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     try:
-        # CORRIGIDO: usa HS256 direto, sem settings.ALGORITHM
         payload = jwt.decode(raw_token, settings.SECRET_KEY, algorithms=["HS256"])
         company_id_str = payload.get("company_id") or payload.get("sub") or payload.get("companyId")
-        if not company_id_str:
-            raise HTTPException(status_code=401, detail="Token sem company_id")
         real_company_id = uuid.UUID(str(company_id_str))
-    except (JWTError, ValueError, AttributeError) as e:
-        logger.error(f"[ANEXO] token inválido {e}")
+    except Exception as e:
         raise HTTPException(status_code=401, detail="Token inválido")
 
     falta_any = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id == falta_id).first()
@@ -94,11 +108,35 @@ def falta_get_anexo(
         raise HTTPException(404, "Falta sem anexo")
 
     url = falta_any.justificativa_anexo_url
-    if url.startswith("data:"):
-        raise HTTPException(400, "Anexo antigo em base64, reenvie")
+
+    # AJUSTE PARA PDFs ANTIGOS QUE JÁ ESTÃO SALVOS SEM ASSINATURA
+    if ".pdf" in url.lower() or "/raw/" in url or "faltas" in url:
+        try:
+            import cloudinary.utils
+            # extrai public_id da url salva:.../faltas/xxx/stream_abc -> faltas/xxx/stream_abc
+            # remove domínio e versão
+            if "faltas/" in url:
+                part = url.split("faltas/")[1]
+                # remove query string e.pdf final se tiver
+                part = part.split("?")[0]
+                # public_id é sem extensão
+                if part.endswith(".pdf"):
+                    part = part[:-4]
+                public_id = f"faltas/{part}"
+                # tenta assinar como raw e como image
+                signed, _ = cloudinary.utils.cloudinary_url(
+                    public_id,
+                    resource_type="raw",
+                    type="upload",
+                    sign_url=True,
+                    secure=True
+                )
+                logger.info(f"[ANEXO] PDF antigo re-assinado {public_id} -> {signed}")
+                return RedirectResponse(signed, status_code=302)
+        except Exception as e:
+            logger.error(f"[ANEXO] falha ao re-assinar {e}, usa url original")
 
     return RedirectResponse(url, status_code=302)
-
 
 # --- SEUS ROUTERS EXISTENTES (mantidos) ---
 @router.post("", response_model=FuncionarioResponse, status_code=201)

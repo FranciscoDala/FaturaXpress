@@ -149,3 +149,41 @@ def falta_manual(payload: dict, db: Session = Depends(get_db), company_id: uuid.
                 is_admin=True
         except: pass
     return func_service.marcar_falta_manual(db, company_id, fid, motivo, categoria, observacao, data_str, motivo_retroativo, lancado_uuid, is_admin=is_admin)
+
+
+
+@rh_router.post("/falta/{falta_id}/justificar")
+def falta_justificar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    tipo = payload.get("tipo", "atestado") # atestado, declaracao, licenca, outros
+    obs = payload.get("observacao")
+    anexo_url = payload.get("anexo_url")
+    justificado_por_id = payload.get("justificado_por_id")
+    try:
+        jid = uuid.UUID(justificado_por_id) if justificado_por_id else None
+    except:
+        jid = None
+    return func_service.justificar_falta(db, company_id, falta_id, tipo, obs, anexo_url, jid)
+
+@rh_router.post("/falta/{falta_id}/aprovar")
+def falta_aprovar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    aprovado_por_id = payload.get("aprovado_por_id")
+    obs = payload.get("observacao")
+    try:
+        aid = uuid.UUID(aprovado_por_id) if aprovado_por_id else None
+    except:
+        aid = None
+    return func_service.aprovar_falta(db, company_id, falta_id, aid, obs)
+
+@rh_router.post("/falta/{falta_id}/rejeitar")
+def falta_rejeitar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    aprovado_por_id = payload.get("aprovado_por_id")
+    obs = payload.get("observacao")
+    try:
+        aid = uuid.UUID(aprovado_por_id) if aprovado_por_id else None
+    except:
+        aid = None
+    return func_service.rejeitar_falta(db, company_id, falta_id, aid, obs)
+
+@rh_router.delete("/falta/{falta_id}")
+def falta_remover(falta_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    return func_service.remover_falta(db, company_id, falta_id)

@@ -104,7 +104,6 @@ class Ponto(Base):
     observacao_justificativa: Mapped[str | None] = mapped_column(Text, nullable=True)
     atraso_min: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    # AUDITORIA RETRO - SEM RELATIONSHIP PRA NÃO QUEBRAR
     is_retroativo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     motivo_retroativo: Mapped[str | None] = mapped_column(Text, nullable=True)
     lancado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -155,6 +154,13 @@ class PedidoRH(Base):
     motivo_retroativo: Mapped[str | None] = mapped_column(Text, nullable=True)
     lancado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id", ondelete="SET NULL"), nullable=True, index=True)
     lancado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # JUSTIFICATIVA REAL
+    justificativa_tipo: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    justificativa_obs: Mapped[str | None] = mapped_column(Text, nullable=True)
+    justificativa_anexo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    justificado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    justificado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id", ondelete="SET NULL"), nullable=True, index=True)
+    abonada: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 class Recibo(Base):
     __tablename__ = "recibos"

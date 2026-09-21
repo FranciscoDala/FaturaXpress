@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from passlib.context import CryptContext
 from typing import List, Optional
 from datetime import date, datetime, timezone, timedelta
-from app.modules.funcionarios.models import Funcionario, Ponto, ConfigPonto, PedidoRH
+from app.modules.funcionarios.models import Funcionario, Ponto, ConfigPonto, PedidoRH, StatusPedido
 from app.modules.funcionarios.schemas import FuncionarioCreate, FuncionarioUpdate
 from app.modules.areas.models import Area
 from zoneinfo import ZoneInfo
@@ -74,6 +74,16 @@ def _falta_to_dict(db: Session, f: PedidoRH) -> dict:
         "lancado_por_id": str(f.lancado_por_id) if f.lancado_por_id else None,
         "lancado_por_nome": _get_nome_lancador(db, f.lancado_por_id),
         "lancado_em": f.lancado_em.isoformat() if f.lancado_em else None,
+        "justificativa_tipo": f.justificativa_tipo,
+        "justificativa_obs": f.justificativa_obs,
+        "justificativa_anexo_url": f.justificativa_anexo_url,
+        "justificado_em": f.justificado_em.isoformat() if f.justificado_em else None,
+        "justificado_por_id": str(f.justificado_por_id) if f.justificado_por_id else None,
+        "justificado_por_nome": _get_nome_lancador(db, f.justificado_por_id),
+        "aprovado_por_id": str(f.aprovado_por_id) if f.aprovado_por_id else None,
+        "aprovado_por_nome": _get_nome_lancador(db, f.aprovado_por_id),
+        "aprovado_em": f.aprovado_em.isoformat() if f.aprovado_em else None,
+        "abonada": bool(f.abonada),
     }
 
 def criar_funcionario(db: Session, company_id: uuid.UUID, dados: FuncionarioCreate):
@@ -290,3 +300,53 @@ def marcar_falta_manual(db: Session, company_id: uuid.UUID, funcionario_id: uuid
     )
     db.add(falta); db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
+
+def justificar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, tipo: str, obs: str | None, anexo_url: str | None, justificado_por_id: uuid.UUID | None):
+    falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
+    if not falta:
+        raise HTTPException(404, "Falta não encontrada")
+    if falta.status in [StatusPedido.justificado.value, "justificado"]:
+        raise HTTPException(400, "Falta já justificada")
+    falta.justificativa_tipo = tipo
+    falta.justificativa_obs = obs
+    falta.justificativa_anexo_url = anexo_url
+    falta.justificado_por_id = justificado_por_id
+    falta.justificado_em = datetime.now(timezone.utc)
+    falta.status = StatusPedido.pendente_justificacao.value
+    db.commit(); db.refresh(falta)
+    return _falta_to_dict(db, falta)
+
+def aprovar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, aprovado_por_id: uuid.UUID | None, observacao: str | None = None):
+    falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
+    if not falta:
+        raise HTTPException(404, "Falta não encontrada")
+    falta.status = StatusPedido.justificado.value
+    falta.abonada = True
+    falta.aprovado_por_id = aprovado_por_id
+    falta.aprovado_em = datetime.now(timezone.utc)
+    if observacao:
+        falta.observacao_gestor = observacao
+    db.commit(); db.refresh(falta)
+    return _falta_to_dict(db, falta)
+
+def rejeitar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, aprovado_por_id: uuid.UUID | None, observacao: str | None = None):
+    falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
+    if not falta:
+        raise HTTPException(404, "Falta não encontrada")
+    falta.status = StatusPedido.rejeitado.value
+    falta.abonada = False
+    falta.aprovado_por_id = aprovado_por_id
+    falta.aprovado_em = datetime.now(timezone.utc)
+    if observacao:
+        falta.observacao_gestor = observacao
+    db.commit(); db.refresh(falta)
+    return _falta_to_dict(db, falta)
+
+def remover_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID):
+    falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
+    if not falta:
+        raise HTTPException(404, "Falta não encontrada")
+    if not falta.abonada and falta.status not in [StatusPedido.justificado.value, "justificado", StatusPedido.aprovado.value, "aprovado"]:
+        raise HTTPException(400, "Só é permitido remover falta justificada/abonada. Use aprovar antes.")
+    db.delete(falta); db.commit()
+    return {"ok": True, "id": str(falta_id)}

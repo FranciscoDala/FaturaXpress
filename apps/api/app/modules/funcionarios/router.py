@@ -1,15 +1,43 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Query, File, UploadFile
 from sqlalchemy.orm import Session
 import uuid
 from typing import List, Optional
+import logging
 from app.db.session import get_db
 from app.core.security import get_current_company_id
 from app.modules.funcionarios.schemas import FuncionarioCreate, FuncionarioResponse, FuncionarioUpdate
 from app.modules.funcionarios import service as func_service
 from app.modules.funcionarios.models import Funcionario, Notificacao
 
-router = APIRouter(prefix="/funcionarios", tags=["Funcionários"])
+logger = logging.getLogger(__name__)
 
+router = APIRouter(prefix="/funcionarios", tags=["Funcionários"])
+rh_router = APIRouter(prefix="/rh", tags=["RH - Ponto"])
+upload_router = APIRouter(prefix="/upload", tags=["Upload"])
+
+# --- NOVO: ROTA QUE FALTAVA PARA CLOUDINARY ---
+@upload_router.post("/falta")
+async def upload_falta(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    company_id: uuid.UUID = Depends(get_current_company_id)
+):
+    if not file:
+        raise HTTPException(400, "Arquivo obrigatório")
+    # valida tipo
+    if file.content_type not in ["application/pdf", "image/jpeg", "image/png", "image/jpg", "image/webp"]:
+        raise HTTPException(400, "Só PDF ou imagem (jpg, png, webp)")
+    try:
+        from app.core.upload_Imagem import upload_image
+        # mesma função que você usa em produtos, mas com pasta faltas
+        # raw=True para pdf
+        url = await upload_image(file, folder=f"faltas/{company_id}")
+        return {"url": url}
+    except Exception as e:
+        logger.exception(f"[UPLOAD FALTA] erro: {e}")
+        raise HTTPException(500, f"Falha no upload: {str(e)}")
+
+# --- SEUS ROUTERS EXISTENTES (mantidos) ---
 @router.post("", response_model=FuncionarioResponse, status_code=201)
 def criar(dados: FuncionarioCreate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return func_service.criar_funcionario(db, company_id, dados)
@@ -50,15 +78,13 @@ def login_bi(numero_bi: str, senha: str, db: Session = Depends(get_db)):
         raise HTTPException(401, "BI ou senha inválidos")
     return {"id": str(func.id), "nome": func.nome, "cargo": func.cargo, "company_id": str(func.company_id)}
 
-rh_router = APIRouter(prefix="/rh", tags=["RH - Ponto"])
-
 @rh_router.get("/ponto")
-def ponto_por_data(data: Optional[str] = Query(None, description="YYYY-MM-DD"), db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+def ponto_por_data(data: Optional[str] = Query(None), db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     data_alvo = func_service.parse_data(data)
     return func_service.listar_ponto_por_data(db, company_id, data_alvo)
 
 @rh_router.get("/faltas")
-def faltas_por_data(data: Optional[str] = Query(None, description="YYYY-MM-DD"), db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+def faltas_por_data(data: Optional[str] = Query(None), db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     data_alvo = func_service.parse_data(data)
     return func_service.listar_faltas_por_data(db, company_id, data_alvo)
 
@@ -168,10 +194,8 @@ def falta_aprovar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_
         aid = uuid.UUID(aprovado_por_id) if aprovado_por_id else None
     except:
         aid = None
-    # trava de dono
     falta = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id==falta_id, func_service.PedidoRH.company_id==company_id).first()
     if falta and getattr(falta, "dono_atual", "rh")=="admin":
-        # só admin pode aprovar aqui
         solicitante = db.query(Funcionario).filter(Funcionario.id==aid).first() if aid else None
         if not solicitante or solicitante.cargo!= "admin":
             raise HTTPException(403, "Falta já encaminhada para admin. Só admin pode aprovar.")
@@ -221,8 +245,6 @@ def notificacao_lida(notificacao_id: uuid.UUID, db: Session = Depends(get_db), c
     db.commit()
     return {"ok": True}
 
-
-
 @rh_router.post("/atrasos/{funcionario_id}/aplicar")
 def atraso_aplicar(funcionario_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     aplicado_por_id = payload.get("aplicado_por_id")
@@ -245,8 +267,6 @@ def atraso_encaminhar(funcionario_id: uuid.UUID, payload: dict, db: Session = De
         eid = None
     return func_service.encaminhar_atraso_para_admin(db, company_id, funcionario_id, eid)
 
-
-# compatibilidade com frontend que chama /aplicar-falta
 @rh_router.post("/atrasos/{funcionario_id}/aplicar-falta")
 def atraso_aplicar_falta_alias(funcionario_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     aplicado_por_id = payload.get("aplicado_por_id")

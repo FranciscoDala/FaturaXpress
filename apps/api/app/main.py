@@ -15,6 +15,7 @@ from app.modules.assinatura.router import router as assinatura_router
 from app.modules.areas.router import router as areas_router
 from app.modules.funcionarios.router import router as funcionarios_router
 from app.modules.funcionarios.router import rh_router as rh_ponto_router
+from app.modules.funcionarios.router import upload_router as upload_falta_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -45,7 +46,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="FaturaXpress API", version="1.0.0", lifespan=lifespan, docs_url="/docs", redoc_url=None)
 
-# BLINDAGEM: CORS fechado + headers de segurança
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -67,7 +67,6 @@ async def security_headers(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     return response
 
-# Todas as rotas com /api
 app.include_router(auth_router, prefix="/api")
 app.include_router(cliente_router, prefix="/api")
 app.include_router(produto_router, prefix="/api")
@@ -77,11 +76,11 @@ app.include_router(assinatura_router, prefix="/api")
 app.include_router(areas_router, prefix="/api")
 app.include_router(funcionarios_router, prefix="/api")
 app.include_router(rh_ponto_router, prefix="/api")
+app.include_router(upload_falta_router, prefix="/api")
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.error(f"Erro 500 em {request.url}: {exc}\n{traceback.format_exc()}")
-    # BLINDAGEM: não vaza stack trace
     return JSONResponse(status_code=500, content={"detail": "Erro interno, tente novamente"})
 
 @app.get("/")

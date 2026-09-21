@@ -17,25 +17,45 @@ upload_router = APIRouter(prefix="/upload", tags=["Upload"])
 
 # --- NOVO: ROTA QUE FALTAVA PARA CLOUDINARY ---
 @upload_router.post("/falta")
+@upload_router.post("/falta")
 async def upload_falta(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
     company_id: uuid.UUID = Depends(get_current_company_id)
 ):
     if not file:
         raise HTTPException(400, "Arquivo obrigatório")
-    # valida tipo
+
+    # valida tamanho 5MB
+    contents = await file.read()
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(400, "Arquivo máx 5MB")
+
     if file.content_type not in ["application/pdf", "image/jpeg", "image/png", "image/jpg", "image/webp"]:
-        raise HTTPException(400, "Só PDF ou imagem (jpg, png, webp)")
+        raise HTTPException(400, "Apenas PDF, JPG ou PNG")
+
     try:
-        from app.core.upload_Imagem import upload_image
-        # mesma função que você usa em produtos, mas com pasta faltas
-        # raw=True para pdf
-        url = await upload_image(file, folder=f"faltas/{company_id}")
+        import cloudinary.uploader
+        import io
+
+        # resource_type="auto" permite PDF + imagem
+        result = cloudinary.uploader.upload(
+            io.BytesIO(contents),
+            folder=f"faltas/{company_id}",
+            resource_type="auto",
+            public_id=f"{uuid.uuid4()}",
+            overwrite=True
+        )
+        url = result.get("secure_url")
+        if not url:
+            raise Exception("Cloudinary não retornou url")
         return {"url": url}
+
     except Exception as e:
         logger.exception(f"[UPLOAD FALTA] erro: {e}")
         raise HTTPException(500, f"Falha no upload: {str(e)}")
+    finally:
+        await file.seek(0)
+
 
 # --- SEUS ROUTERS EXISTENTES (mantidos) ---
 @router.post("", response_model=FuncionarioResponse, status_code=201)

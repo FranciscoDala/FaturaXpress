@@ -22,7 +22,7 @@ const CARGOS_PERMISSOES: Record<string, string[]> = {
     admin: ["*"],
     financeira: ["emitir_ft", "emitir_pp", "ver_faturas", "ver_relatorios"],
     recepcao: ["emitir_ft", "emitir_pp", "ver_faturas"],
-    rh: ["gerir_funcionarios", "gerir_areas", "ver_funcionarios", "ver_ponto", "ver_pedidos"]
+    rh: ["gerir_funcionarios", "gerir_areas", "ver_funcionarios", "ver_ponto", "ver_pedidos", "ver_notificacoes"]
 }
 
 function temPermissao(cargo: string | undefined, perm: string) {
@@ -33,7 +33,7 @@ function temPermissao(cargo: string | undefined, perm: string) {
 }
 function isoToday() {
     const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 function getInitialFromStorage(searchParams: URLSearchParams) {
     const urlTab = searchParams.get('rtab') as RHTab | null
@@ -68,7 +68,7 @@ export default function RHPage() {
 
     const funcionarioLogado = useMemo(() => {
         try { const raw = localStorage.getItem("funcionario"); if (!raw) return null; return JSON.parse(raw) } catch { return null }
-    }, [empresa])
+    }, [])
 
     const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
     const isAdmin = cargoAtual === 'admin'
@@ -80,7 +80,7 @@ export default function RHPage() {
     const fetchMe = useCallback(async () => {
         try {
             const tipo = localStorage.getItem("login_tipo") || "company"
-            const url = tipo === "funcionario"? "/api/auth/me-funcionario" : "/api/auth/me"
+            const url = tipo === "funcionario" ? "/api/auth/me-funcionario" : "/api/auth/me"
             const r = await api.get(url)
             const func = r.data.funcionario || null
             let compRaw = r.data.company || r.data.empresa || r.data.company_data || r.data || null
@@ -89,12 +89,12 @@ export default function RHPage() {
                 localStorage.setItem("funcionario", JSON.stringify(func))
             }
             if (tipo === "funcionario") {
-                const incompleta =!compRaw || (!compRaw.telefone &&!compRaw.phone &&!compRaw.endereco &&!compRaw.address)
+                const incompleta = !compRaw || (!compRaw.telefone && !compRaw.phone && !compRaw.endereco && !compRaw.address)
                 if (incompleta) {
                     try {
                         const cached = JSON.parse(localStorage.getItem("empresa") || "null")
-                        if (cached) { compRaw = {...cached,...(compRaw || {}) } }
-                    } catch {}
+                        if (cached) { compRaw = { ...cached, ...(compRaw || {}) } }
+                    } catch { }
                 }
             } else {
                 if (compRaw) localStorage.setItem("empresa", JSON.stringify(compRaw))
@@ -113,32 +113,35 @@ export default function RHPage() {
         setLoadingFunc(true)
         try {
             const { data } = await api.get('/api/funcionarios')
-            setFuncionarios(data.map((f: any) => ({...f, area: f.area_principal?.nome || f.area || 'Geral', cargo: f.cargo || 'rh', status: f.status || (f.ativo === false? 'ferias' : 'ativo'), telefone: f.telefone || '', email: f.email || '' })))
+            setFuncionarios(data.map((f: any) => ({ ...f, area: f.area_principal?.nome || f.area || 'Geral', cargo: f.cargo || 'rh', status: f.status || (f.ativo === false ? 'ferias' : 'ativo'), telefone: f.telefone || '', email: f.email || '' })))
         } catch { toast.error('Erro ao carregar funcionários') } finally { setLoadingFunc(false) }
     }, [])
 
     const fetchPontoHoje = useCallback(async () => {
         try {
             const r = await api.get(`/api/rh/ponto?data=${isoToday()}`)
-            setPontoHoje(Array.isArray(r.data)? r.data : (r.data.items || []))
+            setPontoHoje(Array.isArray(r.data) ? r.data : (r.data.items || []))
         } catch { setPontoHoje([]) }
     }, [])
 
     const fetchNotifCount = useCallback(async () => {
         try {
-            const area = cargoAtual === 'admin'? 'admin' : 'rh'
+            const area = cargoAtual === 'admin' ? 'admin' : 'rh'
             const { data } = await api.get(`/api/rh/notificacoes?area=${area}&status=pendente`)
-            setNotifCount(Array.isArray(data)? data.length : 0)
-            window.dispatchEvent(new CustomEvent('notificacoes-count', { detail: { count: data.length } }))
+            const total = Array.isArray(data) ? data.length : 0
+            setNotifCount(total)
+            window.dispatchEvent(new CustomEvent('notificacoes-count', { detail: { count: total } }))
         } catch { setNotifCount(0) }
     }, [cargoAtual])
 
-    useEffect(() => { fetchMe(); fetchFuncionarios(); fetchPontoHoje(); fetchNotifCount() }, [fetchMe, fetchFuncionarios, fetchPontoHoje, fetchNotifCount])
+    useEffect(() => { fetchMe(); fetchFuncionarios(); fetchPontoHoje() }, [fetchMe, fetchFuncionarios, fetchPontoHoje])
     useEffect(() => {
+        fetchNotifCount()
         const id = setInterval(fetchNotifCount, 15000)
         window.addEventListener('notificacoes-refresh' as any, fetchNotifCount as any)
         return () => { clearInterval(id); window.removeEventListener('notificacoes-refresh' as any, fetchNotifCount as any) }
     }, [fetchNotifCount])
+
     useEffect(() => { localStorage.setItem(LS_KEYS.tab, rhTab); const params = new URLSearchParams(searchParams); params.set('rtab', rhTab); setSearchParams(params, { replace: true }) }, [rhTab])
     useEffect(() => {
         const handler = (e: any) => { if (e.detail?.rtab) setRhTab(e.detail.rtab) }
@@ -174,14 +177,14 @@ export default function RHPage() {
     }, [search, funcionarios])
 
     const presentes = useMemo(() => funcionariosFiltrados.filter(f => presentesIds.has(String(f.id))), [funcionariosFiltrados, presentesIds])
-    const ferias = useMemo(() => funcionariosFiltrados.filter(f =>!presentesIds.has(String(f.id))), [funcionariosFiltrados, presentesIds])
+    const ferias = useMemo(() => funcionariosFiltrados.filter(f => !presentesIds.has(String(f.id))), [funcionariosFiltrados, presentesIds])
 
-    if (funcionarioLogado &&!podeGerirRH &&!podeVerPonto) {
+    if (funcionarioLogado && !podeGerirRH && !podeVerPonto) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center p-6">
                 <div className="max-w-[400px] w-full bg-white border rounded-[24px] p-8 text-center shadow-lg">
-                    <AlertTriangle className="w-6 h-6 text-red-600 mx-auto"/><h2 className="text-[18px] font-bold mt-4">Sem acesso</h2>
-                    <button onClick={()=>navigate('/app/dashboard')} className="mt-6 w-full h-11 rounded-full bg-[#0095ff] text-white">Voltar</button>
+                    <AlertTriangle className="w-6 h-6 text-red-600 mx-auto" /><h2 className="text-[18px] font-bold mt-4">Sem acesso</h2>
+                    <button onClick={() => navigate('/app/dashboard')} className="mt-6 w-full h-11 rounded-full bg-[#0095ff] text-white">Voltar</button>
                 </div>
             </div>
         )
@@ -189,9 +192,7 @@ export default function RHPage() {
 
     return (
         <div className="min-h-screen bg-white relative">
-            
             <GlobalAreas />
-
             <ModalConfirmSair open={modalSairOpen} companyName={companyName} onClose={() => setModalSairOpen(false)} onConfirm={handleConfirmLogout} />
             <ModalUsuario open={modalUsuarioOpen} usuario={usuario} empresa={empresa} onClose={() => setModalUsuarioOpen(false)} />
             <ModalFuncionario open={modalFuncOpen} funcionario={funcSelecionado} saving={savingFunc} onClose={() => { setModalFuncOpen(false); setFuncSelecionado(null) }} onSave={handleSaveFuncionario} />
@@ -224,18 +225,16 @@ export default function RHPage() {
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0 pl-2"><div className="relative"><div className="absolute -top-3 -right-2 z-10"><span className="text-[8px] font-bold tracking-wide bg-white border border-yellow-200 text-yellow-700 px-1.5 py-[1px] rounded-full shadow-sm">{planInfo.label}</span></div><button onClick={() => navigate('/assinatura')} className="w-10 h-10 rounded-full bg-white border border-yellow-200 shadow flex items-center justify-center text-[#f59e0b] hover:bg-yellow-50 transition"><Crown className="w-[18px] h-[18px]" /></button></div><button onClick={handleLogout} className="w-10 h-10 rounded-full bg-[#FF3B30] border border-[#FF3B30] shadow flex items-center justify-center text-white hover:bg-[#e6352b] transition"><Power className="w-[18px] h-[18px]" /></button></div>
                             </div>
-
                             <div className="mt-5 flex max-w-[520px] w-full bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden shadow-sm">
-                                <button onClick={() => setRhTab('presente')} className={`flex-1 py-2.5 flex flex-col justify-center items-center text-center border-r border-gray-200 transition ${rhTab === 'presente'? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
-                                    <p className="text-[15px] font-bold leading-none">{loadingFunc? '...' : totalFuncionarios}</p>
+                                <button onClick={() => setRhTab('presente')} className={`flex-1 py-2.5 flex flex-col justify-center items-center text-center border-r border-gray-200 transition ${rhTab === 'presente' ? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
+                                    <p className="text-[15px] font-bold leading-none">{loadingFunc ? '...' : totalFuncionarios}</p>
                                     <p className="text-[11px] text-gray-500 mt-[2px]">Funcionários</p>
                                 </button>
-                                <button onClick={() => setRhTab('ponto')} className={`flex-1 py-2.5 flex flex-col justify-center items-center text-center transition ${rhTab === 'ponto'? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
+                                <button onClick={() => setRhTab('ponto')} className={`flex-1 py-2.5 flex flex-col justify-center items-center text-center transition ${rhTab === 'ponto' ? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
                                     <p className="text-[15px] font-bold leading-none">{totalPresentesHoje}</p>
                                     <p className="text-[11px] text-gray-500 mt-[2px]">Presentes</p>
                                 </button>
                             </div>
-
                         </div>
                     </div>
                     <style>{`.bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; }.bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; } @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }`}</style>
@@ -251,10 +250,10 @@ export default function RHPage() {
                             </div>
                         )}
                         <div id="tabela">
-                            {loadingFunc? <p className="text-center py-16 bg-white rounded-[20px] border text-black/50">Carregando...</p> : (
+                            {loadingFunc ? <p className="text-center py-16 bg-white rounded-[20px] border text-black/50">Carregando...</p> : (
                                 <>
                                     {rhTab === 'presente' && <TabPresente funcionarios={presentes} search={search} onEdit={handleOpenEditFunc} />}
-                                    {rhTab === 'ferias' && <TabFerias funcionarios={presentes.length? presentes : funcionariosFiltrados} search={search} onEdit={handleOpenEditFunc} />}
+                                    {rhTab === 'ferias' && <TabFerias funcionarios={presentes.length ? presentes : funcionariosFiltrados} search={search} onEdit={handleOpenEditFunc} />}
                                     {rhTab === 'ponto' && <TabPonto empresa={empresa} usuario={usuario} />}
                                     {rhTab === 'pedidos' && <TabPedidos />}
                                     {rhTab === 'recibos' && <TabRecibos />}

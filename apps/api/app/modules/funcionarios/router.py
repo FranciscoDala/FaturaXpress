@@ -15,48 +15,39 @@ router = APIRouter(prefix="/funcionarios", tags=["Funcionários"])
 rh_router = APIRouter(prefix="/rh", tags=["RH - Ponto"])
 upload_router = APIRouter(prefix="/upload", tags=["Upload"])
 
-# --- NOVO: ROTA QUE FALTAVA PARA CLOUDINARY ---
 @upload_router.post("/falta")
-@upload_router.post("/falta")
-async def upload_falta(
-    file: UploadFile = File(...),
-    company_id: uuid.UUID = Depends(get_current_company_id)
-):
-    if not file:
-        raise HTTPException(400, "Arquivo obrigatório")
-
-    # valida tamanho 5MB
+async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Depends(get_current_company_id)):
     contents = await file.read()
-    if len(contents) > 5 * 1024 * 1024:
-        raise HTTPException(400, "Arquivo máx 5MB")
-
-    if file.content_type not in ["application/pdf", "image/jpeg", "image/png", "image/jpg", "image/webp"]:
-        raise HTTPException(400, "Apenas PDF, JPG ou PNG")
+    if len(contents) > 5*1024*1024:
+        raise HTTPException(400, "Máx 5MB")
+    await file.seek(0)
 
     try:
-        import cloudinary.uploader
-        import io
+        import io, app.core.upload_Imagem as up_mod
+        import importlib
+        cloudinary_lib = getattr(up_mod, "cloudinary", None) or importlib.import_module("cloudinary")
 
-        # resource_type="auto" permite PDF + imagem
-        result = cloudinary.uploader.upload(
+        res = cloudinary_lib.uploader.upload(
             io.BytesIO(contents),
             folder=f"faltas/{company_id}",
-            resource_type="auto",
-            public_id=f"{uuid.uuid4()}",
-            overwrite=True
+            resource_type="auto",          # aceita PDF + imagem
+            type="upload",                 # público, não private/authenticated
+            access_mode="public",          # força público
+            public_id=str(uuid.uuid4()),
+            overwrite=True,
+            # garante que PDF abre no browser
+            format="pdf" if file.content_type == "application/pdf" else None
         )
-        url = result.get("secure_url")
-        if not url:
-            raise Exception("Cloudinary não retornou url")
+        # se for PDF, Cloudinary retorna secure_url com /raw/ - deixa público
+        url = res.get("secure_url")
+        # opcional: força https e versão
         return {"url": url}
 
     except Exception as e:
-        logger.exception(f"[UPLOAD FALTA] erro: {e}")
-        raise HTTPException(500, f"Falha no upload: {str(e)}")
-    finally:
-        await file.seek(0)
+        logger.exception(f"[UPLOAD FALTA] {e}")
+        raise HTTPException(500, f"Falha no upload: {e}")
 
-
+        
 # --- SEUS ROUTERS EXISTENTES (mantidos) ---
 @router.post("", response_model=FuncionarioResponse, status_code=201)
 def criar(dados: FuncionarioCreate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):

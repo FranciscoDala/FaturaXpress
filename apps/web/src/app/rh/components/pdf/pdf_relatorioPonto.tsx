@@ -45,65 +45,63 @@ export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, falta
 
     return (
         <div className="fixed inset-0 z-[10000] bg-[#323233] flex flex-col overflow-hidden">
-            <style>{`
-                @media print{
-                   .no-print{display:none!important}
-                   .pdf-bg{background:white!important}
-                    #relatorio{box-shadow:none!important; margin:0!important; width:210mm!important; border:none!important}
-                }
-            `}</style>
+            <style>{`@media print{.no-print{display:none!important}.pdf-bg{background:white!important} #relatorio{box-shadow:none!important; margin:0!important; width:210mm!important} }`}</style>
 
-            {/* HEADER ESTILO PDF VIEWER */}
-            <div className="no-print h-[56px] bg-[#323233] flex items-center justify-between px-3 md:px-4 shrink-0 text-white">
-                <div className="flex items-center gap-3">
-                    <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"><X className="w-4 h-4"/></button>
-                    <p className="text-[13px] md:text-[14px] font-bold tracking-wide">FOLHA DE PONTO - {fmtDisplay(dataSelecionada)}</p>
-                    <span className="hidden md:flex text-[11px] bg-white/10 px-2 py-0.5 rounded">1 / 1</span>
+            {/* BARRA PADRÃO PDF */}
+            <div className="no-print h-[48px] bg-[#323233] flex items-center justify-between px-3 shrink-0 text-white">
+                <div className="flex items-center gap-2">
+                    <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center"><X className="w-4 h-4"/></button>
+                    <p className="text-[13px] md:text-[14px] font-bold uppercase tracking-wide">Folha De Ponto - {fmtDisplay(dataSelecionada)}</p>
+                    <span className="text-[11px] bg-white/15 px-2 py-0.5 rounded">1 / 1</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="hidden md:flex text-[11px] bg-white/10 px-2 py-0.5 rounded">100%</span>
-                    <button onClick={()=>window.print()} className="h-8 px-4 bg-white text-black rounded-full text-[12px] font-bold hover:bg-zinc-200">Imprimir</button>
+                    <span className="text-[11px] bg-white/15 px-2 py-0.5 rounded">100%</span>
+                    <button onClick={()=>window.print()} className="h-7 px-4 bg-white text-black rounded-full text-[12px] font-bold">Imprimir</button>
                 </div>
             </div>
 
-            {/* AREA DA FOLHA - FUNDO ESCURO */}
-            <div className="pdf-bg flex-1 overflow-y-auto overflow-x-auto bg-[#525659] p-2 md:p-6 flex justify-center items-start">
-                <div id="relatorio" className="w-full max-w-[210mm] min-h-[297mm] bg-white text-black font-[Arial] shadow-[0_0_25px_rgba(0,0,0,0.6)] p-4 md:p-[12mm] mx-auto">
+            <div className="pdf-bg flex-1 overflow-y-auto bg-[#525659] p-2 md:p-6 flex justify-start md:justify-center items-start">
+                <div id="relatorio" className="w-full max-w-[210mm] min-h-[297mm] bg-white text-black font-[Arial] shadow-[0_0_25px_rgba(0,0,0,0.6)] p-4 md:p-[12mm]">
 
-                    <div className="text-center mb-4">
-                        <p className="font-bold text-[16px] md:text-[18px]">Folha De Ponto - Período: {fmtDisplay(minDate)} até {fmtDisplay(hoje)}</p>
-                    </div>
-
-                    <div className="flex gap-4 border border-black p-2 mb-3">
-                        {emp.logo? <img src={emp.logo} className="w-[75px] h-[75px] object-contain shrink-0"/> : <div className="w-[75px] h-[75px] flex items-center justify-center font-black text-[24px] shrink-0">{emp.nome.charAt(0).toUpperCase()}</div>}
-                        <div className="text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] min-w-0 flex-1">
-                            <p className="font-bold text-[15px] md:text-[16px] capitalize">{emp.nome.toLowerCase()}</p>
-                            <p>Nif: {emp.nif}</p>
-                            <p className="capitalize">{emp.endereco.toLowerCase()} - {emp.cidade.toLowerCase()}</p>
-                            <p>Tel: {emp.telefone} | Email: {emp.email}</p>
+                    {/* HEADER ORIGINAL ESQUERDA/DIREITA */}
+                    <div className="flex justify-between items-start border-b-2 border-black pb-4">
+                        <div className="flex gap-3">
+                            {emp.logo? <img src={emp.logo} className="w-[70px] h-[70px] object-contain shrink-0" /> : <div className="w-[70px] h-[70px] flex items-center justify-center font-black text-[22px] shrink-0">{emp.nome.charAt(0).toUpperCase()}</div>}
+                            <div className="text-[13px] md:text-[14px] leading-[18px]">
+                                <p className="font-bold text-[14px] md:text-[15px] capitalize">{emp.nome.toLowerCase()}</p>
+                                <p>Nif: {emp.nif}</p>
+                                <p className="capitalize">{emp.endereco.toLowerCase()}</p>
+                                <p>Tel: {emp.telefone} | Email: {emp.email}</p>
+                                <p className="capitalize">{emp.cidade.toLowerCase()}</p>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <p className="font-bold text-[12px] md:text-[13px] border-2 border-black px-3 py-1">Auditoria De Ponto</p>
+                            <p className="text-[11px] md:text-[12px] mt-2">Data: {fmtDisplay(dataSelecionada)}</p>
+                            <p className="text-[10px]">Emissão: {new Date().toLocaleString('pt-AO')}</p>
                         </div>
                     </div>
 
-                    <div className="flex flex-col md:flex-row md:justify-between gap-1 text-[13px] md:text-[14px] font-bold mb-3 capitalize">
+                    <div className="mt-4 text-[12px] md:text-[13px] flex justify-between font-bold capitalize">
                         <p>Período: {fmtDisplay(minDate)} até {fmtDisplay(hoje)}</p>
                         <p>Total: {funcs.length} | Presentes: {linhas.filter(l=>l.status!=='Falta' && l.status!=='Sem Registo').length} | Faltas: {linhas.filter(l=>l.status==='Falta').length}</p>
                     </div>
 
-                    <table className="w-full border-collapse border border-black text-[13px] md:text-[14px]">
+                    <table className="w-full mt-4 border-collapse border border-black text-[13px] md:text-[14px]">
                         <thead>
                             <tr className="bg-black text-white">
-                                <th className="border border-black p-2 text-left font-normal">Funcionario</th>
-                                <th className="border border-black p-2 font-normal">Entrada</th>
-                                <th className="border border-black p-2 font-normal">Saida</th>
-                                <th className="border border-black p-2 font-normal">Status</th>
-                                <th className="border border-black p-2 text-left font-normal">Motivo</th>
-                                <th className="border border-black p-2 font-normal">Retro?</th>
-                                <th className="border border-black p-2 text-left font-normal">Quem Lançou</th>
+                                <th className="border border-black p-2 text-left font-normal w-[26%]">Funcionario</th>
+                                <th className="border border-black p-2 font-normal w-[12%]">Entrada</th>
+                                <th className="border border-black p-2 font-normal w-[12%]">Saida</th>
+                                <th className="border border-black p-2 font-normal w-[12%]">Status</th>
+                                <th className="border border-black p-2 text-left font-normal w-[18%]">Motivo</th>
+                                <th className="border border-black p-2 font-normal w-[8%]">Retro?</th>
+                                <th className="border border-black p-2 text-left font-normal w-[12%]">Quem Lançou</th>
                             </tr>
                         </thead>
                         <tbody>
                             {linhas.map((l,i)=>(
-                                <tr key={i} className="h-[34px]">
+                                <tr key={i} className="h-[36px]">
                                     <td className="border border-black px-2 font-bold">{l.nome}</td>
                                     <td className="border border-black text-center">{l.entrada}</td>
                                     <td className="border border-black text-center">{l.saida}</td>
@@ -116,18 +114,13 @@ export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, falta
                         </tbody>
                     </table>
 
-                    <div className="mt-6 text-[13px]">
+                    <div className="mt-8 text-[12px] border-t-2 border-black pt-3">
                         <p>Documento gerado automaticamente.</p>
-                    </div>
-
-                    <div className="mt-24 md:mt-32 flex flex-col items-center justify-center text-center">
-                        <div className="w-[260px] border-t border-black pt-2">
-                            <p className="text-[14px] font-bold">Assinatura Rh</p>
+                        <div className="mt-24 md:mt-36 flex flex-col items-center justify-center text-center">
+                            <p className="w-[260px] border-t border-black pt-2 text-[14px]">Assinatura Rh</p>
+                            <p className="mt-1 text-[11px]">Carimbo Da Empresa</p>
                         </div>
-                        <p className="mt-2 text-[11px]">Carimbo Da Empresa</p>
-                        <p className="mt-1 text-[10px] text-zinc-500">Emissão: {new Date().toLocaleString('pt-AO')}</p>
                     </div>
-
                 </div>
             </div>
         </div>

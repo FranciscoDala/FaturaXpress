@@ -231,18 +231,17 @@ export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
     )
 
     return (
-        <div className="fixed inset-0 z-[10000] bg-[#525659] overflow-y-auto overflow-x-hidden">
+        <div className="fixed inset-0 z-[10000] bg-[#525659] flex flex-col overflow-hidden">
             <style>{`
-              @import url('https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap');
-              #fatura-pdf-wrapper{display:flex;justify-content:center;width:100%;background:transparent}
+              #fatura-pdf-wrapper{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;display:flex;justify-content:center;width:100%;background:transparent}
               #fatura-pdf{transform-origin:top center}
               @media (max-width:768px){
                 #fatura-pdf{transform:scale(0.45);transform-origin:top center;margin-bottom:-55%;width:210mm!important;min-width:210mm!important}
               }
-              @media print{.no-print{display:none!important} #fatura-pdf{transform:none!important; margin:0!important; box-shadow:none!important; border:none!important} }
+              @media print{.no-print{display:none!important} #fatura-pdf-wrapper{overflow:visible!important} #fatura-pdf{transform:none!important; margin:0!important; box-shadow:none!important; border:none!important} }
             `}</style>
 
-            <div className="no-print sticky top-0 z-20 h-[44px] bg-[#323233] flex items-center justify-between px-2 text-white">
+            <div className="no-print h-[44px] bg-[#323233] flex items-center justify-between px-2 text-white shrink-0">
                 <div className="flex items-center gap-2 min-w-0">
                     <button onClick={onClose} className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded shrink-0"><Menu className="w-4 h-4" /></button>
                     <p className="text-[11px] md:text-[13px] font-bold uppercase truncate">{tituloDoc} - {numeroDoc}</p>

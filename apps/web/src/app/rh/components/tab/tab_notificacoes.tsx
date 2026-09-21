@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Bell, Clock, Check, X, ArrowUpRight, History, User, FileText, Eye, FileCheck2, RefreshCw } from 'lucide-react'
+import { Bell, Clock, Check, X, ArrowUpRight, History, User, FileText, Eye, FileCheck2, RefreshCw, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../../../../lib/api'
 
@@ -11,6 +11,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const [loading, setLoading] = useState(true)
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [actingId, setActingId] = useState<string | null>(null)
+    const [openingId, setOpeningId] = useState<string | null>(null)
     const firstLoad = useRef(true)
 
     const area = cargoAtual === 'admin' ? 'admin' : 'rh'
@@ -24,7 +25,6 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         try {
             const { data } = await api.get(`/api/rh/notificacoes?area=${area}`)
             const list = Array.isArray(data) ? data : []
-            // evita re-render se for igual
             setNotifs(prev => {
                 const prevStr = JSON.stringify(prev.map(n => n.notificacao_id + n.status_notificacao))
                 const nextStr = JSON.stringify(list.map((n: any) => n.notificacao_id + n.status_notificacao))
@@ -58,11 +58,29 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const historico = notifs.filter(n => n.status_notificacao !== 'pendente')
     const list = tab === 'ativas' ? ativas : historico
 
+    const abrirComprovante = async (faltaId: string) => {
+        if (!faltaId) return
+        setOpeningId(faltaId)
+        try {
+            const res = await api.get(`/api/rh/falta/${faltaId}/anexo`, {
+                responseType: 'blob'
+            })
+            const contentType = (res.headers['content-type'] as string) || 'application/pdf'
+            const blob = new Blob([res.data], { type: contentType })
+            const url = URL.createObjectURL(blob)
+            window.open(url, '_blank', 'noopener,noreferrer')
+            setTimeout(() => URL.revokeObjectURL(url), 60000)
+        } catch (e: any) {
+            toast.error(e?.response?.data?.detail || 'Falha ao abrir comprovante')
+        } finally {
+            setOpeningId(null)
+        }
+    }
+
     const handleAtraso = async (funcId: string, acao: 'aplicar' | 'ignorar' | 'encaminhar') => {
         if (!funcId) { toast.error('Funcionário inválido'); return }
         setActingId(funcId)
         const prev = notifs
-        // update otimista: remove da lista na hora
         if (acao !== 'encaminhar') {
             setNotifs(n => n.filter(x => x.funcionario?.id !== funcId || x.tipo !== 'atraso_excedido'))
         }
@@ -74,7 +92,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
             toast.success(acao === 'aplicar' ? 'Falta aplicada' : acao === 'ignorar' ? 'Atrasos zerados' : 'Encaminhado para admin')
             await fetchNotifs(true)
         } catch (e: any) {
-            setNotifs(prev) // rollback
+            setNotifs(prev)
             toast.error(e?.response?.data?.detail || 'Erro')
         }
         finally { setActingId(null) }
@@ -85,7 +103,6 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         setActingId(faltaId)
         const prev = notifs
         setNotifs(n => n.map(x => x.falta?.id === faltaId ? { ...x, status_notificacao: 'resolvido' } : x))
-        // remove visualmente após 300ms
         setTimeout(() => setNotifs(n => n.filter(x => x.falta?.id !== faltaId || x.status_notificacao === 'pendente' ? true : tab === 'ativas' ? false : true)), 300)
 
         try {
@@ -181,14 +198,14 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                                         {n.falta?.justificativa_obs && <p className="text-[12px] text-gray-500 mt-1 bg-amber-50 border border-amber-100 rounded-[10px] px-2.5 py-1.5">{n.falta.justificativa_obs}</p>}
                                         <div className="flex items-center gap-2 mt-2">
                                             {n.falta?.justificativa_anexo_url && (
-                                                <a
-                                                    href={`${api.defaults.baseURL}/api/rh/falta/${n.falta.id}/anexo`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex text-[11px] bg-black text-white px-3 py-1.5 rounded-full items-center gap-1 hover:bg-gray-800"
+                                                <button
+                                                    onClick={() => abrirComprovante(n.falta.id)}
+                                                    disabled={openingId === n.falta.id}
+                                                    className="inline-flex text-[11px] bg-black text-white px-3 py-1.5 rounded-full items-center gap-1 hover:bg-gray-800 disabled:opacity-50"
                                                 >
-                                                    <Eye className="w-3 h-3" /> Ver comprovante
-                                                </a>
+                                                    {openingId === n.falta.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
+                                                    {openingId === n.falta.id ? 'Abrindo...' : 'Ver comprovante'}
+                                                </button>
                                             )}
                                             {n.falta?.abonada && <span className="text-[10px] bg-green-100 border border-green-200 text-green-700 px-2 py-1 rounded-full">ABONADA</span>}
                                         </div>

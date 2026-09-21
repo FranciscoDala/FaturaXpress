@@ -1,16 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Query, File, UploadFile
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 import uuid
 import io
 from typing import List, Optional
 import logging
+
+from jose import jwt, JWTError
+
 from app.db.session import get_db
 from app.core.security import get_current_company_id
+from app.core.config import settings
 from app.modules.funcionarios.schemas import FuncionarioCreate, FuncionarioResponse, FuncionarioUpdate
 from app.modules.funcionarios import service as func_service
 from app.modules.funcionarios.models import Funcionario, Notificacao
-
-from fastapi.responses import RedirectResponse
 
 logger = logging.getLogger(__name__)
 
@@ -26,50 +29,24 @@ async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Dep
     if len(contents) < 10:
         raise HTTPException(400, "Arquivo vazio")
 
-    # DETECÇÃO REAL PELO CONTEÚDO - não confia só no content_type
-    # PDF começa com %PDF-
     is_pdf_magic = contents[:5] == b'%PDF-'
-    # JPEG: FF D8 FF, PNG: 89 50 4E 47, WEBP: RIFF....WEBP
     is_pdf = is_pdf_magic or file.content_type == "application/pdf" or (file.filename or "").lower().endswith(".pdf")
-
-    if not is_pdf:
-        # valida se é imagem mesmo
-        if not (contents[:3] == b'\xff\xd8\xff' or # jpg
-                contents[:8] == b'\x89PNG\r\n\x1a\n' or # png
-                contents[:4] == b'RIFF'): # webp
-            # deixa passar mas vai salvar como image - Cloudinary vai validar
-            pass
 
     try:
         import app.core.upload_Imagem as up_mod
         import importlib
         cloudinary_lib = getattr(up_mod, "cloudinary", None) or importlib.import_module("cloudinary")
 
-        if is_pdf:
-            logger.info(f"[UPLOAD FALTA] Detectado PDF {file.filename} {len(contents)} bytes -> auto")
-            res = cloudinary_lib.uploader.upload(
-                io.BytesIO(contents),
-                folder=f"faltas/{company_id}",
-                resource_type="auto", # AJUSTE: auto no lugar de raw - raw dava 401 no free
-                type="upload",
-                access_mode="public",
-                use_filename=True,
-                unique_filename=True,
-                overwrite=False
-            )
-        else:
-            logger.info(f"[UPLOAD FALTA] Detectado IMAGEM {file.filename} {file.content_type} -> image")
-            res = cloudinary_lib.uploader.upload(
-                io.BytesIO(contents),
-                folder=f"faltas/{company_id}",
-                resource_type="image",
-                type="upload",
-                access_mode="public",
-                use_filename=True,
-                unique_filename=True,
-                overwrite=False
-            )
-
+        res = cloudinary_lib.uploader.upload(
+            io.BytesIO(contents),
+            folder=f"faltas/{company_id}",
+            resource_type="auto",
+            type="upload",
+            access_mode="public",
+            use_filename=True,
+            unique_filename=True,
+            overwrite=False
+        )
         url = res.get("secure_url")
         if not url:
             raise Exception("Cloudinary sem url")
@@ -85,34 +62,43 @@ async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Dep
 
 @rh_router.get("/falta/{falta_id}/anexo")
 @upload_router.get("/falta/{falta_id}/anexo")
-def falta_get_anexo(falta_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    logger.info(f"[ANEXO HIT] id={falta_id} token_company={company_id}")
-    # busca sem company pra saber se existe
-    falta_any = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id==falta_id).first()
-    if not falta_any:
-        logger.error(f"[ANEXO] falta {falta_id} não existe em nenhuma company")
-        raise HTTPException(404, "Falta não existe")
+def falta_get_anexo(
+    falta_id: uuid.UUID,
+    request: Request,
+    token: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    raw_token = None
+    auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+    if auth_header and auth_header.lower().startswith("bearer "):
+        raw_token = auth_header.split(" ", 1)[1].strip()
+    elif token:
+        raw_token = token
 
-    logger.info(f"[ANEXO] encontrada company_db={falta_any.company_id} url={falta_any.justificativa_anexo_url}")
+    if not raw_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
-    falta = db.query(func_service.PedidoRH).filter(
-        func_service.PedidoRH.id==falta_id,
-        func_service.PedidoRH.company_id==company_id
-    ).first()
+    try:
+        # CORRIGIDO: usa HS256 direto, sem settings.ALGORITHM
+        payload = jwt.decode(raw_token, settings.SECRET_KEY, algorithms=["HS256"])
+        company_id_str = payload.get("company_id") or payload.get("sub") or payload.get("companyId")
+        if not company_id_str:
+            raise HTTPException(status_code=401, detail="Token sem company_id")
+        real_company_id = uuid.UUID(str(company_id_str))
+    except (JWTError, ValueError, AttributeError) as e:
+        logger.error(f"[ANEXO] token inválido {e}")
+        raise HTTPException(status_code=401, detail="Token inválido")
 
-    if not falta:
-        raise HTTPException(404, f"Falta de outra empresa. db={falta_any.company_id} token={company_id}")
+    falta_any = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id == falta_id).first()
+    if not falta_any or not falta_any.justificativa_anexo_url:
+        raise HTTPException(404, "Falta sem anexo")
 
-    if not falta.justificativa_anexo_url:
-        raise HTTPException(404, "Falta sem anexo_url - reenvie o comprovante")
-
-    url = falta.justificativa_anexo_url
+    url = falta_any.justificativa_anexo_url
     if url.startswith("data:"):
-        raise HTTPException(400, "Anexo antigo em base64, envie novamente")
+        raise HTTPException(400, "Anexo antigo em base64, reenvie")
 
-    # AJUSTE: não faz httpx.get que dava 502, só redireciona pro Cloudinary
-    logger.info(f"[ANEXO] redirect {falta_id} -> {url}")
     return RedirectResponse(url, status_code=302)
+
 
 # --- SEUS ROUTERS EXISTENTES (mantidos) ---
 @router.post("", response_model=FuncionarioResponse, status_code=201)
@@ -180,10 +166,11 @@ def get_config(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(ge
 @rh_router.put("/ponto/config")
 def update_config(payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     cfg = func_service.get_config_ponto(db, company_id)
-    for k,v in payload.items():
-        if hasattr(cfg,k):
-            setattr(cfg,k,v)
-    db.commit(); db.refresh(cfg)
+    for k, v in payload.items():
+        if hasattr(cfg, k):
+            setattr(cfg, k, v)
+    db.commit()
+    db.refresh(cfg)
     return cfg
 
 @rh_router.get("/faltas/hoje")
@@ -192,7 +179,7 @@ def faltas_hoje(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(g
 
 @rh_router.get("/ponto/{periodo}")
 def ponto_periodo(periodo: str, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    if periodo not in ["semana","mes"]:
+    if periodo not in ["semana", "mes"]:
         raise HTTPException(400, "periodo inválido")
     return func_service.listar_ponto_periodo(db, company_id, periodo)
 
@@ -218,8 +205,8 @@ def ponto_bater(payload: dict, request: Request, db: Session = Depends(get_db), 
     if lancado_por_id:
         try:
             lancado_uuid = uuid.UUID(lancado_por_id)
-            solicitante = db.query(Funcionario).filter(Funcionario.id==lancado_uuid).first()
-            if solicitante and solicitante.cargo=='admin':
+            solicitante = db.query(Funcionario).filter(Funcionario.id == lancado_uuid).first()
+            if solicitante and solicitante.cargo == 'admin':
                 is_admin = True
         except:
             pass
@@ -228,8 +215,8 @@ def ponto_bater(payload: dict, request: Request, db: Session = Depends(get_db), 
 @rh_router.post("/falta")
 def falta_manual(payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     funcionario_id = payload.get("funcionario_id")
-    motivo = payload.get("motivo","Falta - RH")
-    categoria = payload.get("categoria","outros")
+    motivo = payload.get("motivo", "Falta - RH")
+    categoria = payload.get("categoria", "outros")
     observacao = payload.get("observacao")
     data_str = payload.get("data")
     motivo_retroativo = payload.get("motivo_retroativo")
@@ -241,14 +228,15 @@ def falta_manual(payload: dict, db: Session = Depends(get_db), company_id: uuid.
     except:
         raise HTTPException(400, "funcionario_id inválido")
     lancado_uuid = None
-    is_admin=False
+    is_admin = False
     if lancado_por_id:
         try:
             lancado_uuid = uuid.UUID(lancado_por_id)
-            solicitante = db.query(Funcionario).filter(Funcionario.id==lancado_uuid).first()
-            if solicitante and solicitante.cargo=='admin':
-                is_admin=True
-        except: pass
+            solicitante = db.query(Funcionario).filter(Funcionario.id == lancado_uuid).first()
+            if solicitante and solicitante.cargo == 'admin':
+                is_admin = True
+        except:
+            pass
     return func_service.marcar_falta_manual(db, company_id, fid, motivo, categoria, observacao, data_str, motivo_retroativo, lancado_uuid, is_admin=is_admin)
 
 @rh_router.post("/falta/{falta_id}/justificar")
@@ -271,9 +259,9 @@ def falta_aprovar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_
         aid = uuid.UUID(aprovado_por_id) if aprovado_por_id else None
     except:
         aid = None
-    falta = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id==falta_id, func_service.PedidoRH.company_id==company_id).first()
-    if falta and getattr(falta, "dono_atual", "rh")=="admin":
-        solicitante = db.query(Funcionario).filter(Funcionario.id==aid).first() if aid else None
+    falta = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id == falta_id, func_service.PedidoRH.company_id == company_id).first()
+    if falta and getattr(falta, "dono_atual", "rh") == "admin":
+        solicitante = db.query(Funcionario).filter(Funcionario.id == aid).first() if aid else None
         if not solicitante or solicitante.cargo!= "admin":
             raise HTTPException(403, "Falta já encaminhada para admin. Só admin pode aprovar.")
     return func_service.aprovar_falta(db, company_id, falta_id, aid, obs)
@@ -286,9 +274,9 @@ def falta_rejeitar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get
         aid = uuid.UUID(aprovado_por_id) if aprovado_por_id else None
     except:
         aid = None
-    falta = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id==falta_id, func_service.PedidoRH.company_id==company_id).first()
-    if falta and getattr(falta, "dono_atual", "rh")=="admin":
-        solicitante = db.query(Funcionario).filter(Funcionario.id==aid).first() if aid else None
+    falta = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id == falta_id, func_service.PedidoRH.company_id == company_id).first()
+    if falta and getattr(falta, "dono_atual", "rh") == "admin":
+        solicitante = db.query(Funcionario).filter(Funcionario.id == aid).first() if aid else None
         if not solicitante or solicitante.cargo!= "admin":
             raise HTTPException(403, "Falta já encaminhada para admin. Só admin pode rejeitar.")
     return func_service.rejeitar_falta(db, company_id, falta_id, aid, obs)
@@ -308,7 +296,7 @@ def falta_encaminhar_admin(falta_id: uuid.UUID, payload: dict, db: Session = Dep
 
 @rh_router.get("/notificacoes")
 def notificacoes(area: str = Query(..., description="rh, admin, financeira, recepcao"), status: Optional[str] = None, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    if area not in ["rh","admin","financeira","recepcao"]:
+    if area not in ["rh", "admin", "financeira", "recepcao"]:
         raise HTTPException(400, "Area inválida")
     return func_service.listar_notificacoes(db, company_id, area, status)
 

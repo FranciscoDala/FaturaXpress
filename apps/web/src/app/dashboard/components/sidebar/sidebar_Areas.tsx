@@ -1,4 +1,4 @@
-import { Leaf, ChevronLeft, Home, Users, Package, Settings2, Receipt, FileText, PlusCircle, Factory, Lock, UserCheck, Plane, Clock, FileHeart, ClipboardList } from 'lucide-react'
+import { Leaf, ChevronLeft, Home, Users, Package, Settings2, Receipt, FileText, PlusCircle, Factory, Lock, UserCheck, Plane, Clock, FileHeart, ClipboardList, Bell } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useMemo } from 'react'
 
@@ -6,7 +6,7 @@ const CARGOS_PERMISSOES: Record<string, string[]> = {
     admin: ["*"],
     financeira: ["dashboard", "faturas", "emitidas", "proformas", "emitir", "clientes", "produtos", "servicos"],
     recepcao: ["dashboard", "proformas", "clientes", "emitir"],
-    rh: ["dashboard","rh", "rh_presente", "rh_ferias", "rh_ponto", "rh_pedidos", "rh_recibos"]
+    rh: ["dashboard","rh", "rh_presente", "rh_ferias", "rh_ponto", "rh_pedidos", "rh_recibos", "rh_notificacoes"]
 }
 
 function temAcesso(cargo: string, area: string) {
@@ -33,9 +33,10 @@ const MENU_RH = [
     { id: 'rh4', label: 'Ponto Hoje', Icon: Clock, area: 'rh_ponto', rtab: 'ponto' as const },
     { id: 'rh5', label: 'Pedidos RH', Icon: ClipboardList, area: 'rh_pedidos', rtab: 'pedidos' as const },
     { id: 'rh6', label: 'Recibos', Icon: FileHeart, area: 'rh_recibos', rtab: 'recibos' as const },
+    { id: 'rh7', label: 'Notificações', Icon: Bell, area: 'rh_notificacoes', rtab: 'notificacoes' as const, isNotif: true },
 ]
 
-export default function SidebarAreas({ open, onClose }: { open: boolean, onClose: () => void }) {
+export default function SidebarAreas({ open, onClose, notifCount = 0 }: { open: boolean, onClose: () => void, notifCount?: number }) {
     const navigate = useNavigate()
     const location = useLocation()
     const isRH = location.pathname.includes('/app/rh')
@@ -117,6 +118,7 @@ export default function SidebarAreas({ open, onClose }: { open: boolean, onClose
                                             <div className="absolute inset-0 bg-white rounded-l-full border border-[#e6f0ff] shadow-[0_2px_10px_rgba(0,149,255,0.10)]" />
                                             <button onClick={() => handleNav(m)} className="relative z-10 w-full h-full flex items-center gap-2.5 px-4 text-[#0095ff] font-semibold text-[13.5px]">
                                                 <m.Icon className="w-[16px] h-[16px]" />{m.label}
+                                                {(m as any).isNotif && notifCount > 0 && <span className="ml-auto bg-[#FF3B30] text-white text-[10px] font-bold min-w-[20px] h-[20px] flex items-center justify-center rounded-full px-1">{notifCount > 9? '9+' : notifCount}</span>}
                                             </button>
                                         </div>
                                     )
@@ -124,6 +126,7 @@ export default function SidebarAreas({ open, onClose }: { open: boolean, onClose
                                 return (
                                     <button key={m.id} onClick={() => handleNav(m)} className="h-[40px] shrink-0 rounded-full bg-white/70 backdrop-blur border border-[#e6f0ff] flex items-center gap-2.5 px-4 text-gray-700 text-[13.5px] font-medium hover:bg-white text-left">
                                         <m.Icon className="w-[16px] h-[16px] text-[#0095ff]/70" />{m.label}
+                                        {(m as any).isNotif && notifCount > 0 && <span className="ml-auto bg-[#FF3B30] text-white text-[10px] font-bold min-w-[20px] h-[20px] flex items-center justify-center rounded-full px-1 animate-pulse">{notifCount > 9? '9+' : notifCount}</span>}
                                     </button>
                                 )
                             })}

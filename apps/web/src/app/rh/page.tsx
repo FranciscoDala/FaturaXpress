@@ -11,9 +11,10 @@ import TabFerias from './components/tab/tab_func_ferias'
 import TabPonto from './components/tab/tab_ponto'
 import TabPedidos from './components/tab/tab_pedidos'
 import TabRecibos from './components/tab/tab_recibos'
+import TabNotificacoes from './components/tab/tab_notificacoes'
 import { api } from '../../lib/api'
 
-type RHTab = 'presente' | 'ferias' | 'ponto' | 'pedidos' | 'recibos'
+type RHTab = 'presente' | 'ferias' | 'ponto' | 'pedidos' | 'recibos' | 'notificacoes'
 const LS_KEYS = { tab: 'rh_tab' }
 const PLAN_LIMITS: Record<string, { label: string }> = { free: { label: 'FREE' }, plus: { label: 'PLUS' }, premium: { label: 'PREMIUM' }, diamond: { label: 'DIAMOND' }, }
 
@@ -57,6 +58,7 @@ export default function RHPage() {
     const [loadingFunc, setLoadingFunc] = useState(true)
     const [rhTab, setRhTab] = useState<RHTab>(init.tab)
     const [search, setSearch] = useState('')
+    const [notifCount, setNotifCount] = useState(0)
 
     const logoUrlSafe = useMemo(() => {
         const raw = empresa?.logo_url || empresa?.image_url || ''
@@ -75,46 +77,33 @@ export default function RHPage() {
     const planId = (empresa?.subscription_plan || 'free').toLowerCase()
     const planInfo = PLAN_LIMITS[planId] || PLAN_LIMITS.free
 
-    // IGUAL DASHBOARD - SEM TENTAR ENDPOINTS INEXISTENTES
     const fetchMe = useCallback(async () => {
         try {
             const tipo = localStorage.getItem("login_tipo") || "company"
             const url = tipo === "funcionario"? "/api/auth/me-funcionario" : "/api/auth/me"
             const r = await api.get(url)
-
             const func = r.data.funcionario || null
-            // pega company de onde vier - no seu backend vem em lugares diferentes
             let compRaw = r.data.company || r.data.empresa || r.data.company_data || r.data || null
             if (func) {
                 compRaw = compRaw || func.empresa || func.company || func.empresa_data || null
                 localStorage.setItem("funcionario", JSON.stringify(func))
             }
-
-            // se funcionario logou e company veio incompleta, usa cache salvo quando empresa logou
             if (tipo === "funcionario") {
                 const incompleta =!compRaw || (!compRaw.telefone &&!compRaw.phone &&!compRaw.endereco &&!compRaw.address)
                 if (incompleta) {
                     try {
                         const cached = JSON.parse(localStorage.getItem("empresa") || "null")
-                        if (cached) {
-                            compRaw = {...cached,...(compRaw || {}) }
-                        }
+                        if (cached) { compRaw = {...cached,...(compRaw || {}) } }
                     } catch {}
                 }
             } else {
-                // logado como empresa - salva cache pra funcionario usar depois
                 if (compRaw) localStorage.setItem("empresa", JSON.stringify(compRaw))
             }
-
             const comp = compRaw || {}
             setEmpresa(comp)
             setUsuario(func || r.data.user || r.data)
-
             const nome = comp.nome || comp.companyName || comp.name || localStorage.getItem("company_name")
-            if (nome) {
-                setCompanyName(nome)
-                localStorage.setItem("company_name", nome)
-            }
+            if (nome) { setCompanyName(nome); localStorage.setItem("company_name", nome) }
         } catch (err: any) {
             if (err?.response?.status === 401) { localStorage.clear(); navigate('/login') }
         }
@@ -135,7 +124,21 @@ export default function RHPage() {
         } catch { setPontoHoje([]) }
     }, [])
 
-    useEffect(() => { fetchMe(); fetchFuncionarios(); fetchPontoHoje() }, [fetchMe, fetchFuncionarios, fetchPontoHoje])
+    const fetchNotifCount = useCallback(async () => {
+        try {
+            const area = cargoAtual === 'admin'? 'admin' : 'rh'
+            const { data } = await api.get(`/api/rh/notificacoes?area=${area}&status=pendente`)
+            setNotifCount(Array.isArray(data)? data.length : 0)
+            window.dispatchEvent(new CustomEvent('notificacoes-count', { detail: { count: data.length } }))
+        } catch { setNotifCount(0) }
+    }, [cargoAtual])
+
+    useEffect(() => { fetchMe(); fetchFuncionarios(); fetchPontoHoje(); fetchNotifCount() }, [fetchMe, fetchFuncionarios, fetchPontoHoje, fetchNotifCount])
+    useEffect(() => {
+        const id = setInterval(fetchNotifCount, 15000)
+        window.addEventListener('notificacoes-refresh' as any, fetchNotifCount as any)
+        return () => { clearInterval(id); window.removeEventListener('notificacoes-refresh' as any, fetchNotifCount as any) }
+    }, [fetchNotifCount])
     useEffect(() => { localStorage.setItem(LS_KEYS.tab, rhTab); const params = new URLSearchParams(searchParams); params.set('rtab', rhTab); setSearchParams(params, { replace: true }) }, [rhTab])
     useEffect(() => {
         const handler = (e: any) => { if (e.detail?.rtab) setRhTab(e.detail.rtab) }
@@ -186,7 +189,9 @@ export default function RHPage() {
 
     return (
         <div className="min-h-screen bg-white relative">
+            
             <GlobalAreas />
+
             <ModalConfirmSair open={modalSairOpen} companyName={companyName} onClose={() => setModalSairOpen(false)} onConfirm={handleConfirmLogout} />
             <ModalUsuario open={modalUsuarioOpen} usuario={usuario} empresa={empresa} onClose={() => setModalUsuarioOpen(false)} />
             <ModalFuncionario open={modalFuncOpen} funcionario={funcSelecionado} saving={savingFunc} onClose={() => { setModalFuncOpen(false); setFuncSelecionado(null) }} onSave={handleSaveFuncionario} />
@@ -210,7 +215,6 @@ export default function RHPage() {
                                             </span>
                                         )}
                                     </div>
-                                    {/* HEADER IGUAL DASHBOARD - COM FALLBACK PRA NAO FICAR --- */}
                                     <div className="mt-2.5 space-y-0 text-[12px] sm:text-[13px] text-gray-700 leading-[1.45]">
                                         <p><span className="font-medium text-gray-500">NIF:</span> {empresa?.nif || '5002063956'}</p>
                                         <p><span className="font-medium text-gray-500">Tel:</span> {empresa?.telefone || empresa?.phone || '+244930438947'}</p>
@@ -254,6 +258,7 @@ export default function RHPage() {
                                     {rhTab === 'ponto' && <TabPonto empresa={empresa} usuario={usuario} />}
                                     {rhTab === 'pedidos' && <TabPedidos />}
                                     {rhTab === 'recibos' && <TabRecibos />}
+                                    {rhTab === 'notificacoes' && <TabNotificacoes cargoAtual={cargoAtual} />}
                                 </>
                             )}
                         </div>

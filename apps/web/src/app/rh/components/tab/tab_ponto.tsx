@@ -1,11 +1,10 @@
 import { useEffect, useState, useMemo } from 'react'
 import { api } from '../../../../lib/api'
 import { toast } from 'sonner'
-import { Settings, Search, Loader2, Calendar, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Info, User, Clock, X, Download } from 'lucide-react'
+import { Settings, Search, Loader2, Calendar, ChevronDown, AlertTriangle, Info, User, Clock, X, Download } from 'lucide-react'
 import ModalConfigPonto from '../modals/modal_configurar_atraso'
 import ModalMarcarFalta from '../modals/modal_marcar_falta'
 import ModalCalendarioPonto from '../modals/modal_calendario_ponto'
-import { exportPontoPDF } from '../../../../lib/export_ponto'
 import RelatorioAuditoriaPonto from '../pdf/pdf_relatorioPonto'
 
 type Func = { id: string; nome: string; area?: string; funcao?: string; cargo?: string; area_principal?: any; funcao_principal?: any }
@@ -67,8 +66,6 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
     const minDate = addDays(hoje, -6)
     const isHoje = dataSelecionada === hoje
     const isRetro =!isHoje
-    const canGoPrev = dataSelecionada > minDate
-    const canGoNext = dataSelecionada < hoje
 
     const load = async () => {
         setLoading(true)
@@ -101,8 +98,6 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
     const totalPages = Math.ceil(filtered.length / perPage)
     const paginatedFuncs = useMemo(() => { const start = (page - 1) * perPage; return filtered.slice(start, start + perPage) }, [filtered, page])
 
-    const shiftDay = (dir: number) => { const novo = addDays(dataSelecionada, dir); if (novo > hoje) { toast.error("Não pode ir para o futuro"); return } if (novo < minDate) { toast.error(`Limite: só até ${formatDisplay(minDate)}`); return } setDataSelecionada(novo) }
-
     const bater = async (funcId: string, tipo: string) => {
         setBatendo(funcId)
         try {
@@ -124,24 +119,31 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
             <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
             <div className="bg-white rounded-[16px] border overflow-hidden">
                 <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
-                    <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-2 w-full">
-                            <button disabled={!canGoPrev} onClick={() => shiftDay(-1)} className="w-9 h-9 md:w-8 md:h-8 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"><ChevronLeft className="w-4 h-4 text-black" /></button>
-                            <button type="button" onClick={() => setOpenCal(true)} className="flex-1 w-full md:w-auto md:flex-none h-[40px] md:h-[36px] px-3 bg-white border rounded-full flex items-center justify-center gap-2 text-[14px] md:text-[13px] font-bold text-black hover:border-black transition"><Calendar className="w-4 h-4 shrink-0" /><span className="truncate">{formatDisplay(dataSelecionada)}</span><ChevronDown className="w-3.5 h-3.5 shrink-0" /></button>
-                            <button disabled={!canGoNext} onClick={() => shiftDay(1)} className="w-9 h-9 md:w-8 md:h-8 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"><ChevronRight className="w-4 h-4 text-black" /></button>
-                            <button onClick={()=>setOpenRelatorio(true)} className="hidden md:flex h-8 px-3 rounded-full bg-black text-white text-[11px] font-bold items-center gap-1 hover:bg-black/90 shrink-0"><Download className="w-3.5 h-3.5"/> Relatório</button>
-                            <button onClick={()=>exportPontoPDF(dataSelecionada, pontos, faltas, funcs, minDate, hoje)} className="hidden md:flex h-8 px-3 rounded-full bg-white border text-[11px] font-bold shrink-0">PDF</button>
-                            <button onClick={() => setOpenCfg(true)} className="hidden md:flex w-9 h-9 rounded-full bg-white border border-gray-200 items-center justify-center hover:bg-gray-50 shadow-sm shrink-0"><Settings className="w-4 h-4 text-black" /></button>
+                    {/* DESKTOP: data na esquerda, busca 300px + relatorio + cog na direita | MOBILE: empilhado */}
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 w-full">
+                        <div className="flex items-center gap-2">
+                            <button type="button" onClick={() => setOpenCal(true)} className="h-[40px] md:h-[36px] px-3 bg-white border rounded-full flex items-center gap-2 text-[14px] md:text-[13px] font-bold text-black hover:border-black transition">
+                                <Calendar className="w-4 h-4 shrink-0" />
+                                <span>{formatDisplay(dataSelecionada)}</span>
+                                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                            </button>
+                            {isRetro && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold"><AlertTriangle className="w-3 h-3" /> Retroativo</span>}
                         </div>
-                        <div className="flex items-center gap-2 w-full">
-                            <div className="relative flex-1"><Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[40px] md:h-[36px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[13px] md:text-[12px] text-black placeholder:text-black/40 focus:outline-none focus:border-black" /></div>
-                            <button onClick={()=>setOpenRelatorio(true)} className="flex md:hidden w-10 h-10 rounded-full bg-black text-white items-center justify-center shadow-sm shrink-0"><Download className="w-4 h-4"/></button>
-                            <button onClick={() => setOpenCfg(true)} className="flex md:hidden w-10 h-10 rounded-full bg-white border border-gray-200 items-center justify-center hover:bg-gray-50 shadow-sm shrink-0"><Settings className="w-4 h-4 text-black" /></button>
-                            {isRetro && <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold"><AlertTriangle className="w-3 h-3" /> Retroativo</span>}
+
+                        <div className="flex items-center gap-2 w-full md:w-auto">
+                            <div className="relative flex-1 md:flex-none md:w-[300px]">
+                                <Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[40px] md:h-[36px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[13px] md:text-[12px] text-black placeholder:text-black/40 focus:outline-none focus:border-black" />
+                            </div>
+                            <button onClick={()=>setOpenRelatorio(true)} className="h-[40px] md:h-[36px] px-4 rounded-full bg-black text-white text-[12px] md:text-[11px] font-bold flex items-center gap-1.5 hover:bg-black/90 shrink-0">
+                                <Download className="w-3.5 h-3.5"/> Relatório
+                            </button>
+                            <button onClick={() => setOpenCfg(true)} className="w-10 h-10 md:w-9 md:h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 shadow-sm shrink-0">
+                                <Settings className="w-4 h-4 text-black" />
+                            </button>
                         </div>
-                        {isRetro && <span className="md:hidden inline-flex w-fit items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold"><AlertTriangle className="w-3 h-3" /> Retroativo • {formatDisplay(dataSelecionada)}</span>}
                     </div>
-                    <p className="text-[11px] text-black/60">{config?.regra_atraso_ativa? `ATT: ${config.qtd_atrasos_para_falta} atrasos na ${config.periodo_regra} = 1 falta • ` : ''}Mostrando {formatDisplay(dataSelecionada)} • Janela: {formatDisplay(minDate)} até hoje</p>
+                    <p className="text-[11px] text-black/60">Lista de presença de todos funcionarios da empresa</p>
                 </div>
 
                 <div className="max-h-[70vh] overflow-y-auto no-scrollbar overscroll-contain">

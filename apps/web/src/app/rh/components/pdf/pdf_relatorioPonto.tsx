@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { X, Menu, Minus, Plus, Download, Printer, Share2, RotateCw, FileText, Type, Highlighter, Undo2, Redo2 } from 'lucide-react'
+import { X, Menu, Minus, Plus, Download, Printer, Share2, FileText, RotateCw, Type, Highlighter, Undo2, Redo2 } from 'lucide-react'
 
 interface Props {
     dataSelecionada: string
@@ -44,81 +44,96 @@ export default function RelatorioAuditoriaPonto({ dataSelecionada, pontos, falta
     },[funcs,pontos,faltas])
 
     return (
-        <div className="fixed inset-0 z-[10000] bg-[#525659] overflow-y-auto">
-            <style>{`@media print{.no-print{display:none!important} #relatorio{box-shadow:none!important; margin:0!important; width:210mm!important} } body{overflow:hidden} @media print{body{overflow:auto}}`}</style>
+        <div className="fixed inset-0 z-[10000] bg-[#525659] overflow-y-auto overflow-x-hidden">
+            <style>{`
+                @media print{.no-print{display:none!important} #relatorio{box-shadow:none!important; margin:0!important; width:100%!important; max-width:210mm!important} }
+                *{word-wrap:break-word}
+            `}</style>
 
-            {/* BARRA PADRÃO PDF IGUAL DA TUA PRINT */}
-            <div className="no-print sticky top-0 z-20 h-[48px] bg-[#323233] flex items-center justify-between px-2 md:px-3 text-white shrink-0">
-                <div className="flex items-center gap-3">
-                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded"><Menu className="w-4 h-4" /></button>
-                    <p className="text-[12px] md:text-[13px] font-bold uppercase tracking-wide truncate max-w-[160px] md:max-w-none">Folha De Ponto Padrão</p>
-                    <button onClick={onClose} className="hidden md:flex w-6 h-6 bg-white/10 rounded-full items-center justify-center"><X className="w-3 h-3"/></button>
+            {/* BARRA PADRÃO PDF */}
+            <div className="no-print sticky top-0 z-20 h-[44px] bg-[#323233] flex items-center justify-between px-2 text-white">
+                <div className="flex items-center gap-2 min-w-0">
+                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded shrink-0"><Menu className="w-4 h-4" /></button>
+                    <p className="text-[11px] md:text-[13px] font-bold uppercase truncate">Folha De Ponto Padrão</p>
                 </div>
-
-                <div className="flex items-center gap-1 md:gap-3">
-                    <span className="bg-[#1e1e1e] text-[11px] px-2 py-0.5 rounded">1 <span className="text-white/50">/ 1</span></span>
-                    <div className="hidden md:flex items-center gap-1 border-l border-white/10 ml-2 pl-3">
-                        <button className="w-6 h-6 flex items-center justify-center hover:bg-white/10 rounded"><Minus className="w-3.5 h-3.5"/></button>
-                        <span className="bg-black text-[11px] px-2 py-0.5">100%</span>
-                        <button className="w-6 h-6 flex items-center justify-center hover:bg-white/10 rounded"><Plus className="w-3.5 h-3.5"/></button>
+                <div className="flex items-center gap-1 shrink-0">
+                    <span className="bg-[#1e1e1e] text-[10px] px-1.5 py-0.5 rounded">1 / 1</span>
+                    <div className="hidden md:flex items-center gap-1 ml-2">
+                        <Minus className="w-3.5 h-3.5 opacity-60" /><span className="bg-black text-[11px] px-2 py-0.5">100%</span><Plus className="w-3.5 h-3.5 opacity-60" />
                     </div>
-                    <div className="hidden md:flex items-center gap-2 border-l border-white/10 ml-2 pl-3">
-                        <FileText className="w-4 h-4 opacity-60" />
-                        <RotateCw className="w-4 h-4 opacity-60" />
-                        <div className="w-px h-4 bg-white/10 mx-1" />
-                        <Type className="w-4 h-4" />
-                        <Highlighter className="w-4 h-4 opacity-60" />
-                        <div className="w-px h-4 bg-white/10 mx-1" />
-                        <Undo2 className="w-4 h-4 opacity-60" />
-                        <Redo2 className="w-4 h-4 opacity-60" />
+                    <div className="flex items-center gap-1 ml-1">
+                        <button onClick={onClose} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Share2 className="w-4 h-4"/></button>
+                        <button onClick={()=>window.print()} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Download className="w-4 h-4"/></button>
+                        <button onClick={()=>window.print()} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Printer className="w-4 h-4"/></button>
                     </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Share2 className="w-4 h-4"/></button>
-                    <button onClick={()=>window.print()} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Download className="w-4 h-4"/></button>
-                    <button onClick={()=>window.print()} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Printer className="w-4 h-4"/></button>
-                    <button className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded">⋮</button>
                 </div>
             </div>
 
-            {/* FOLHA - SEM SCROLL INTERNO */}
-            <div className="flex justify-center items-start p-2 md:p-8">
-                <div id="relatorio" className="w-full max-w-[210mm] min-h-[297mm] bg-white text-black font-[Arial] shadow-[0_0_25px_rgba(0,0,0,0.6)] p-4 md:p-[12mm]">
+            <div className="w-full flex justify-center p-0 md:p-6">
+                {/* FOLHA QUE CABE NO CELULAR */}
+                <div id="relatorio" className="w-full md:max-w-[210mm] bg-white text-black font-[Arial] shadow-none md:shadow-[0_0_25px_rgba(0,0,0,0.6)] p-3 md:p-[12mm] box-border">
 
-                    <div className="flex justify-between items-start border-b-2 border-black pb-4">
-                        <div className="flex gap-3">
-                            {emp.logo? <img src={emp.logo} className="w-[70px] h-[70px] object-contain shrink-0" /> : <div className="w-[70px] h-[70px] flex items-center justify-center font-black text-[22px] shrink-0">{emp.nome.charAt(0).toUpperCase()}</div>}
-                            <div className="text-[13px] md:text-[14px] leading-[18px]">
-                                <p className="font-bold text-[14px] md:text-[15px] capitalize">{emp.nome.toLowerCase()}</p>
-                                <p>Nif: {emp.nif}</p>
-                                <p className="capitalize">{emp.endereco.toLowerCase()}</p>
-                                <p>Tel: {emp.telefone} | Email: {emp.email}</p>
-                                <p className="capitalize">{emp.cidade.toLowerCase()}</p>
+                    {/* HEADER RESPONSIVO */}
+                    <div className="flex flex-col md:flex-row md:justify-between gap-3 border-b-2 border-black pb-3">
+                        <div className="flex gap-2 min-w-0">
+                            {emp.logo? <img src={emp.logo} className="w-[48px] h-[48px] md:w-[70px] md:h-[70px] object-contain shrink-0" /> : <div className="w-[48px] h-[48px] md:w-[70px] md:h-[70px] flex items-center justify-center font-black text-[18px] shrink-0 bg-gray-100">{emp.nome.charAt(0).toUpperCase()}</div>}
+                            <div className="text-[11px] md:text-[14px] leading-[15px] md:leading-[18px] min-w-0 flex-1 break-words">
+                                <p className="font-bold text-[12px] md:text-[15px] capitalize leading-tight">{emp.nome.toLowerCase()}</p>
+                                <p className="text-[10px] md:text-[13px]">Nif: {emp.nif}</p>
+                                <p className="capitalize text-[10px] md:text-[13px]">{emp.endereco.toLowerCase()}</p>
+                                <p className="text-[10px] md:text-[13px] break-all">Tel: {emp.telefone} | {emp.email}</p>
+                                <p className="capitalize text-[10px] md:text-[13px]">{emp.cidade.toLowerCase()}</p>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <p className="font-bold text-[12px] md:text-[13px] border-2 border-black px-3 py-1">Auditoria De Ponto</p>
-                            <p className="text-[11px] md:text-[12px] mt-2">Data: {fmtDisplay(dataSelecionada)}</p>
-                            <p className="text-[10px]">Emissão: {new Date().toLocaleString('pt-AO')}</p>
+                        <div className="flex md:flex-col justify-between md:justify-start md:text-right gap-2 shrink-0">
+                            <p className="font-bold text-[11px] md:text-[13px] border-2 border-black px-2 py-1 text-center w-fit md:w-auto">Auditoria De Ponto</p>
+                            <div className="text-[10px] md:text-[12px]">
+                                <p>Data: {fmtDisplay(dataSelecionada)}</p>
+                                <p className="text-[9px] md:text-[10px]">Emissão: {new Date().toLocaleString('pt-AO')}</p>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="mt-4 text-[12px] md:text-[13px] flex justify-between font-bold capitalize">
+                    <div className="mt-3 text-[10px] md:text-[13px] flex flex-col md:flex-row md:justify-between gap-1 font-bold capitalize">
                         <p>Período: {fmtDisplay(minDate)} até {fmtDisplay(hoje)}</p>
                         <p>Total: {funcs.length} | Presentes: {linhas.filter(l=>l.status!=='Falta' && l.status!=='Sem Registo').length} | Faltas: {linhas.filter(l=>l.status==='Falta').length}</p>
                     </div>
 
-                    <table className="w-full mt-4 border-collapse border border-black text-[13px] md:text-[14px]">
-                        <thead><tr className="bg-black text-white"><th className="border border-black p-2 text-left font-normal">Funcionario</th><th className="border border-black p-2 font-normal">Entrada</th><th className="border border-black p-2 font-normal">Saida</th><th className="border border-black p-2 font-normal">Status</th><th className="border border-black p-2 text-left font-normal">Motivo</th><th className="border border-black p-2 font-normal">Retro?</th><th className="border border-black p-2 text-left font-normal">Quem Lançou</th></tr></thead>
-                        <tbody>{linhas.map((l,i)=>(<tr key={i} className="h-[36px]"><td className="border border-black px-2 font-bold">{l.nome}</td><td className="border border-black text-center">{l.entrada}</td><td className="border border-black text-center">{l.saida}</td><td className="border border-black text-center">{l.status}</td><td className="border border-black px-2">{l.motivo}</td><td className="border border-black text-center">{l.retro}</td><td className="border border-black px-2">{l.quem}</td></tr>))}</tbody>
-                    </table>
+                    {/* TABELA QUE NÃO ESTOURA */}
+                    <div className="w-full mt-3 overflow-hidden">
+                        <table className="w-full table-fixed border-collapse border border-black text-[10px] md:text-[13px]">
+                            <thead>
+                                <tr className="bg-black text-white">
+                                    <th className="border border-black p-1 md:p-2 text-left font-normal w-[28%]">Funcionario</th>
+                                    <th className="border border-black p-1 md:p-2 font-normal w-[13%]">Entrada</th>
+                                    <th className="border border-black p-1 md:p-2 font-normal w-[10%]">Saida</th>
+                                    <th className="border border-black p-1 md:p-2 font-normal w-[14%]">Status</th>
+                                    <th className="border border-black p-1 md:p-2 text-left font-normal w-[14%]">Motivo</th>
+                                    <th className="border border-black p-1 md:p-2 font-normal w-[8%]">Retro?</th>
+                                    <th className="border border-black p-1 md:p-2 text-left font-normal w-[13%]">Quem Lançou</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {linhas.map((l,i)=>(
+                                    <tr key={i} className="h-[32px] md:h-[36px]">
+                                        <td className="border border-black px-1 md:px-2 font-bold break-words leading-[11px] md:leading-normal">{l.nome}</td>
+                                        <td className="border border-black text-center px-0.5">{l.entrada}</td>
+                                        <td className="border border-black text-center">{l.saida}</td>
+                                        <td className="border border-black text-center px-0.5 leading-[10px] md:leading-normal">{l.status}</td>
+                                        <td className="border border-black px-1 break-words leading-[10px] md:leading-normal">{l.motivo}</td>
+                                        <td className="border border-black text-center">{l.retro}</td>
+                                        <td className="border border-black px-1 break-words leading-[10px] md:leading-normal">{l.quem}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
 
-                    <div className="mt-8 text-[12px] border-t-2 border-black pt-3">
+                    <div className="mt-6 text-[10px] md:text-[12px] border-t-2 border-black pt-3">
                         <p>Documento gerado automaticamente.</p>
-                        <div className="mt-24 md:mt-36 flex flex-col items-center justify-center text-center">
-                            <p className="w-[260px] border-t border-black pt-2 text-[14px]">Assinatura Rh</p>
-                            <p className="mt-1 text-[11px]">Carimbo Da Empresa</p>
+                        <div className="mt-20 md:mt-36 flex flex-col items-center justify-center text-center">
+                            <p className="w-[200px] md:w-[260px] border-t border-black pt-2 text-[12px] md:text-[14px]">Assinatura Rh</p>
+                            <p className="mt-1 text-[9px] md:text-[11px]">Carimbo Da Empresa</p>
                         </div>
                     </div>
                 </div>

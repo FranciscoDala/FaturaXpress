@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { api } from '../../../../lib/api'
 import { toast } from 'sonner'
-import { Settings, Search, Loader2, Calendar, ChevronDown, AlertTriangle, Info, User, Clock, X, Download } from 'lucide-react'
+import { Settings, Search, Loader2, Calendar, ChevronDown, AlertTriangle, Info, User, Clock, X, FileText } from 'lucide-react'
 import ModalConfigPonto from '../modals/modal_configurar_atraso'
 import ModalMarcarFalta from '../modals/modal_marcar_falta'
 import ModalCalendarioPonto from '../modals/modal_calendario_ponto'
@@ -119,15 +119,13 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
             <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
             <div className="bg-white rounded-[16px] border overflow-hidden">
                 <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
-                    {/* DESKTOP: data na esquerda, busca 300px + relatorio + cog na direita | MOBILE: empilhado */}
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 w-full">
-                        <div className="flex items-center gap-2">
-                            <button type="button" onClick={() => setOpenCal(true)} className="h-[40px] md:h-[36px] px-3 bg-white border rounded-full flex items-center gap-2 text-[14px] md:text-[13px] font-bold text-black hover:border-black transition">
-                                <Calendar className="w-4 h-4 shrink-0" />
-                                <span>{formatDisplay(dataSelecionada)}</span>
+                        <div className="w-full md:w-auto">
+                            <button type="button" onClick={() => setOpenCal(true)} className="w-full md:w-auto h-[40px] md:h-[36px] px-3 bg-white border rounded-full flex items-center justify-between md:justify-center gap-2 text-[14px] md:text-[13px] font-bold text-black hover:border-black transition">
+                                <span className="flex items-center gap-2"><Calendar className="w-4 h-4 shrink-0" />{formatDisplay(dataSelecionada)}</span>
                                 <ChevronDown className="w-3.5 h-3.5 shrink-0" />
                             </button>
-                            {isRetro && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold"><AlertTriangle className="w-3 h-3" /> Retroativo</span>}
+                            {isRetro && <span className="mt-2 md:mt-0 md:ml-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold"><AlertTriangle className="w-3 h-3" /> Retroativo</span>}
                         </div>
 
                         <div className="flex items-center gap-2 w-full md:w-auto">
@@ -135,8 +133,10 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
                                 <Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
                                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[40px] md:h-[36px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[13px] md:text-[12px] text-black placeholder:text-black/40 focus:outline-none focus:border-black" />
                             </div>
-                            <button onClick={()=>setOpenRelatorio(true)} className="h-[40px] md:h-[36px] px-4 rounded-full bg-black text-white text-[12px] md:text-[11px] font-bold flex items-center gap-1.5 hover:bg-black/90 shrink-0">
-                                <Download className="w-3.5 h-3.5"/> Relatório
+                            {/* RELATORIO: mobile só icone, desktop icone + texto */}
+                            <button onClick={()=>setOpenRelatorio(true)} className="h-[40px] w-10 md:w-auto md:h-[36px] md:px-4 rounded-full bg-black text-white flex items-center justify-center gap-1.5 hover:bg-black/90 shrink-0">
+                                <FileText className="w-4 h-4" />
+                                <span className="hidden md:inline text-[11px] font-bold">Relatório</span>
                             </button>
                             <button onClick={() => setOpenCfg(true)} className="w-10 h-10 md:w-9 md:h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 shadow-sm shrink-0">
                                 <Settings className="w-4 h-4 text-black" />

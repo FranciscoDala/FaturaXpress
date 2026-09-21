@@ -50,6 +50,7 @@ export default function RHPage() {
     const [funcSelecionado, setFuncSelecionado] = useState<any>(null)
     const [savingFunc, setSavingFunc] = useState(false)
     const [funcionarios, setFuncionarios] = useState<any[]>([])
+    const [pontoHoje, setPontoHoje] = useState<any[]>([])
     const [loadingFunc, setLoadingFunc] = useState(true)
     const [rhTab, setRhTab] = useState<RHTab>(init.tab)
     const [search, setSearch] = useState('')
@@ -104,7 +105,27 @@ export default function RHPage() {
         } catch { toast.error('Erro ao carregar funcionários') } finally { setLoadingFunc(false) }
     }, [])
 
-    useEffect(() => { fetchMe(); fetchFuncionarios() }, [fetchMe, fetchFuncionarios])
+    const fetchPontoHoje = useCallback(async () => {
+        try {
+            // tenta endpoints comuns
+            const today = new Date().toISOString().slice(0,10)
+            let data: any[] = []
+            try {
+                const r = await api.get('/api/ponto', { params: { data: today, hoje: true } })
+                data = Array.isArray(r.data)? r.data : (r.data.items || r.data.pontos || [])
+            } catch {
+                try {
+                    const r2 = await api.get('/api/ponto/hoje')
+                    data = Array.isArray(r2.data)? r2.data : (r2.data.items || [])
+                } catch {
+                    data = []
+                }
+            }
+            setPontoHoje(data)
+        } catch { setPontoHoje([]) }
+    }, [])
+
+    useEffect(() => { fetchMe(); fetchFuncionarios(); fetchPontoHoje() }, [fetchMe, fetchFuncionarios, fetchPontoHoje])
 
     useEffect(() => {
         localStorage.setItem(LS_KEYS.tab, rhTab);
@@ -113,15 +134,10 @@ export default function RHPage() {
         setSearchParams(params, { replace: true })
     }, [rhTab])
 
-    // sidebar -> RH
     useEffect(() => {
         const handler = (e: any) => { if (e.detail?.rtab) setRhTab(e.detail.rtab) }
         window.addEventListener('rh-nav' as any, handler)
-        window.addEventListener('sidebar-nav-rh' as any, handler)
-        return () => {
-            window.removeEventListener('rh-nav' as any, handler)
-            window.removeEventListener('sidebar-nav-rh' as any, handler)
-        }
+        return () => window.removeEventListener('rh-nav' as any, handler)
     }, [])
 
     const handleLogout = () => setModalSairOpen(true)
@@ -143,15 +159,46 @@ export default function RHPage() {
         } catch (e: any) { toast.error(e?.response?.data?.detail || 'Erro ao salvar funcionário') } finally { setSavingFunc(false) }
     }
 
+    // CONTAGENS CORRETAS
+    const totalFuncionarios = funcionarios.length
+
+    const presentesIds = useMemo(() => {
+        const ids = new Set<string>()
+        pontoHoje.forEach((p: any) => {
+            // considera presente se tem entrada hoje e não é falta
+            const funcId = String(p.funcionario_id || p.funcionarioId || p.funcionario?.id || p.id_funcionario || '')
+            const temEntrada =!!(p.entrada || p.hora_entrada || p.check_in || p.created_at)
+            const status = (p.status || '').toLowerCase()
+            if (funcId && temEntrada && status!== 'falta' && status!== 'ausente') {
+                ids.add(funcId)
+            }
+        })
+        return ids
+    }, [pontoHoje])
+
+    const totalPresentesHoje = presentesIds.size
+
+    // pra filtrar lista quando tab = presente, só mostra quem bateu ponto
     const funcionariosFiltrados = useMemo(() => {
         const q = search.toLowerCase().trim()
-        if (!q) return funcionarios
-        return funcionarios.filter(f => f.nome?.toLowerCase().includes(q) || f.cargo?.toLowerCase().includes(q) || String(f.area).toLowerCase().includes(q) || f.numero_bi?.toLowerCase().includes(q))
-    }, [search, funcionarios])
-    const presentes = funcionariosFiltrados.filter(f => f.status === 'ativo')
-    const ferias = funcionariosFiltrados.filter(f => f.status === 'ferias')
-    const totalPresentes = funcionarios.filter(f => f.status === 'ativo').length
-    const totalFerias = funcionarios.filter(f => f.status === 'ferias').length
+        let base = funcionarios
+        if (rhTab === 'ferias') {
+            // férias = todos que NÃO bateram ponto hoje (ou estão com status ferias)
+            // mas sua regra: férias lista continua sendo status ferias, presentes é ponto
+            base = funcionarios
+        }
+        if (!q) return base
+        return base.filter(f => f.nome?.toLowerCase().includes(q) || f.cargo?.toLowerCase().includes(q) || String(f.area).toLowerCase().includes(q) || f.numero_bi?.toLowerCase().includes(q))
+    }, [search, funcionarios, rhTab])
+
+    const presentes = useMemo(() => {
+        return funcionariosFiltrados.filter(f => presentesIds.has(String(f.id)))
+    }, [funcionariosFiltrados, presentesIds])
+
+    const ferias = useMemo(() => {
+        // quem não está no ponto hoje
+        return funcionariosFiltrados.filter(f =>!presentesIds.has(String(f.id)) && f.status!== 'ativo'? true :!presentesIds.has(String(f.id)))
+    }, [funcionariosFiltrados, presentesIds])
 
     if (funcionarioLogado &&!podeGerirRH &&!podeVerPonto) {
         return (
@@ -159,8 +206,8 @@ export default function RHPage() {
                 <div className="max-w-[400px] w-full bg-white border rounded-[24px] p-8 text-center shadow-lg">
                     <div className="w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center mx-auto"><AlertTriangle className="w-6 h-6 text-red-600"/></div>
                     <h2 className="text-[18px] font-bold mt-4">Sem acesso ao RH</h2>
-                    <p className="text-[13px] text-gray-500 mt-2">Seu cargo <b>{cargoAtual}</b> não tem permissão para gerir funcionários.</p>
-                    <button onClick={()=>navigate('/app/dashboard')} className="mt-6 w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold">Voltar ao Dashboard</button>
+                    <p className="text-[13px] text-gray-500 mt-2">Seu cargo <b>{cargoAtual}</b> não tem permissão.</p>
+                    <button onClick={()=>navigate('/app/dashboard')} className="mt-6 w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold">Voltar</button>
                 </div>
             </div>
         )
@@ -193,42 +240,56 @@ export default function RHPage() {
                                         )}
                                     </div>
                                     <div className="mt-2.5 space-y-0 text-[12px] sm:text-[13px] text-gray-700 leading-[1.4]"><p><span className="font-medium text-gray-500">NIF:</span> {empresa?.nif || '---'}</p><p><span className="font-medium text-gray-500">Tel:</span> {empresa?.telefone || empresa?.phone || '---'}</p><p className="truncate max-w-[220px] sm:max-w-none"><span className="font-medium text-gray-500">Email:</span> {empresa?.email || '---'}</p></div>
-                                    <div className="mt-4 space-y-0 w-full"><p className="text-[11px] text-gray-500">Funcionários - {loadingFunc? '...' : `${funcionarios.length} registados`}</p><p className="text-[11px] text-gray-500">Ativos - <span className="text-[#22c55e] font-bold text-[13px]">{totalPresentes} ativos</span></p><p className="text-[11px] text-gray-600 font-medium">Férias - {totalFerias} este mês</p></div>
+                                    <div className="mt-4 space-y-0 w-full"><p className="text-[11px] text-gray-500">Funcionários - {loadingFunc? '...' : `${totalFuncionarios} registados`}</p><p className="text-[11px] text-gray-500">Presentes hoje - <span className="text-[#22c55e] font-bold text-[13px]">{totalPresentesHoje} presentes</span></p></div>
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0 pl-2"><div className="relative"><div className="absolute -top-3 -right-2 z-10"><span className="text-[8px] font-bold tracking-wide bg-white border border-yellow-200 text-yellow-700 px-1.5 py-[1px] rounded-full shadow-sm">{planInfo.label}</span></div><button onClick={() => navigate('/assinatura')} className="w-10 h-10 rounded-full bg-white border border-yellow-200 shadow flex items-center justify-center text-[#f59e0b] hover:bg-yellow-50 transition"><Crown className="w-[18px] h-[18px]" /></button></div><button onClick={handleLogout} className="w-10 h-10 rounded-full bg-[#FF3B30] border border-[#FF3B30] shadow flex items-center justify-center text-white hover:bg-[#e6352b] transition"><Power className="w-[18px] h-[18px]" /></button></div>
                             </div>
 
-                            {/* CARDS ESTILO DASHBOARD - SEM MENU 3 BARRAS */}
-                            <div className="mt-5 flex gap-2 max-w-[560px] w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                                <button onClick={() => setRhTab('presente')} className={`min-w-[110px] flex-1 h-[62px] rounded-[20px] border bg-white px-4 flex flex-col justify-center text-left shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all ${rhTab === 'presente'? 'border-[#0095ff] ring-2 ring-[#0095ff]/20 bg-[#F0F7FF]' : 'border-gray-200 hover:border-gray-300'}`}>
-                                    <p className={`text-[18px] font-bold leading-none ${rhTab === 'presente'? 'text-[#0095ff]' : 'text-gray-900'}`}>{totalPresentes}</p>
-                                    <p className="text-[11px] text-gray-500 mt-1 font-medium">Presentes</p>
+                            {/* CARDS COLADINHOS IGUAL FOTO - SÓ 2 */}
+                            <div className="mt-5 flex max-w-[520px] w-full bg-white border border-gray-200 rounded-[24px] overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+                                <button
+                                    onClick={() => setRhTab('presente')}
+                                    className={`flex-1 h-[56px] flex flex-col justify-center items-start px-5 text-left border-r border-gray-200 transition-all
+                                    ${rhTab === 'presente'? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}
+                                >
+                                    <p className="text-[18px] font-bold leading-none">{loadingFunc? '...' : totalFuncionarios}</p>
+                                    <p className="text-[12px] text-gray-500 mt-[2px] font-medium">Funcionários</p>
                                 </button>
-                                <button onClick={() => setRhTab('ferias')} className={`min-w-[110px] flex-1 h-[62px] rounded-[20px] border bg-white px-4 flex flex-col justify-center text-left shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all ${rhTab === 'ferias'? 'border-[#0095ff] ring-2 ring-[#0095ff]/20 bg-[#F0F7FF]' : 'border-gray-200 hover:border-gray-300'}`}>
-                                    <p className={`text-[18px] font-bold leading-none ${rhTab === 'ferias'? 'text-[#0095ff]' : 'text-gray-900'}`}>{totalFerias}</p>
-                                    <p className="text-[11px] text-gray-500 mt-1 font-medium">Férias</p>
+                                <button
+                                    onClick={() => setRhTab('ferias')}
+                                    className={`flex-1 h-[56px] flex flex-col justify-center items-start px-5 text-left transition-all
+                                    ${rhTab === 'ferias'? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}
+                                >
+                                    <p className="text-[18px] font-bold leading-none">{totalPresentesHoje}</p>
+                                    <p className="text-[12px] text-gray-500 mt-[2px] font-medium">Presentes</p>
                                 </button>
-                                <button onClick={() => setRhTab('ponto')} className={`min-w-[86px] flex-1 h-[62px] rounded-[20px] border bg-white px-4 flex flex-col justify-center text-left shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all ${rhTab === 'ponto'? 'border-[#0095ff] ring-2 ring-[#0095ff]/20 bg-[#F0F7FF]' : 'border-gray-200 hover:border-gray-300'}`}>
-                                    <p className={`text-[14px] font-bold leading-none ${rhTab === 'ponto'? 'text-[#0095ff]' : 'text-gray-900'}`}>●</p>
-                                    <p className="text-[11px] text-gray-500 mt-1 font-medium">Ponto</p>
-                                </button>
-                                <button onClick={() => setRhTab('pedidos')} className={`min-w-[86px] flex-1 h-[62px] rounded-[20px] border bg-white px-4 flex flex-col justify-center text-left shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all ${rhTab === 'pedidos'? 'border-[#0095ff] ring-2 ring-[#0095ff]/20 bg-[#F0F7FF]' : 'border-gray-200 hover:border-gray-300'}`}>
-                                    <p className={`text-[14px] font-bold leading-none ${rhTab === 'pedidos'? 'text-[#0095ff]' : 'text-gray-900'}`}>!</p>
-                                    <p className="text-[11px] text-gray-500 mt-1 font-medium">Pedidos</p>
-                                </button>
-                                {podeGerirRH && (
-                                    <button onClick={handleOpenCreateFunc} className="min-w-[110px] h-[62px] rounded-[20px] bg-[#0095ff] border border-[#0095ff] text-white px-4 flex flex-col justify-center items-center shadow-[0_4px_20px_rgba(0,149,255,0.25)] hover:bg-[#0084e6]">
-                                        <p className="text-[18px] font-bold leading-none">+</p>
-                                        <p className="text-[11px] mt-1 font-medium">Funcionário</p>
-                                    </button>
-                                )}
                             </div>
+
                         </div>
                     </div>
                     <style>{`.bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; }.bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; } @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }`}</style>
                 </div>
-                <div className="w-full py-6"><div className="w-full px-4 sm:px-0 mt-0">{(rhTab === 'presente' || rhTab === 'ferias') && (<div className="flex gap-4 overflow-x-auto pb-3 mb-4 [&::-webkit-scrollbar]:hidden"><div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] flex-shrink-0"><Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder={rhTab === 'ferias'? 'Buscar em férias' : 'Buscar funcionário'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow" /></div></div>)}
-                        <div id="tabela">{loadingFunc? <p className="text-center py-16 bg-white rounded-[20px] border text-black/50">Carregando...</p> : (<>{rhTab === 'presente' && <TabPresente funcionarios={presentes} search={search} onEdit={handleOpenEditFunc} />}{rhTab === 'ferias' && <TabFerias funcionarios={ferias} search={search} onEdit={handleOpenEditFunc} />}{rhTab === 'ponto' && <TabPonto empresa={empresa} usuario={usuario} />}{rhTab === 'pedidos' && <TabPedidos />}{rhTab === 'recibos' && <TabRecibos />}</>)}</div>
+                <div className="w-full py-6">
+                    <div className="w-full px-4 sm:px-0 mt-0">
+                        {(rhTab === 'presente' || rhTab === 'ferias') && (
+                            <div className="flex gap-4 overflow-x-auto pb-3 mb-4 [&::-webkit-scrollbar]:hidden">
+                                <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] flex-shrink-0">
+                                    <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder={rhTab === 'ferias'? 'Buscar em férias' : 'Buscar funcionário'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow" />
+                                </div>
+                            </div>
+                        )}
+                        <div id="tabela">
+                            {loadingFunc? <p className="text-center py-16 bg-white rounded-[20px] border text-black/50">Carregando...</p> : (
+                                <>
+                                    {rhTab === 'presente' && <TabPresente funcionarios={presentes} search={search} onEdit={handleOpenEditFunc} />}
+                                    {rhTab === 'ferias' && <TabFerias funcionarios={ferias.length? ferias : funcionariosFiltrados} search={search} onEdit={handleOpenEditFunc} />}
+                                    {rhTab === 'ponto' && <TabPonto empresa={empresa} usuario={usuario} />}
+                                    {rhTab === 'pedidos' && <TabPedidos />}
+                                    {rhTab === 'recibos' && <TabRecibos />}
+                                </>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

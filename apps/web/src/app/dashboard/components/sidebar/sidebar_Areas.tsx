@@ -6,7 +6,7 @@ const CARGOS_PERMISSOES: Record<string, string[]> = {
     admin: ["*"],
     financeira: ["dashboard", "faturas", "emitidas", "proformas", "emitir", "clientes", "produtos", "servicos"],
     recepcao: ["dashboard", "proformas", "clientes", "emitir"],
-    rh: ["rh", "rh_presente", "rh_ferias", "rh_ponto", "rh_pedidos", "rh_recibos"]
+    rh: ["dashboard","rh", "rh_presente", "rh_ferias", "rh_ponto", "rh_pedidos", "rh_recibos"]
 }
 
 function temAcesso(cargo: string, area: string) {
@@ -27,7 +27,7 @@ const MENU_DASH = [
 ]
 
 const MENU_RH = [
-    { id: 'rh1', label: 'Voltar Painel', Icon: Home, area: 'dashboard', to: '/app/dashboard' },
+    { id: 'rh1', label: 'Painel', Icon: Home, area: 'dashboard', to: '/app/dashboard' },
     { id: 'rh2', label: 'Presentes', Icon: UserCheck, area: 'rh_presente', rtab: 'presente' as const },
     { id: 'rh3', label: 'Férias', Icon: Plane, area: 'rh_ferias', rtab: 'ferias' as const },
     { id: 'rh4', label: 'Ponto Hoje', Icon: Clock, area: 'rh_ponto', rtab: 'ponto' as const },

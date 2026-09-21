@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Menu, Download, Printer, Share2 } from 'lucide-react'
 import { getNumero, isNotaCredito } from '../../EmitirFaturaPage'
 
 interface Props {
@@ -27,7 +28,7 @@ const LogoDefault = ({ nome, size = 'small' }: { nome?: string; size?: 'small' |
     )
 }
 
-export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
+export const FaturaPDF = ({ fatura, empresa, cliente, onClose }: Props) => {
     const itensRaw = fatura?.itens || fatura?.items || []
 
     const clienteSafe = cliente || {
@@ -51,7 +52,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
             else if (it.taxa_iva!== undefined && it.taxa_iva!== null) ivaPerc = Number(it.taxa_iva)
             else if (it.iva!== undefined && it.iva!== null) ivaPerc = Number(it.iva)
             else ivaPerc = 0
-
             const bruto = qtd * preco
             const vDesc = bruto * (descPerc / 100)
             const base = bruto - vDesc
@@ -122,11 +122,10 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
     const totalBase = Number(fatura?.subtotal || totais.liquido || 0).toFixed(2)
 
     const qrContent = (isOficial || isNC)
- ? `A:${(emp.nif || '').toString().padStart(10, '0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco || 'Luanda').slice(0, 35)}*L1:${emp.cidade || 'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior || ''}`
+? `A:${(emp.nif || '').toString().padStart(10, '0')}*B:${nifCliente}*C:AO*D:${tipoDoc}*E:${numeroDoc}*F:${dataISO}*G:${totalGeral}*H:${fatura.hash_agt || ''}*I1:AO*J1:${(emp.endereco || 'Luanda').slice(0, 35)}*L1:${emp.cidade || 'Luanda'}*N:${totalIva}*O:${totalBase}*Q:${fatura.hash_agt_anterior || ''}`
         : `${getNumero(fatura)}|${fatura?.id}`
 
     const tituloDoc = isNC? 'NOTA DE CRÉDITO' : isOficial? 'FACTURA' : 'FACTURA PROFORMA'
-
     const sigla1 = emp.banco1? emp.banco1.split('-')[0].trim() : ''
     const sigla2 = emp.banco2? emp.banco2.split('-')[0].trim() : ''
 
@@ -140,7 +139,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                     {hasLogo? <img src={emp.logo} className="w-[110px] h-[90px] object-contain shrink-0" alt="logo" /> : <LogoDefault nome={emp.nome} />}
                     <div className="text-[11px] leading-[15px]"><p className="font-bold text-[14px]">{mask(emp.nome)}</p><p>NIF: {mask(emp.nif)}</p><p>Endereço: {mask(emp.endereco)}</p><p>Contactos: {mask(emp.telefone)}</p><p>Email: {mask(emp.email)}</p><p>{mask(emp.cidade)}</p></div>
                 </div>
-
                 <div className={`flex justify-between items-start mt-6 border-b border-dotted border-gray-300 pb-3 ${isNC? 'bg-[#FFF0F0]' : ''}`}>
                     <div className="text-[9px] leading-[13px] max-w-[300px]">
                         <p className={`font-bold text-[12px] ${isNC? 'text-red-600' : ''}`}>{tituloDoc}</p>
@@ -165,7 +163,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                         </div>
                     </div>
                 </div>
-
                 <div className="mt-6 flex justify-between">
                     <div className="w-[60%] text-[12px] leading-[16px]">
                         <p className="font-bold text-[13px]">Cliente:</p>
@@ -179,7 +176,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                         {fatura?.proforma_origem_id && <p className="text-[9px] text-[#666]">Origem PP: {fatura.proforma_origem_id.slice(0, 8)}</p>}
                     </div>
                 </div>
-
                 <div className="mt-4 grid grid-cols-[90px_95px_95px_125px_115px_1fr] gap-[5px]">
                     {[
                         { k: 'CÓD. CLIENTE', v: clienteSafe?.codigo || clienteSafe?.id?.slice(0, 8) || 'AVULSO' },
@@ -192,7 +188,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                         <div key={b.k} className="border border-[#bbb] py-[5px] px-1 bg-[rgba(255,255,255,0.40)]"><p className="font-bold text-[10px] truncate">{b.k}</p><p className="text-center text-[11px] mt-[2px] truncate">{b.v}</p></div>
                     ))}
                 </div>
-
                 <div className="w-full mt-2">
                     <table className="w-full border-collapse table-fixed">
                         <colgroup>
@@ -220,22 +215,20 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                         <tbody>
                             {itens.map((it: any, i: number) => (
                                 <tr key={i} className="text-[11px] h-[28px]">
-                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate overflow-hidden whitespace-nowrap">{it.referencia}</td>
-                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate overflow-hidden whitespace-nowrap" title={it.nome_snapshot}>{it.nome_snapshot}</td>
+                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate">{it.referencia}</td>
+                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate" title={it.nome_snapshot}>{it.nome_snapshot}</td>
                                   <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.quantidade}</td>
                                   <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.unidade}</td>
-                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)] whitespace-nowrap tabular-nums">{fmt(it.preco_unit_snapshot)}</td>
-                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)] whitespace-nowrap tabular-nums">{it.desconto_perc > 0? fmt(it.desconto_valor) : ''}</td>
-                                  <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)] whitespace-nowrap">{it.taxa_iva === 0? 'Isento' : `${it.taxa_iva}%`}</td>
-                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)] font-semibold whitespace-nowrap tabular-nums overflow-hidden">{fmt(it.subtotal_linha)}</td>
+                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{fmt(it.preco_unit_snapshot)}</td>
+                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)]">{it.desconto_perc > 0? fmt(it.desconto_valor) : ''}</td>
+                                  <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.taxa_iva === 0? 'Isento' : `${it.taxa_iva}%`}</td>
+                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)] font-semibold">{fmt(it.subtotal_linha)}</td>
                                 </tr>
                             ))}
                             {Array.from({ length: Math.max(0, 8 - itens.length) }).map((_, k) => (<tr key={k} className="h-[28px]"><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td></tr>))}
                         </tbody>
                     </table>
                 </div>
-
-                {/* AJUSTE COLUNAS - AQUI ESTAVA A CONFUSÃO */}
                 <div className="flex mt-2 gap-1">
                     <div className="flex-1 border border-[#999] min-w-0 overflow-hidden">
                         <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] font-bold">
@@ -250,22 +243,21 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                             <div key={taxa} className="flex text-[11px]">
                               <div className="flex-1 border-r border-[#999] py-[6px] px-1 bg-[rgba(255,255,255,0.40)] truncate">{isIsento? '*M04 Isento' : `IVA ${taxa}`}</div>
                               <div className="w-[50px] border-r border-[#999] py-[6px] text-center bg-[rgba(255,255,255,0.40)] shrink-0">{taxa}</div>
-                              <div className="w-[125px] border-r border-[#999] py-[6px] text-right pr-2 bg-[rgba(255,255,255,0.40)] shrink-0 whitespace-nowrap tabular-nums">{fmt(d.incidencia)}</div>
-                              <div className="w-[125px] py-[6px] text-right pr-2 bg-[rgba(255,255,255,0.40)] shrink-0 whitespace-nowrap tabular-nums">{fmt(d.valor)}</div>
+                              <div className="w-[125px] border-r border-[#999] py-[6px] text-right pr-2 bg-[rgba(255,255,255,0.40)] shrink-0">{fmt(d.incidencia)}</div>
+                              <div className="w-[125px] py-[6px] text-right pr-2 bg-[rgba(255,255,255,0.40)] shrink-0">{fmt(d.valor)}</div>
                             </div>
                         )})}
                     </div>
                     <div className="w-[300px] shrink-0">
-                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999]"><div className="flex-1 py-[7px] px-2 text-right">Total Líquido</div><div className="w-[135px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-2 whitespace-nowrap tabular-nums shrink-0">{fmt(totais.liquido)}</div></div>
-                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999] border-t-0"><div className="flex-1 py-[7px] px-2 text-right">Total Desconto</div><div className="w-[135px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-2 whitespace-nowrap tabular-nums shrink-0">{fmt(totais.desconto)}</div></div>
-                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999] border-t-0"><div className="flex-1 py-[7px] px-2 text-right">Total IVA</div><div className="w-[135px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-2 whitespace-nowrap tabular-nums shrink-0">{fmt(totais.iva)}</div></div>
+                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999]"><div className="flex-1 py-[7px] px-2 text-right">Total Líquido</div><div className="w-[135px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-2 shrink-0">{fmt(totais.liquido)}</div></div>
+                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999] border-t-0"><div className="flex-1 py-[7px] px-2 text-right">Total Desconto</div><div className="w-[135px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-2 shrink-0">{fmt(totais.desconto)}</div></div>
+                        <div className="flex bg-[rgba(194,194,194,0.65)] text-[11px] border border-[#999] border-t-0"><div className="flex-1 py-[7px] px-2 text-right">Total IVA</div><div className="w-[135px] bg-[rgba(255,255,255,0.55)] border-l border-[#999] py-[7px] text-right pr-2 shrink-0">{fmt(totais.iva)}</div></div>
                         <div className={`flex text-[11px] font-bold border border-[#999] border-t-0 ${isNC? 'bg-[#FFD6D6]' : 'bg-[rgba(194,194,194,0.75)]'}`}>
                           <div className="flex-1 py-[7px] px-2 text-right">TOTAL A PAGAR (AKZ)</div>
-                          <div className="w-[135px] bg-[rgba(255,255,255,0.65)] border-l border-[#999] py-[7px] text-right pr-2 font-bold whitespace-nowrap tabular-nums shrink-0">{fmt(totais.pagar)}</div>
+                          <div className="w-[135px] bg-[rgba(255,255,255,0.65)] border-l border-[#999] py-[7px] text-right pr-2 font-bold shrink-0">{fmt(totais.pagar)}</div>
                         </div>
                     </div>
                 </div>
-
                 <div className="mt-4 bg-[rgba(255,255,255,0.40)] p-2 text-[11px] border border-dashed border-gray-300 rounded">
                     <p className="font-bold mb-1">Coordenadas Bancárias:</p>
                     {emp.iban? <p>IBAN - {sigla1 || 'BAI'}: {emp.iban}</p> : <p>IBAN 1: ---</p>}
@@ -279,20 +271,36 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
     )
 
     return (
-        <>
+        <div className="fixed inset-0 z-[10000] bg-[#525659] flex flex-col overflow-hidden">
             <style>{`
               @import url('https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap');
-              #fatura-pdf-wrapper{display:flex;justify-content:center;width:100%;overflow-x:hidden;background:transparent}
+              #fatura-pdf-wrapper{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;display:flex;justify-content:center;width:100%;background:transparent}
               #fatura-pdf{transform-origin:top center}
               @media (max-width:768px){
-                #fatura-pdf-wrapper{overflow-x:hidden!important;width:100%!important}
                 #fatura-pdf{transform:scale(0.45);transform-origin:top center;margin-bottom:-55%;width:210mm!important;min-width:210mm!important}
               }
+              @media print{.no-print{display:none!important} #fatura-pdf-wrapper{overflow:visible!important} #fatura-pdf{transform:none!important; margin:0!important; box-shadow:none!important; border:none!important} }
             `}</style>
+
+            {/* BARRA PADRÃO PDF IGUAL OUTROS */}
+            <div className="no-print h-[44px] bg-[#323233] flex items-center justify-between px-2 text-white shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded shrink-0"><Menu className="w-4 h-4" /></button>
+                    <p className="text-[11px] md:text-[13px] font-bold uppercase truncate">{tituloDoc} - {numeroDoc}</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                    <span className="bg-[#1e1e1e] text-[10px] px-1.5 py-0.5 rounded">1 / 1</span>
+                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Share2 className="w-4 h-4"/></button>
+                    <button onClick={()=>window.print()} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Download className="w-4 h-4"/></button>
+                    <button onClick={()=>window.print()} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Printer className="w-4 h-4"/></button>
+                </div>
+            </div>
+
+            {/* UNICO SCROLL-Y AQUI */}
             <div id="fatura-pdf-wrapper">
                 <FolhaTela />
             </div>
-        </>
+        </div>
     )
 }
 export default FaturaPDF

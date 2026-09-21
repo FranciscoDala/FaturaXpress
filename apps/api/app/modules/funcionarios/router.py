@@ -10,8 +10,7 @@ from app.modules.funcionarios.schemas import FuncionarioCreate, FuncionarioRespo
 from app.modules.funcionarios import service as func_service
 from app.modules.funcionarios.models import Funcionario, Notificacao
 
-import httpx
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +34,9 @@ async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Dep
 
     if not is_pdf:
         # valida se é imagem mesmo
-        if not (contents[:3] == b'\xff\xd8\xff' or  # jpg
-                contents[:8] == b'\x89PNG\r\n\x1a\n' or  # png
-                contents[:4] == b'RIFF'):  # webp
+        if not (contents[:3] == b'\xff\xd8\xff' or # jpg
+                contents[:8] == b'\x89PNG\r\n\x1a\n' or # png
+                contents[:4] == b'RIFF'): # webp
             # deixa passar mas vai salvar como image - Cloudinary vai validar
             pass
 
@@ -47,15 +46,16 @@ async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Dep
         cloudinary_lib = getattr(up_mod, "cloudinary", None) or importlib.import_module("cloudinary")
 
         if is_pdf:
-            logger.info(f"[UPLOAD FALTA] Detectado PDF {file.filename} {len(contents)} bytes -> raw")
+            logger.info(f"[UPLOAD FALTA] Detectado PDF {file.filename} {len(contents)} bytes -> auto")
             res = cloudinary_lib.uploader.upload(
                 io.BytesIO(contents),
                 folder=f"faltas/{company_id}",
-                resource_type="raw",  # PDF TEM QUE SER RAW
+                resource_type="auto", # AJUSTE: auto no lugar de raw - raw dava 401 no free
                 type="upload",
                 access_mode="public",
-                public_id=f"{uuid.uuid4()}.pdf",
-                overwrite=True
+                use_filename=True,
+                unique_filename=True,
+                overwrite=False
             )
         else:
             logger.info(f"[UPLOAD FALTA] Detectado IMAGEM {file.filename} {file.content_type} -> image")
@@ -65,8 +65,9 @@ async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Dep
                 resource_type="image",
                 type="upload",
                 access_mode="public",
-                public_id=str(uuid.uuid4()),
-                overwrite=True
+                use_filename=True,
+                unique_filename=True,
+                overwrite=False
             )
 
         url = res.get("secure_url")
@@ -81,7 +82,6 @@ async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Dep
     except Exception as e:
         logger.exception(f"[UPLOAD FALTA] {e}")
         raise HTTPException(500, f"Falha no upload: {e}")
-
 
 @rh_router.get("/falta/{falta_id}/anexo")
 @upload_router.get("/falta/{falta_id}/anexo")
@@ -108,24 +108,11 @@ def falta_get_anexo(falta_id: uuid.UUID, db: Session = Depends(get_db), company_
 
     url = falta.justificativa_anexo_url
     if url.startswith("data:"):
-        raise HTTPException(400, "Anexo antigo base64, envie novamente")
+        raise HTTPException(400, "Anexo antigo em base64, envie novamente")
 
-    try:
-        r = httpx.get(url, follow_redirects=True, timeout=30.0)
-        if r.status_code != 200:
-            logger.error(f"[PROXY ANEXO] Cloudinary {r.status_code} url={url}")
-            raise HTTPException(502, f"Cloudinary {r.status_code}. URL antiga /image/upload - REENVIE o arquivo")
-
-        return StreamingResponse(
-            io.BytesIO(r.content),
-            media_type=r.headers.get("content-type", "application/pdf"),
-            headers={"Content-Disposition": f'inline; filename="comprovante-{falta_id}.pdf"'}
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(f"[PROXY ANEXO] {e}")
-        raise HTTPException(500, str(e))
+    # AJUSTE: não faz httpx.get que dava 502, só redireciona pro Cloudinary
+    logger.info(f"[ANEXO] redirect {falta_id} -> {url}")
+    return RedirectResponse(url, status_code=302)
 
 # --- SEUS ROUTERS EXISTENTES (mantidos) ---
 @router.post("", response_model=FuncionarioResponse, status_code=201)

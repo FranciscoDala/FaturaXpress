@@ -83,8 +83,49 @@ async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Dep
         raise HTTPException(500, f"Falha no upload: {e}")
 
 
+@rh_router.get("/falta/{falta_id}/anexo")
+@upload_router.get("/falta/{falta_id}/anexo")
+def falta_get_anexo(falta_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    logger.info(f"[ANEXO HIT] id={falta_id} token_company={company_id}")
+    # busca sem company pra saber se existe
+    falta_any = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id==falta_id).first()
+    if not falta_any:
+        logger.error(f"[ANEXO] falta {falta_id} não existe em nenhuma company")
+        raise HTTPException(404, "Falta não existe")
 
+    logger.info(f"[ANEXO] encontrada company_db={falta_any.company_id} url={falta_any.justificativa_anexo_url}")
 
+    falta = db.query(func_service.PedidoRH).filter(
+        func_service.PedidoRH.id==falta_id,
+        func_service.PedidoRH.company_id==company_id
+    ).first()
+
+    if not falta:
+        raise HTTPException(404, f"Falta de outra empresa. db={falta_any.company_id} token={company_id}")
+
+    if not falta.justificativa_anexo_url:
+        raise HTTPException(404, "Falta sem anexo_url - reenvie o comprovante")
+
+    url = falta.justificativa_anexo_url
+    if url.startswith("data:"):
+        raise HTTPException(400, "Anexo antigo base64, envie novamente")
+
+    try:
+        r = httpx.get(url, follow_redirects=True, timeout=30.0)
+        if r.status_code != 200:
+            logger.error(f"[PROXY ANEXO] Cloudinary {r.status_code} url={url}")
+            raise HTTPException(502, f"Cloudinary {r.status_code}. URL antiga /image/upload - REENVIE o arquivo")
+
+        return StreamingResponse(
+            io.BytesIO(r.content),
+            media_type=r.headers.get("content-type", "application/pdf"),
+            headers={"Content-Disposition": f'inline; filename="comprovante-{falta_id}.pdf"'}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"[PROXY ANEXO] {e}")
+        raise HTTPException(500, str(e))
 
 # --- SEUS ROUTERS EXISTENTES (mantidos) ---
 @router.post("", response_model=FuncionarioResponse, status_code=201)

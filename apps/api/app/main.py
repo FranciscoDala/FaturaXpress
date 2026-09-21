@@ -55,16 +55,20 @@ app.add_middleware(
     ],
     allow_origin_regex=r"https://.*\.onrender\.com",
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
+    # não bloqueia blob/pdf
+    if request.url.path.endswith("/anexo"):
+        response.headers["X-Frame-Options"] = "ALLOWALL"
+    else:
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
     return response
 
 app.include_router(auth_router, prefix="/api")
@@ -85,7 +89,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "docs": "/docs"}
+    return {"status": "ok", "docs": "/docs", "health": "/api/health"}
 
 @app.get("/health")
 @app.get("/api/health")

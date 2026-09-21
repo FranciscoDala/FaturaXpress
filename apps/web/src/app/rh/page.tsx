@@ -31,10 +31,16 @@ function temPermissao(cargo: string | undefined, perm: string) {
     return perms.includes(perm) || perms.includes("*")
 }
 
+function isoToday() {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+
 function getInitialFromStorage(searchParams: URLSearchParams) {
     const urlTab = searchParams.get('rtab') as RHTab | null
     const lsTab = localStorage.getItem(LS_KEYS.tab) as RHTab | null
-    return { tab: (urlTab || lsTab || 'presente') as RHTab }
+    // AGORA ABRE NO PONTO
+    return { tab: (urlTab || lsTab || 'ponto') as RHTab }
 }
 
 export default function RHPage() {
@@ -86,9 +92,7 @@ export default function RHPage() {
             const user = r.data.funcionario || r.data.user || r.data
             setEmpresa(comp)
             setUsuario(user)
-            if (r.data.funcionario) {
-                localStorage.setItem("funcionario", JSON.stringify(r.data.funcionario))
-            }
+            if (r.data.funcionario) localStorage.setItem("funcionario", JSON.stringify(r.data.funcionario))
             const nome = comp.nome || comp.companyName || localStorage.getItem("company_name")
             if (nome) { setCompanyName(nome); localStorage.setItem("company_name", nome) }
         } catch (err: any) {
@@ -100,29 +104,28 @@ export default function RHPage() {
         setLoadingFunc(true)
         try {
             const { data } = await api.get('/api/funcionarios')
-            const mapped = data.map((f: any) => ({...f, area: f.area_principal?.nome || f.area_principal_id || 'Geral', cargo: f.cargo || 'rh', status: f.status || (f.ativo === false? 'ferias' : 'ativo'), telefone: f.telefone || f.contacto_emergencia || '', email: f.email || '' }))
+            const mapped = data.map((f: any) => ({
+               ...f,
+                area: f.area_principal?.nome || f.area || 'Geral',
+                cargo: f.cargo || 'rh',
+                status: f.status || (f.ativo === false? 'ferias' : 'ativo'),
+                telefone: f.telefone || f.contacto_emergencia || '',
+                email: f.email || ''
+            }))
             setFuncionarios(mapped)
         } catch { toast.error('Erro ao carregar funcionários') } finally { setLoadingFunc(false) }
     }, [])
 
     const fetchPontoHoje = useCallback(async () => {
         try {
-            // tenta endpoints comuns
-            const today = new Date().toISOString().slice(0,10)
-            let data: any[] = []
-            try {
-                const r = await api.get('/api/ponto', { params: { data: today, hoje: true } })
-                data = Array.isArray(r.data)? r.data : (r.data.items || r.data.pontos || [])
-            } catch {
-                try {
-                    const r2 = await api.get('/api/ponto/hoje')
-                    data = Array.isArray(r2.data)? r2.data : (r2.data.items || [])
-                } catch {
-                    data = []
-                }
-            }
-            setPontoHoje(data)
-        } catch { setPontoHoje([]) }
+            const dataHoje = isoToday()
+            // MESMO ENDPOINT DO TabPonto
+            const r = await api.get(`/api/rh/ponto?data=${dataHoje}`)
+            const list = Array.isArray(r.data)? r.data : (r.data.items || r.data.pontos || [])
+            setPontoHoje(list)
+        } catch {
+            setPontoHoje([])
+        }
     }, [])
 
     useEffect(() => { fetchMe(); fetchFuncionarios(); fetchPontoHoje() }, [fetchMe, fetchFuncionarios, fetchPontoHoje])
@@ -143,7 +146,7 @@ export default function RHPage() {
     const handleLogout = () => setModalSairOpen(true)
     const handleConfirmLogout = () => { localStorage.clear(); toast.success("Sessão encerrada"); setModalSairOpen(false); navigate('/login') }
     const handleOpenCreateFunc = () => {
-        if (!podeGerirRH) { toast.error('Sem permissão', {description: 'Só admin e RH podem criar'}); return }
+        if (!podeGerirRH) { toast.error('Sem permissão'); return }
         setFuncSelecionado(null); setModalFuncOpen(true);
     }
     const handleOpenEditFunc = (f: any) => {
@@ -155,50 +158,33 @@ export default function RHPage() {
         try {
             if (funcSelecionado?.id) { await api.put(`/api/funcionarios/${funcSelecionado.id}`, data); toast.success('Funcionário atualizado') }
             else { await api.post('/api/funcionarios', data); toast.success('Funcionário criado') }
-            setModalFuncOpen(false); setFuncSelecionado(null); await fetchFuncionarios()
-        } catch (e: any) { toast.error(e?.response?.data?.detail || 'Erro ao salvar funcionário') } finally { setSavingFunc(false) }
+            setModalFuncOpen(false); setFuncSelecionado(null); await fetchFuncionarios(); await fetchPontoHoje()
+        } catch (e: any) { toast.error(e?.response?.data?.detail || 'Erro ao salvar') } finally { setSavingFunc(false) }
     }
 
-    // CONTAGENS CORRETAS
-    const totalFuncionarios = funcionarios.length
-
+    // --- CONTAGEM CORRIGIDA: SÓ QUEM BATEU PONTO ENTRADA HOJE ---
     const presentesIds = useMemo(() => {
         const ids = new Set<string>()
         pontoHoje.forEach((p: any) => {
-            // considera presente se tem entrada hoje e não é falta
-            const funcId = String(p.funcionario_id || p.funcionarioId || p.funcionario?.id || p.id_funcionario || '')
-            const temEntrada =!!(p.entrada || p.hora_entrada || p.check_in || p.created_at)
-            const status = (p.status || '').toLowerCase()
-            if (funcId && temEntrada && status!== 'falta' && status!== 'ausente') {
-                ids.add(funcId)
+            if ((p.tipo || '').toLowerCase() === 'entrada') {
+                const fid = String(p.funcionario_id || p.funcionarioId || '')
+                if (fid) ids.add(fid)
             }
         })
         return ids
     }, [pontoHoje])
 
+    const totalFuncionarios = funcionarios.length
     const totalPresentesHoje = presentesIds.size
 
-    // pra filtrar lista quando tab = presente, só mostra quem bateu ponto
     const funcionariosFiltrados = useMemo(() => {
         const q = search.toLowerCase().trim()
-        let base = funcionarios
-        if (rhTab === 'ferias') {
-            // férias = todos que NÃO bateram ponto hoje (ou estão com status ferias)
-            // mas sua regra: férias lista continua sendo status ferias, presentes é ponto
-            base = funcionarios
-        }
-        if (!q) return base
-        return base.filter(f => f.nome?.toLowerCase().includes(q) || f.cargo?.toLowerCase().includes(q) || String(f.area).toLowerCase().includes(q) || f.numero_bi?.toLowerCase().includes(q))
-    }, [search, funcionarios, rhTab])
+        if (!q) return funcionarios
+        return funcionarios.filter(f => f.nome?.toLowerCase().includes(q) || f.cargo?.toLowerCase().includes(q) || String(f.area).toLowerCase().includes(q) || f.numero_bi?.toLowerCase().includes(q))
+    }, [search, funcionarios])
 
-    const presentes = useMemo(() => {
-        return funcionariosFiltrados.filter(f => presentesIds.has(String(f.id)))
-    }, [funcionariosFiltrados, presentesIds])
-
-    const ferias = useMemo(() => {
-        // quem não está no ponto hoje
-        return funcionariosFiltrados.filter(f =>!presentesIds.has(String(f.id)) && f.status!== 'ativo'? true :!presentesIds.has(String(f.id)))
-    }, [funcionariosFiltrados, presentesIds])
+    const presentes = useMemo(() => funcionariosFiltrados.filter(f => presentesIds.has(String(f.id))), [funcionariosFiltrados, presentesIds])
+    const ferias = useMemo(() => funcionariosFiltrados.filter(f =>!presentesIds.has(String(f.id))), [funcionariosFiltrados, presentesIds])
 
     if (funcionarioLogado &&!podeGerirRH &&!podeVerPonto) {
         return (
@@ -206,7 +192,6 @@ export default function RHPage() {
                 <div className="max-w-[400px] w-full bg-white border rounded-[24px] p-8 text-center shadow-lg">
                     <div className="w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center mx-auto"><AlertTriangle className="w-6 h-6 text-red-600"/></div>
                     <h2 className="text-[18px] font-bold mt-4">Sem acesso ao RH</h2>
-                    <p className="text-[13px] text-gray-500 mt-2">Seu cargo <b>{cargoAtual}</b> não tem permissão.</p>
                     <button onClick={()=>navigate('/app/dashboard')} className="mt-6 w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold">Voltar</button>
                 </div>
             </div>
@@ -245,23 +230,23 @@ export default function RHPage() {
                                 <div className="flex items-center gap-3 shrink-0 pl-2"><div className="relative"><div className="absolute -top-3 -right-2 z-10"><span className="text-[8px] font-bold tracking-wide bg-white border border-yellow-200 text-yellow-700 px-1.5 py-[1px] rounded-full shadow-sm">{planInfo.label}</span></div><button onClick={() => navigate('/assinatura')} className="w-10 h-10 rounded-full bg-white border border-yellow-200 shadow flex items-center justify-center text-[#f59e0b] hover:bg-yellow-50 transition"><Crown className="w-[18px] h-[18px]" /></button></div><button onClick={handleLogout} className="w-10 h-10 rounded-full bg-[#FF3B30] border border-[#FF3B30] shadow flex items-center justify-center text-white hover:bg-[#e6352b] transition"><Power className="w-[18px] h-[18px]" /></button></div>
                             </div>
 
-                            {/* CARDS COLADINHOS IGUAL FOTO - SÓ 2 */}
+                            {/* CARDS COLADINHOS - CENTRALIZADOS */}
                             <div className="mt-5 flex max-w-[520px] w-full bg-white border border-gray-200 rounded-[24px] overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
                                 <button
                                     onClick={() => setRhTab('presente')}
-                                    className={`flex-1 h-[56px] flex flex-col justify-center items-start px-5 text-left border-r border-gray-200 transition-all
+                                    className={`flex-1 h-[64px] flex flex-col justify-center items-center text-center border-r border-gray-200 transition-all
                                     ${rhTab === 'presente'? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}
                                 >
-                                    <p className="text-[18px] font-bold leading-none">{loadingFunc? '...' : totalFuncionarios}</p>
-                                    <p className="text-[12px] text-gray-500 mt-[2px] font-medium">Funcionários</p>
+                                    <p className="text-[20px] font-bold leading-none">{loadingFunc? '...' : totalFuncionarios}</p>
+                                    <p className="text-[11px] text-gray-500 mt-1 font-medium">Funcionários</p>
                                 </button>
                                 <button
                                     onClick={() => setRhTab('ferias')}
-                                    className={`flex-1 h-[56px] flex flex-col justify-center items-start px-5 text-left transition-all
+                                    className={`flex-1 h-[64px] flex flex-col justify-center items-center text-center transition-all
                                     ${rhTab === 'ferias'? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}
                                 >
-                                    <p className="text-[18px] font-bold leading-none">{totalPresentesHoje}</p>
-                                    <p className="text-[12px] text-gray-500 mt-[2px] font-medium">Presentes</p>
+                                    <p className="text-[20px] font-bold leading-none">{totalPresentesHoje}</p>
+                                    <p className="text-[11px] text-gray-500 mt-1 font-medium">Presentes</p>
                                 </button>
                             </div>
 
@@ -275,7 +260,7 @@ export default function RHPage() {
                             <div className="flex gap-4 overflow-x-auto pb-3 mb-4 [&::-webkit-scrollbar]:hidden">
                                 <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] flex-shrink-0">
                                     <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder={rhTab === 'ferias'? 'Buscar em férias' : 'Buscar funcionário'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow" />
+                                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder={rhTab === 'ferias'? 'Buscar presentes (ponto hoje)' : 'Buscar funcionários'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow" />
                                 </div>
                             </div>
                         )}
@@ -283,7 +268,7 @@ export default function RHPage() {
                             {loadingFunc? <p className="text-center py-16 bg-white rounded-[20px] border text-black/50">Carregando...</p> : (
                                 <>
                                     {rhTab === 'presente' && <TabPresente funcionarios={presentes} search={search} onEdit={handleOpenEditFunc} />}
-                                    {rhTab === 'ferias' && <TabFerias funcionarios={ferias.length? ferias : funcionariosFiltrados} search={search} onEdit={handleOpenEditFunc} />}
+                                    {rhTab === 'ferias' && <TabFerias funcionarios={presentes.length? presentes : funcionariosFiltrados} search={search} onEdit={handleOpenEditFunc} />}
                                     {rhTab === 'ponto' && <TabPonto empresa={empresa} usuario={usuario} />}
                                     {rhTab === 'pedidos' && <TabPedidos />}
                                     {rhTab === 'recibos' && <TabRecibos />}

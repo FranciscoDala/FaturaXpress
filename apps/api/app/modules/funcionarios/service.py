@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from passlib.context import CryptContext
 from typing import List, Optional
 from datetime import date, datetime, timezone, timedelta
-from app.modules.funcionarios.models import Funcionario, Ponto, ConfigPonto, PedidoRH, StatusPedido, Notificacao
+from app.modules.funcionarios.models import Funcionario, Ponto, ConfigPonto, PedidoRH, StatusPedido, Notificacao, TipoPonto
 from app.modules.funcionarios.schemas import FuncionarioCreate, FuncionarioUpdate
 from app.modules.areas.models import Area
 from zoneinfo import ZoneInfo
@@ -268,13 +268,16 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
             inicio_config = data_alvo.replace(day=1)
         else:
             inicio_config = data_alvo - timedelta(days=data_alvo.weekday())
-        inicio_periodo = max(ultimo_reset, inicio_config) if ultimo_reset else inicio_config
+        # FIX 1: evita TypeError no max() quando ultimo_reset é None e compara datas com segurança
+        inicio_periodo = inicio_config
+        if ultimo_reset and ultimo_reset > inicio_config:
+            inicio_periodo = ultimo_reset
 
         pontos_atraso = db.query(Ponto).filter(
             Ponto.company_id==company_id,
             Ponto.funcionario_id==funcionario_alvo_id,
             Ponto.data>=inicio_periodo,
-            Ponto.tipo=="entrada",
+            Ponto.tipo==TipoPonto.entrada,
             Ponto.atraso_min>0
         ).order_by(Ponto.data.asc()).all()
         qtd_atrasos = len(pontos_atraso)
@@ -429,7 +432,8 @@ def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: s
                     inicio = date.today().replace(day=1)
                 else:
                     inicio = date.today() - timedelta(days=date.today().weekday())
-            pontos = db.query(Ponto).filter(Ponto.company_id==company_id, Ponto.funcionario_id==n.referencia_id, Ponto.data>=inicio, Ponto.tipo=="entrada", Ponto.atraso_min>0).order_by(Ponto.data.desc()).all()
+            # FIX 2: usa Enum correto aqui também
+            pontos = db.query(Ponto).filter(Ponto.company_id==company_id, Ponto.funcionario_id==n.referencia_id, Ponto.data>=inicio, Ponto.tipo==TipoPonto.entrada, Ponto.atraso_min>0).order_by(Ponto.data.desc()).all()
             item["funcionario"] = {"id": str(func.id), "nome": func.nome} if func else None
             item["qtd_atrasos"] = len(pontos)
             item["atrasos"] = [_ponto_to_dict(db, p) for p in pontos]
@@ -454,7 +458,7 @@ def aplicar_falta_por_atraso(db: Session, company_id: uuid.UUID, funcionario_id:
     )
     func.ultimo_reset_atrasos = date.today()
     db.add(falta)
-    db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==funcionario_id, Notificacao.tipo=="atraso_excedido", Notificacao.status=="pendente").update({"status":"resolvido", "lida":True})
+    db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==funcionario_id, Notificacao.tipo=="atraso_excedido", Notificacao.status=="pendente").update({"status":"resolvido", "lida":True, "updated_at": datetime.now(timezone.utc)})
     db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
 
@@ -463,17 +467,18 @@ def ignorar_atrasos(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUI
     if not func:
         raise HTTPException(404, "Funcionário não encontrado")
     func.ultimo_reset_atrasos = date.today()
-    db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==funcionario_id, Notificacao.tipo=="atraso_excedido", Notificacao.status=="pendente").update({"status":"ignorado", "lida":True})
+    db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==funcionario_id, Notificacao.tipo=="atraso_excedido", Notificacao.status=="pendente").update({"status":"ignorado", "lida":True, "updated_at": datetime.now(timezone.utc)})
     db.commit()
     return {"ok": True, "msg": "Atrasos zerados, contador reiniciado"}
 
 def encaminhar_atraso_para_admin(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, encaminhado_por_id: uuid.UUID | None):
-    notif = db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==funcionario_id, Notificacao.tipo=="atraso_excedido", Notificacao.status=="pendente").first()
+    notif = db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==funcionario_id, Notificacao.tipo=="atraso_excedido", Notificacao.status=="pendente", Notificacao.area_destino=="rh").first()
     if not notif:
         raise HTTPException(404, "Notificação de atraso não encontrada")
     notif.area_origem = "rh"
     notif.area_destino = "admin"
     notif.dono_atual = "admin"
     notif.status = "pendente"
+    notif.updated_at = datetime.now(timezone.utc)
     db.commit(); db.refresh(notif)
     return {"ok": True, "msg": "Encaminhado para admin"}

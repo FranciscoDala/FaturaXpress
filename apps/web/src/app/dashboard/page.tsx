@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Pencil, Database, Search, Crown, AlertTriangle, Settings } from 'lucide-react'
+import { Package, ChevronDown, Users, FileDown, Check, Power, Receipt, Menu, Pencil, Database, Search, Crown, Settings2, FileText, PlusCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { DashboardSkeleton } from '../../components/DashboardSkeleton'
 import { useRealtime } from '../../hooks/useRealtime'
@@ -15,7 +15,7 @@ import CardsProdutos from './components/cards/cards_Produto'
 import TabEmitir from '../faturas/components/tab/tab_faturaEmitir'
 import TabCurso from '../faturas/components/tab/tab_faturaEmcurso'
 import TabEmitidas from '../faturas/components/tab/tab_faturaEmitida'
-import GlobalAreas from '../../components/GlobalAreas'
+import SidebarAreas from './components/sidebar/sidebar_Areas'
 import { api } from '../../lib/api'
 
 interface Cliente { id: string; nome: string; nif: string; email: string | null; telefone: string | null; endereco: string | null; cidade: string | null; provincia: string | null }
@@ -126,7 +126,7 @@ export default function DashboardPage() {
         } catch { return null }
     }, [empresa])
 
-    const { ncOrigensSet, faturasFTOnly, faturasFTAtivas } = useMemo(() => {
+    const { faturasFTOnly, faturasFTAtivas } = useMemo(() => {
         const origens = new Set<string>()
         faturasEmitidas.forEach((f: any) => {
             if (f.tipo_documento === 'nota_credito' && f.fatura_origem_id) {
@@ -134,7 +134,7 @@ export default function DashboardPage() {
             }
         })
         const ftOnly = faturasEmitidas.filter((f: any) => f.tipo_documento === 'fatura')
-        const ftAtivas = ftOnly.filter((f: any) => !origens.has(f.id) && f.status !== 'cancelada')
+        const ftAtivas = ftOnly.filter((f: any) =>!origens.has(f.id) && f.status!== 'cancelada')
         return { ncOrigensSet: origens, faturasFTOnly: ftOnly, faturasFTAtivas: ftAtivas }
     }, [faturasEmitidas])
 
@@ -142,9 +142,7 @@ export default function DashboardPage() {
         return faturasFTAtivas.reduce((s: any, f: any) => s + Number(f.total_geral || f.total || 0), 0)
     }, [faturasFTAtivas])
 
-    const totalDocs = useMemo(() => {
-        return faturasCurso.length + faturasFTOnly.length
-    }, [faturasCurso, faturasFTOnly])
+    const totalDocs = useMemo(() => faturasCurso.length + faturasFTOnly.length, [faturasCurso, faturasFTOnly])
 
     const planId = (empresa?.subscription_plan || 'free').toLowerCase()
     const planInfo = PLAN_LIMITS[planId] || PLAN_LIMITS.free
@@ -156,7 +154,7 @@ export default function DashboardPage() {
         }).length
     }, [faturasFTOnly])
 
-    const isAtLimit = planInfo.max ? faturasMes >= planInfo.max : false
+    const isAtLimit = planInfo.max? faturasMes >= planInfo.max : false
 
     const clientesComFatura = useMemo(() => {
         const ids = new Set<string>()
@@ -166,38 +164,57 @@ export default function DashboardPage() {
         return ids
     }, [faturasEmitidas])
 
-    const isInitialLoading = !empresa && (loading || loadingFaturas)
+    const isInitialLoading =!empresa && (loading || loadingFaturas)
 
+    // SYNC URL + LS sem loop
     useEffect(() => {
+        if (localStorage.getItem(LS_KEYS.view) === homeView && localStorage.getItem(LS_KEYS.ftab) === faturaTab && localStorage.getItem(LS_KEYS.list) === listView) return
         localStorage.setItem(LS_KEYS.view, homeView)
         localStorage.setItem(LS_KEYS.ftab, faturaTab)
         localStorage.setItem(LS_KEYS.list, listView)
         const params = new URLSearchParams(searchParams)
-        params.set('view', homeView)
-        params.set('ftab', faturaTab)
-        params.set('list', listView)
-        setSearchParams(params, { replace: true })
+        if (params.get('view')!== homeView || params.get('ftab')!== faturaTab || params.get('list')!== listView) {
+            params.set('view', homeView)
+            params.set('ftab', faturaTab)
+            params.set('list', listView)
+            setSearchParams(params, { replace: true })
+        }
     }, [homeView, faturaTab, listView])
+
+    // LISTENER DA SIDEBAR
+    useEffect(() => {
+        const handler = (e: any) => {
+            if (e.detail?.view) setHomeView(e.detail.view)
+            if (e.detail?.ftab) setFaturaTab(e.detail.ftab)
+            if (e.detail?.list) setListView(e.detail.list)
+        }
+        window.addEventListener('sidebar-nav' as any, handler)
+        return () => window.removeEventListener('sidebar-nav' as any, handler)
+    }, [])
+
+    // REAGIR A?view=gestao&list=clientes direto na URL
+    useEffect(() => {
+        const v = searchParams.get('view') as HomeView | null
+        const f = searchParams.get('ftab') as FaturaTab | null
+        const l = searchParams.get('list') as ListView | null
+        if (v && v!== homeView) setHomeView(v)
+        if (f && f!== faturaTab) setFaturaTab(f)
+        if (l && l!== listView) setListView(l)
+    }, [searchParams])
 
     const fetchFaturasGeral = useCallback(async () => {
         try {
             setLoadingFaturas(true)
             const res = await api.get('/api/faturas', { params: { limit: 500 } })
-            const all = Array.isArray(res.data) ? res.data : (res.data.items || [])
+            const all = Array.isArray(res.data)? res.data : (res.data.items || [])
             const proformasConvertidasIds = new Set<string>(
                 all.filter((f: any) => f.tipo_documento === 'fatura' && f.proforma_origem_id)
-                    .map((f: any) => String(f.proforma_origem_id))
+                   .map((f: any) => String(f.proforma_origem_id))
             )
             const curso = all.filter((f: any) =>
-                f.tipo_documento === 'proforma' &&
-                f.status === 'em_curso' &&
-                !proformasConvertidasIds.has(String(f.id))
+                f.tipo_documento === 'proforma' && f.status === 'em_curso' &&!proformasConvertidasIds.has(String(f.id))
             )
-            const emitidas = all.filter((f: any) =>
-                f.tipo_documento === 'fatura' ||
-                f.tipo_documento === 'nota_credito' ||
-                !!f.hash_agt
-            )
+            const emitidas = all.filter((f: any) => f.tipo_documento === 'fatura' || f.tipo_documento === 'nota_credito' ||!!f.hash_agt)
             setFaturasCurso(curso)
             setFaturasEmitidas(emitidas)
         } catch { } finally { setLoadingFaturas(false) }
@@ -205,41 +222,29 @@ export default function DashboardPage() {
 
     const fetchClientes = useCallback(async () => {
         try { setLoading(true); const skip = (page - 1) * limit; const res = await api.get('/api/clientes', { params: { skip, limit, search } }); setClientes(res.data.items); if (listView === 'clientes') setTotal(res.data.total) }
-        catch { toast.error('Erro ao carregar clientes', { description: 'Verifique sua conexão.' }) } finally { setLoading(false) }
+        catch { toast.error('Erro ao carregar clientes') } finally { setLoading(false) }
     }, [page, limit, search, listView])
 
     const fetchProdutos = useCallback(async () => {
         try { setLoading(true); const skip = (page - 1) * limit; const res = await api.get('/api/produtos', { params: { skip, limit, search } }); setProdutos(res.data.items); setTotal(res.data.total) }
-        catch { toast.error('Erro ao carregar produtos', { description: 'Tente novamente.' }) } finally { setLoading(false) }
+        catch { toast.error('Erro ao carregar produtos') } finally { setLoading(false) }
     }, [page, limit, search])
 
     const fetchEmpresa = useCallback(async () => {
         try {
             const tipo = localStorage.getItem("login_tipo") || "company"
-            const url = tipo === "funcionario" ? "/api/auth/me-funcionario" : "/api/auth/me"
+            const url = tipo === "funcionario"? "/api/auth/me-funcionario" : "/api/auth/me"
             const r = await api.get(url)
             const comp = r.data.company || r.data
             setEmpresa(comp)
             const nome = comp.nome || comp.companyName || localStorage.getItem("company_name")
             if (nome) { setCompanyName(nome); localStorage.setItem("company_name", nome) }
-
-            // se for funcionario, guarda info dele separado
-            if (r.data.funcionario) {
-                localStorage.setItem("funcionario", JSON.stringify(r.data.funcionario))
-            }
-
+            if (r.data.funcionario) localStorage.setItem("funcionario", JSON.stringify(r.data.funcionario))
             setFormEmpresa({
                 companyName: comp.nome || comp.companyName || '',
-                nif: comp.nif || '',
-                email: comp.email || '',
-                phone: comp.telefone || comp.phone || '',
-                address: comp.endereco || comp.address || '',
-                city: comp.cidade || comp.city || '',
-                province: comp.provincia || comp.province || '',
-                iban: comp.iban || '',
-                iban2: comp.iban2 || '',
-                banco1: comp.banco1 || comp.banco || '',
-                banco2: comp.banco2 || '',
+                nif: comp.nif || '', email: comp.email || '', phone: comp.telefone || comp.phone || '',
+                address: comp.endereco || comp.address || '', city: comp.cidade || comp.city || '', province: comp.provincia || comp.province || '',
+                iban: comp.iban || '', iban2: comp.iban2 || '', banco1: comp.banco1 || comp.banco || '', banco2: comp.banco2 || '',
                 logo_url: (comp.logo_url || comp.image_url || '').replace(/^http:\/\//i, 'https://'),
                 image_url: (comp.image_url || comp.logo_url || '').replace(/^http:\/\//i, 'https://')
             })
@@ -250,9 +255,7 @@ export default function DashboardPage() {
         onEvent: (msg) => {
             if (modalClienteOpen || modalProdutoOpen || modalEmpresaOpen) return
             if (msg.event === 'faturas:changed') setTimeout(() => fetchFaturasGeral(), 400)
-            if (msg.event === 'clientes:changed') {
-                setTimeout(() => { fetchClientes(); fetchFaturasGeral() }, 400)
-            }
+            if (msg.event === 'clientes:changed') setTimeout(() => { fetchClientes(); fetchFaturasGeral() }, 400)
             if (msg.event === 'produtos:changed') setTimeout(() => fetchProdutos(), 400)
             if (msg.event === 'company:changed') setTimeout(() => fetchEmpresa(), 400)
         }
@@ -277,14 +280,14 @@ export default function DashboardPage() {
             const r = novoBtnRef.current.getBoundingClientRect()
             const width = 320
             const isMobile = window.innerWidth < 768
-            const left = isMobile ? window.innerWidth - width - 16 : r.right - width
+            const left = isMobile? window.innerWidth - width - 16 : r.right - width
             setNovoDropdownPos({ top: r.bottom + 8, left: Math.max(16, left), width })
         }
     }
     useEffect(() => { if (openListSelect) updateListPos() }, [openListSelect])
     useEffect(() => { if (openNovo) updateNovoPos() }, [openNovo])
     useEffect(() => {
-        if (!openListSelect && !openNovo) return
+        if (!openListSelect &&!openNovo) return
         const handle = () => { if (openListSelect) updateListPos(); if (openNovo) updateNovoPos() }
         window.addEventListener('scroll', handle, true)
         window.addEventListener('resize', handle)
@@ -295,20 +298,14 @@ export default function DashboardPage() {
         const close = (e: MouseEvent) => {
             const target = e.target as HTMLElement
             if (target.closest('[data-sonner-toaster]') || target.closest('[data-sonner-toast]')) return
-            if (listWrapperRef.current && !listWrapperRef.current.contains(e.target as Node) && !target.closest('[data-list-dropdown]')) setOpenListSelect(false)
-            if (novoWrapperRef.current && !novoWrapperRef.current.contains(e.target as Node) && !target.closest('[data-novo-dropdown]')) setOpenNovo(false)
+            if (listWrapperRef.current &&!listWrapperRef.current.contains(e.target as Node) &&!target.closest('[data-list-dropdown]')) setOpenListSelect(false)
+            if (novoWrapperRef.current &&!novoWrapperRef.current.contains(e.target as Node) &&!target.closest('[data-novo-dropdown]')) setOpenNovo(false)
         }
         document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
     }, [])
 
-    if (isInitialLoading) {
-        return (
-            <div className="min-h-screen bg-white">
-                <DashboardSkeleton />
-            </div>
-        )
-    }
+    if (isInitialLoading) return <div className="min-h-screen bg-white"><DashboardSkeleton /></div>
 
     const handleOpenCreateCliente = () => { setClienteSelecionado(null); setModalClienteOpen(true); setOpenNovo(false) }
     const handleOpenEditCliente = (c: Cliente) => { setClienteSelecionado(c); setModalClienteOpen(true) }
@@ -316,7 +313,7 @@ export default function DashboardPage() {
     const handleOpenEditProduto = (p: Produto) => { setProdutoSelecionado(p); setModalProdutoOpen(true) }
     const handleEmitirFatura = (c: Cliente) => navigate(`/faturas/nova?cliente_id=${c.id}`)
     const handleLogout = () => setModalSairOpen(true)
-    const handleConfirmLogout = () => { localStorage.clear(); toast.success("Sessão encerrada", { description: "Até breve!" }); setModalSairOpen(false); navigate('/login') }
+    const handleConfirmLogout = () => { localStorage.clear(); toast.success("Sessão encerrada"); setModalSairOpen(false); navigate('/login') }
 
     const handleNovoAction = (v: string) => {
         setOpenNovo(false)
@@ -329,10 +326,7 @@ export default function DashboardPage() {
     }
 
     const handleRequestDeleteCliente = (id: string) => {
-        if (clientesComFatura.has(id)) {
-            toast.error('Não pode apagar', { description: 'Este cliente já tem faturas emitidas no SAFT.' })
-            return
-        }
+        if (clientesComFatura.has(id)) { toast.error('Não pode apagar - tem faturas SAFT'); return }
         const c = clientes.find(x => x.id === id);
         setDeleteTarget({ type: 'cliente', id, nome: c?.nome || 'este cliente' })
     }
@@ -342,75 +336,38 @@ export default function DashboardPage() {
         setDeleting(true)
         try {
             if (deleteTarget.type === 'cliente') {
-                await api.delete(`/api/clientes/${deleteTarget.id}`);
-                toast.success('Cliente apagado', { description: `${deleteTarget.nome} foi removido.` });
-                fetchClientes();
-                fetchFaturasGeral()
+                await api.delete(`/api/clientes/${deleteTarget.id}`); toast.success('Cliente apagado'); fetchClientes(); fetchFaturasGeral()
             } else {
-                await api.delete(`/api/produtos/${deleteTarget.id}`);
-                toast.success('Produto apagado', { description: `${deleteTarget.nome} foi removido.` });
-                fetchProdutos()
+                await api.delete(`/api/produtos/${deleteTarget.id}`); toast.success('Produto apagado'); fetchProdutos()
             }
             setDeleteTarget(null)
-        } catch (err: any) {
-            const detail = err.response?.data?.detail || err.message
-            if (detail?.toLowerCase().includes("fatura") || detail?.toLowerCase().includes("saft")) {
-                toast.error('Não pode apagar', { description: 'Este cliente já tem faturas emitidas no SAFT.' })
-            } else if (err.response?.status === 500) {
-                toast.error('Erro no servidor', { description: 'Cliente tem movimentações, não pode ser apagado.' })
-            } else {
-                toast.error(detail || 'Erro ao apagar', { description: typeof detail === 'string' ? detail : undefined })
-            }
-        } finally { setDeleting(false) }
+        } catch (err: any) { toast.error(err.response?.data?.detail || 'Erro ao apagar') } finally { setDeleting(false) }
     }
 
     const handleSaveEmpresa = async (data: EmpresaFormFull) => {
         setSavingEmpresa(true)
         try {
             if (data.logoFile) {
-                const fd = new FormData()
-                fd.append('logo', data.logoFile)
+                const fd = new FormData(); fd.append('logo', data.logoFile)
                 await api.put('/api/auth/company/logo', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
             }
             await api.put('/api/auth/company', {
-                companyName: data.companyName,
-                nif: data.nif,
-                email: data.email,
-                phone: data.phone,
-                address: data.address,
-                city: data.city,
-                province: data.province,
-                banco1: data.banco1,
-                banco2: data.banco2,
-                iban: data.iban,
-                iban2: data.iban2,
+                companyName: data.companyName, nif: data.nif, email: data.email, phone: data.phone,
+                address: data.address, city: data.city, province: data.province, banco1: data.banco1, banco2: data.banco2, iban: data.iban, iban2: data.iban2,
             })
-            toast.success('Empresa atualizada', { description: 'Dados salvos com sucesso.' })
-            setModalEmpresaOpen(false)
-            fetchEmpresa()
-        }
-        catch (e: any) { toast.error('Erro ao atualizar empresa', { description: e?.response?.data?.detail || 'Verifique os dados.' }) } finally { setSavingEmpresa(false) }
+            toast.success('Empresa atualizada'); setModalEmpresaOpen(false); fetchEmpresa()
+        } catch (e: any) { toast.error(e?.response?.data?.detail || 'Erro') } finally { setSavingEmpresa(false) }
     }
 
     const ProdutoModalAny = ProdutoModal as any
-    const produtosFiltrados = listView === 'servicos' ? produtos.filter(p => p.tipo === 'servico') : listView === 'produtos' ? produtos.filter(p => p.tipo !== 'servico') : produtos
+    const produtosFiltrados = listView === 'servicos'? produtos.filter(p => p.tipo === 'servico') : listView === 'produtos'? produtos.filter(p => p.tipo!== 'servico') : produtos
 
     return (
         <div className="min-h-screen bg-white relative">
+            <SidebarAreas open={sidebarAreasOpen} onClose={() => setSidebarAreasOpen(false)} />
 
-            <GlobalAreas />
-
-
-            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => {
-                setOpenListSelect(false); setOpenNovo(false);
-                toast.success(clienteSelecionado ? 'Cliente atualizado' : 'Cliente criado', { description: clienteSelecionado ? 'Dados atualizados.' : 'Cliente adicionado com sucesso.' });
-                setTimeout(() => fetchClientes(), 200)
-            }} />
-            <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => {
-                setOpenListSelect(false); setOpenNovo(false);
-                toast.success(produtoSelecionado ? 'Produto atualizado' : 'Produto criado', { description: 'Operação concluída.' });
-                setTimeout(() => fetchProdutos(), 200)
-            }} />
+            <ClienteModal open={modalClienteOpen} cliente={clienteSelecionado} onClose={() => setModalClienteOpen(false)} onSuccess={() => { setTimeout(() => fetchClientes(), 200) }} />
+            <ProdutoModalAny open={modalProdutoOpen} produto={produtoSelecionado} onClose={() => setModalProdutoOpen(false)} onSuccess={() => { setTimeout(() => fetchProdutos(), 200) }} />
             <ModalEmpresa open={modalEmpresaOpen} initialData={formEmpresa} saving={savingEmpresa} onClose={() => setModalEmpresaOpen(false)} onSave={handleSaveEmpresa} />
             <ModalConfirmDelete open={!!deleteTarget} itemName={deleteTarget?.nome} loading={deleting} onClose={() => setDeleteTarget(null)} onConfirm={handleConfirmDelete} />
             <ModalSaftAO open={modalSaftOpen} onClose={() => setModalSaftOpen(false)} />
@@ -426,7 +383,7 @@ export default function DashboardPage() {
                             <div className="w-full h-full rounded-full overflow-hidden bg-gray-200 border-[5px] border-white shadow-sm">
                                 <img src={logoUrlSafe || `https://ui-avatars.com/api/?name=${encodeURIComponent(companyName || 'FX')}&background=E5E7EB&color=374151&size=132}`} className="w-full h-full object-cover" alt={companyName} />
                             </div>
-                            <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-[2px] border-white shadow" style={{ background: empresa?.is_active === false ? '#ef4444' : '#22c55e' }}></div>
+                            <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-[2px] border-white shadow" style={{ background: empresa?.is_active === false? '#ef4444' : '#22c55e' }}></div>
                             {(!funcionarioLogado || funcionarioLogado.cargo === 'admin') && (
                                 <button onClick={() => setModalEmpresaOpen(true)} className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-white border shadow flex items-center justify-center hover:bg-gray-50">
                                     <Pencil className="w-3.5 h-3.5 text-gray-700" />
@@ -436,7 +393,6 @@ export default function DashboardPage() {
                         <div className="flex-1 w-full min-w-0">
                             <div className="flex flex-row justify-between items-start gap-3 w-full">
                                 <div className="flex flex-col items-start text-left flex-1 min-w-0">
-
                                     <div className="flex items-center flex-wrap gap-2">
                                         <h1 className="text-[16px] sm:text-[19px] font-bold text-[#1a202c] uppercase tracking-wide leading-tight truncate max-w-[180px] sm:max-w-[320px]">{companyName || 'CONNECT'}</h1>
                                         {funcionarioLogado && (
@@ -445,94 +401,42 @@ export default function DashboardPage() {
                                             </span>
                                         )}
                                     </div>
-
                                     <div className="mt-2.5 space-y-0 text-[12px] sm:text-[13px] text-gray-700 leading-[1.4]">
                                         <p><span className="font-medium text-gray-500">NIF:</span> {empresa?.nif || '50924984'}</p>
                                         <p><span className="font-medium text-gray-500">Tel:</span> {empresa?.telefone || empresa?.phone || '+244930438947'}</p>
                                         <p className="truncate max-w-[220px] sm:max-w-none"><span className="font-medium text-gray-500">Email:</span> {empresa?.email || 'killerbless12@gmail.com'}</p>
                                         <p className="line-clamp-2"><span className="font-medium text-gray-500">Endereço:</span> {(empresa?.endereco || empresa?.address || 'Sassamba')} • {empresa?.cidade || empresa?.city || 'Saurimo'} • {empresa?.provincia || empresa?.province || 'Lunda-Sul'}</p>
-                                        {(empresa?.iban || empresa?.iban2) && (
-                                            <p className="break-all text-[11px]"><span className="font-medium text-gray-500">IBAN:</span> {empresa?.iban}{empresa?.iban2 ? ` | ${empresa?.iban2}` : ''}</p>
-                                        )}
                                     </div>
                                     <div className="mt-4 space-y-0 w-full">
-                                        <p className="text-[11px] text-gray-500">Faturas emitidas - {loadingFaturas ? '...' : `${totalDocs} docs`}</p>
-                                        <p className="text-[11px] text-gray-500">Total pago faturas(agt) - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas ? '...' : `${totalFaturado.toFixed(2)} KZ`}</span></p>
-                                        <p className="text-[11px] text-gray-600 font-medium">
-                                            Faturas por mês - {loadingFaturas ? '...' : planInfo.max ? `${faturasMes}(${planInfo.max}) este mês` : `${faturasMes}, este mês (Ilimitado)`}
-                                        </p>
-                                        {isAtLimit && (
-                                            <div className="mt-2">
-                                                <span className="inline-flex items-center px-2.5 py-[3px] rounded-full border bg-white border-gray-200 text-gray-700 text-[10px] font-medium leading-tight shadow-sm">
-                                                    Limite {planInfo.label} atingido - atualiza seu plano
-                                                </span>
-                                            </div>
-                                        )}
+                                        <p className="text-[11px] text-gray-500">Faturas emitidas - {loadingFaturas? '...' : `${totalDocs} docs`}</p>
+                                        <p className="text-[11px] text-gray-500">Total pago faturas(agt) - <span className="text-[#FF3B30] font-bold text-[13px]">{loadingFaturas? '...' : `${totalFaturado.toFixed(2)} KZ`}</span></p>
+                                        <p className="text-[11px] text-gray-600 font-medium">Faturas por mês - {loadingFaturas? '...' : planInfo.max? `${faturasMes}(${planInfo.max})` : `${faturasMes} (Ilimitado)`}</p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3 shrink-0 pl-2">
-                                    <div className="relative">
-                                        <div className="absolute -top-3 -right-2 z-10">
-                                            <span className="text-[8px] font-bold tracking-wide bg-white border border-yellow-200 text-yellow-700 px-1.5 py-[1px] rounded-full shadow-sm">
-                                                {planInfo.label}
-                                            </span>
-                                        </div>
-                                        <button onClick={() => navigate('/assinatura')} className="w-10 h-10 rounded-full bg-white border border-yellow-200 shadow-[0_2px_12px_rgba(0,0,0,0.06)] flex items-center justify-center text-[#f59e0b] hover:bg-yellow-50 transition shrink-0">
-                                            <Crown className="w-[18px] h-[18px]" />
-                                        </button>
-                                    </div>
-                                    <button onClick={handleLogout} className="w-10 h-10 rounded-full bg-[#FF3B30] border border-[#FF3B30] shadow-[0_2px_12px_rgba(255,59,48,0.25)] flex items-center justify-center text-white hover:bg-[#e6352b] transition shrink-0">
-                                        <Power className="w-[18px] h-[18px]" />
-                                    </button>
+                                <div className="flex items-center gap-2 shrink-0 pl-2">
+                                    <button onClick={() => setSidebarAreasOpen(true)} className="w-10 h-10 rounded-full bg-white border shadow flex items-center justify-center"><Menu className="w-5 h-5" /></button>
+                                    <button onClick={() => navigate('/assinatura')} className="w-10 h-10 rounded-full bg-white border border-yellow-200 shadow flex items-center justify-center text-[#f59e0b]"><Crown className="w-[18px] h-[18px]" /></button>
+                                    <button onClick={handleLogout} className="w-10 h-10 rounded-full bg-[#FF3B30] border shadow flex items-center justify-center text-white"><Power className="w-[18px] h-[18px]" /></button>
                                 </div>
                             </div>
                             <div className="mt-5 flex bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden max-w-[520px] w-full shadow-sm">
-                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className={`flex-1 py-2 ${homeView === 'faturas' && faturaTab === 'curso' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                    <p className="text-[13px] font-bold">{loadingFaturas ? '...' : faturasCurso.length}</p>
+                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('curso') }} className={`flex-1 py-2 ${homeView === 'faturas' && faturaTab === 'curso'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                    <p className="text-[13px] font-bold">{loadingFaturas? '...' : faturasCurso.length}</p>
                                     <p className="text-[11px] text-gray-500">Proforma PP</p>
                                 </button>
-                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('emitidas') }} className={`flex-1 py-2 border-l ${homeView === 'faturas' && faturaTab === 'emitidas' ? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
-                                    <p className="text-[13px] font-bold">{loadingFaturas ? '...' : faturasFTOnly.length}</p>
+                                <button onClick={() => { setHomeView('faturas'); setFaturaTab('emitidas') }} className={`flex-1 py-2 border-l ${homeView === 'faturas' && faturaTab === 'emitidas'? 'bg-gray-50 text-[#0095ff]' : 'text-gray-800'}`}>
+                                    <p className="text-[13px] font-bold">{loadingFaturas? '...' : faturasFTOnly.length}</p>
                                     <p className="text-[11px] text-gray-500">Fatura AGT FT</p>
                                 </button>
                                 <div ref={novoWrapperRef} className="flex-[0.6] border-l relative">
-                                    <button ref={novoBtnRef} onClick={() => setOpenNovo(!openNovo)} className={`w-full h-full flex items-center justify-center ${openNovo ? 'bg-[#0095ff] text-white' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
+                                    <button ref={novoBtnRef} onClick={() => setOpenNovo(!openNovo)} className={`w-full h-full flex items-center justify-center ${openNovo? 'bg-[#0095ff] text-white' : 'bg-white text-gray-800'}`}>
                                         <Menu className="w-5 h-5" />
                                     </button>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <style>{`
-           .bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; will-change: transform; }
-           .bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; }
-                      @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }
-                    `}</style>
                 </div>
-
-                {openNovo && (
-                    <div data-novo-dropdown style={{ top: novoDropdownPos.top, left: novoDropdownPos.left, width: novoDropdownPos.width, maxWidth: '92vw' }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999]">
-                        <button onClick={() => handleNovoAction('ver_faturas')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'faturas' ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
-                            <Receipt className="w-4 h-4 text-black" /> Faturas
-                        </button>
-                        <button onClick={() => handleNovoAction('ver_registros')} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition ${homeView === 'gestao' ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
-                            <Database className="w-4 h-4 text-black" /> Registros
-                        </button>
-                        <div className="h-[1px] bg-gray-200 my-2 mx-2" />
-                        <button onClick={() => handleNovoAction('emitir')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-100 text-black">
-                            <Receipt className="w-4 h-4 text-black" /> Emitir fatura
-                        </button>
-                        <button onClick={() => handleNovoAction('cliente')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-100 text-black">
-                            <Users className="w-4 h-4 text-black" /> Novo cliente
-                        </button>
-                        <button onClick={() => handleNovoAction('produto')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-100 text-black">
-                            <Package className="w-4 h-4 text-black" /> Novo produto
-                        </button>
-                        <button onClick={() => handleNovoAction('saft')} className="w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center gap-3 transition hover:bg-gray-100 text-black">
-                            <FileDown className="w-4 h-4 text-black" /> Exportar SAFT(agt)
-                        </button>
-                    </div>
-                )}
 
                 <div className="w-full py-6">
                     {homeView === 'faturas' && (
@@ -543,44 +447,31 @@ export default function DashboardPage() {
                         </div>
                     )}
                     {homeView === 'gestao' && (
-                        <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
-                            <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                                <div ref={listWrapperRef} className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-40">
+                        <div className="w-full px-4 sm:px-0 mt-0">
+                            <div className="flex gap-4 overflow-x-auto pb-3 mb-4 [&::-webkit-scrollbar]:hidden">
+                                <div ref={listWrapperRef} className="relative min-w-full md:min-w-[320px] md:max-w-[320px] flex-shrink-0 z-40">
                                     <button ref={listBtnRef} onClick={() => setOpenListSelect(!openListSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
                                         <span className="text-gray-900 capitalize">{LIST_OPTIONS.find(o => o.value === listView)?.label || listView}</span>
-                                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openListSelect ? 'rotate-180' : ''}`} />
+                                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openListSelect? 'rotate-180' : ''}`} />
                                     </button>
                                 </div>
-                                <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-0">
+                                <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] flex-shrink-0">
                                     <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                                    <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder={listView === 'clientes' ? 'Buscar cliente por nome ou NIF' : listView === 'servicos' ? 'Buscar serviço por nome' : 'Buscar produto por nome ou código'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
+                                    <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder={listView === 'clientes'? 'Buscar cliente' : 'Buscar produto'} className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100" />
                                 </div>
                             </div>
                             {openListSelect && (
                                 <div data-list-dropdown style={{ top: listDropdownPos.top, left: listDropdownPos.left, width: listDropdownPos.width }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-200 overflow-hidden p-1.5 z-[9999]">
                                     {LIST_OPTIONS.map(opt => (
-                                        <button key={opt.value} onClick={() => { setListView(opt.value as any); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${listView === opt.value ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
-                                            {opt.label} {listView === opt.value && <Check className="w-4 h-4 text-black" />}
+                                        <button key={opt.value} onClick={() => { setListView(opt.value as any); setOpenListSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between ${listView === opt.value? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-100 text-black'}`}>
+                                            {opt.label} {listView === opt.value && <Check className="w-4 h-4" />}
                                         </button>
                                     ))}
                                 </div>
                             )}
                             <div id="tabela">
-                                {listView === 'clientes' ? (
-                                    <TabelaClientes
-                                        clientes={clientes}
-                                        loading={loading}
-                                        search={search}
-                                        setSearch={setSearch}
-                                        page={page}
-                                        setPage={setPage}
-                                        total={total}
-                                        limit={limit}
-                                        onEdit={handleOpenEditCliente}
-                                        onDelete={handleRequestDeleteCliente}
-                                        onEmitirFatura={handleEmitirFatura}
-                                        clientesComFatura={clientesComFatura as any}
-                                    />
+                                {listView === 'clientes'? (
+                                    <TabelaClientes clientes={clientes} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditCliente} onDelete={handleRequestDeleteCliente} onEmitirFatura={handleEmitirFatura} clientesComFatura={clientesComFatura as any} />
                                 ) : (
                                     <CardsProdutos produtos={produtosFiltrados} loading={loading} search={search} setSearch={setSearch} page={page} setPage={setPage} total={total} limit={limit} onEdit={handleOpenEditProduto} onDelete={handleRequestDeleteProduto} />
                                 )}

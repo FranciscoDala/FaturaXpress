@@ -1,10 +1,10 @@
 import { useState } from 'react'
+import { Menu, Download, Printer, Share2 } from 'lucide-react'
 import FaturaPDF from './pdf_Fatura'
 import { getNumero, isNotaCredito } from '../../EmitirFaturaPage'
 
 export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: any) {
     const [isFullscreen, setIsFullscreen] = useState(false)
-
     const clienteView = cliente || {
         nome: fatura?.cliente_nome || 'Consumidor Final',
         nif: fatura?.cliente_nif || '999999999',
@@ -14,10 +14,8 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
         cidade: fatura?.cliente_cidade || '',
         id: fatura?.cliente_id || null
     }
-
-    // garante logo vindo do DB
     const empresaView = empresa? {
-       ...empresa,
+      ...empresa,
         logo: empresa.logo_url || empresa.image_url || empresa.logo || '',
         logo_url: empresa.logo_url || empresa.image_url || '',
     } : empresa
@@ -44,51 +42,35 @@ export default function FaturaFolhaView({ fatura, cliente, empresa, onVoltar }: 
         setTimeout(() => w.print(), 600)
     }
 
-    const handleBaixar = () => {
-        handlePrint()
-    }
-
-    const labelTipo = isNotaCredito(fatura)? `NC ${fatura.numero_nota_credito} (Nota de Crédito)` : fatura?.tipo_documento === 'fatura'? `${fatura?.numero_fatura} (FT - Oficial AGT)` : `${getNumero(fatura)} (PP - Proforma)`
+    const labelTipo = isNotaCredito(fatura)? `NC ${fatura.numero_nota_credito}` : fatura?.tipo_documento === 'fatura'? `${fatura?.numero_fatura}` : `${getNumero(fatura)}`
 
     return (
-        <div className="bg-[#525659] min-h-screen flex flex-col overflow-x-hidden">
-            <div className="bg-white border-b border-gray-200 py-2 px-4 sm:px-8 lg:px-12 flex items-center justify-between sticky top-0 z-20 w-full" style={{ fontFamily: "var(--fonte-principal)" }}>
-                <div className="flex items-center">
-                    <button onClick={onVoltar} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 text-black" title="Fechar">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round">
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
-                    </button>
-                    <span className="ml-2 text-[12px] font-bold">{labelTipo}</span>
+        <div className="fixed inset-0 z-[10000] bg-[#525659] flex flex-col overflow-hidden">
+            <style>{`
+              #fatura-pdf-wrapper{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;display:flex;justify-content:center;width:100%;background:transparent;padding:24px 16px}
+              #fatura-pdf{transform-origin:top center}
+              @media (max-width:768px){
+                #fatura-pdf{transform:scale(0.45);transform-origin:top center;margin-bottom:-55%;width:210mm!important;min-width:210mm!important}
+                #fatura-pdf-wrapper{padding:0!important}
+              }
+              @media print{.no-print{display:none!important} #fatura-pdf-wrapper{overflow:visible!important} #fatura-pdf{transform:none!important; margin:0!important; box-shadow:none!important; border:none!important} }
+            `}</style>
+
+            <div className="no-print h-[44px] bg-[#323233] flex items-center justify-between px-2 text-white shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                    <button onClick={onVoltar} className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded shrink-0"><Menu className="w-4 h-4" /></button>
+                    <p className="text-[11px] md:text-[13px] font-bold uppercase truncate">{labelTipo} - {isNotaCredito(fatura)? 'NOTA DE CRÉDITO' : fatura?.tipo_documento === 'fatura'? 'FACTURA' : 'PROFORMA'}</p>
                 </div>
-                <div className="flex items-center">
-                    <button onClick={handleBaixar} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 text-black" title="Baixar PDF">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="7 10 12 15 17 10" />
-                            <line x1="12" y1="15" x2="12" y2="3" />
-                        </svg>
-                    </button>
-                    <button onClick={handlePrint} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 text-black" title="Imprimir">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="6 9 6 2 18 2 18 9" />
-                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-                            <rect x="6" y="14" width="12" height="8" />
-                        </svg>
-                    </button>
-                    <button onClick={() => setIsFullscreen(!isFullscreen)} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 text-black" title="Expandir">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round">
-                            <polyline points="15 3 21 3 21 9" />
-                            <polyline points="9 21 3 21 3 15" />
-                            <line x1="21" y1="3" x2="14" y2="10" />
-                            <line x1="3" y1="21" x2="10" y2="14" />
-                        </svg>
-                    </button>
+                <div className="flex items-center gap-1 shrink-0">
+                    <span className="bg-[#1e1e1e] text-[10px] px-1.5 py-0.5 rounded">1 / 1</span>
+                    <button onClick={onVoltar} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Share2 className="w-4 h-4"/></button>
+                    <button onClick={handlePrint} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Download className="w-4 h-4"/></button>
+                    <button onClick={handlePrint} className="w-7 h-7 flex items-center justify-center hover:bg-white/10 rounded"><Printer className="w-4 h-4"/></button>
                 </div>
             </div>
-            <div className="flex-1 w-full px-4 sm:px-8 lg:px-12 py-6 flex justify-center overflow-x-hidden overflow-y-auto">
-                <div className="shadow-2xl w-full max-w-[210mm] overflow-hidden">
+
+            <div id="fatura-pdf-wrapper">
+                <div className="shadow-2xl h-fit">
                     <FaturaPDF fatura={fatura} cliente={clienteView} empresa={empresaView} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} />
                 </div>
             </div>

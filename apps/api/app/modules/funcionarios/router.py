@@ -86,7 +86,6 @@ def falta_get_anexo(
     token: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
-    # 1. pega token do header OU da query
     raw_token = None
     auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
     if auth_header and auth_header.lower().startswith("bearer "):
@@ -98,7 +97,6 @@ def falta_get_anexo(
 
     try:
         payload = jwt.decode(raw_token, settings.SECRET_KEY, algorithms=["HS256"])
-        _company_id = payload.get("company_id") or payload.get("sub")
     except:
         raise HTTPException(401, "Token inválido")
 
@@ -108,41 +106,39 @@ def falta_get_anexo(
 
     stored_url = falta_any.justificativa_anexo_url
 
-    # 2. Se for IMAGEM -> redireciona direto (público, sempre funcionou)
-    if "/image/" in stored_url:
+    # IMG: abre direto
+    if "/image/upload" in stored_url:
         return RedirectResponse(stored_url, status_code=302)
 
-    # 3. Se for PDF -> gera private_download_url na hora (corrige 401)
-    if "/raw/" in stored_url or ".pdf" in stored_url.lower() or "faltas/" in stored_url:
-        try:
-            import cloudinary.utils, time, re
-            # tenta extrair public_id de qualquer formato de URL
-            # ex:.../raw/upload/s--xxx--/v1/faltas/uuid/stream_abc.pdf -> faltas/uuid/stream_abc
-            # ex:.../raw/upload/v1/faltas/uuid/stream_abc -> faltas/uuid/stream_abc
+    # PDF: raw precisa download privado
+    try:
+        import cloudinary.utils, time, re
 
-            match = re.search(r'faltas/(.+?)(?:\.pdf)?(?:\?|$)', stored_url)
-            if match:
-                public_id = f"faltas/{match.group(1)}"
-                # remove versão v1, assinatura s--... e etc que possam ter ficado
-                public_id = re.sub(r'^v\d+/', '', public_id)
-                public_id = re.sub(r'^s--[^/]+/', '', public_id)
-                public_id = public_id.split("?")[0]
+        # extrai public_id: faltas/7e0a1660.../stream_flhlgk
+        m = re.search(r'faltas/([^?]+)', stored_url)
+        if m:
+            public_id_raw = m.group(1)
+            # limpa v1/, s--.../,.pdf
+            public_id_raw = re.sub(r'^v\d+/', '', public_id_raw)
+            public_id_raw = re.sub(r'^s--[A-Za-z0-9_-]+/', '', public_id_raw)
+            public_id_raw = public_id_raw.replace('.pdf','').split('?')[0]
+            public_id = f"faltas/{public_id_raw}"
 
-                expires_at = int(time.time()) + 60*60*24*30 # 30 dias
-                signed = cloudinary.utils.private_download_url(
-                    public_id,
-                    resource_type="raw",
-                    expires_at=expires_at,
-                    attachment=False
-                )
-                logger.info(f"[ANEXO PDF] {public_id} -> {signed}")
-                return RedirectResponse(signed, status_code=302)
-        except Exception as e:
-            logger.error(f"[ANEXO PDF] erro ao assinar {e}, cai no fallback")
+            # METODO QUE FUNCIONA PARA RAW
+            expires_at = int(time.time()) + 60*60*24*30
+            signed = cloudinary.utils.private_download_url(
+                public_id,
+                resource_type="raw",
+                type="upload",
+                expires_at=expires_at,
+                attachment=False
+            )
+            logger.info(f"[PDF FIX] {public_id} -> {signed}")
+            return RedirectResponse(signed, status_code=302)
+    except Exception as e:
+        logger.exception(f"[PDF FIX ERRO] {e}")
 
-    # fallback
     return RedirectResponse(stored_url, status_code=302)
-
 
 
 # --- SEUS ROUTERS EXISTENTES (mantidos) ---

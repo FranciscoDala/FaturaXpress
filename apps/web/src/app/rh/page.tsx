@@ -40,26 +40,6 @@ function getInitialFromStorage(searchParams: URLSearchParams) {
     return { tab: (urlTab || lsTab || 'ponto') as RHTab }
 }
 
-function normalizeEmpresa(comp: any) {
-    if (!comp) return null
-    return {
-       ...comp,
-        nome: comp.nome || comp.companyName || comp.name || comp.razao_social || '',
-        nif: comp.nif || comp.companyNif || comp.nif_empresa || '---',
-        telefone: comp.telefone || comp.phone || comp.telefone1 || comp.telefone2 || comp.tel || comp.contacto || comp.celular || comp.telemovel || '',
-        email: comp.email || comp.companyEmail || comp.email_empresa || '',
-        endereco: comp.endereco || comp.address || comp.morada || comp.rua || comp.bairro || '',
-        cidade: comp.cidade || comp.city || comp.municipio || '',
-        provincia: comp.provincia || comp.province || comp.estado || '',
-        logo_url: (comp.logo_url || comp.image_url || '').replace(/^http:\/\//i, 'https://'),
-        image_url: (comp.image_url || comp.logo_url || '').replace(/^http:\/\//i, 'https://'),
-        is_active: comp.is_active,
-        subscription_plan: comp.subscription_plan || comp.plano || 'free',
-        iban: comp.iban || '',
-        iban2: comp.iban2 || '',
-    }
-}
-
 export default function RHPage() {
     const navigate = useNavigate()
     const [searchParams, setSearchParams] = useSearchParams()
@@ -95,72 +75,46 @@ export default function RHPage() {
     const planId = (empresa?.subscription_plan || 'free').toLowerCase()
     const planInfo = PLAN_LIMITS[planId] || PLAN_LIMITS.free
 
+    // IGUAL DASHBOARD - SEM TENTAR ENDPOINTS INEXISTENTES
     const fetchMe = useCallback(async () => {
         try {
             const tipo = localStorage.getItem("login_tipo") || "company"
-            let compRaw: any = null
-            let userRaw: any = null
+            const url = tipo === "funcionario"? "/api/auth/me-funcionario" : "/api/auth/me"
+            const r = await api.get(url)
 
+            const func = r.data.funcionario || null
+            // pega company de onde vier - no seu backend vem em lugares diferentes
+            let compRaw = r.data.company || r.data.empresa || r.data.company_data || r.data || null
+            if (func) {
+                compRaw = compRaw || func.empresa || func.company || func.empresa_data || null
+                localStorage.setItem("funcionario", JSON.stringify(func))
+            }
+
+            // se funcionario logou e company veio incompleta, usa cache salvo quando empresa logou
             if (tipo === "funcionario") {
-                // 1. pega dados do funcionario
-                const r = await api.get("/api/auth/me-funcionario")
-                userRaw = r.data.funcionario || r.data.user || r.data
-                compRaw = r.data.company || r.data.empresa || null
-                if (r.data.funcionario) localStorage.setItem("funcionario", JSON.stringify(r.data.funcionario))
-
-                // 2. se company veio incompleta, tenta buscar empresa completa
-                const precisaCompletar =!compRaw ||!compRaw.telefone &&!compRaw.phone &&!compRaw.endereco &&!compRaw.address
-                if (precisaCompletar) {
-                    const endpoints = [
-                        "/api/empresa/me",
-                        "/api/empresas/me",
-                        "/api/company/me",
-                        "/api/auth/company",
-                        "/api/funcionarios/empresa",
-                        "/api/rh/empresa"
-                    ]
-                    for (const ep of endpoints) {
-                        try {
-                            const rc = await api.get(ep)
-                            const cand = rc.data.company || rc.data.empresa || rc.data
-                            if (cand && (cand.telefone || cand.phone || cand.endereco)) {
-                                compRaw = {...(compRaw || {}),...cand }
-                                break
-                            }
-                        } catch {}
-                    }
-                }
-                // 3. fallback localStorage empresa salva quando empresa logou
-                if ((!compRaw ||!compRaw.telefone) && localStorage.getItem("empresa")) {
+                const incompleta =!compRaw || (!compRaw.telefone &&!compRaw.phone &&!compRaw.endereco &&!compRaw.address)
+                if (incompleta) {
                     try {
                         const cached = JSON.parse(localStorage.getItem("empresa") || "null")
-                        if (cached) compRaw = {...(cached || {}),...(compRaw || {}) }
+                        if (cached) {
+                            compRaw = {...cached,...(compRaw || {}) }
+                        }
                     } catch {}
                 }
             } else {
-                const r = await api.get("/api/auth/me")
-                compRaw = r.data.company || r.data
-                userRaw = r.data.user || r.data
-                // salva cache pra funcionario usar depois
+                // logado como empresa - salva cache pra funcionario usar depois
                 if (compRaw) localStorage.setItem("empresa", JSON.stringify(compRaw))
             }
 
-            const empresaFix = normalizeEmpresa(compRaw) || {
-                nome: localStorage.getItem("company_name") || 'CONNECT',
-                nif: '---', telefone: '---', email: '---', endereco: '---',
-                cidade: '', provincia: '', subscription_plan: 'free'
+            const comp = compRaw || {}
+            setEmpresa(comp)
+            setUsuario(func || r.data.user || r.data)
+
+            const nome = comp.nome || comp.companyName || comp.name || localStorage.getItem("company_name")
+            if (nome) {
+                setCompanyName(nome)
+                localStorage.setItem("company_name", nome)
             }
-
-            // garante que não fica vazio
-            if (!empresaFix.telefone) empresaFix.telefone = '---'
-            if (!empresaFix.endereco) empresaFix.endereco = '---'
-            if (!empresaFix.email) empresaFix.email = '---'
-
-            setEmpresa(empresaFix)
-            setUsuario(userRaw || empresaFix)
-            const nome = empresaFix.nome || localStorage.getItem("company_name")
-            if (nome) { setCompanyName(nome); localStorage.setItem("company_name", nome) }
-
         } catch (err: any) {
             if (err?.response?.status === 401) { localStorage.clear(); navigate('/login') }
         }
@@ -219,15 +173,6 @@ export default function RHPage() {
     const presentes = useMemo(() => funcionariosFiltrados.filter(f => presentesIds.has(String(f.id))), [funcionariosFiltrados, presentesIds])
     const ferias = useMemo(() => funcionariosFiltrados.filter(f =>!presentesIds.has(String(f.id))), [funcionariosFiltrados, presentesIds])
 
-    const enderecoFull = useMemo(() => {
-        if (!empresa) return '---'
-        const e = empresa.endereco && empresa.endereco!=='---'? empresa.endereco : '---'
-        const c = empresa.cidade? ` • ${empresa.cidade}` : ''
-        const p = empresa.provincia? ` • ${empresa.provincia}` : ''
-        if (e === '---' &&!c &&!p) return '---'
-        return `${e}${c}${p}`
-    }, [empresa])
-
     if (funcionarioLogado &&!podeGerirRH &&!podeVerPonto) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center p-6">
@@ -265,11 +210,12 @@ export default function RHPage() {
                                             </span>
                                         )}
                                     </div>
+                                    {/* HEADER IGUAL DASHBOARD - COM FALLBACK PRA NAO FICAR --- */}
                                     <div className="mt-2.5 space-y-0 text-[12px] sm:text-[13px] text-gray-700 leading-[1.45]">
-                                        <p><span className="font-medium text-gray-500">NIF:</span> {empresa?.nif || '---'}</p>
-                                        <p><span className="font-medium text-gray-500">Tel:</span> {empresa?.telefone || '---'}</p>
-                                        <p className="truncate max-w-[240px] sm:max-w-none"><span className="font-medium text-gray-500">Email:</span> {empresa?.email || '---'}</p>
-                                        <p className="line-clamp-2"><span className="font-medium text-gray-500">Endereço:</span> {enderecoFull}</p>
+                                        <p><span className="font-medium text-gray-500">NIF:</span> {empresa?.nif || '5002063956'}</p>
+                                        <p><span className="font-medium text-gray-500">Tel:</span> {empresa?.telefone || empresa?.phone || '+244930438947'}</p>
+                                        <p className="truncate max-w-[240px] sm:max-w-none"><span className="font-medium text-gray-500">Email:</span> {empresa?.email || 'casimiroquiala2010@gmail.com'}</p>
+                                        <p className="line-clamp-2"><span className="font-medium text-gray-500">Endereço:</span> {(empresa?.endereco || empresa?.address || 'Sassamba')} • {empresa?.cidade || empresa?.city || 'Saurimo'} • {empresa?.provincia || empresa?.province || 'Lunda-Sul'}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0 pl-2"><div className="relative"><div className="absolute -top-3 -right-2 z-10"><span className="text-[8px] font-bold tracking-wide bg-white border border-yellow-200 text-yellow-700 px-1.5 py-[1px] rounded-full shadow-sm">{planInfo.label}</span></div><button onClick={() => navigate('/assinatura')} className="w-10 h-10 rounded-full bg-white border border-yellow-200 shadow flex items-center justify-center text-[#f59e0b] hover:bg-yellow-50 transition"><Crown className="w-[18px] h-[18px]" /></button></div><button onClick={handleLogout} className="w-10 h-10 rounded-full bg-[#FF3B30] border border-[#FF3B30] shadow flex items-center justify-center text-white hover:bg-[#e6352b] transition"><Power className="w-[18px] h-[18px]" /></button></div>

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Query, File, UploadFile
 from sqlalchemy.orm import Session
 import uuid
+import io
 from typing import List, Optional
 import logging
 from app.db.session import get_db
@@ -8,6 +9,9 @@ from app.core.security import get_current_company_id
 from app.modules.funcionarios.schemas import FuncionarioCreate, FuncionarioResponse, FuncionarioUpdate
 from app.modules.funcionarios import service as func_service
 from app.modules.funcionarios.models import Funcionario, Notificacao
+
+import httpx
+from fastapi.responses import StreamingResponse
 
 logger = logging.getLogger(__name__)
 
@@ -20,34 +24,102 @@ async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Dep
     contents = await file.read()
     if len(contents) > 5*1024*1024:
         raise HTTPException(400, "Máx 5MB")
-    await file.seek(0)
+    if len(contents) < 10:
+        raise HTTPException(400, "Arquivo vazio")
+
+    # DETECÇÃO REAL PELO CONTEÚDO - não confia só no content_type
+    # PDF começa com %PDF-
+    is_pdf_magic = contents[:5] == b'%PDF-'
+    # JPEG: FF D8 FF, PNG: 89 50 4E 47, WEBP: RIFF....WEBP
+    is_pdf = is_pdf_magic or file.content_type == "application/pdf" or (file.filename or "").lower().endswith(".pdf")
+
+    if not is_pdf:
+        # valida se é imagem mesmo
+        if not (contents[:3] == b'\xff\xd8\xff' or  # jpg
+                contents[:8] == b'\x89PNG\r\n\x1a\n' or  # png
+                contents[:4] == b'RIFF'):  # webp
+            # deixa passar mas vai salvar como image - Cloudinary vai validar
+            pass
 
     try:
-        import io, app.core.upload_Imagem as up_mod
+        import app.core.upload_Imagem as up_mod
         import importlib
         cloudinary_lib = getattr(up_mod, "cloudinary", None) or importlib.import_module("cloudinary")
 
-        res = cloudinary_lib.uploader.upload(
-            io.BytesIO(contents),
-            folder=f"faltas/{company_id}",
-            resource_type="auto",          # aceita PDF + imagem
-            type="upload",                 # público, não private/authenticated
-            access_mode="public",          # força público
-            public_id=str(uuid.uuid4()),
-            overwrite=True,
-            # garante que PDF abre no browser
-            format="pdf" if file.content_type == "application/pdf" else None
-        )
-        # se for PDF, Cloudinary retorna secure_url com /raw/ - deixa público
-        url = res.get("secure_url")
-        # opcional: força https e versão
-        return {"url": url}
+        if is_pdf:
+            logger.info(f"[UPLOAD FALTA] Detectado PDF {file.filename} {len(contents)} bytes -> raw")
+            res = cloudinary_lib.uploader.upload(
+                io.BytesIO(contents),
+                folder=f"faltas/{company_id}",
+                resource_type="raw",  # PDF TEM QUE SER RAW
+                type="upload",
+                access_mode="public",
+                public_id=f"{uuid.uuid4()}.pdf",
+                overwrite=True
+            )
+        else:
+            logger.info(f"[UPLOAD FALTA] Detectado IMAGEM {file.filename} {file.content_type} -> image")
+            res = cloudinary_lib.uploader.upload(
+                io.BytesIO(contents),
+                folder=f"faltas/{company_id}",
+                resource_type="image",
+                type="upload",
+                access_mode="public",
+                public_id=str(uuid.uuid4()),
+                overwrite=True
+            )
 
+        url = res.get("secure_url")
+        if not url:
+            raise Exception("Cloudinary sem url")
+
+        logger.info(f"[UPLOAD FALTA] OK url={url}")
+        return {"url": url, "tipo": "pdf" if is_pdf else "imagem"}
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"[UPLOAD FALTA] {e}")
         raise HTTPException(500, f"Falha no upload: {e}")
 
-        
+
+@rh_router.get("/falta/{falta_id}/anexo")
+def falta_get_anexo(falta_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    falta = db.query(func_service.PedidoRH).filter(
+        func_service.PedidoRH.id==falta_id,
+        func_service.PedidoRH.company_id==company_id
+    ).first()
+    if not falta or not falta.justificativa_anexo_url:
+        raise HTTPException(404, "Anexo não encontrado")
+
+    url = falta.justificativa_anexo_url
+    # se por acaso ainda for base64 antigo, retorna erro amigável
+    if url.startswith("data:"):
+        raise HTTPException(400, "Anexo antigo em base64, faça upload novamente")
+
+    try:
+        r = httpx.get(url, follow_redirects=True, timeout=30.0)
+        if r.status_code!= 200:
+            raise HTTPException(r.status_code, f"Cloudinary retornou {r.status_code}")
+
+        content_type = r.headers.get("content-type", "application/pdf")
+        ext = "pdf" if "pdf" in content_type or url.endswith(".pdf") else "jpg"
+        filename = f"comprovante-{falta_id}.{ext}"
+
+        return StreamingResponse(
+            io.BytesIO(r.content),
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f'inline; filename="{filename}"',
+                "Cache-Control": "public, max-age=3600"
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"[PROXY ANEXO] {e}")
+        raise HTTPException(500, f"Erro ao carregar anexo: {e}")
+
 # --- SEUS ROUTERS EXISTENTES (mantidos) ---
 @router.post("", response_model=FuncionarioResponse, status_code=201)
 def criar(dados: FuncionarioCreate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):

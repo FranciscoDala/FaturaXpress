@@ -84,11 +84,11 @@ export default function LoginPage() {
 
                 <div className="px-6 pt-4">
                     <div className="flex p-1 bg-gray-100 rounded-full">
-                        <button type="button" onClick={()=>setTab('empresa')} className={`flex-1 h-9 rounded-full text-[13px] font-semibold flex items-center justify-center gap-1.5 transition ${tab==='empresa'?'bg-white shadow text-black':'text-gray-500'}`}><Building2 className="w-4 h-4"/> Empresa</button>
-                        <button type="button" onClick={()=>setTab('funcionario')} className={`flex-1 h-9 rounded-full text-[13px] font-semibold flex items-center justify-center gap-1.5 transition ${tab==='funcionario'?'bg-white shadow text-black':'text-gray-500'}`}><User className="w-4 h-4"/> Funcionário</button>
+                        <button type="button" onClick={() => setTab('empresa')} className={`flex-1 h-9 rounded-full text-[13px] font-semibold flex items-center justify-center gap-1.5 transition ${tab === 'empresa' ? 'bg-white shadow text-black' : 'text-gray-500'}`}><Building2 className="w-4 h-4" /> Empresa</button>
+                        <button type="button" onClick={() => setTab('funcionario')} className={`flex-1 h-9 rounded-full text-[13px] font-semibold flex items-center justify-center gap-1.5 transition ${tab === 'funcionario' ? 'bg-white shadow text-black' : 'text-gray-500'}`}><User className="w-4 h-4" /> Funcionário</button>
                     </div>
-                    <h1 className="text-[18px] font-bold text-gray-900 mt-4">{tab==='empresa'?'FT-Xpress Empresa':'Acesso Funcionário'}</h1>
-                    <p className="text-[13px] text-gray-500 mt-1">{tab==='empresa'?'Insere NIF da empresa':'Entra com BI + senha pra trabalhar dentro da empresa'}</p>
+                    <h1 className="text-[18px] font-bold text-gray-900 mt-4">{tab === 'empresa' ? 'FT-Xpress Empresa' : 'Acesso Funcionário'}</h1>
+                    <p className="text-[13px] text-gray-500 mt-1">{tab === 'empresa' ? 'Insere NIF da empresa e senha' : 'Insere Nº BI e senha'}</p>
                 </div>
 
                 {agtBlock && (
@@ -102,36 +102,36 @@ export default function LoginPage() {
                 )}
 
                 <form onSubmit={handleLogin} className="px-6 pb-6 pt-4 flex flex-col gap-[8px]">
-                    {tab==='empresa'? (
+                    {tab === 'empresa' ? (
                         <div className="relative">
-                            <input type="text" value={nif} onChange={(e)=>setNif(e.target.value)} required className={`${inputClass} pl-10`} placeholder="NIF nº" disabled={loading} />
+                            <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={`${inputClass} pl-10`} placeholder="NIF nº" disabled={loading} />
                             <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                         </div>
                     ) : (
                         <div className="relative">
-                            <input type="text" value={bi} onChange={(e)=>setBi(e.target.value.toUpperCase())} required className={`${inputClass} pl-10`} placeholder="Nº BI - ex: 005123456LA041" disabled={loading} />
+                            <input type="text" value={bi} onChange={(e) => setBi(e.target.value.toUpperCase())} required className={`${inputClass} pl-10`} placeholder="BI nº" disabled={loading} />
                             <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                         </div>
                     )}
                     <div className="relative group">
-                        <input type={showPassword?"text":"password"} value={password} onChange={(e)=>setPassword(e.target.value)} required className={`${inputClass} pl-10 pr-10`} placeholder={tab==='empresa'?"Senha da empresa":"Senha do funcionário"} disabled={loading} />
+                        <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required className={`${inputClass} pl-10 pr-10`} placeholder={tab === 'empresa' ? "Senha" : "Senha"} disabled={loading} />
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <button type="button" onClick={()=>setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100"><>{showPassword?<EyeOff className="h-4 w-4 text-gray-500"/>:<Eye className="h-4 w-4 text-gray-500"/>}</></button>
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100"><>{showPassword ? <EyeOff className="h-4 w-4 text-gray-500" /> : <Eye className="h-4 w-4 text-gray-500" />}</></button>
                     </div>
 
-                    {tab==='funcionario' && (
+                    {/* {tab==='funcionario' && (
                         <div className="flex items-center gap-2 px-1 mt-1">
                             <AlertTriangle className="w-3.5 h-3.5 text-gray-400" />
                             <p className="text-[11px] text-gray-500">Você entra dentro da empresa com seu cargo. Empresa no topo continua a mesma.</p>
                         </div>
-                    )}
+                    )} */}
 
                     <div className="mt-2">
                         <button type="submit" disabled={loading} className="w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50">
-                            {loading?<div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:<ArrowRight className="w-5 h-5"/>}
+                            {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ArrowRight className="w-5 h-5" />}
                         </button>
                     </div>
-                    {tab==='empresa' && (
+                    {tab === 'empresa' && (
                         <p className="text-center text-[13px] text-gray-600 mt-3">Não tem conta? <Link to="/register" className="text-[#0095ff] font-semibold">Registra-se</Link></p>
                     )}
                 </form>

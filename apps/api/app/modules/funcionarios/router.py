@@ -244,3 +244,18 @@ def atraso_encaminhar(funcionario_id: uuid.UUID, payload: dict, db: Session = De
     except:
         eid = None
     return func_service.encaminhar_atraso_para_admin(db, company_id, funcionario_id, eid)
+
+
+# compatibilidade com frontend que chama /aplicar-falta
+@rh_router.post("/atrasos/{funcionario_id}/aplicar-falta")
+def atraso_aplicar_falta_alias(funcionario_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    aplicado_por_id = payload.get("aplicado_por_id")
+    try:
+        aid = uuid.UUID(aplicado_por_id) if aplicado_por_id else None
+    except:
+        aid = None
+    return func_service.aplicar_falta_por_atraso(db, company_id, funcionario_id, aid)
+
+@rh_router.post("/atrasos/{funcionario_id}/ignorar-atraso")
+def atraso_ignorar_alias(funcionario_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    return func_service.ignorar_atrasos(db, company_id, funcionario_id)

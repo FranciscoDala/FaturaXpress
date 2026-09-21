@@ -339,15 +339,38 @@ def justificar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, ti
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
     if not falta:
         raise HTTPException(404, "Falta não encontrada")
-    if falta.status in [StatusPedido.justificado.value, "justificado"]:
-        raise HTTPException(400, "Falta já justificada")
     falta.justificativa_tipo = tipo
     falta.justificativa_obs = obs
     falta.justificativa_anexo_url = anexo_url
     falta.justificado_por_id = justificado_por_id
     falta.justificado_em = datetime.now(timezone.utc)
     falta.status = StatusPedido.pendente_justificacao.value
-    db.commit(); db.refresh(falta)
+    falta.dono_atual = "rh"
+    falta.area_origem = "rh"
+    db.commit()
+    db.refresh(falta)
+
+    # cria notificação tipo falta para cair na tab
+    existe = db.query(Notificacao).filter(
+        Notificacao.company_id==company_id,
+        Notificacao.referencia_id==falta.id,
+        Notificacao.tipo=="falta",
+        Notificacao.status=="pendente"
+    ).first()
+    if not existe:
+        notif = Notificacao(
+            id=uuid.uuid4(),
+            company_id=company_id,
+            tipo="falta",
+            referencia_id=falta.id,
+            area_origem="rh",
+            area_destino="rh",
+            dono_atual="rh",
+            status="pendente"
+        )
+        db.add(notif)
+        db.commit()
+
     return _falta_to_dict(db, falta)
 
 def aprovar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, aprovado_por_id: uuid.UUID | None, observacao: str | None = None):

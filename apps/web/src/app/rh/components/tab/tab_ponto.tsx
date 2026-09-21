@@ -120,12 +120,13 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
             <div className="bg-white rounded-[16px] border overflow-hidden">
                 <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 w-full">
-                        <div className="w-full md:w-auto">
-                            <button type="button" onClick={() => setOpenCal(true)} className="w-full md:w-auto h-[40px] md:h-[36px] px-3 bg-white border rounded-full flex items-center justify-between md:justify-center gap-2 text-[14px] md:text-[13px] font-bold text-black hover:border-black transition">
-                                <span className="flex items-center gap-2"><Calendar className="w-4 h-4 shrink-0" />{formatDisplay(dataSelecionada)}</span>
+                        {/* DATE + RETROATIVO na mesma linha, lado a lado */}
+                        <div className="w-full md:w-auto flex items-center gap-2">
+                            <button type="button" onClick={() => setOpenCal(true)} className="flex-1 md:flex-none md:w-auto min-w-0 h-[40px] md:h-[36px] px-3 bg-white border rounded-full flex items-center justify-between gap-2 text-[14px] md:text-[13px] font-bold text-black hover:border-black transition shrink">
+                                <span className="flex items-center gap-2 truncate"><Calendar className="w-4 h-4 shrink-0" />{formatDisplay(dataSelecionada)}</span>
                                 <ChevronDown className="w-3.5 h-3.5 shrink-0" />
                             </button>
-                            {isRetro && <span className="mt-2 md:mt-0 md:ml-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold"><AlertTriangle className="w-3 h-3" /> Retroativo</span>}
+                            {isRetro && <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold whitespace-nowrap"><AlertTriangle className="w-3 h-3" /> Retroativo</span>}
                         </div>
 
                         <div className="flex items-center gap-2 w-full md:w-auto">
@@ -133,7 +134,6 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
                                 <Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
                                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[40px] md:h-[36px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[13px] md:text-[12px] text-black placeholder:text-black/40 focus:outline-none focus:border-black" />
                             </div>
-                            {/* RELATORIO: mobile só icone, desktop icone + texto */}
                             <button onClick={()=>setOpenRelatorio(true)} className="h-[40px] w-10 md:w-auto md:h-[36px] md:px-4 rounded-full bg-black text-white flex items-center justify-center gap-1.5 hover:bg-black/90 shrink-0">
                                 <FileText className="w-4 h-4" />
                                 <span className="hidden md:inline text-[11px] font-bold">Relatório</span>

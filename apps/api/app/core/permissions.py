@@ -1,7 +1,6 @@
 from typing import List
 from fastapi import HTTPException
 
-# permissões base por cargo
 CARGOS_PERMISSOES = {
     "admin": ["*"],
     "financeira": ["emitir_ft", "emitir_pp", "emitir_nc", "cancelar", "ver_relatorios", "imprimir", "gerir_clientes", "ver_faturas", "gerir_faturas"],
@@ -9,7 +8,6 @@ CARGOS_PERMISSOES = {
     "rh": ["gerir_clientes", "gerir_funcionarios", "gerir_areas", "ver_documentos_rh", "ver_funcionarios"]
 }
 
-# o que cada ação de fatura precisa
 ACAO_PERMISSAO = {
     "criar_ft": "emitir_ft",
     "criar_pp": "emitir_pp",
@@ -32,12 +30,10 @@ def exigir_permissao(cargo: str, permissao: str):
         raise HTTPException(status_code=403, detail=f"Sem permissão: {permissao}")
 
 def pode_acessar_area(usuario, area_id) -> bool:
-    """admin vê tudo, outros só se estiver vinculado à área"""
     if not usuario:
         return False
     if getattr(usuario, 'cargo', None) == 'admin':
         return True
-    # se não tem área vinculada, pode ver tudo (compatibilidade)
     areas = getattr(usuario, 'areas', None) or []
     if not areas:
         return True

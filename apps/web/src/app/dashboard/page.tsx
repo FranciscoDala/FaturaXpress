@@ -118,6 +118,14 @@ export default function DashboardPage() {
         return raw.replace(/^http:\/\//i, 'https://')
     }, [empresa])
 
+    const funcionarioLogado = useMemo(() => {
+        try {
+            const raw = localStorage.getItem("funcionario")
+            if (!raw) return null
+            return JSON.parse(raw)
+        } catch { return null }
+    }, [empresa])
+
     const { ncOrigensSet, faturasFTOnly, faturasFTAtivas } = useMemo(() => {
         const origens = new Set<string>()
         faturasEmitidas.forEach((f: any) => {
@@ -207,11 +215,19 @@ export default function DashboardPage() {
 
     const fetchEmpresa = useCallback(async () => {
         try {
-            const r = await api.get('/api/auth/me')
+            const tipo = localStorage.getItem("login_tipo") || "company"
+            const url = tipo === "funcionario" ? "/api/auth/me-funcionario" : "/api/auth/me"
+            const r = await api.get(url)
             const comp = r.data.company || r.data
             setEmpresa(comp)
             const nome = comp.nome || comp.companyName || localStorage.getItem("company_name")
             if (nome) { setCompanyName(nome); localStorage.setItem("company_name", nome) }
+
+            // se for funcionario, guarda info dele separado
+            if (r.data.funcionario) {
+                localStorage.setItem("funcionario", JSON.stringify(r.data.funcionario))
+            }
+
             setFormEmpresa({
                 companyName: comp.nome || comp.companyName || '',
                 nif: comp.nif || '',
@@ -411,14 +427,25 @@ export default function DashboardPage() {
                                 <img src={logoUrlSafe || `https://ui-avatars.com/api/?name=${encodeURIComponent(companyName || 'FX')}&background=E5E7EB&color=374151&size=132}`} className="w-full h-full object-cover" alt={companyName} />
                             </div>
                             <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-[2px] border-white shadow" style={{ background: empresa?.is_active === false ? '#ef4444' : '#22c55e' }}></div>
-                            <button onClick={() => setModalEmpresaOpen(true)} className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-white border shadow flex items-center justify-center hover:bg-gray-50">
-                                <Pencil className="w-3.5 h-3.5 text-gray-700" />
-                            </button>
+                            {(!funcionarioLogado || funcionarioLogado.cargo === 'admin') && (
+                                <button onClick={() => setModalEmpresaOpen(true)} className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-white border shadow flex items-center justify-center hover:bg-gray-50">
+                                    <Pencil className="w-3.5 h-3.5 text-gray-700" />
+                                </button>
+                            )}
                         </div>
                         <div className="flex-1 w-full min-w-0">
                             <div className="flex flex-row justify-between items-start gap-3 w-full">
                                 <div className="flex flex-col items-start text-left flex-1 min-w-0">
-                                    <h1 className="text-[16px] sm:text-[19px] font-bold text-[#1a202c] uppercase tracking-wide leading-tight truncate max-w-[180px] sm:max-w-[320px]">{companyName || 'CONNECT'}</h1>
+
+                                    <div className="flex items-center flex-wrap gap-2">
+                                        <h1 className="text-[16px] sm:text-[19px] font-bold text-[#1a202c] uppercase tracking-wide leading-tight truncate max-w-[180px] sm:max-w-[320px]">{companyName || 'CONNECT'}</h1>
+                                        {funcionarioLogado && (
+                                            <span className="inline-flex items-center px-2.5 py-[3px] rounded-full bg-[#E6F0FF] border border-blue-200 text-[10px] font-bold text-[#0095ff] tracking-wide">
+                                                {funcionarioLogado.cargo?.toUpperCase()} • {funcionarioLogado.nome?.split(' ')[0]}
+                                            </span>
+                                        )}
+                                    </div>
+
                                     <div className="mt-2.5 space-y-0 text-[12px] sm:text-[13px] text-gray-700 leading-[1.4]">
                                         <p><span className="font-medium text-gray-500">NIF:</span> {empresa?.nif || '50924984'}</p>
                                         <p><span className="font-medium text-gray-500">Tel:</span> {empresa?.telefone || empresa?.phone || '+244930438947'}</p>

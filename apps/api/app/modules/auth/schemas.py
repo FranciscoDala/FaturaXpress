@@ -19,7 +19,6 @@ class RegisterRequest(BaseModel):
     logo_url: Optional[str] = None
     image_url: Optional[str] = None
     nome_agt_validado: Optional[str] = None
-    # FALTAVA - mesmos nomes do seu model Company
     tipo_agt: Optional[str] = None
     estado_agt: Optional[str] = None
     inadimplente: Optional[str] = None
@@ -27,7 +26,6 @@ class RegisterRequest(BaseModel):
     residente_fiscal: Optional[str] = None
     ultima_verificacao_agt: Optional[datetime] = None
 
-    
 class RegisterResponse(BaseModel):
     message: str
 
@@ -47,7 +45,6 @@ class CompanyResponse(BaseModel):
     banco2: Optional[str] = None
     logo_url: Optional[str] = None
     image_url: Optional[str] = None
-    # NOVO
     tipo_agt: Optional[str] = None
     estado_agt: Optional[str] = None
     inadimplente: Optional[str] = None
@@ -60,12 +57,24 @@ class LoginRequest(BaseModel):
     nif: str
     password: str
 
+class LoginFuncionarioRequest(BaseModel):
+    numero_bi: str
+    senha: str
+
 class TokenResponse(BaseModel):
     message: str
     access_token: str
     token_type: str = "bearer"
     company_id: uuid.UUID
     company_name: str
+
+class TokenFuncionarioResponse(BaseModel):
+    message: str
+    access_token: str
+    token_type: str = "bearer"
+    company_id: uuid.UUID
+    company_name: str
+    funcionario: dict
 
 class UpdateCompanyRequest(BaseModel):
     companyName: Optional[str] = None
@@ -92,7 +101,6 @@ class ValidateNifResponse(BaseModel):
     estado: str
     message: str
     source: Optional[str] = None
-    # NOVO
     tipo: Optional[str] = None
     inadimplente: Optional[str] = None
     regime_iva: Optional[str] = None

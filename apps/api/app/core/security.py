@@ -8,7 +8,6 @@ from app.core.jwt import decode_access_token
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
-# BLINDAGEM: valida força da senha
 def validate_password_strength(password: str) -> bool:
     if len(password) < 8 or len(password) > 128:
         return False
@@ -51,3 +50,28 @@ async def get_current_company_id(token: str = Depends(oauth2_scheme)) -> uuid.UU
         return uuid.UUID(company_id)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+
+# NOVO - SEM APAGAR OS DE CIMA
+async def get_current_payload(token: str = Depends(oauth2_scheme)) -> dict:
+    return decode_access_token(token)
+
+async def get_current_company_and_funcionario(token: str = Depends(oauth2_scheme)):
+    payload = decode_access_token(token)
+    company_id = uuid.UUID(payload.get("company_id"))
+    funcionario_id = None
+    if payload.get("tipo") == "funcionario":
+        try:
+            funcionario_id = uuid.UUID(payload.get("sub"))
+        except:
+            pass
+    return {
+        "company_id": company_id,
+        "funcionario_id": funcionario_id,
+        "cargo": payload.get("cargo", "admin"),
+        "tipo": payload.get("tipo", "company"),
+        "payload": payload
+    }
+
+async def get_current_user_role(token: str = Depends(oauth2_scheme)) -> str:
+    payload = decode_access_token(token)
+    return payload.get("cargo") or payload.get("role") or "admin"

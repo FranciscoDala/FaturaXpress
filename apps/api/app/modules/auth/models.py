@@ -7,7 +7,6 @@ from app.db.base import Base
 
 class Company(Base):
     __tablename__ = "companies"
-
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     companyName: Mapped[str] = mapped_column(String(255), nullable=False)
     nif: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
@@ -24,32 +23,23 @@ class Company(Base):
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-
-    # CONTROLE DE PLANOS
     subscription_plan: Mapped[str] = mapped_column(String(20), default="free", nullable=False, index=True)
     subscription_status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
-
-    # VALIDACAO AGT - ANTIGO
     nif_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     nif_agt_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     nif_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-    # NOVO - DETALHES COMPLETOS DA AGT
-    tipo_agt: Mapped[str | None] = mapped_column(String(100), nullable=True) # COLECTIVO - Empresa
-    estado_agt: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True) # Activo / Inactivo
-    inadimplente: Mapped[str | None] = mapped_column(String(10), nullable=True) # Sim / Não
-    regime_iva: Mapped[str | None] = mapped_column(String(150), nullable=True) # Regime Geral (Factura IVA)
-    residente_fiscal: Mapped[str | None] = mapped_column(String(20), nullable=True) # Sim / Não
+    tipo_agt: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    estado_agt: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
+    inadimplente: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    regime_iva: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    residente_fiscal: Mapped[str | None] = mapped_column(String(20), nullable=True)
     ultima_verificacao_agt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     bloqueado_pela_agt: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
     users: Mapped[list["User"]] = relationship("User", back_populates="company", lazy="selectin", cascade="all, delete-orphan")
 
 class User(Base):
     __tablename__ = "users"
-
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -58,5 +48,4 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(50), default="admin")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
     company: Mapped["Company"] = relationship("Company", back_populates="users", lazy="selectin")

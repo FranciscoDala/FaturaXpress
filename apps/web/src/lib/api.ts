@@ -20,42 +20,29 @@ api.interceptors.response.use(
     (error) => {
         const status = error.response?.status
         const detail = error.response?.data?.detail || error.response?.data?.message || ''
-
         if (status === 401) {
             localStorage.clear()
             toast.error('Sessão expirada', { description: 'Faça login novamente.' })
             window.location.hash = '#/login'
             return Promise.reject(error)
         }
-
         if (status === 403 && typeof detail === 'string' && detail.toLowerCase().includes('limite do plano')) {
             toast.error('Limite do plano atingido', {
                 description: detail,
                 duration: 6000,
-                action: {
-                    label: 'Fazer Upgrade',
-                    onClick: () => {
-                        window.location.hash = '#/assinatura'
-                    }
-                }
+                action: { label: 'Fazer Upgrade', onClick: () => { window.location.hash = '#/assinatura' } }
             })
             return Promise.reject(error)
         }
-
         if (status >= 400 && status!== 403) {
             const silentPaths = ['/faturas', '/clientes', '/produtos']
             const url = error.config?.url || ''
             const isSilent = silentPaths.some(p => url.includes(p)) && status === 400
-
-            if (!isSilent && detail) {
-                if (typeof detail === 'string' && detail.length < 200) {
-                    toast.error('Erro', { description: detail })
-                }
+            if (!isSilent && detail && typeof detail === 'string' && detail.length < 200) {
+                toast.error('Erro', { description: detail })
             }
         }
-
         return Promise.reject(error)
     }
 )
-
 export { api }

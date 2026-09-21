@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = ""
     SECRET_KEY: str = "troca-essa-chave-super-secreta-em-prod-min-32-chars"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 # BLINDAGEM: era 7 dias, agora 1h
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
     CLOUDINARY_CLOUD_NAME: str = ""
     CLOUDINARY_API_KEY: str = ""
@@ -31,7 +31,6 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", case_sensitive=False)
 
     def model_post_init(self, __context):
-        # BLINDAGEM: não deixa subir com SECRET_KEY fraca em prod
         if len(self.SECRET_KEY) < 32:
             raise ValueError("SECRET_KEY muito curta, mínimo 32 chars")
 

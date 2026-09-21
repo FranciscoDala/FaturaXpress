@@ -7,11 +7,12 @@ import time
 import re
 from typing import Optional, Dict
 from datetime import datetime, timezone, timedelta
+from pydantic import BaseModel
 
 from app.db.database import get_db
 from app.modules.auth.models import Company, User
 from app.modules.auth import schemas
-from app.core.security import hash_password, verify_password, get_current_company_id
+from app.core.security import hash_password, verify_password, get_current_company_id, get_current_company_and_funcionario
 from app.core.jwt import create_access_token
 from app.modules.realtime.manager import manager
 from app.core.plans import get_plan_limit
@@ -40,9 +41,7 @@ def sanitize_string(s: Optional[str], max_len: int = 255) -> Optional[str]:
     s = re.sub(r'<[^>]*>', '', s)
     return s
 
-
 async def revalidate_company_agt(company_id: uuid.UUID):
-    # roda em background para atualizar Estado da AGT
     try:
         from app.db.database import AsyncSessionLocal
         async with AsyncSessionLocal() as db:
@@ -50,12 +49,10 @@ async def revalidate_company_agt(company_id: uuid.UUID):
             company = res.scalar_one_or_none()
             if not company:
                 return
-            # só revalida se última verificação tem mais de 24h
             if company.ultima_verificacao_agt and company.ultima_verificacao_agt > datetime.now(timezone.utc) - timedelta(hours=24):
                 return
             agt = await validate_nif_agt(company.nif)
             estado_agt_novo = agt.get("estado")
-
             if estado_agt_novo not in ["AGT_Offline", "FormatoInvalido", "NaoEncontrado", None]:
                 company.estado_agt = agt.get("estado")
                 company.tipo_agt = agt.get("tipo")
@@ -63,14 +60,8 @@ async def revalidate_company_agt(company_id: uuid.UUID):
                 company.regime_iva = agt.get("regime_iva")
                 company.residente_fiscal = agt.get("residente_fiscal")
                 company.ultima_verificacao_agt = datetime.now(timezone.utc)
-
-                # CORREÇÃO BLINDADA AQUI
                 estado_lower = (estado_agt_novo or "").strip().lower()
-                if estado_lower and estado_lower != "activo":
-                    company.bloqueado_pela_agt = True
-                else:
-                    company.bloqueado_pela_agt = False
-
+                company.bloqueado_pela_agt = bool(estado_lower and estado_lower!= "activo")
                 await db.commit()
     except Exception as e:
         logger.warning(f"Erro revalidação background AGT: {e}")
@@ -80,7 +71,6 @@ async def validar_nif_endpoint(data: schemas.ValidateNifRequest, request: Reques
     ip = request.client.host if request.client else "unknown"
     if not check_rate_limit(REGISTER_ATTEMPTS, f"validar_{ip}", 20, 60):
         raise HTTPException(status_code=429, detail="Muitas validações, aguarde 1 minuto")
-
     result = await validate_nif_agt(data.nif)
     if result["estado"] == "FormatoInvalido":
         raise HTTPException(status_code=400, detail=result["message"])
@@ -88,7 +78,6 @@ async def validar_nif_endpoint(data: schemas.ValidateNifRequest, request: Reques
         raise HTTPException(status_code=404, detail="NIF não encontrado na AGT. Verifique o número.")
     if result["estado"] == "Inactivo":
         raise HTTPException(status_code=400, detail="Este NIF está Inactivo na AGT. Não pode ser usado.")
-
     return {
         "valid": result["valid"],
         "nif": result["nif"],
@@ -101,32 +90,28 @@ async def validar_nif_endpoint(data: schemas.ValidateNifRequest, request: Reques
         "source": result.get("source"),
         "message": result["message"]
     }
+
 @router.post("/register", status_code=201, response_model=schemas.RegisterResponse)
 async def register_company(data: schemas.RegisterRequest, request: Request, db: AsyncSession = Depends(get_db)):
     try:
         ip = request.client.host if request.client else "unknown"
         if not check_rate_limit(REGISTER_ATTEMPTS, f"register_{ip}", 5, 300):
             raise HTTPException(status_code=429, detail="Muitas tentativas de registro, aguarde 5 minutos")
-
         nif_limpo = clean_nif(data.nif)
         if not nif_limpo or len(nif_limpo) < 9:
             raise HTTPException(status_code=400, detail="NIF inválido")
-
         company_name_sanitized = sanitize_string(data.companyName, 255) or ""
         if len(company_name_sanitized) < 2:
             raise HTTPException(status_code=400, detail="Nome da empresa inválido")
-
         nome_agt_front = None
         if data.nome_agt_validado:
             nome_agt_front = sanitize_string(data.nome_agt_validado, 255)
             if nome_agt_front and len(nome_agt_front) < 3:
                 nome_agt_front = None
-
         result = await db.execute(select(Company).where(or_(Company.nif == nif_limpo, Company.email == data.emailCompany)))
         exists = result.scalar_one_or_none()
         if exists:
             raise HTTPException(status_code=400, detail="NIF ou Email já cadastrado")
-
         agt_result = await validate_nif_agt(data.nif)
         if agt_result["estado"] == "FormatoInvalido":
             raise HTTPException(status_code=400, detail=agt_result["message"])
@@ -134,12 +119,9 @@ async def register_company(data: schemas.RegisterRequest, request: Request, db: 
             raise HTTPException(status_code=404, detail="NIF não existe na base da AGT")
         if agt_result["estado"] == "Inactivo":
             raise HTTPException(status_code=400, detail="NIF Inactivo na AGT, não pode cadastrar")
-
         nome_final = company_name_sanitized
         nif_verified = False
         nif_agt_name = None
-
-        # valores que vamos salvar da AGT - com fallback do front quando AGT_Offline
         tipo_agt_val = agt_result.get("tipo") or data.tipo_agt
         estado_agt_val = agt_result.get("estado")
         if estado_agt_val == "AGT_Offline":
@@ -147,7 +129,6 @@ async def register_company(data: schemas.RegisterRequest, request: Request, db: 
         inadimplente_val = agt_result.get("inadimplente") or data.inadimplente
         regime_iva_val = agt_result.get("regime_iva") or data.regime_iva
         residente_val = agt_result.get("residente_fiscal") or data.residente_fiscal
-
         if agt_result.get("valid") and agt_result.get("nome_agt"):
             nome_final = sanitize_string(agt_result["nome_agt"], 255) or company_name_sanitized
             nif_verified = True
@@ -157,9 +138,7 @@ async def register_company(data: schemas.RegisterRequest, request: Request, db: 
                 nome_final = nome_agt_front
                 nif_verified = True
                 nif_agt_name = nome_agt_front
-
         password_hash = hash_password(data.password)
-
         company = Company(
             companyName=nome_final,
             nif=nif_limpo,
@@ -186,12 +165,11 @@ async def register_company(data: schemas.RegisterRequest, request: Request, db: 
             regime_iva=sanitize_string(regime_iva_val, 150) if regime_iva_val else None,
             residente_fiscal=sanitize_string(residente_val, 20) if residente_val else None,
             ultima_verificacao_agt=datetime.now(timezone.utc),
-            bloqueado_pela_agt=False if (estado_agt_val and estado_agt_val.lower() == "activo") else False
+            bloqueado_pela_agt=False
         )
         db.add(company)
         await db.commit()
         await db.refresh(company)
-
         admin_user = User(
             company_id=company.id,
             name=nome_final,
@@ -201,9 +179,7 @@ async def register_company(data: schemas.RegisterRequest, request: Request, db: 
         )
         db.add(admin_user)
         await db.commit()
-
         return {"message": "Empresa e usuário admin cadastrados com sucesso"}
-
     except HTTPException:
         raise
     except Exception as e:
@@ -211,33 +187,25 @@ async def register_company(data: schemas.RegisterRequest, request: Request, db: 
         logger.error(f"Erro register: {e}")
         raise HTTPException(status_code=500, detail="Erro ao registrar")
 
-
 @router.post("/login", response_model=schemas.TokenResponse)
 async def login(data: schemas.LoginRequest, request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     ip = request.client.host if request.client else "unknown"
     nif_key = clean_nif(data.nif)
     if not check_rate_limit(LOGIN_ATTEMPTS, f"login_{ip}_{nif_key}", 5, 900):
         raise HTTPException(status_code=429, detail="Muitas tentativas, aguarde 15 minutos")
-
     result = await db.execute(select(Company).where(Company.nif == nif_key))
     company = result.scalar_one_or_none()
     if not company or not verify_password(data.password, company.password_hash):
         raise HTTPException(status_code=401, detail="Dados inválidos, tente novamente!")
     if not company.is_active:
         raise HTTPException(status_code=400, detail="Empresa inativa")
-
-    # NOVO - BLOQUEIO SE AGT DESATIVOU
     if company.bloqueado_pela_agt:
         raise HTTPException(status_code=403, detail="Empresa bloqueada: NIF Inactivo na AGT. Regularize na AGT e contacte suporte.")
     if company.estado_agt and company.estado_agt.lower() not in ["activo", "ativo"]:
-        # se já sabemos que está inactivo no nosso DB, bloqueia direto sem bater na AGT
         raise HTTPException(status_code=403, detail=f"NIF está {company.estado_agt} na AGT. Não pode aceder ao sistema.")
-
-    # Revalidação assíncrona a cada 24h
     if not company.ultima_verificacao_agt or company.ultima_verificacao_agt < datetime.now(timezone.utc) - timedelta(hours=24):
         background_tasks.add_task(revalidate_company_agt, company.id)
-
-    token = create_access_token(data={"sub": str(company.id), "company_id": str(company.id)})
+    token = create_access_token(data={"sub": str(company.id), "company_id": str(company.id), "tipo": "company", "cargo": "admin"})
     return {"message": "Login realizado", "access_token": token, "company_id": company.id, "company_name": company.companyName}
 
 @router.get("/me")
@@ -289,7 +257,6 @@ async def update_company(data: schemas.UpdateCompanyRequest, db: AsyncSession = 
     company = result.scalar_one_or_none()
     if not company:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
-
     if data.companyName is not None: company.companyName = sanitize_string(data.companyName, 255) or company.companyName
     if data.nif is not None: company.nif = clean_nif(data.nif)
     if data.email is not None: company.email = data.email.lower().strip()[:255]
@@ -307,7 +274,6 @@ async def update_company(data: schemas.UpdateCompanyRequest, db: AsyncSession = 
     if data.image_url is not None:
         company.image_url = data.image_url
         company.logo_url = data.image_url
-
     await db.commit()
     await db.refresh(company)
     try:
@@ -359,7 +325,6 @@ async def update_company_with_logo(
     company = result.scalar_one_or_none()
     if not company:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
-
     if companyName is not None: company.companyName = sanitize_string(companyName, 255) or company.companyName
     if nif is not None: company.nif = clean_nif(nif)
     if email is not None: company.email = email.lower().strip()[:255]
@@ -371,7 +336,6 @@ async def update_company_with_logo(
     if iban2 is not None: company.iban2 = sanitize_string(iban2, 100)
     if banco1 is not None: company.banco1 = sanitize_string(banco1, 100)
     if banco2 is not None: company.banco2 = sanitize_string(banco2, 100)
-
     if logo:
         try:
             from app.core.upload_Imagem import upload_image
@@ -380,7 +344,6 @@ async def update_company_with_logo(
             company.image_url = logo_url
         except Exception as e:
             logger.warning(f"Falha upload logo full: {e}")
-
     await db.commit()
     await db.refresh(company)
     try:
@@ -388,3 +351,100 @@ async def update_company_with_logo(
     except Exception:
         pass
     return {"message": "Empresa atualizada com sucesso", "logo_url": company.logo_url}
+
+# ===================== NOVO - LOGIN FUNCIONÁRIO (NÃO APAGA NADA ACIMA) =====================
+@router.post("/login-funcionario", response_model=schemas.TokenFuncionarioResponse)
+async def login_funcionario(data: schemas.LoginFuncionarioRequest, request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+    from app.modules.funcionarios.models import Funcionario
+    from passlib.context import CryptContext
+    pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+    ip = request.client.host if request.client else "unknown"
+    bi_key = data.numero_bi.strip().upper()
+    if not check_rate_limit(LOGIN_ATTEMPTS, f"login_func_{ip}_{bi_key}", 10, 900):
+        raise HTTPException(status_code=429, detail="Muitas tentativas, aguarde 15 minutos")
+
+    result = await db.execute(select(Funcionario).where(
+        Funcionario.numero_bi == bi_key,
+        Funcionario.tem_acesso == True,
+        Funcionario.ativo == True
+    ))
+    func = result.scalar_one_or_none()
+    if not func or not func.senha_hash or not pwd_ctx.verify(data.senha, func.senha_hash):
+        raise HTTPException(status_code=401, detail="BI ou senha inválidos")
+
+    result_company = await db.execute(select(Company).where(Company.id == func.company_id))
+    company = result_company.scalar_one_or_none()
+    if not company:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    if not company.is_active:
+        raise HTTPException(status_code=400, detail="Empresa inativa")
+    if company.bloqueado_pela_agt:
+        raise HTTPException(status_code=403, detail="Empresa bloqueada pela AGT")
+    if company.estado_agt and company.estado_agt.lower() not in ["activo", "ativo"]:
+        raise HTTPException(status_code=403, detail=f"Empresa com NIF {company.estado_agt} na AGT")
+
+    if not company.ultima_verificacao_agt or company.ultima_verificacao_agt < datetime.now(timezone.utc) - timedelta(hours=24):
+        background_tasks.add_task(revalidate_company_agt, company.id)
+
+    token = create_access_token(data={
+        "sub": str(func.id),
+        "company_id": str(func.company_id),
+        "cargo": func.cargo,
+        "tipo": "funcionario",
+        "funcionario_id": str(func.id)
+    })
+
+    return {
+        "message": "Login funcionário realizado",
+        "access_token": token,
+        "token_type": "bearer",
+        "company_id": func.company_id,
+        "company_name": company.companyName,
+        "funcionario": {
+            "id": str(func.id),
+            "nome": func.nome,
+            "numero_bi": func.numero_bi,
+            "cargo": func.cargo,
+            "email": func.email,
+            "area_principal_id": str(func.area_principal_id) if func.area_principal_id else None
+        }
+    }
+
+@router.get("/me-funcionario")
+async def get_me_funcionario(db: AsyncSession = Depends(get_db), ctx: dict = Depends(get_current_company_and_funcionario)):
+    from app.modules.funcionarios.models import Funcionario
+    if ctx["tipo"]!= "funcionario" or not ctx["funcionario_id"]:
+        raise HTTPException(status_code=400, detail="Token não é de funcionário")
+    result_company = await db.execute(select(Company).where(Company.id == ctx["company_id"]))
+    company = result_company.scalar_one_or_none()
+    if not company:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    result_func = await db.execute(select(Funcionario).where(Funcionario.id == ctx["funcionario_id"]))
+    func = result_func.scalar_one_or_none()
+    if not func:
+        raise HTTPException(status_code=404, detail="Funcionário não encontrado")
+    limits = get_plan_limit(getattr(company, 'subscription_plan', 'free'))
+    return {
+        "company": {
+            "id": str(company.id),
+            "nome": company.companyName,
+            "nif": company.nif,
+            "email": company.email,
+            "logo_url": company.logo_url,
+            "image_url": company.image_url or company.logo_url,
+            "subscription_plan": getattr(company, 'subscription_plan', 'free'),
+            "limits": limits
+        },
+        "funcionario": {
+            "id": str(func.id),
+            "nome": func.nome,
+            "numero_bi": func.numero_bi,
+            "cargo": func.cargo,
+            "email": func.email,
+            "area_principal_id": str(func.area_principal_id) if func.area_principal_id else None,
+            "tem_acesso": func.tem_acesso
+        },
+        "cargo": func.cargo,
+        "tipo": "funcionario"
+    }

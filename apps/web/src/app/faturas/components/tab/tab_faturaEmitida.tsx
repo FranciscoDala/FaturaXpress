@@ -274,11 +274,11 @@ function FaturaCard({ fatura, ncVinculada, clienteProp, empresa, onView, onOpenN
     }, [cargoAtual])
 
     const handleDownload = async () => {
-        if (!podeBaixar) { toast.error('Sem permissão para baixar'); return }
+        if (!podeBaixar) { toast.error('Sem permissão'); return }
         setDownloading(true)
         try {
             const idParaBaixar = ncVinculada?.id || fatura.id
-            const res = await api.get(`/api/faturas/${idParaBaixar}/pdf`, { responseType: 'blob' })
+            const res = await api.get(`/faturas/${idParaBaixar}/pdf`, { responseType: 'blob' })
             const blob = new Blob([res.data], { type: 'application/pdf' })
             const url = window.URL.createObjectURL(blob)
             const a = document.createElement('a')
@@ -288,12 +288,10 @@ function FaturaCard({ fatura, ncVinculada, clienteProp, empresa, onView, onOpenN
             a.click()
             a.remove()
             window.URL.revokeObjectURL(url)
-            toast.success(`Baixado: ${getNumero(ncVinculada || fatura)}.pdf`)
+            toast.success('Baixado')
         } catch (err: any) {
-            const msg = err.response?.data?.detail || err.message
-            console.error(msg)
-            onView(ncVinculada || fatura)
-            toast.info('PDF não gerado no servidor, abrindo para imprimir')
+            console.error(err)
+            toast.error('Erro ao baixar PDF')
         } finally {
             setDownloading(false)
         }

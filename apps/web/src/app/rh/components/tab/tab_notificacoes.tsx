@@ -14,14 +14,13 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const [comprovante, setComprovante] = useState<{ url: string, type: string } | null>(null)
     const [diasVisiveis, setDiasVisiveis] = useState(1)
     const [ignoreModal, setIgnoreModal] = useState<any | null>(null)
+    const [tick, setTick] = useState(0)
     const firstLoad = useRef(true)
     const area = cargoAtual === 'admin'? 'admin' : 'rh'
     const listRef = useRef<HTMLDivElement>(null)
-    const lastTap = useRef<{ id: string, time: number } | null>(null)
 
-    const [, forceTick] = useState(0)
     useEffect(() => {
-        const t = setInterval(() => forceTick(x => x+1), 60000)
+        const t = setInterval(() => setTick(x => x+1), 15000)
         return () => clearInterval(t)
     }, [])
 
@@ -61,7 +60,6 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const fetchNotifs = useCallback(async () => {
         if (firstLoad.current) setLoading(true)
         try {
-            // IMPORTANTE: sem status=pendente pra trazer as resolvidas também
             const { data } = await api.get(`/api/rh/notificacoes?area=${area}`);
             setNotifs(Array.isArray(data)? data : [])
         }
@@ -72,11 +70,11 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
 
     const getAlertStyle = (n: any) => {
         const s = (n.status_notificacao || n.status || n.falta?.status || '').toLowerCase()
-        if (['aprovada','aprovado','justificado','abonada'].includes(s)) return { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-800', badge: 'bg-green-100 text-green-800 border-green-200', label: 'Abonada' }
-        if (['rejeitada','rejeitado'].includes(s)) return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', badge: 'bg-red-100 text-red-700 border-red-200', label: 'Rejeitada' }
-        if (['aguardando_admin','encaminhado_admin','encaminhada','encaminhado'].includes(s)) return { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800', badge: 'bg-amber-100 text-amber-800 border-amber-200', label: 'Encaminhada' }
-        if (['ignorado','ignorada'].includes(s)) return { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', badge: 'bg-blue-100 text-blue-700 border-blue-200', label: 'Ignorada' }
-        return { bg: 'bg-white', border: 'border-gray-200', text: 'text-black', badge: 'bg-red-50 text-red-700 border-red-200', label: `Motivo da falta: ${getMotivo(n)}` }
+        if (['aprovada','aprovado','justificado','abonada'].includes(s)) return { bg: 'bg-green-50', border: 'border-green-200', badge: 'bg-green-100 text-green-800 border-green-200', label: 'Abonada' }
+        if (['rejeitada','rejeitado'].includes(s)) return { bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-700 border-red-200', label: 'Rejeitada' }
+        if (['aguardando_admin','encaminhado_admin','encaminhada','encaminhado'].includes(s)) return { bg: 'bg-amber-50', border: 'border-amber-200', badge: 'bg-amber-100 text-amber-800 border-amber-200', label: 'Encaminhada' }
+        if (['ignorado','ignorada'].includes(s)) return { bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-100 text-blue-700 border-blue-200', label: 'Ignorada' }
+        return { bg: 'bg-white', border: 'border-gray-200', badge: 'bg-red-50 text-red-700 border-red-200', label: `Motivo da falta: ${getMotivo(n)}` }
     }
 
     const { ativas, historico } = useMemo(() => {
@@ -93,7 +91,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
             else hist.push(n)
         })
         return { ativas: at, historico: hist }
-    }, [notifs])
+    }, [notifs, tick]) // tick aqui corrige o bug de ficar pra sempre
 
     const historicoAgrupado = useMemo(() => {
         const limite = new Date(); limite.setDate(limite.getDate() - 7)
@@ -129,7 +127,6 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         setActingId(faltaId)
         const statusMap: any = { aprovar: 'aprovada', rejeitar: 'rejeitada', encaminhar: 'encaminhada', ignorar: 'ignorada' }
         const nowIso = new Date().toISOString()
-        // ATUALIZAÇÃO OTIMISTA - MUDA A COR NA HORA
         setNotifs(prev => prev.map(n => n.falta?.id === faltaId? {...n, status_notificacao: statusMap[acao], updated_at: nowIso } : n))
         try {
             const logado = JSON.parse(localStorage.getItem('funcionario') || 'null')
@@ -142,24 +139,8 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
             await fetchNotifs()
         } catch (e: any) {
             toast.error(e?.response?.data?.detail || 'Erro')
-            // rollback se falhar
             await fetchNotifs()
         } finally { setActingId(null); setIgnoreModal(null) }
-    }
-
-    const handleDoubleClick = (n: any) => {
-        if ((n.status_notificacao || '').toLowerCase()!== 'pendente') return
-        setIgnoreModal(n)
-    }
-
-    const handleTap = (n: any) => {
-        const now = Date.now()
-        if (lastTap.current && lastTap.current.id === n.notificacao_id && now - lastTap.current.time < 300) {
-            handleDoubleClick(n)
-            lastTap.current = null
-        } else {
-            lastTap.current = { id: n.notificacao_id, time: now }
-        }
     }
 
     if (loading) return <div className="bg-white rounded-[16px] border h-[300px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div>
@@ -174,7 +155,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                         <p className="text-[14px] font-bold text-black">Notificações</p>
                     </div>
                     <div className="flex bg-white border rounded-full p-1">
-                        <button onClick={() => setTab('ativas')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'ativas'? 'bg-black text-white' : 'text-black/60'}`}>Ativas • {ativas.length}</button>
+                        <button onClick={() => setTab('ativas')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'ativas'? 'bg-black text-white' : 'text-black/60'}`}>Ativas</button>
                         <button onClick={() => { setTab('historico'); setDiasVisiveis(1) }} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'historico'? 'bg-black text-white' : 'text-black/60'}`}>Histórico</button>
                     </div>
                 </div>
@@ -197,12 +178,8 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                                             <button disabled={!!actingId} onClick={() => handleFalta(n.falta?.id, 'aprovar')} className="w-10 h-10 rounded-full bg-[#0095ff] shadow flex items-center justify-center text-white"><Check className="w-5 h-5" /></button>
                                             {n.falta?.justificativa_anexo_url && <button onClick={() => abrirComprovante(n.falta.id)} className="w-10 h-10 rounded-full bg-black shadow flex items-center justify-center text-white"><Eye className="w-5 h-5" /></button>}
                                         </div>
-                                        <SwipeRow id={n.notificacao_id} isOpen={openSwipeId === n.notificacao_id} setOpen={setOpenSwipeId} swipeWidth={240}>
-                                            <div
-                                                onDoubleClick={() => handleDoubleClick(n)}
-                                                onTouchEnd={() => handleTap(n)}
-                                                className={`px-3 py-2.5 ${style.bg} border-l-4 ${style.border} select-none cursor-pointer`}
-                                            >
+                                        <SwipeRow id={n.notificacao_id} isOpen={openSwipeId === n.notificacao_id} setOpen={setOpenSwipeId} swipeWidth={240} onDoubleTap={() => { if(!isResolvida) setIgnoreModal(n) }}>
+                                            <div className={`px-3 py-2.5 ${style.bg} border-l-4 ${style.border} select-none`}>
                                                 <div className="flex justify-between gap-2">
                                                     <div className="min-w-0 flex-1 leading-tight">
                                                         <p className="text-[13px] leading-[16px] truncate"><span className="font-bold text-black">{nome}</span><span className="text-black/60"> · {formatarTempo(n.created_at)}</span></p>
@@ -212,7 +189,6 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                                                         </div>
                                                         <p className="text-[12px] leading-[16px] text-black/70 mt-1.5">Doc: <span className="text-[#0095ff]">{formatarTexto(n.falta?.justificativa_tipo || 'Atestado')}</span></p>
                                                         {n.falta?.justificativa_obs && <p className="text-[12px] leading-[16px] text-black/60 mt-1">{n.falta.justificativa_obs}</p>}
-                                                        {!isResolvida && <p className="text-[10px] text-black/30 mt-1">duplo clique para ignorar</p>}
                                                     </div>
                                                     <div className="flex flex-col items-end gap-2 shrink-0">
                                                         <span className="text-[12px] text-black/70">{formatarDataCurta(n.created_at)}</span>
@@ -288,7 +264,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                             </div>
                         </div>
                         <div className="p-4">
-                            <p className="text-[13px] leading-[18px] text-black/70">Você quer ignorar a falta de <span className="font-bold text-black">{ignoreModal.funcionario?.nome}</span>? Ela vai para o histórico como <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 text-[11px]">Ignorada</span> e some daqui em 30min.</p>
+                            <p className="text-[13px] leading-[18px] text-black/70">Você quer ignorar a falta de <span className="font-bold text-black">{ignoreModal.funcionario?.nome}</span>? Ela vai para o histórico como <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 text-[11px]">Ignorada</span>.</p>
                             <div className="mt-4 flex gap-2">
                                 <button onClick={() => setIgnoreModal(null)} className="flex-1 h-10 rounded-full border bg-white text-[13px] font-bold text-black">Cancelar</button>
                                 <button disabled={!!actingId} onClick={() => handleFalta(ignoreModal.falta?.id, 'ignorar')} className="flex-1 h-10 rounded-full bg-black text-white text-[13px] font-bold flex items-center justify-center gap-2">
@@ -303,31 +279,56 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     )
 }
 
-function SwipeRow({ children, id, isOpen, setOpen, swipeWidth = 160 }: any) {
+function SwipeRow({ children, id, isOpen, setOpen, swipeWidth = 160, onDoubleTap }: any) {
     const [tx, setTx] = useState(0)
     const startX = useRef<number | null>(null)
+    const startY = useRef<number | null>(null)
+    const lastTap = useRef(0)
+    const moved = useRef(false)
+
     useEffect(() => { setTx(isOpen? -swipeWidth : 0) }, [isOpen, swipeWidth])
-    const onStart = (x: number) => { startX.current = x }
-    const onMove = (x: number) => {
-        if (startX.current === null) return
-        const diff = x - startX.current
-        if (diff < 0) setTx(Math.max(diff, -swipeWidth))
-        if (diff > 30 && isOpen) setTx(-swipeWidth + diff)
+
+    const onStart = (x: number, y: number) => { startX.current = x; startY.current = y; moved.current = false }
+    const onMove = (x: number, y: number) => {
+        if (startX.current === null || startY.current === null) return
+        const diffX = x - startX.current
+        const diffY = y - startY.current
+        if (Math.abs(diffY) > 20 && Math.abs(diffX) < 20) return // scroll vertical, ignora swipe
+        if (Math.abs(diffX) > 10) moved.current = true
+        if (diffX < 0) setTx(Math.max(diffX, -swipeWidth))
+        if (diffX > 30 && isOpen) setTx(-swipeWidth + diffX)
     }
     const onEnd = () => {
         if (startX.current === null) return
-        if (tx < -70) {
-            setOpen(id)
-        } else {
-            setOpen(null)
-            setTx(0)
+        // se não moveu, é clique
+        if (!moved.current) {
+            const now = Date.now()
+            if (now - lastTap.current < 300) {
+                onDoubleTap?.()
+                lastTap.current = 0
+            } else {
+                lastTap.current = now
+            }
         }
+        if (tx < -70) setOpen(id)
+        else { setOpen(null); setTx(0) }
         startX.current = null
+        startY.current = null
     }
+
     return (
-        <div className="bg-white will-change-transform" style={{ transform: `translateX(${tx}px)`, transition: startX.current === null? 'transform 0.22s cubic-bezier(.2,.8,.2,1)' : 'none' }}
-            onTouchStart={e => onStart(e.touches[0].clientX)} onTouchMove={e => onMove(e.touches[0].clientX)} onTouchEnd={onEnd}
-            onMouseDown={e => onStart(e.clientX)} onMouseMove={e => { if (e.buttons === 1) onMove(e.clientX) }} onMouseUp={onEnd} onMouseLeave={onEnd}>
+        <div
+            className="bg-white will-change-transform"
+            style={{ transform: `translateX(${tx}px)`, transition: startX.current === null? 'transform 0.22s cubic-bezier(.2,.8,.2,1)' : 'none' }}
+            onTouchStart={e => onStart(e.touches[0].clientX, e.touches[0].clientY)}
+            onTouchMove={e => onMove(e.touches[0].clientX, e.touches[0].clientY)}
+            onTouchEnd={onEnd}
+            onMouseDown={e => onStart(e.clientX, e.clientY)}
+            onMouseMove={e => { if (e.buttons === 1) onMove(e.clientX, e.clientY) }}
+            onMouseUp={onEnd}
+            onMouseLeave={onEnd}
+            onDoubleClick={() => onDoubleTap?.()}
+        >
             {children}
         </div>
     )

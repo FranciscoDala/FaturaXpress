@@ -181,16 +181,16 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
                                       <div className="mt-1.5 flex flex-wrap gap-1">
                                         {isJustificada? (
                                           <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-green-50 border border-green-200 text-[11px] text-green-800">
-                                            Motivo da falta: {prettyFalta(falta.motivo)} • <span className="font-bold ml-1">Falta justificada</span>
+                                            Motivo: {prettyFalta(falta.motivo)} • <span className="font-bold ml-1">Falta justificada</span>
                                           </span>
                                         ) : isRejeitada? (
                                           <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] text-red-700">
-                                            Motivo da falta: {prettyFalta(falta.motivo)} • <span className="font-bold ml-1">Justificação não aceite</span>
+                                            Motivo: {prettyFalta(falta.motivo)} • <span className="font-bold ml-1">Justificação não aceite</span>
                                           </span>
                                         ) : (
                                           <>
                                             <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] text-red-700">
-                                              Motivo da falta: {prettyFalta(falta.motivo)}
+                                              Motivo: {prettyFalta(falta.motivo)}
                                             </span>
                                             <button onClick={() => setAuditData({...falta, _kind: 'falta' } as AuditData)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-bold hover:bg-amber-100">
                                               <Info className="w-3 h-3"/> Ver motivo
@@ -226,13 +226,7 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
                                 </div>
                                 <div className="flex gap-1.5 shrink-0">
                                   {falta? (
-                                    isJustificada? (
-                                      <span className="h-[26px] px-3 flex items-center text-[11px] bg-green-600 text-white rounded-full font-bold">Justificada</span>
-                                    ) : isRejeitada? (
-                                      <span className="h-[26px] px-3 flex items-center text-[11px] bg-red-600 text-white rounded-full font-medium">Não aceite</span>
-                                    ) : (
-                                      <span className="h-[26px] px-3 flex items-center text-[11px] bg-red-600 text-white rounded-full font-medium">Falta</span>
-                                    )
+                                    <span className="h-[26px] px-3 flex items-center text-[11px] bg-red-600 text-white rounded-full font-medium">Falta</span>
                                   ) :!temEntrada? (<><button disabled={batendo === f.id ||!podeBater} onClick={() => bater(f.id, 'entrada')} className={`h-[26px] px-3 rounded-full text-[11px] font-medium disabled:opacity-50 ${podeBater? 'bg-[#0095ff] text-white hover:bg-[#0085e6]' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>Entrada</button><button disabled={!podeGerirFalta} onClick={() => podeGerirFalta && setOpenFalta({ open: true, func: f })} className={`h-[26px] px-3 rounded-full text-[11px] font-medium ${podeGerirFalta? 'bg-red-50 border border-red-200 text-red-600 hover:bg-red-100' : 'bg-gray-100 text-gray-400 cursor-not-allowed border'}`}>Falta</button></>) :!temSaida? (<button disabled={batendo === f.id ||!podeBater} onClick={() => bater(f.id, 'saida')} className={`h-[26px] px-3 border rounded-full text-[11px] ${podeBater? 'bg-white text-black hover:bg-gray-50' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>Saída</button>) : (<span className="h-[26px] px-3 flex items-center text-[11px] bg-gray-100 text-black rounded-full border">Completo</span>)}
                                 </div>
                             </div>

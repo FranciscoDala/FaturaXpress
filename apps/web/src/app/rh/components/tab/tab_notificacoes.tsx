@@ -282,6 +282,14 @@ function SwipeCard({ children, id, isOpen, setOpen, swipeWidth = 260, actions, o
     const dragging = useRef(false)
     const moved = useRef(false)
     const lastTap = useRef(0)
+    const lastDoubleTap = useRef(0)
+
+    const triggerDoubleTap = () => {
+        const now = Date.now()
+        if (now - lastDoubleTap.current < 500) return
+        lastDoubleTap.current = now
+        onDoubleTap?.()
+    }
 
     const setTx = (x: number, anim = false) => {
         curX.current = x
@@ -322,7 +330,7 @@ function SwipeCard({ children, id, isOpen, setOpen, swipeWidth = 260, actions, o
         if (!moved.current) {
             const now = Date.now()
             if (now - lastTap.current < 350) {
-                onDoubleTap?.()
+                triggerDoubleTap()
                 lastTap.current = 0
             } else {
                 lastTap.current = now
@@ -349,6 +357,7 @@ function SwipeCard({ children, id, isOpen, setOpen, swipeWidth = 260, actions, o
                 onPointerMove={handleMove}
                 onPointerUp={handleUp}
                 onPointerCancel={handleUp}
+                onDoubleClick={triggerDoubleTap}
                 style={{ touchAction: 'pan-y' }}
             >
                 {children}

@@ -246,14 +246,14 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         </div>
         {comprovante && (
             <div
-                className="fixed inset-0 z-50 bg-black/70 p-4 sm:p-8 flex items-center justify-center"
+                className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center"
                 role="dialog"
                 aria-modal="true"
                 aria-label="Visualização do comprovante"
                 onClick={fecharComprovante}
             >
                 <div
-                    className="relative w-full max-w-5xl h-full max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden"
+                    className="relative w-full h-full bg-white shadow-2xl overflow-hidden"
                     onClick={event => event.stopPropagation()}
                 >
                     <div className="h-12 px-4 flex items-center justify-between border-b bg-white">

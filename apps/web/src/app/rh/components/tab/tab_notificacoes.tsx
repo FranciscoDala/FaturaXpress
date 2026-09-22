@@ -164,8 +164,9 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                                         isOpen={openSwipeId === n.notificacao_id}
                                         setOpen={setOpenSwipeId}
                                         onDoubleTap={() => {
-                                            const s = (n.status_notificacao||'').toLowerCase()
-                                            if (s==='pendente') setIgnoreModal(n)
+                                            if ((n.status_notificacao || '').toLowerCase() === 'pendente' && n.falta?.id) {
+                                                setIgnoreModal(n)
+                                            }
                                         }}
                                         actions={
                                             <div className="absolute inset-y-0 right-0 w-[260px] flex items-center justify-end gap-2 pr-3 bg-[#E8F2FF]">
@@ -258,7 +259,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                             </div>
                         </div>
                         <div className="p-4">
-                            <p className="text-[13px] leading-[18px] text-black/70">Quer ignorar a falta de <span className="font-bold text-black">{ignoreModal.funcionario?.nome}</span>?</p>
+                            <p className="text-[13px] leading-[18px] text-black/70">Deseja ignorar a notificação de <span className="font-bold text-black">{ignoreModal.funcionario?.nome || 'Funcionário'} </span>?</p>
                             <div className="mt-4 flex gap-2">
                                 <button onClick={() => setIgnoreModal(null)} className="flex-1 h-10 rounded-full border bg-white text-[13px] font-bold text-black">Cancelar</button>
                                 <button disabled={!!actingId} onClick={() => handleFalta(ignoreModal.falta?.id, 'ignorar')} className="flex-1 h-10 rounded-full bg-black text-white text-[13px] font-bold flex items-center justify-center gap-2">
@@ -348,7 +349,6 @@ function SwipeCard({ children, id, isOpen, setOpen, swipeWidth = 260, actions, o
                 onPointerMove={handleMove}
                 onPointerUp={handleUp}
                 onPointerCancel={handleUp}
-                onDoubleClick={onDoubleTap}
                 style={{ touchAction: 'pan-y' }}
             >
                 {children}

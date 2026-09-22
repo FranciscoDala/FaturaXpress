@@ -94,7 +94,7 @@ def falta_get_anexo(
             raise ValueError("URL de anexo inválida")
 
         is_raw = "/raw/upload/" in stored_url
-        is_pdf = stored_url.lower().split("?", 1)[0].endswith(".pdf")
+        is_pdf = is_raw or stored_url.lower().split("?", 1)[0].endswith(".pdf")
         public_id = stored_url.split("/upload/", 1)[1].split("?", 1)[0]
         public_id = re.sub(r"^v\d+/", "", public_id)
         public_id = re.sub(r"^s--[A-Za-z0-9_-]+--/", "", public_id)
@@ -114,10 +114,22 @@ def falta_get_anexo(
         r = requests.get(signed_url, timeout=30)
         r.raise_for_status()
         content = r.content
-        media_type = r.headers.get("Content-Type", "").split(";", 1)[0]
-        if not media_type or media_type == "application/octet-stream":
-            media_type = "application/pdf" if is_pdf else "image/png"
-        extension = "pdf" if is_pdf else (media_type.split("/", 1)[-1] or "bin")
+        content_type = r.headers.get("Content-Type", "").split(";", 1)[0].lower()
+        if content.startswith(b"%PDF-"):
+            media_type, extension = "application/pdf", "pdf"
+        elif content.startswith(b"\x89PNG\r\n\x1a\n"):
+            media_type, extension = "image/png", "png"
+        elif content.startswith(b"\xff\xd8\xff"):
+            media_type, extension = "image/jpeg", "jpg"
+        elif content_type.startswith("image/") and not content.lstrip().startswith(b"<"):
+            media_type = content_type
+            extension = media_type.split("/", 1)[1]
+        else:
+            logger.error(
+                "[ANEXO] Cloudinary devolveu conteúdo inválido: "
+                f"status={r.status_code} content_type={content_type} url={stored_url}"
+            )
+            raise ValueError("Cloudinary não devolveu um PDF ou imagem válido")
 
         return Response(
             content=content,

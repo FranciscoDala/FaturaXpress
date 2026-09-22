@@ -1,4 +1,4 @@
-import { Leaf, ChevronLeft, Home, Users, Package, Settings2, Receipt, FileText, PlusCircle, Factory, Lock, UserCheck, Plane, Clock, FileHeart, ClipboardList, Bell } from 'lucide-react'
+import { Leaf, ChevronLeft, Home, Users, Package, Settings2, Receipt, FileText, PlusCircle, Factory, Lock, UserCheck, Plane, Clock, FileHeart, ClipboardList, Bell, Eye, UserPlus, PackagePlus } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useMemo } from 'react'
 
@@ -21,8 +21,12 @@ const MENU_DASH = [
     { id: '3', label: 'Faturas AGT FT', Icon: Receipt, area: 'emitidas', view: 'faturas' as const, ftab: 'emitidas' as const },
     { id: '4', label: 'Proformas PP', Icon: FileText, area: 'proformas', view: 'faturas' as const, ftab: 'curso' as const },
     { id: '5', label: 'Emitir Fatura', Icon: PlusCircle, area: 'emitir', view: 'faturas' as const, ftab: 'emitir' as const },
-    { id: '6', label: 'Clientes', Icon: Users, area: 'clientes', view: 'gestao' as const, list: 'clientes' as const, action: 'modal_cliente' as const },
-    { id: '7', label: 'Produtos', Icon: Package, area: 'produtos', view: 'gestao' as const, list: 'produtos' as const, action: 'modal_produto' as const },
+    // CLIENTES SEPARADO
+    { id: '6', label: 'Adicionar Cliente', Icon: UserPlus, area: 'clientes', action: 'modal_cliente' as const },
+    { id: '6b', label: 'Ver Clientes', Icon: Users, area: 'clientes', view: 'gestao' as const, list: 'clientes' as const },
+    // PRODUTOS SEPARADO
+    { id: '7', label: 'Adicionar Produto', Icon: PackagePlus, area: 'produtos', action: 'modal_produto' as const },
+    { id: '7b', label: 'Ver Produtos', Icon: Package, area: 'produtos', view: 'gestao' as const, list: 'produtos' as const },
     { id: '8', label: 'Serviços', Icon: Settings2, area: 'servicos', view: 'gestao' as const, list: 'servicos' as const },
 ]
 
@@ -46,11 +50,9 @@ export default function SidebarAreas({ open, onClose, notifCount = 0, onOpenClie
     }, [])
     const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
     const BASE = isRH? MENU_RH : MENU_DASH
-
     const MENU = BASE.map(m => ({...m, disabled:!temAcesso(cargoAtual, (m as any).area) }))
 
     const handleNav = (item: any) => {
-        // ABRE MODAL DIRETO
         if (item.action === 'modal_cliente') {
             onClose()
             onOpenCliente?.()
@@ -61,7 +63,6 @@ export default function SidebarAreas({ open, onClose, notifCount = 0, onOpenClie
             onOpenProduto?.()
             return
         }
-
         onClose()
         if (item.to) { navigate(item.to); return }
         if (item.view) localStorage.setItem('dashboard_homeView', item.view)
@@ -111,9 +112,7 @@ export default function SidebarAreas({ open, onClose, notifCount = 0, onOpenClie
                                 </button>
                             </div>
                         </div>
-
                         <div className="px-1 pb-2 text-[10px] font-bold tracking-widest text-[#0095ff]/60">{isRH? 'RH • ABAS' : 'ÁREAS'}</div>
-
                         <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col gap-[5px] pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                             {MENU.map((m: any) => {
                                 if (m.disabled) {

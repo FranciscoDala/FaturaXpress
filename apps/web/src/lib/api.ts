@@ -6,7 +6,7 @@ const baseURL = raw.replace(/\/$/, '')
 const apiRoot = baseURL.endsWith('/api') ? baseURL : `${baseURL}/api`
 
 const api = axios.create({
-    baseURL,
+    baseURL: apiRoot, // UNICA LINHA QUE MUDA - era baseURL, agora apiRoot
     headers: { 'Content-Type': 'application/json' },
 })
 

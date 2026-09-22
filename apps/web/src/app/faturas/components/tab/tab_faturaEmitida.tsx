@@ -169,7 +169,7 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
         if (!podeEmitirNC) { toast.error('Sem permissão'); return }
         setLoadingNC(true)
         try {
-            const { data } = await api.post(`/api/faturas/${selectedFatura.id}/nota-credito`, {
+            const { data } = await api.post(`faturas/${selectedFatura.id}/nota-credito`, {
                 motivo: selectedMotivo,
                 observacoes: `NC referente a ${selectedFatura.numero_fatura} - ${MOTIVOS_MAP[selectedMotivo] || selectedMotivo}`
             })

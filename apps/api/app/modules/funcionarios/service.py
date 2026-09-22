@@ -426,6 +426,37 @@ def encaminhar_falta_para_admin(db: Session, company_id: uuid.UUID, falta_id: uu
     db.add(notif); db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
 
+
+
+
+
+def _funcionario_full_dict(f: Funcionario | None) -> dict | None:
+    if not f:
+        return None
+    return {
+        "id": str(f.id),
+        "company_id": str(f.company_id),
+        "nome": f.nome,
+        "nome_completo": f.nome,
+        "numero_bi": f.numero_bi,
+        "cargo": f.cargo,
+        "telefone": f.telefone,
+        "email": f.email,
+        "genero": f.genero,
+        "nacionalidade": f.nacionalidade,
+        "estado_civil": f.estado_civil,
+        "cidade": f.cidade,
+        "provincia": f.provincia,
+        "data_admissao": f.data_admissao.isoformat() if f.data_admissao else None,
+        "area_principal_id": str(f.area_principal_id) if f.area_principal_id else None,
+        "ativo": f.ativo,
+        "tem_acesso": f.tem_acesso,
+        "ultimo_reset_atrasos": f.ultimo_reset_atrasos.isoformat() if f.ultimo_reset_atrasos else None,
+    }
+
+
+
+
 def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: str | None = None):
     q = db.query(Notificacao).filter(Notificacao.company_id == company_id, Notificacao.area_destino == area)
     if status:
@@ -445,7 +476,15 @@ def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: s
         }
         if n.tipo == "falta":
             falta = db.query(PedidoRH).filter(PedidoRH.id == n.referencia_id).first()
+            func = falta.funcionario if falta and hasattr(falta, 'funcionario') and falta.funcionario else (db.query(Funcionario).filter(Funcionario.id == falta.funcionario_id).first() if falta else None)
             item["falta"] = _falta_to_dict(db, falta) if falta else None
+            item["funcionario"] = _funcionario_full_dict(func)
+            item["funcionario_id"] = str(func.id) if func else None
+            item["funcionario_nome"] = func.nome if func else None
+            # já coloca o funcionario completo dentro da falta também
+            if item["falta"]:
+                item["falta"]["funcionario"] = _funcionario_full_dict(func)
+                item["falta"]["funcionario_nome"] = func.nome if func else None
         elif n.tipo == "atraso_excedido":
             func = db.query(Funcionario).filter(Funcionario.id == n.referencia_id).first()
             cfg = get_config_ponto(db, company_id)
@@ -455,15 +494,21 @@ def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: s
                     inicio = date.today().replace(day=1)
                 else:
                     inicio = date.today() - timedelta(days=date.today().weekday())
-            # FIX 2: usa Enum correto aqui também
             pontos = db.query(Ponto).filter(Ponto.company_id==company_id, Ponto.funcionario_id==n.referencia_id, Ponto.data>=inicio, Ponto.tipo==TipoPonto.entrada, Ponto.atraso_min>0).order_by(Ponto.data.desc()).all()
-            item["funcionario"] = {"id": str(func.id), "nome": func.nome} if func else None
+            item["funcionario"] = _funcionario_full_dict(func)
+            item["funcionario_id"] = str(func.id) if func else None
+            item["funcionario_nome"] = func.nome if func else None
             item["qtd_atrasos"] = len(pontos)
             item["atrasos"] = [_ponto_to_dict(db, p) for p in pontos]
             item["periodo"] = cfg.periodo_regra
             item["qtd_para_falta"] = cfg.qtd_atrasos_para_falta
         result.append(item)
     return result
+
+
+
+
+
 
 # --- NOVAS FUNCOES ATRASO ---
 def aplicar_falta_por_atraso(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, aplicado_por_id: uuid.UUID | None):

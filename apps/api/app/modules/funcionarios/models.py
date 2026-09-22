@@ -1,7 +1,7 @@
 import uuid
 import enum
 from datetime import datetime, timezone, date
-from sqlalchemy import String, Boolean, ForeignKey, DateTime, Table, Column, Date, Text, Enum as SAEnum, Float, Integer, UniqueConstraint, JSON
+from sqlalchemy import String, Boolean, ForeignKey, DateTime, Table, Column, Date, Text, Enum as SAEnum, Float, Integer, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
@@ -174,6 +174,8 @@ class PedidoRH(Base):
     encaminhado_para_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     encaminhado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     encaminhado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id", ondelete="SET NULL"), nullable=True)
+    # RELACIONAMENTO - ISSO QUE FALTAVA
+    funcionario = relationship("Funcionario", foreign_keys=[funcionario_id], lazy="joined")
 
 class Recibo(Base):
     __tablename__ = "recibos"

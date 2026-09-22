@@ -154,7 +154,6 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
                 {hasLogo? <img src={emp.logo_url} alt="marca" className="w-[650px] h-[650px] object-contain opacity-[0.10]" /> : <LogoDefault nome={emp.nome} size="large" />}
             </div>
-            {/* WATERMARK PERMISSÃO */}
             {!podeBaixar && (
                 <div className="absolute inset-0 z-[5] flex items-center justify-center pointer-events-none">
                     <p className="text-[80px] font-black text-black/[0.06] rotate-[-25deg] tracking-widest">SÓ LEITURA - {cargoAtual.toUpperCase()}</p>
@@ -218,41 +217,44 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                     ))}
                 </div>
 
-                <div className="w-full mt-2">
-                    <table className="w-full border-collapse table-fixed">
+                {/* TABELA ITENS - AJUSTADA RESPONSIVA */}
+                <div className="w-full mt-2 overflow-x-auto no-scrollbar">
+                    <table className="w-full border-collapse table-auto min-w-[720px]">
                         <colgroup>
-                          <col style={{ width: '12%' }} />
-                          <col style={{ width: '28%' }} />
-                          <col style={{ width: '6%' }} />
-                          <col style={{ width: '6%' }} />
-                          <col style={{ width: '15%' }} />
-                          <col style={{ width: '9%' }} />
-                          <col style={{ width: '7%' }} />
-                          <col style={{ width: '17%' }} />
+                          <col style={{ width: '68px' }} />
+                          <col style={{ width: 'auto' }} />
+                          <col style={{ width: '56px' }} />
+                          <col style={{ width: '56px' }} />
+                          <col style={{ width: '96px' }} />
+                          <col style={{ width: '82px' }} />
+                          <col style={{ width: '68px' }} />
+                          <col style={{ width: '118px' }} />
                         </colgroup>
                         <thead>
-                          <tr className="bg-[rgba(194,194,194,0.65)] text-[11px] font-bold">
-                            <th className="border border-[#999] py-[7px] px-1 text-left">REFERÊNCIA</th>
-                            <th className="border border-[#999] py-[7px] px-1 text-left">PRODUTO / SERVIÇO</th>
-                            <th className="border border-[#999] py-[7px]">QTD.</th>
-                            <th className="border border-[#999] py-[7px]">UN.</th>
-                            <th className="border border-[#999] py-[7px]">PREÇO UNIT.</th>
-                            <th className="border border-[#999] py-[7px]">DESCONTO</th>
-                            <th className="border border-[#999] py-[7px]">TAXA</th>
-                            <th className="border border-[#999] py-[7px] text-right">VALOR (AKZ)</th>
+                          <tr className="bg-[rgba(194,194,194,0.65)] text-[10.5px] font-bold">
+                            <th className="border border-[#999] py-[7px] px-2 text-left whitespace-nowrap">REF</th>
+                            <th className="border border-[#999] py-[7px] px-2 text-left">PRODUTO / SERVIÇO</th>
+                            <th className="border border-[#999] py-[7px] px-1 text-center">QTD.</th>
+                            <th className="border border-[#999] py-[7px] px-1 text-center">UN.</th>
+                            <th className="border border-[#999] py-[7px] px-2 text-right">PREÇO UNIT.</th>
+                            <th className="border border-[#999] py-[7px] px-2 text-right">DESCONTO</th>
+                            <th className="border border-[#999] py-[7px] px-1 text-center">TAXA</th>
+                            <th className="border border-[#999] py-[7px] px-2 text-right">VALOR (AKZ)</th>
                           </tr>
                         </thead>
                         <tbody>
                             {itens.map((it: any, i: number) => (
-                                <tr key={i} className="text-[11px] h-[28px]">
-                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate overflow-hidden whitespace-nowrap">{it.referencia}</td>
-                                  <td className="border border-[#bbb] px-1 bg-[rgba(255,255,255,0.40)] truncate overflow-hidden whitespace-nowrap" title={it.nome_snapshot}>{it.nome_snapshot}</td>
-                                  <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.quantidade}</td>
-                                  <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)]">{it.unidade}</td>
-                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)] whitespace-nowrap tabular-nums">{fmt(it.preco_unit_snapshot)}</td>
-                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)] whitespace-nowrap tabular-nums">{it.desconto_perc > 0? fmt(it.desconto_valor) : ''}</td>
-                                  <td className="border border-[#bbb] text-center bg-[rgba(255,255,255,0.40)] whitespace-nowrap">{it.taxa_iva === 0? 'Isento' : `${it.taxa_iva}%`}</td>
-                                  <td className="border border-[#bbb] text-right pr-1 bg-[rgba(255,255,255,0.40)] font-semibold whitespace-nowrap tabular-nums overflow-hidden">{fmt(it.subtotal_linha)}</td>
+                                <tr key={i} className="text-[11px] align-top">
+                                  <td className="border border-[#bbb] px-2 py-[6px] bg-[rgba(255,255,255,0.40)] text-[10px] font-medium whitespace-nowrap">{it.referencia}</td>
+                                  <td className="border border-[#bbb] px-2 py-[6px] bg-[rgba(255,255,255,0.40)] whitespace-normal break-words leading-[14px]" title={it.nome_snapshot}>
+                                    {it.nome_snapshot}
+                                  </td>
+                                  <td className="border border-[#bbb] text-center px-1 py-[6px] bg-[rgba(255,255,255,0.40)] tabular-nums">{it.quantidade}</td>
+                                  <td className="border border-[#bbb] text-center px-1 py-[6px] bg-[rgba(255,255,255,0.40)]">{it.unidade}</td>
+                                  <td className="border border-[#bbb] text-right px-2 py-[6px] bg-[rgba(255,255,255,0.40)] whitespace-nowrap tabular-nums">{fmt(it.preco_unit_snapshot)}</td>
+                                  <td className="border border-[#bbb] text-right px-2 py-[6px] bg-[rgba(255,255,255,0.40)] whitespace-nowrap tabular-nums">{it.desconto_perc > 0? fmt(it.desconto_valor) : '-'}</td>
+                                  <td className="border border-[#bbb] text-center px-1 py-[6px] bg-[rgba(255,255,255,0.40)] whitespace-nowrap">{it.taxa_iva === 0? 'Isento' : `${it.taxa_iva}%`}</td>
+                                  <td className="border border-[#bbb] text-right px-2 py-[6px] bg-[rgba(255,255,255,0.40)] font-semibold whitespace-nowrap tabular-nums">{fmt(it.subtotal_linha)}</td>
                                 </tr>
                             ))}
                             {Array.from({ length: Math.max(0, 8 - itens.length) }).map((_, k) => (<tr key={k} className="h-[28px]"><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td><td className="border border-[#bbb] bg-[rgba(255,255,255,0.40)]"></td></tr>))}
@@ -308,6 +310,8 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
               @import url('https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap');
               #fatura-pdf-wrapper{display:flex;justify-content:center;width:100%;overflow-x:hidden;background:transparent}
               #fatura-pdf{transform-origin:top center}
+             .no-scrollbar::-webkit-scrollbar{display:none}
+             .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
               @media (max-width:768px){
                 #fatura-pdf-wrapper{overflow-x:hidden!important;width:100%!important}
                 #fatura-pdf{transform:scale(0.45);transform-origin:top center;margin-bottom:-55%;width:210mm!important;min-width:210mm!important}

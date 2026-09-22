@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, extract
 from typing import Optional, List, Union
@@ -8,6 +8,7 @@ import calendar
 import logging
 from datetime import datetime, timezone
 import xml.etree.ElementTree as ET
+from io import BytesIO
 
 from app.db.session import get_db
 from app.core.security import get_current_company_id
@@ -20,6 +21,172 @@ from app.modules.realtime.manager import manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/faturas", tags=["Faturas"])
+
+def _gerar_pdf_bytes(fatura: Fatura, empresa: Company, cliente: Optional[Cliente] = None):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_RIGHT, TA_CENTER, TA_LEFT
+    import io
+    from datetime import datetime
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
+
+    s_normal = ParagraphStyle('n', fontName='Helvetica', fontSize=7.5, leading=9)
+    s_bold = ParagraphStyle('b', fontName='Helvetica-Bold', fontSize=8, leading=10)
+    s_bold9 = ParagraphStyle('b9', fontName='Helvetica-Bold', fontSize=9, leading=11)
+    s_small = ParagraphStyle('s', fontName='Helvetica', fontSize=6.5, leading=8)
+    s_title = ParagraphStyle('t', fontName='Helvetica-Bold', fontSize=12, leading=14)
+
+    def fmt(n):
+        try: return f"{float(n):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        except: return "0,00"
+    def fmtData(d):
+        try: return d.strftime("%d/%m/%Y") if d else "---"
+        except: return "---"
+
+    emp_nome = getattr(empresa, 'companyName', '') or getattr(empresa, 'nome', '---')
+    emp_nif = getattr(empresa, 'nif', '---')
+    emp_end = getattr(empresa, 'address', '') or getattr(empresa, 'endereco', '')
+    emp_tel = getattr(empresa, 'phone', '') or getattr(empresa, 'telefone', '')
+    emp_email = getattr(empresa, 'email', '')
+    emp_cidade = getattr(empresa, 'city', '') or getattr(empresa, 'cidade', '')
+    emp_iban = getattr(empresa, 'iban', '---') or '---'
+    emp_iban2 = getattr(empresa, 'iban2', '')
+    emp_banco1 = getattr(empresa, 'banco1', 'BAI')
+    emp_banco2 = getattr(empresa, 'banco2', '')
+
+    numero = fatura.numero_fatura or fatura.numero_nota_credito or fatura.numero_proforma or str(fatura.id)[:8]
+    isNC = fatura.tipo_documento == 'nota_credito'
+    isFT = fatura.tipo_documento == 'fatura'
+    titulo = 'NOTA DE CREDITO' if isNC else 'FACTURA' if isFT else 'FACTURA PROFORMA'
+
+    story = []
+
+    # TOPO - LOGO + EMPRESA
+    top_left = Paragraph(f"<b>{emp_nome}</b><br/>NIF: {emp_nif}<br/>Endereco: {emp_end}<br/>Contactos: {emp_tel}<br/>Email: {emp_email}<br/>{emp_cidade}", s_normal)
+    top_right = Paragraph(f"<b>{titulo}</b><br/>{numero}<br/><br/>Emissao: {fmtData(fatura.data_emissao)}<br/>Venc: {fmtData(fatura.data_vencimento or fatura.validade_proforma)}<br/>Hash: {(fatura.hash_agt or '---')[:30]}...<br/>Comunicado AGT: {'Sim' if fatura.comunicado_agt else 'Nao'}", s_normal)
+    t = Table([[top_left, top_right]], colWidths=[280, 220])
+    t.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'), ('BOX',(0,0),(-1,-1),0.3,colors.grey)]))
+    story.append(t)
+    story.append(Spacer(1, 10))
+
+    # CLIENTE
+    cli_nome = fatura.cliente_nome or (cliente.nome if cliente else 'Consumidor Final')
+    cli_nif = fatura.cliente_nif or '999999999'
+    cli_end = fatura.cliente_endereco or ''
+    cli_cidade = getattr(cliente, 'cidade', '') if cliente else ''
+    cli_tel = fatura.cliente_telefone or ''
+    cli_email = fatura.cliente_email or ''
+
+    story.append(Paragraph(f"<b>Cliente:</b> {cli_nome}<br/>NIF: {cli_nif}<br/>{cli_end} - {cli_cidade}<br/>{cli_tel} | {cli_email}", s_normal))
+    story.append(Spacer(1, 8))
+
+    # 6 QUADRADINHOS IGUAL SEU CODIGO
+    boxes = [
+        [Paragraph("<b>COD. CLIENTE</b><br/>"+ (str(fatura.cliente_id)[:8] if fatura.cliente_id else 'AVULSO'), s_small),
+         Paragraph("<b>DATA EMISSAO</b><br/>"+fmtData(fatura.data_emissao), s_small),
+         Paragraph("<b>DATA VENC.</b><br/>"+fmtData(fatura.data_vencimento), s_small),
+         Paragraph("<b>NIF CLIENTE</b><br/>"+cli_nif, s_small),
+         Paragraph("<b>VALIDADE PP</b><br/>"+fmtData(fatura.validade_proforma), s_small),
+         Paragraph("<b>OPERADOR</b><br/>"+emp_nome[:10], s_small)],
+    ]
+    bt = Table(boxes, colWidths=[70,70,70,80,70,140])
+    bt.setStyle(TableStyle([
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#bbbbbb")),
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#ffffff")),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+    ]))
+    story.append(bt)
+    story.append(Spacer(1, 6))
+
+    # TABELA ITENS - SEU MODELO EXATO: REF | PRODUTO | QTD | UN | PRECO UNIT | DESCONTO | TAXA | VALOR
+    header = [
+        Paragraph("<b>REF</b>", ParagraphStyle('h', parent=s_small, alignment=TA_LEFT)),
+        Paragraph("<b>PRODUTO / SERVICO</b>", ParagraphStyle('h', parent=s_small, alignment=TA_LEFT)),
+        Paragraph("<b>QTD.</b>", ParagraphStyle('h', parent=s_small, alignment=TA_CENTER)),
+        Paragraph("<b>UN.</b>", ParagraphStyle('h', parent=s_small, alignment=TA_CENTER)),
+        Paragraph("<b>PRECO UNIT.</b>", ParagraphStyle('h', parent=s_small, alignment=TA_RIGHT)),
+        Paragraph("<b>DESCONTO</b>", ParagraphStyle('h', parent=s_small, alignment=TA_RIGHT)),
+        Paragraph("<b>TAXA</b>", ParagraphStyle('h', parent=s_small, alignment=TA_CENTER)),
+        Paragraph("<b>VALOR (AKZ)</b>", ParagraphStyle('h', parent=s_small, alignment=TA_RIGHT)),
+    ]
+    data = [header]
+    for it in fatura.itens:
+        ref = (it.nome_snapshot[:10] if hasattr(it,'nome_snapshot') else '---')
+        # NOME QUEBRA EMBAIXO - NAO CORTA
+        prod_style = ParagraphStyle('prod', parent=s_normal, fontSize=7, leading=9, alignment=TA_LEFT)
+        prod = Paragraph(it.nome_snapshot or '---', prod_style)
+        qtd = Paragraph(f"{float(it.quantidade or 0):.0f}", ParagraphStyle('c', parent=s_small, alignment=TA_CENTER))
+        un = Paragraph("UN", ParagraphStyle('c', parent=s_small, alignment=TA_CENTER))
+        preco = Paragraph(f"<para alignment=right>{fmt(it.preco_unit_snapshot)}</para>", s_small)
+        desc = Paragraph(f"<para alignment=right>{fmt(getattr(it,'desconto_valor',0) or 0) if float(getattr(it,'desconto_perc',0) or 0)>0 else '-'}</para>", s_small)
+        taxa = Paragraph(f"<para alignment=center>{'Isento' if float(it.iva_percent or 0)==0 else f'{float(it.iva_percent):.0f}%'}</para>", s_small)
+        valor = Paragraph(f"<para alignment=right><b>{fmt(it.subtotal_linha)}</b></para>", s_small)
+        data.append([Paragraph(ref[:12], s_small), prod, qtd, un, preco, desc, taxa, valor])
+
+    for _ in range(max(0, 8 - len(fatura.itens))):
+        data.append([Paragraph("", s_small) for _ in range(8)])
+
+    colW = [48, 175, 28, 22, 62, 48, 32, 85]
+    it_table = Table(data, colWidths=colW, repeatRows=1)
+    it_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#C2C2C2")),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#999999")),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('TOPPADDING', (0,0), (-1,-1), 5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('LEFTPADDING', (0,0), (-1,-1), 3),
+        ('RIGHTPADDING', (0,0), (-1,-1), 3),
+    ]))
+    story.append(it_table)
+    story.append(Spacer(1, 6))
+
+    # IMPOSTO + TOTAIS
+    liquido = float(fatura.subtotal or 0)
+    iva_val = float(fatura.total_iva or 0)
+    pagar = float(fatura.total_geral or 0)
+    desconto = 0
+
+    imp_data = [
+        [Paragraph("<b>IMPOSTO</b>", s_small), Paragraph("<b>TAXA</b>", s_small), Paragraph("<b>INCIDENCIA</b>", s_small), Paragraph("<b>VALOR</b>", s_small), Paragraph("", s_small), Paragraph("<para alignment=right>Total Liquido</para>", s_small), Paragraph(f"<para alignment=right>{fmt(liquido)}</para>", s_small)],
+        [Paragraph("IVA 14%" if iva_val>0 else "*M04 Isento", s_small), Paragraph("14%" if iva_val>0 else "Isento", s_small), Paragraph(f"<para alignment=right>{fmt(liquido)}</para>", s_small), Paragraph(f"<para alignment=right>{fmt(iva_val)}</para>", s_small), Paragraph("", s_small), Paragraph("<para alignment=right>Total Desconto</para>", s_small), Paragraph(f"<para alignment=right>{fmt(desconto)}</para>", s_small)],
+        [Paragraph("", s_small), Paragraph("", s_small), Paragraph("", s_small), Paragraph("", s_small), Paragraph("", s_small), Paragraph("<para alignment=right>Total IVA</para>", s_small), Paragraph(f"<para alignment=right>{fmt(iva_val)}</para>", s_small)],
+        [Paragraph("", s_small), Paragraph("", s_small), Paragraph("", s_small), Paragraph("", s_small), Paragraph("", s_small), Paragraph("<para alignment=right><b>TOTAL A PAGAR (AKZ)</b></para>", s_bold), Paragraph(f"<para alignment=right><b>{fmt(pagar)}</b></para>", s_bold)],
+    ]
+
+    imp_table = Table(imp_data, colWidths=[90, 35, 70, 60, 5, 95, 85])
+    imp_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (3,0), colors.HexColor("#C2C2C2")),
+        ('BACKGROUND', (5,0), (5,2), colors.HexColor("#C2C2C2")),
+        ('BACKGROUND', (5,3), (6,3), colors.HexColor("#C2C2C2")),
+        ('GRID', (0,0), (3,1), 0.5, colors.HexColor("#999999")),
+        ('GRID', (5,0), (6,3), 0.5, colors.HexColor("#999999")),
+        ('BOX', (0,0), (3,1), 0.5, colors.HexColor("#999999")),
+    ]))
+    story.append(imp_table)
+    story.append(Spacer(1, 10))
+
+    # COORDENADAS BANCARIAS
+    story.append(Paragraph(f"<b>Coordenadas Bancarias:</b><br/>IBAN - {emp_banco1}: {emp_iban}<br/>{f'IBAN - {emp_banco2}: {emp_iban2}' if emp_iban2 else ''}", s_normal))
+    story.append(Spacer(1, 6))
+    if fatura.observacoes:
+        story.append(Paragraph(f"<b>Observacoes:</b> {fatura.observacoes}", s_normal))
+        story.append(Spacer(1, 6))
+
+    story.append(Paragraph(f"Licenciado a: {emp_nome} | NIF: {emp_nif} | {emp_end} | Hash AGT validado | Pag. 1 de 1", s_small))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
 
 @router.post("", response_model=FaturaResponse, status_code=201)
 async def criar(dados: FaturaCreate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
@@ -123,7 +290,6 @@ def gerar_saft(
 
     assert company is not None
     comp_name: str = company.companyName
-    # NIF tem que ter 10 dígitos na AGT
     comp_nif: str = str(company.nif).zfill(10)
     comp_address_detail: str = company.address or "Luanda"
     comp_city: str = company.city or "Luanda"
@@ -302,6 +468,37 @@ def gerar_saft(
         headers={"Content-Disposition": f"attachment; filename=SAFT-AO-{ano_int}-{mes_int:02d}.xml"},
     )
 
+# --- NOVA ROTA DOWNLOAD PDF ---
+@router.get("/{fatura_id}/pdf")
+def baixar_pdf_fatura(
+    fatura_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    company_id: uuid.UUID = Depends(get_current_company_id)
+):
+    fatura = db.query(Fatura).filter(Fatura.id == fatura_id, Fatura.company_id == company_id).first()
+    if not fatura:
+        raise HTTPException(404, "Fatura não encontrada")
+
+    empresa = db.query(Company).filter(Company.id == company_id).first()
+    if not empresa:
+        raise HTTPException(404, "Empresa não encontrada")
+
+    cliente = None
+    if fatura.cliente_id:
+        cliente = db.query(Cliente).filter(Cliente.id == fatura.cliente_id).first()
+
+    pdf_bytes = _gerar_pdf_bytes(fatura, empresa, cliente)
+    filename = fatura.numero_fatura or fatura.numero_nota_credito or fatura.numero_proforma or str(fatura.id)[:8]
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}.pdf",
+            "Cache-Control": "no-cache"
+        }
+    )
+
 @router.get("/numero/{numero}", response_model=FaturaResponse)
 def por_numero(numero: str, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     f = db.query(Fatura).filter(Fatura.company_id == company_id, or_(Fatura.numero_fatura == numero, Fatura.numero_proforma == numero, Fatura.numero_nota_credito == numero)).first()
@@ -365,7 +562,6 @@ async def cancelar(fatura_id: uuid.UUID, motivo: str = "", db: Session = Depends
 
 @router.post("/{fatura_id}/nota-credito", response_model=FaturaResponse)
 async def criar_nota_credito(fatura_id: uuid.UUID, dados: NotaCreditoCreate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    # Busca FT origem antes
     origem = db.query(Fatura).filter(Fatura.id == fatura_id, Fatura.company_id == company_id).first()
     if not origem:
         raise HTTPException(404, "FT origem não encontrada")
@@ -374,7 +570,6 @@ async def criar_nota_credito(fatura_id: uuid.UUID, dados: NotaCreditoCreate, db:
     if origem.status == 'cancelada':
         raise HTTPException(400, f"FT já cancelada/anulada - verifique NC existente")
 
-    # Verifica se já tem NC para essa FT
     ja_tem_nc = db.query(Fatura).filter(
         Fatura.company_id == company_id,
         Fatura.fatura_origem_id == fatura_id,
@@ -384,18 +579,12 @@ async def criar_nota_credito(fatura_id: uuid.UUID, dados: NotaCreditoCreate, db:
     if ja_tem_nc:
         raise HTTPException(400, f"Esta FT já possui NC {ja_tem_nc.numero_nota_credito} - {ja_tem_nc.motivo_credito}")
 
-    # Cria NC (mantém hash chain separado - obrigatório AGT)
     result = fatura_service.criar_nota_credito(db, company_id, fatura_id, dados.motivo, dados.observacoes)
 
-    # AGORA A ALTERAÇÃO ACONTECE NA MESMA FT - marca como anulada
-    # Isso resolve o seu print: FT não fica mais ativa
     try:
         origem.status = 'cancelada'
-        # Guarda motivo da anulação na própria FT
         motivo_formatado = dados.motivo
-        # Se motivo for código 01-05, mantém
         if motivo_formatado not in ['01','02','03','04','05']:
-            # tenta extrair código do texto
             if 'Devolução' in motivo_formatado:
                 motivo_formatado = '01 - Devolução de mercadoria'
             elif 'Desconto' in motivo_formatado:

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { FileText, Eye, Search, ChevronDown, Check, Ban, AlertTriangle, Lock } from 'lucide-react'
+import { FileText, Eye, Search, ChevronDown, Check, Ban, Lock, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { TabEmitidasSkeleton } from '../../../../components/CardsSkeleton'
 import { api } from '../../../../lib/api'
@@ -30,9 +30,9 @@ const MOTIVOS_MAP: Record<string, string> = {
 
 const CARGOS_PERMISSOES: Record<string, string[]> = {
     admin: ["*"],
-    financeira: ["ver_faturas", "emitir_nc", "ver_nc"],
+    financeira: ["ver_faturas", "emitir_nc", "ver_nc", "baixar_fatura"],
     rh: [],
-    recepcao: ["ver_faturas"]
+    recepcao: ["ver_faturas", "baixar_fatura"]
 }
 
 function temPermissao(cargo: string, perm: string) {
@@ -66,8 +66,8 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
         try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
     }, [])
     const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
-    const podeEmitirNC = funcionarioLogado? temPermissao(cargoAtual, 'emitir_nc') || cargoAtual === 'admin' : true
-    const podeVer = funcionarioLogado? temPermissao(cargoAtual, 'ver_faturas') || temPermissao(cargoAtual, 'ver_nc') || cargoAtual === 'admin' : true
+    const podeEmitirNC = funcionarioLogado ? temPermissao(cargoAtual, 'emitir_nc') || cargoAtual === 'admin' : true
+    const podeVer = funcionarioLogado ? temPermissao(cargoAtual, 'ver_faturas') || temPermissao(cargoAtual, 'ver_nc') || cargoAtual === 'admin' : true
 
     const updatePosition = () => {
         if (btnRef.current) {
@@ -89,7 +89,7 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
     }, [openSelect])
     useEffect(() => {
         const close = (e: MouseEvent) => {
-            if (wrapperRef.current &&!wrapperRef.current.contains(e.target as Node) &&!(e.target as HTMLElement).closest('[data-select-dropdown]')) {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node) && !(e.target as HTMLElement).closest('[data-select-dropdown]')) {
                 setOpenSelect(false)
             }
         }
@@ -124,7 +124,7 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
     if (!podeVer) {
         return (
             <div className="w-full px-4 sm:px-0 text-center py-16 bg-white rounded-[20px] border">
-                <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2"/>
+                <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2" />
                 <p className="text-[13px] text-gray-500">Cargo <b>{cargoAtual}</b> não pode ver FT/NC</p>
             </div>
         )
@@ -135,15 +135,15 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
             const isNC = f.tipo_documento === 'nota_credito'
             const hasNC = faturaOrigemComNC.has(f.id)
 
-            if (filtro === 'nota_credito' &&!isNC) return false
-            if (filtro!== 'todos' && filtro!== 'nota_credito' && isNC) return false
+            if (filtro === 'nota_credito' && !isNC) return false
+            if (filtro !== 'todos' && filtro !== 'nota_credito' && isNC) return false
 
             let matchFiltro = true
-            if (filtro === 'emitida') matchFiltro = f.status === 'emitida' &&!hasNC &&!isNC
-            if (filtro === 'concluida') matchFiltro = f.status === 'concluida' &&!isNC
+            if (filtro === 'emitida') matchFiltro = f.status === 'emitida' && !hasNC && !isNC
+            if (filtro === 'concluida') matchFiltro = f.status === 'concluida' && !isNC
             if (filtro === 'cancelada') matchFiltro = f.status === 'cancelada' || hasNC
 
-            const matchSearch = search === ''? true :
+            const matchSearch = search === '' ? true :
                 getNumero(f).toLowerCase().includes(search.toLowerCase()) ||
                 (f.hash_agt || '').toLowerCase().includes(search.toLowerCase()) ||
                 (f.cliente_nome || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -165,7 +165,7 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
     }
 
     const handleConfirmNC = async () => {
-        if (!selectedMotivo ||!selectedFatura) return
+        if (!selectedMotivo || !selectedFatura) return
         if (!podeEmitirNC) { toast.error('Sem permissão'); return }
         setLoadingNC(true)
         try {
@@ -206,7 +206,7 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
                     <div ref={wrapperRef} className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-40">
                         <button ref={btnRef} onClick={() => setOpenSelect(!openSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
                             <span className="text-gray-900">{OPTIONS.find(o => o.value === filtro)?.label} • {cargoAtual.toUpperCase()}</span>
-                            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openSelect? 'rotate-180' : ''}`} />
+                            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openSelect ? 'rotate-180' : ''}`} />
                         </button>
                     </div>
                     <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-0">
@@ -218,7 +218,7 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
                 {openSelect && (
                     <div data-select-dropdown style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
                         {OPTIONS.map(opt => (
-                            <button key={opt.value} onClick={() => { setFiltro(opt.value); setOpenSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${filtro === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                            <button key={opt.value} onClick={() => { setFiltro(opt.value); setOpenSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${filtro === opt.value ? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
                                 {opt.label}
                                 {filtro === opt.value && <Check className="w-4 h-4 text-[#0095ff]" />}
                             </button>
@@ -226,14 +226,14 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
                     </div>
                 )}
 
-                {filtradas.length === 0? (
+                {filtradas.length === 0 ? (
                     <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhuma fatura emita ( FT/NC)</p>
                 ) : (
                     <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                         {filtradas.map(f => {
                             const ncVinculada = ncPorOrigem.get(f.id)
                             return (
-                                <FaturaCard key={f.id} fatura={f} ncVinculada={ncVinculada} clienteProp={cliente} onView={setViewFatura} onOpenNC={handleOpenNC} podeEmitirNC={podeEmitirNC} cargoAtual={cargoAtual} />
+                                <FaturaCard key={f.id} fatura={f} ncVinculada={ncVinculada} clienteProp={cliente} empresa={empresa} onView={setViewFatura} onOpenNC={handleOpenNC} podeEmitirNC={podeEmitirNC} cargoAtual={cargoAtual} />
                             )
                         })}
                     </div>
@@ -243,7 +243,7 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
             {podeEmitirNC && (
                 <ModalMotivoNC
                     open={showMotivo}
-                    faturaNumero={selectedFatura?.numero_fatura || (selectedFatura? getNumero(selectedFatura) : '')}
+                    faturaNumero={selectedFatura?.numero_fatura || (selectedFatura ? getNumero(selectedFatura) : '')}
                     loading={loadingNC}
                     selected={selectedMotivo}
                     setSelected={setSelectedMotivo}
@@ -255,54 +255,92 @@ export default function TabEmitidas({ faturas, cliente, empresa, onRefresh, load
     )
 }
 
-function FaturaCard({ fatura, ncVinculada, clienteProp, onView, onOpenNC, podeEmitirNC, cargoAtual }: { fatura: any; ncVinculada?: any; clienteProp?: any | null; onView: (f: any) => void; onOpenNC: (f: any) => void; podeEmitirNC: boolean; cargoAtual: string }) {
-    const isCancel = fatura.status === 'cancelada' ||!!ncVinculada
+function FaturaCard({ fatura, ncVinculada, clienteProp, empresa, onView, onOpenNC, podeEmitirNC, cargoAtual }: { fatura: any; ncVinculada?: any; clienteProp?: any | null; empresa?: any; onView: (f: any) => void; onOpenNC: (f: any) => void; podeEmitirNC: boolean; cargoAtual: string }) {
+    const isCancel = fatura.status === 'cancelada' || !!ncVinculada
     const isNC = isNotaCredito(fatura)
-    const initials = isNC? 'NC' : ncVinculada? 'NC' : getNumero(fatura)?.slice(0, 2).toUpperCase() || 'FT'
+    const initials = isNC ? 'NC' : ncVinculada ? 'NC' : getNumero(fatura)?.slice(0, 2).toUpperCase() || 'FT'
     const nomeCliente = fatura.cliente_nome || clienteProp?.nome || 'Cliente Avulso'
     const nifCliente = fatura.cliente_nif || clienteProp?.nif || ''
-    const motivoLabel = ncVinculada? (MOTIVOS_MAP[ncVinculada.motivo_credito] || ncVinculada.motivo_credito) : ''
+    const motivoLabel = ncVinculada ? (MOTIVOS_MAP[ncVinculada.motivo_credito] || ncVinculada.motivo_credito) : ''
+
+    const [downloading, setDownloading] = useState(false)
+
+    const podeBaixar = useMemo(() => {
+        try {
+            const raw = localStorage.getItem("funcionario")
+            const cargo = raw ? JSON.parse(raw)?.cargo?.toLowerCase() : cargoAtual
+            return temPermissao(cargo, 'baixar_fatura')
+        } catch { return true }
+    }, [cargoAtual])
+
+    const handleDownload = async () => {
+        if (!podeBaixar) { toast.error('Sem permissão para baixar'); return }
+        setDownloading(true)
+        try {
+            const idParaBaixar = ncVinculada?.id || fatura.id
+            const res = await api.get(`/api/faturas/${idParaBaixar}/pdf`, { responseType: 'blob' })
+            const blob = new Blob([res.data], { type: 'application/pdf' })
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `${getNumero(ncVinculada || fatura)}.pdf`
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
+            window.URL.revokeObjectURL(url)
+            toast.success(`Baixado: ${getNumero(ncVinculada || fatura)}.pdf`)
+        } catch (err: any) {
+            const msg = err.response?.data?.detail || err.message
+            console.error(msg)
+            onView(ncVinculada || fatura)
+            toast.info('PDF não gerado no servidor, abrindo para imprimir')
+        } finally {
+            setDownloading(false)
+        }
+    }
 
     return (
-        <div className={`w-full min-w-[calc(100vw-32px)] md:min-w-[320px] md:max-w-[320px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border flex flex-col ${ncVinculada? 'border-red-200' : 'border-gray-100'}`}>
-            <div className={`relative h-[90px] ${isNC || ncVinculada? 'bg-[#FFEBEB]' : 'bg-[#E6F0FF]'}`}>
-                <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[10px] font-bold shadow-sm border bg-white max-w-[70%] truncate ${isNC || ncVinculada? 'text-red-600 border-red-200' : isCancel? 'text-red-600 border-red-200' : 'text-green-700 border-green-200'}`}>
-                    {ncVinculada? `${getNumero(fatura)}. Anulada • ${cargoAtual.toUpperCase()}` : `${getNumero(fatura)} • ${isNC? 'NC' : fatura.status}`}
+        <div className={`w-full min-w-[calc(100vw-32px)] md:min-w-[320px] md:max-w-[320px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border flex flex-col ${ncVinculada ? 'border-red-200' : 'border-gray-100'}`}>
+            <div className={`relative h-[90px] ${isNC || ncVinculada ? 'bg-[#FFEBEB]' : 'bg-[#E6F0FF]'}`}>
+                <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[10px] font-bold shadow-sm border bg-white max-w-[70%] truncate ${isNC || ncVinculada ? 'text-red-600 border-red-200' : isCancel ? 'text-red-600 border-red-200' : 'text-green-700 border-green-200'}`}>
+                    {ncVinculada ? `${getNumero(fatura)}. Anulada • ${cargoAtual.toUpperCase()}` : `${getNumero(fatura)} • ${isNC ? 'NC' : fatura.status}`}
                 </div>
                 {!podeEmitirNC && <div className="absolute top-3 left-3 bg-black/70 text-white px-2 py-1 rounded-full text-[8px] font-bold">LEITURA</div>}
                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white">
-                    <div className={`w-full h-full rounded-full flex items-center justify-center text-[18px] font-bold text-white ${isNC || ncVinculada? 'bg-red-500' : 'bg-[#0095ff]'}`}>{initials}</div>
+                    <div className={`w-full h-full rounded-full flex items-center justify-center text-[18px] font-bold text-white ${isNC || ncVinculada ? 'bg-red-500' : 'bg-[#0095ff]'}`}>{initials}</div>
                 </div>
             </div>
             <div className="pt-14 px-5 pb-4">
-                <h3 className="font-bold text-[14px] text-gray-900 leading-tight truncate">{ncVinculada? `${getNumero(fatura)} → ${getNumero(ncVinculada)}` : getNumero(fatura)}</h3>
-                <p className="text-[11px] font-semibold text-gray-800 truncate mt-1">{nomeCliente} {nifCliente? `• ${nifCliente}` : ''} {!fatura.cliente_id? '(Avulso)' : ''}</p>
-                {ncVinculada? (
+                <h3 className="font-bold text-[14px] text-gray-900 leading-tight truncate">{ncVinculada ? `${getNumero(fatura)} → ${getNumero(ncVinculada)}` : getNumero(fatura)}</h3>
+                <p className="text-[11px] font-semibold text-gray-800 truncate mt-1">{nomeCliente} {nifCliente ? `• ${nifCliente}` : ''} {!fatura.cliente_id ? '(Avulso)' : ''}</p>
+                {ncVinculada ? (
                     <div className="mt-1 bg-red-50 border border-red-100 rounded-[10px] px-2 py-1.5">
                         <p className="text-[10px] text-red-600 font-bold truncate">{motivoLabel}</p>
                         <p className="text-[9px] text-red-500 truncate">NC {ncVinculada.numero_nota_credito} • Hash {ncVinculada.hash_agt?.slice(0, 12)}... • Anula FT</p>
                     </div>
-                ) : isNC? (
+                ) : isNC ? (
                     <p className="text-[10px] text-red-500 truncate">Ref FT: {fatura.fatura_origem_id?.slice(0, 8) || '---'} • Motivo: {fatura.motivo_credito}</p>
                 ) : (
-                    <p className="text-[10px] text-gray-400 truncate">PP origem: {fatura.proforma_origem_id? fatura.proforma_origem_id.slice(0, 8) : 'Direta'} • Conta no limite do plano</p>
+                    <p className="text-[10px] text-gray-400 truncate">PP origem: {fatura.proforma_origem_id ? fatura.proforma_origem_id.slice(0, 8) : 'Direta'} • Conta no limite do plano</p>
                 )}
                 <div className="mt-2 flex flex-col gap-0.5">
-                    <p className={`text-[13px] font-bold truncate ${isNC || ncVinculada? 'text-red-600 line-through' : 'text-gray-900'}`}>{getTotal(fatura).toFixed(2)} KZ • {fatura.forma_pagamento}</p>
-                    <p className="text-[10px] text-gray-500 truncate">Data: {fatura.data_emissao? new Date(fatura.data_emissao).toLocaleDateString('pt-AO') : ''}</p>
-                    <p className="text-[9px] text-gray-400 break-all">Hash: {fatura.hash_agt? fatura.hash_agt.slice(0, 24) + '...' : '---'}</p>
-                    {fatura.comunicado_agt && <span className={`text-[9px] border px-2 py-0.5 rounded-full w-fit mt-1 ${isNC || ncVinculada? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>{ncVinculada? `Anulada por ${ncVinculada.numero_nota_credito}` : isNC? 'NC Comunicada AGT' : 'Comunicado AGT'}</span>}
+                    <p className={`text-[13px] font-bold truncate ${isNC || ncVinculada ? 'text-red-600 line-through' : 'text-gray-900'}`}>{getTotal(fatura).toFixed(2)} KZ • {fatura.forma_pagamento}</p>
+                    <p className="text-[10px] text-gray-500 truncate">Data: {fatura.data_emissao ? new Date(fatura.data_emissao).toLocaleDateString('pt-AO') : ''}</p>
+                    <p className="text-[9px] text-gray-400 break-all">Hash: {fatura.hash_agt ? fatura.hash_agt.slice(0, 24) + '...' : '---'}</p>
+                    {fatura.comunicado_agt && <span className={`text-[9px] border px-2 py-0.5 rounded-full w-fit mt-1 ${isNC || ncVinculada ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>{ncVinculada ? `Anulada por ${ncVinculada.numero_nota_credito}` : isNC ? 'NC Comunicada AGT' : 'Comunicado AGT'}</span>}
                 </div>
-                {!isNC &&!ncVinculada &&!isCancel && (
-                    <button disabled={!podeEmitirNC} onClick={() => onOpenNC(fatura)} className={`mt-3 w-full h-[36px] rounded-full text-[11px] font-bold border transition flex items-center justify-center gap-1 ${podeEmitirNC? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100' : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'}`}>
-                        <Ban className="w-3.5 h-3.5" /> Emitir Nota de Crédito {podeEmitirNC? '' : '(sem permissão)'}
+                {!isNC && !ncVinculada && !isCancel && (
+                    <button disabled={!podeEmitirNC} onClick={() => onOpenNC(fatura)} className={`mt-3 w-full h-[36px] rounded-full text-[11px] font-bold border transition flex items-center justify-center gap-1 ${podeEmitirNC ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100' : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'}`}>
+                        <Ban className="w-3.5 h-3.5" /> Emitir Nota de Crédito {podeEmitirNC ? '' : '(sem permissão)'}
                     </button>
                 )}
             </div>
             <div className="grid grid-cols-3 border-t border-gray-100 mt-auto">
-                <button onClick={() => onView(ncVinculada || fatura)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group"><Eye className="w-4 h-4 text-gray-600 group-hover:text-black" /></button>
-                <button onClick={() => onView(ncVinculada || fatura)} className="py-3.5 flex justify-center border-x border-gray-100 hover:bg-gray-50 transition group"><FileText className="w-4 h-4 text-gray-600 group-hover:text-blue-600" /></button>
-                <button className="py-3.5 flex justify-center hover:bg-gray-50 transition group"><div className={`w-2.5 h-2.5 rounded-full ${isNC || ncVinculada? 'bg-red-500' : isCancel? 'bg-red-500' : 'bg-green-500'}`} /></button>
+                <button onClick={() => onView(ncVinculada || fatura)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group" title="Ver"><Eye className="w-4 h-4 text-gray-600 group-hover:text-black" /></button>
+                <button onClick={() => onView(ncVinculada || fatura)} className="py-3.5 flex justify-center border-x border-gray-100 hover:bg-gray-50 transition group" title="Detalhes"><FileText className="w-4 h-4 text-gray-600 group-hover:text-blue-600" /></button>
+                <button onClick={handleDownload} disabled={downloading || !podeBaixar} className="py-3.5 flex justify-center hover:bg-gray-50 transition group disabled:opacity-50" title={podeBaixar ? 'Baixar PDF' : 'Sem permissão'}>
+                    {downloading ? <div className="w-4 h-4 border-2 border-gray-300 border-t-black rounded-full animate-spin" /> : <Download className={`w-4 h-4 ${isNC || ncVinculada ? 'text-red-500' : 'text-[#0095ff]'} group-hover:scale-110 transition`} />}
+                </button>
             </div>
         </div>
     )

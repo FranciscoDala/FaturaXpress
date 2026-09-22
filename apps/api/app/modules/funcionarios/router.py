@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Query, File, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 import uuid
 import io
@@ -111,15 +111,16 @@ def falta_get_anexo(
         else:
             signed_url = stored_url
 
-        r = requests.get(signed_url, stream=True, timeout=30)
+        r = requests.get(signed_url, timeout=30)
         r.raise_for_status()
+        content = r.content
         media_type = r.headers.get("Content-Type", "").split(";", 1)[0]
         if not media_type or media_type == "application/octet-stream":
             media_type = "application/pdf" if is_pdf else "image/png"
         extension = "pdf" if is_pdf else (media_type.split("/", 1)[-1] or "bin")
 
-        return StreamingResponse(
-            r.iter_content(chunk_size=8192),
+        return Response(
+            content=content,
             media_type=media_type,
             headers={
                 "Content-Disposition": f'inline; filename="{public_id.split("/")[-1]}.{extension}"',

@@ -116,6 +116,8 @@ export default function ModalGestaoFalta({ data, open, onClose, onSaved, dataSel
 
     if (!open || !data) return null
     const falta = data
+    const token = localStorage.getItem('token') || localStorage.getItem('access_token') || ''
+    const comprovanteEndpoint = `/api/rh/falta/${falta.id}/anexo?token=${encodeURIComponent(token)}`
 
     const uploadAndJustificar = async () => {
         if (!podeJustificar) { toast.error('Sem permissão para justificar'); return }
@@ -221,7 +223,7 @@ export default function ModalGestaoFalta({ data, open, onClose, onSaved, dataSel
                                     {falta.justificativa_anexo_url && (
                                         <div className="mt-2">
                                             {falta.justificativa_anexo_url.includes('pdf') || falta.justificativa_anexo_url.startsWith('data:application') ?
-                                                <a href={falta.justificativa_anexo_url} target="_blank" rel="noreferrer" className="w-full h-[40px] bg-black text-white rounded-[12px] flex items-center justify-center gap-2 text-[12px] font-bold"><Eye className="w-4 h-4" /> Abrir Comprovante</a> :
+                                                <a href={falta.justificativa_anexo_url.startsWith('data:') ? falta.justificativa_anexo_url : comprovanteEndpoint} target="_blank" rel="noreferrer" className="w-full h-[40px] bg-black text-white rounded-[12px] flex items-center justify-center gap-2 text-[12px] font-bold"><Eye className="w-4 h-4" /> Abrir Comprovante</a> :
                                                 <img src={falta.justificativa_anexo_url} alt="doc" className="w-full max-h-[200px] object-contain rounded-[12px] border" />}
                                         </div>
                                     )}

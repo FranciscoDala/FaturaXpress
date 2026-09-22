@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Query, File, UploadFile
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 import uuid
 import io
@@ -89,37 +89,42 @@ def falta_get_anexo(
     if not stored_url:
         raise HTTPException(status_code=404, detail="Falta sem anexo")
 
-    is_pdf = stored_url.lower().split("?", 1)[0].endswith(".pdf")
-
-    # Imagens públicas podem ser abertas diretamente pelo CDN.
-    if "/image/upload/" in stored_url and not is_pdf:
-        return RedirectResponse(stored_url, status_code=302)
-
     try:
         if "cloudinary.com" not in stored_url or "/upload/" not in stored_url:
             raise ValueError("URL de anexo inválida")
 
-        resource_type = "raw" if "/raw/upload/" in stored_url else "image"
+        is_raw = "/raw/upload/" in stored_url
+        is_pdf = stored_url.lower().split("?", 1)[0].endswith(".pdf")
         public_id = stored_url.split("/upload/", 1)[1].split("?", 1)[0]
         public_id = re.sub(r"^v\d+/", "", public_id)
         public_id = re.sub(r"^s--[A-Za-z0-9_-]+--/", "", public_id)
         public_id = public_id.rsplit(".", 1)[0]
 
-        signed_url = cloudinary.utils.private_download_url(
-            public_id,
-            "pdf" if is_pdf else "",
-            resource_type=resource_type,
-            type="upload",
-            expires_at=int(time.time()) + 3600
-        )
+        if is_raw:
+            signed_url = cloudinary.utils.private_download_url(
+                public_id,
+                "pdf" if is_pdf else "",
+                resource_type="raw",
+                type="upload",
+                expires_at=int(time.time()) + 3600,
+            )
+        else:
+            signed_url = stored_url
 
         r = requests.get(signed_url, stream=True, timeout=30)
         r.raise_for_status()
+        media_type = r.headers.get("Content-Type", "").split(";", 1)[0]
+        if not media_type or media_type == "application/octet-stream":
+            media_type = "application/pdf" if is_pdf else "image/png"
+        extension = "pdf" if is_pdf else (media_type.split("/", 1)[-1] or "bin")
 
         return StreamingResponse(
             r.iter_content(chunk_size=8192),
-            media_type="application/pdf" if is_pdf else "application/octet-stream",
-            headers={"Content-Disposition": f"inline; filename={public_id.split('/')[-1]}.pdf"}
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f'inline; filename="{public_id.split("/")[-1]}.{extension}"',
+                "Cache-Control": "no-store",
+            },
         )
     except (requests.RequestException, ValueError) as e:
         logger.error(f"[ANEXO] falha proxy pdf {e} url={stored_url}")

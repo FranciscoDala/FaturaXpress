@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { api, baseURL } from '../../../../lib/api'
+import { api, apiRoot } from '../../../../lib/api'
 import { toast } from 'sonner'
 import { X, Check, FileText, Upload, Eye, Info, Loader2, Lock, ChevronDown } from 'lucide-react'
 
@@ -117,7 +117,7 @@ export default function ModalGestaoFalta({ data, open, onClose, onSaved, dataSel
     if (!open || !data) return null
     const falta = data
     const token = localStorage.getItem('token') || localStorage.getItem('access_token') || ''
-    const comprovanteEndpoint = `${baseURL}/rh/falta/${falta.id}/anexo?token=${encodeURIComponent(token)}`
+    const comprovanteEndpoint = `${apiRoot}/rh/falta/${falta.id}/anexo?token=${encodeURIComponent(token)}`
 
     const uploadAndJustificar = async () => {
         if (!podeJustificar) { toast.error('Sem permissão para justificar'); return }

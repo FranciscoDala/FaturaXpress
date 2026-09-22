@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 
 const raw = import.meta.env.VITE_API_URL || 'https://faturaxpress-backend.onrender.com/api'
 const baseURL = raw.replace(/\/$/, '')
+const apiRoot = baseURL.endsWith('/api') ? baseURL : `${baseURL}/api`
 
 const api = axios.create({
     baseURL,
@@ -45,4 +46,4 @@ api.interceptors.response.use(
         return Promise.reject(error)
     }
 )
-export { api, baseURL }
+export { api, baseURL, apiRoot }

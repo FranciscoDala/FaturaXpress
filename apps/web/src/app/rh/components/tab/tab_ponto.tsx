@@ -180,19 +180,21 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
                                     {falta? (
                                       <div className="mt-1.5 flex flex-wrap gap-1">
                                         {isJustificada? (
-                                          <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-green-50 border border-green-200 text-[11px] text-green-800">
-                                            Motivo: {prettyFalta(falta.motivo)} • <span className="font-bold ml-1">Falta justificada</span>
+                                          <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0 px-2.5 py-1 rounded-full bg-green-50 border border-green-200 text-[11px] leading-[14px] text-green-800 max-w-full">
+                                            <span className="whitespace-nowrap">Motivo: {prettyFalta(falta.motivo)} •</span>
+                                            <span className="font-bold whitespace-nowrap">Falta justificada</span>
                                           </span>
                                         ) : isRejeitada? (
-                                          <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] text-red-700">
-                                            Motivo: {prettyFalta(falta.motivo)} • <span className="font-bold ml-1">Justificação não aceite</span>
+                                          <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0 px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] leading-[14px] text-red-700 max-w-full">
+                                            <span className="whitespace-nowrap">Motivo: {prettyFalta(falta.motivo)} •</span>
+                                            <span className="font-bold whitespace-nowrap">Justificação não aceite</span>
                                           </span>
                                         ) : (
                                           <>
-                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] text-red-700">
+                                            <span className="inline-flex flex-wrap items-center px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] leading-[14px] text-red-700 max-w-full">
                                               Motivo: {prettyFalta(falta.motivo)}
                                             </span>
-                                            <button onClick={() => setAuditData({...falta, _kind: 'falta' } as AuditData)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-bold hover:bg-amber-100">
+                                            <button onClick={() => setAuditData({...falta, _kind: 'falta' } as AuditData)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-bold hover:bg-amber-100 whitespace-nowrap">
                                               <Info className="w-3 h-3"/> Ver motivo
                                             </button>
                                           </>
@@ -201,7 +203,7 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
                                     ) : lista.length === 0? (
                                       <div className="mt-1.5 flex flex-wrap gap-1 items-center">
                                         <span className="text-[11px] text-black/60">Sem ponto em {formatDisplay(dataSelecionada)}</span>
-                                        {atrasos > 0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium">{atrasos} atraso</span>}
+                                        {atrasos > 0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium whitespace-nowrap">{atrasos} atraso</span>}
                                       </div>
                                     ) : (
                                       <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -209,25 +211,25 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
                                           const isAtraso =!!(p.atraso_min && p.atraso_min > 0);
                                           if (isAtraso) {
                                             return (
-                                              <span key={p.id} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] border bg-amber-50 border-amber-200 text-amber-800 font-medium">
+                                              <span key={p.id} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] border bg-amber-50 border-amber-200 text-amber-800 font-medium whitespace-nowrap">
                                                 Entrou ás {new Date(p.timestamp).toLocaleTimeString('pt-AO')} ({formatAtraso(p.atraso_min!)})
                                               </span>
                                             )
                                           }
                                           return (
-                                            <span key={p.id} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] border ${p.tipo === 'entrada'? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff] font-semibold' : 'bg-gray-50 border-gray-200 text-black/60'}`}>
+                                            <span key={p.id} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] border whitespace-nowrap ${p.tipo === 'entrada'? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff] font-semibold' : 'bg-gray-50 border-gray-200 text-black/60'}`}>
                                               {p.tipo} {new Date(p.timestamp).toLocaleTimeString('pt-AO')}
                                             </span>
                                           )
                                         })}
-                                        {atrasos > 0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium">{atrasos} atraso</span>}
+                                        {atrasos > 0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium whitespace-nowrap">{atrasos} atraso</span>}
                                       </div>
                                     )}
                                 </div>
                                 <div className="flex gap-1.5 shrink-0">
                                   {falta? (
-                                    <span className="h-[26px] px-3 flex items-center text-[11px] bg-red-600 text-white rounded-full font-medium">Falta</span>
-                                  ) :!temEntrada? (<><button disabled={batendo === f.id ||!podeBater} onClick={() => bater(f.id, 'entrada')} className={`h-[26px] px-3 rounded-full text-[11px] font-medium disabled:opacity-50 ${podeBater? 'bg-[#0095ff] text-white hover:bg-[#0085e6]' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>Entrada</button><button disabled={!podeGerirFalta} onClick={() => podeGerirFalta && setOpenFalta({ open: true, func: f })} className={`h-[26px] px-3 rounded-full text-[11px] font-medium ${podeGerirFalta? 'bg-red-50 border border-red-200 text-red-600 hover:bg-red-100' : 'bg-gray-100 text-gray-400 cursor-not-allowed border'}`}>Falta</button></>) :!temSaida? (<button disabled={batendo === f.id ||!podeBater} onClick={() => bater(f.id, 'saida')} className={`h-[26px] px-3 border rounded-full text-[11px] ${podeBater? 'bg-white text-black hover:bg-gray-50' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>Saída</button>) : (<span className="h-[26px] px-3 flex items-center text-[11px] bg-gray-100 text-black rounded-full border">Completo</span>)}
+                                    <span className="h-[26px] px-3 flex items-center text-[11px] bg-red-600 text-white rounded-full font-medium whitespace-nowrap">Falta</span>
+                                  ) :!temEntrada? (<><button disabled={batendo === f.id ||!podeBater} onClick={() => bater(f.id, 'entrada')} className={`h-[26px] px-3 rounded-full text-[11px] font-medium disabled:opacity-50 whitespace-nowrap ${podeBater? 'bg-[#0095ff] text-white hover:bg-[#0085e6]' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>Entrada</button><button disabled={!podeGerirFalta} onClick={() => podeGerirFalta && setOpenFalta({ open: true, func: f })} className={`h-[26px] px-3 rounded-full text-[11px] font-medium whitespace-nowrap ${podeGerirFalta? 'bg-red-50 border border-red-200 text-red-600 hover:bg-red-100' : 'bg-gray-100 text-gray-400 cursor-not-allowed border'}`}>Falta</button></>) :!temSaida? (<button disabled={batendo === f.id ||!podeBater} onClick={() => bater(f.id, 'saida')} className={`h-[26px] px-3 border rounded-full text-[11px] whitespace-nowrap ${podeBater? 'bg-white text-black hover:bg-gray-50' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>Saída</button>) : (<span className="h-[26px] px-3 flex items-center text-[11px] bg-gray-100 text-black rounded-full border whitespace-nowrap">Completo</span>)}
                                 </div>
                             </div>
                         )

@@ -349,7 +349,7 @@ def notificacao_lida(notificacao_id: uuid.UUID, db: Session = Depends(get_db), c
     if not notif:
         raise HTTPException(404, "Notificação não encontrada")
     notif.lida = True
-    notif.status = "lida"
+    # NÃO muda status pra "lida", mantém pendente pra não ir pro histórico antes da hora
     db.commit()
     return {"ok": True}
 
@@ -387,3 +387,14 @@ def atraso_aplicar_falta_alias(funcionario_id: uuid.UUID, payload: dict, db: Ses
 @rh_router.post("/atrasos/{funcionario_id}/ignorar-atraso")
 def atraso_ignorar_alias(funcionario_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return func_service.ignorar_atrasos(db, company_id, funcionario_id)
+
+
+
+@rh_router.post("/falta/{falta_id}/ignorar")
+def falta_ignorar(falta_id: uuid.UUID, payload: dict = {}, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+    ignorado_por_id = payload.get("ignorado_por_id") or payload.get("aprovado_por_id")
+    try:
+        iid = uuid.UUID(ignorado_por_id) if ignorado_por_id else None
+    except:
+        iid = None
+    return func_service.ignorar_falta(db, company_id, falta_id, iid)

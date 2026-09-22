@@ -195,7 +195,7 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
                                           if (isAtraso) {
                                             return (
                                               <span key={p.id} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] border bg-amber-50 border-amber-200 text-amber-800 font-medium">
-                                                entrada {new Date(p.timestamp).toLocaleTimeString('pt-AO')} ({formatAtraso(p.atraso_min!)})
+                                                Entrou ás {new Date(p.timestamp).toLocaleTimeString('pt-AO')} ({formatAtraso(p.atraso_min!)})
                                               </span>
                                             )
                                           }

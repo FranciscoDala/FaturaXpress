@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Bell, Clock, Check, X, ArrowUpRight, History, User, FileText, Eye, FileCheck2, RefreshCw, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { api, baseURL } from '../../../../lib/api'
+import { api, apiRoot } from '../../../../lib/api'
 
 type Props = { cargoAtual: string }
 
@@ -66,7 +66,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
 
     const abrirComprovante = async (faltaId: string) => {
         const token = localStorage.getItem("token") || localStorage.getItem("access_token") || ""
-        const url = `${baseURL}/rh/falta/${faltaId}/anexo?token=${encodeURIComponent(token)}`
+        const url = `${apiRoot}/rh/falta/${faltaId}/anexo?token=${encodeURIComponent(token)}`
         setOpeningId(faltaId)
         try {
             const response = await fetch(url)

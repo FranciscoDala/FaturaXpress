@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
-import { Search, Loader2, Check, X, Eye, ArrowUpRight, Bell } from 'lucide-react'
+import { Bell, Search, Loader2, Check, X, Eye, ArrowUpRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, apiRoot } from '../../../../lib/api'
 
@@ -14,7 +14,6 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const [expandedId, setExpandedId] = useState<string | null>(null)
     const [search, setSearch] = useState('')
     const [comprovante, setComprovante] = useState<{ url: string, type: string } | null>(null)
-    const [viewedIds, setViewedIds] = useState<Set<string>>(new Set())
     const firstLoad = useRef(true)
     const area = cargoAtual === 'admin'? 'admin' : 'rh'
 
@@ -53,20 +52,8 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         const list = tab === 'ativas'? ativas : historico
         if (!search.trim()) return list
         const s = search.toLowerCase()
-        return list.filter(n => (n.funcionario?.nome || '').toLowerCase().includes(s))
+        return list.filter(n => (n.funcionario?.nome || '').toLowerCase().includes(s) || (n.falta?.motivo || '').toLowerCase().includes(s))
     }, [ativas, historico, tab, search])
-
-    const marcarComoLida = async (notifId: string) => {
-        if (viewedIds.has(notifId)) return
-        setViewedIds(prev => new Set(prev).add(notifId))
-        try { await api.post(`/api/rh/notificacoes/${notifId}/lida`) } catch {}
-    }
-
-    const handleExpand = (n: any) => {
-        const isNew =!n.lida &&!viewedIds.has(n.notificacao_id) && n.status_notificacao === 'pendente'
-        if (isNew) marcarComoLida(n.notificacao_id)
-        setExpandedId(expandedId === n.notificacao_id? null : n.notificacao_id)
-    }
 
     const fecharComprovante = () => { if (comprovante) URL.revokeObjectURL(comprovante.url); setComprovante(null) }
     const abrirComprovante = async (faltaId: string) => {
@@ -90,6 +77,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
             toast.success('Feito'); setExpandedId(null); await fetchNotifs(true)
         } catch (e: any) { toast.error(e?.response?.data?.detail || 'Erro') } finally { setActingId(null) }
     }
+
     const handleAtraso = async (funcId: string, acao: 'aplicar' | 'ignorar' | 'encaminhar') => {
         if (!funcId) return; setActingId(funcId)
         try {
@@ -107,11 +95,13 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         <>
             <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
             <div className="bg-white rounded-[16px] border overflow-hidden">
+                {/* HEADER IGUAL DO TAB PONTO */}
                 <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 w-full">
                         <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-full bg-white border flex items-center justify-center"><Bell className="w-4 h-4 text-black" /></div>
                             <p className="text-[13px] font-bold text-black">Notificações • {ativas.length} pendentes</p>
+                            {tab === 'ativas' && ativas.length > 0 && <span className="px-2 py-0.5 rounded-full bg-[#FF3B30] text-white text-[10px] font-bold">{ativas.length}</span>}
                         </div>
                         <div className="flex items-center gap-2 w-full md:w-auto">
                             <div className="relative flex-1 md:w-[260px]">
@@ -119,14 +109,16 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[36px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[12px] text-black focus:outline-none focus:border-black" />
                             </div>
                             <div className="flex bg-white border border-gray-200 rounded-full p-1">
-                                <button onClick={() => setTab('ativas')} className={`px-3 py-1 rounded-full text-[11px] font-bold ${tab === 'ativas'? 'bg-black text-white' : 'text-black/60'}`}>Ativas</button>
-                                <button onClick={() => setTab('historico')} className={`px-3 py-1 rounded-full text-[11px] font-bold ${tab === 'historico'? 'bg-black text-white' : 'text-black/60'}`}>Histórico</button>
+                                <button onClick={() => setTab('ativas')} className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${tab === 'ativas'? 'bg-black text-white' : 'text-black/60'}`}>Ativas</button>
+                                <button onClick={() => setTab('historico')} className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${tab === 'historico'? 'bg-black text-white' : 'text-black/60'}`}>Histórico</button>
                             </div>
                         </div>
                     </div>
+                    <p className="text-[11px] text-black/60">Lista de justificações e atrasos para aprovar • {area.toUpperCase()}</p>
                 </div>
 
-                <div className="max-h-[70vh] overflow-y-auto no-scrollbar">
+                {/* LISTA IGUAL DO TAB PONTO */}
+                <div className="max-h-[70vh] overflow-y-auto no-scrollbar overscroll-contain">
                     {filtered.length === 0 && <p className="text-center py-8 text-[12px] text-black/50">Nenhuma notificação</p>}
                     {filtered.map((n: any) => {
                         const isExpanded = expandedId === n.notificacao_id
@@ -136,42 +128,53 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                         const cargo = func?.cargo || 'rh'
                         const motivo = getMotivo(n)
                         const tipoJust = formatarTexto(n.falta?.justificativa_tipo || '')
-                        const justificacao = n.falta?.justificativa_obs || '' // esse era o conteúdo da OBSERVAÇÃO
+                        const obs = n.falta?.justificativa_obs
                         const temAnexo =!!n.falta?.justificativa_anexo_url
                         const isPending = n.status_notificacao === 'pendente'
-                        const isNew =!n.lida &&!viewedIds.has(n.notificacao_id) && isPending
 
                         return (
-                            <div key={n.notificacao_id} className={`px-3 md:px-4 py-3 border-b last:border-b-0 transition ${isNew? 'bg-[#F0F7FF]' : 'bg-white hover:bg-gray-50/50'}`}>
+                            <div key={n.notificacao_id} className="px-3 md:px-4 py-3 border-b last:border-b-0 hover:bg-gray-50/50 transition">
+                                {/* LINHA 1 - NOME */}
                                 <div className="flex justify-between items-start gap-3">
                                     <p className="font-bold text-[13px] text-black truncate">{nome} <span className="font-normal text-black/60">• {formatarTexto(cargo)}</span></p>
-                                    <button onClick={() => handleExpand(n)} className="text-[12px] font-bold text-[#0095ff] shrink-0 hover:text-[#0077cc]">Ações</button>
+                                    <button onClick={() => setExpandedId(isExpanded? null : n.notificacao_id)} className="text-[11px] font-bold text-[#0095ff] shrink-0">{isExpanded? 'Fechar' : 'Ações'}</button>
                                 </div>
 
-                                <div className="mt-2 flex flex-wrap gap-1">
+                                {/* LINHA 2 - MOTIVO DA FALTA */}
+                                <div className="mt-1.5 flex flex-wrap gap-1">
                                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] border font-medium ${isAtraso? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
-                                        Falta aplicada por motivo de: {motivo}
+                                        {isAtraso? `Motivo do atraso: ${motivo}` : `Falta aplicada por motivo de: ${motivo}`}
                                     </span>
                                 </div>
 
-                                {/* AGORA: Documento anexado: Atestado */}
-                                {!isAtraso && (
-                                    <div className="mt-2">
-                                        <p className="text-[12px] text-black/70">
-                                            Documento anexado: <span className="font-bold text-black">{tipoJust || 'Atestado'}</span>
+                                {/* LINHA 3 - DESCRIÇÃO ABAIXO */}
+                                <div className="mt-1.5">
+                                    <p className="text-[11px] text-black/60">
+                                        {isAtraso? `${n.qtd_atrasos} atrasos • Regra: ${n.qtd_para_falta} = 1 falta` : `Justificou falta • ${tipoJust || 'Atestado'}`}
+                                    </p>
+                                </div>
+
+                                {/* LINHA 4 - DOCUMENTO ANEXADO - SEMPRE VISIVEL */}
+                                {temAnexo &&!isAtraso && (
+                                    <div className="mt-1.5">
+                                        <p className="text-[11px] text-black">
+                                            <span className="text-black/60">Documento anexado:</span>{' '}
+                                            <button onClick={() => abrirComprovante(n.falta.id)} disabled={openingId === n.falta.id} className="text-[#0095ff] font-bold underline hover:text-[#0080e0] disabled:opacity-50">
+                                                {openingId === n.falta.id? 'Carregando...' : 'Ver documento'}
+                                            </button>
                                         </p>
-                                        {/* Conteúdo da justificação que antes estava no box OBSERVAÇÃO, agora embaixo */}
-                                        {justificacao && (
-                                            <p className="text-[12px] text-black/60 mt-1 italic">"{justificacao}"</p>
-                                        )}
                                     </div>
                                 )}
 
-                                {isAtraso && (
-                                    <p className="text-[11px] text-black/60 mt-1.5">{n.qtd_atrasos} atrasos • Regra: {n.qtd_para_falta} = 1 falta</p>
+                                {/* LINHA 5 - OBSERVAÇÃO SEMPRE VISIVEL - NÃO ESCONDE */}
+                                {obs && (
+                                    <div className="mt-2 bg-amber-50 border border-amber-200 rounded-[8px] px-2.5 py-2">
+                                        <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wide">Observação</p>
+                                        <p className="text-[12px] text-black mt-0.5">"{obs}"</p>
+                                    </div>
                                 )}
 
-                                {/* SÓ BOTÕES ESCONDIDOS - WIDTH 100% */}
+                                {/* SÓ BOTÕES ESCONDIDOS - WIDTH 100% NO MOBILE */}
                                 {isExpanded && isPending && (
                                     <div className="mt-3 grid grid-cols-1 gap-2" onClick={e => e.stopPropagation()}>
                                         <button disabled={!!actingId} onClick={() => isAtraso? handleAtraso(func?.id, 'ignorar') : handleFalta(n.falta?.id, 'rejeitar')} className="w-full h-[38px] rounded-full bg-white border border-red-200 text-red-600 text-[12px] font-bold hover:bg-red-50 disabled:opacity-50 flex items-center justify-center gap-1.5">

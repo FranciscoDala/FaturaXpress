@@ -11,6 +11,7 @@ cloudinary.config(
     cloud_name=settings.CLOUDINARY_CLOUD_NAME,
     api_key=settings.CLOUDINARY_API_KEY,
     api_secret=settings.CLOUDINARY_API_SECRET,
+    secure=True,
 )
 
 ALLOWED_IMAGE = {"jpg", "jpeg", "png", "webp"}
@@ -51,32 +52,21 @@ async def upload_comprovante(file: UploadFile, company_id: str) -> str:
         raise HTTPException(400, "Máx 5MB")
 
     is_pdf = contents[:5] == b'%PDF-' or (file.filename or "").lower().endswith(".pdf")
-    ext = "pdf" if is_pdf else "jpg"
-
     try:
-        if is_pdf:
-            res = cloudinary.uploader.upload(
-                io.BytesIO(contents),
-                folder=f"faltas/{company_id}",
-                resource_type="auto", # auto funciona no free
-                type="upload",
-                access_mode="public",
-                use_filename=True,
-                unique_filename=True,
-            )
-        else:
-            res = cloudinary.uploader.upload(
-                io.BytesIO(contents),
-                folder=f"faltas/{company_id}",
-                resource_type="image",
-                type="upload",
-                access_mode="public",
-                use_filename=True,
-                unique_filename=True,
-            )
+        res = cloudinary.uploader.upload(
+            io.BytesIO(contents),
+            folder=f"faltas/{company_id}",
+            resource_type="raw" if is_pdf else "image",
+            type="upload",
+            access_mode="public",
+            use_filename=True,
+            unique_filename=True,
+        )
         url = res.get("secure_url")
         if not url:
-            raise Exception("Sem secure_url")
+            raise HTTPException(502, "Cloudinary não retornou a URL do arquivo")
         return url
-    except Exception as e:
-        raise HTTPException(500, f"Falha upload comprovante: {e}")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(502, "Falha ao enviar comprovante para o Cloudinary")

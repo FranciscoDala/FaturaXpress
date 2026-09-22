@@ -1,14 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Query, File, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 import uuid
 import io
 import re
 import time
 import logging
+import requests
+import cloudinary.uploader
+import cloudinary.utils
 from typing import List, Optional
 
-from jose import jwt, JWTError
+from jose import jwt
 
 from app.db.session import get_db
 from app.core.security import get_current_company_id
@@ -23,47 +26,24 @@ router = APIRouter(prefix="/funcionarios", tags=["Funcionários"])
 rh_router = APIRouter(prefix="/rh", tags=["RH - Ponto"])
 upload_router = APIRouter(prefix="/upload", tags=["Upload"])
 
+# ---------- UPLOAD CORRIGIDO ----------
 @upload_router.post("/falta")
 async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Depends(get_current_company_id)):
     contents = await file.read()
-    if len(contents) > 5*1024*1024:
-        raise HTTPException(400, "Máx 5MB")
-    if len(contents) < 10:
-        raise HTTPException(400, "Arquivo vazio")
+    is_pdf = contents[:4] == b'%PDF' or (file.filename or "").lower().endswith(".pdf")
 
-    is_pdf_magic = contents[:5] == b'%PDF-'
-    is_pdf = is_pdf_magic or file.content_type == "application/pdf" or (file.filename or "").lower().endswith(".pdf")
+    res = cloudinary.uploader.upload(
+        io.BytesIO(contents),
+        folder=f"faltas/{company_id}",
+        resource_type="raw" if is_pdf else "image",
+        access_mode="public",
+        use_filename=True,
+        unique_filename=True
+    )
+    # resolve o 401: salve public_id no banco, não só a URL
+    return {"url": res.get("secure_url"), "public_id": res.get("public_id"), "tipo": "pdf" if is_pdf else "imagem"}
 
-    try:
-        import app.core.upload_Imagem as up_mod
-        import importlib
-        cloudinary_lib = getattr(up_mod, "cloudinary", None) or importlib.import_module("cloudinary")
-
-        # FIX DEFINITIVO: PDF como image para ser público igual a imagem
-        res = cloudinary_lib.uploader.upload(
-            io.BytesIO(contents),
-            folder=f"faltas/{company_id}",
-            resource_type="image", # era "auto" -> quebrava PDF
-            type="upload",
-            access_mode="public",
-            use_filename=True,
-            unique_filename=True,
-            overwrite=False
-        )
-
-        url = res.get("secure_url")
-        if not url:
-            raise Exception("Cloudinary sem url")
-
-        logger.info(f"[UPLOAD FALTA] {'PDF' if is_pdf else 'IMAGEM'} url={url}")
-        return {"url": url, "tipo": "pdf" if is_pdf else "imagem"}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(f"[UPLOAD FALTA] {e}")
-        raise HTTPException(500, f"Falha no upload: {e}")
-
+# ---------- DOWNLOAD UNICO - PROXY PRA PDF ----------
 @rh_router.get("/falta/{falta_id}/anexo")
 @upload_router.get("/falta/{falta_id}/anexo")
 def falta_get_anexo(
@@ -83,66 +63,64 @@ def falta_get_anexo(
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     try:
-        payload = jwt.decode(raw_token, settings.SECRET_KEY, algorithms=["HS256"])
+        jwt.decode(raw_token, settings.SECRET_KEY, algorithms=["HS256"])
     except Exception as e:
         logger.error(f"[ANEXO] token inválido {e}")
         raise HTTPException(status_code=401, detail="Token inválido")
 
     falta_any = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id == falta_id).first()
     if not falta_any or not falta_any.justificativa_anexo_url:
-        raise HTTPException(404, "Falta sem anexo")
+        raise HTTPException(status_code=404, detail="Falta sem anexo")
 
-    stored_url = falta_any.justificativa_anexo_url
+    stored_url: str = str(falta_any.justificativa_anexo_url).strip()
+    if not stored_url:
+        raise HTTPException(status_code=404, detail="Falta sem anexo")
 
-    # CASO 1: já é image (seu caso stream_h0toxl.png e novos PDFs) -> abre direto
+    # CASO 1: IMAGEM - redirect funciona
     if "/image/upload" in stored_url:
         return RedirectResponse(stored_url, status_code=302)
 
-    # CASO 2: PDF antigo em raw (seu stream_flhlgk) -> tenta converter pra image
-    if "/raw/upload" in stored_url:
+    # CASO 2: PDF RAW - FAZ STREAM PELO BACKEND (acaba 401)
+    try:
+        if "cloudinary.com" in stored_url:
+            public_id = stored_url.split("/upload/")[-1]
+            public_id = re.sub(r'^v\d+/', '', public_id)
+            public_id = re.sub(r'^s--[A-Za-z0-9_\-]+--/', '', public_id)
+            public_id = re.sub(r'^s--[A-Za-z0-9_\-]+/', '', public_id)
+            public_id = public_id.rsplit(".", 1)[0]
+            public_id = public_id.split("?")[0]
+        else:
+            public_id = stored_url.rsplit(".", 1)[0].split("?")[0]
+
+        signed_url = cloudinary.utils.private_download_url(
+            public_id,
+            resource_type="raw",
+            type="upload",
+            expires_at=int(time.time()) + 3600
+        )
+
+        r = requests.get(signed_url, stream=True, timeout=30)
+        r.raise_for_status()
+
+        return StreamingResponse(
+            r.iter_content(chunk_size=8192),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"inline; filename={public_id.split('/')[-1]}.pdf"}
+        )
+    except Exception as e:
+        logger.error(f"[ANEXO] falha proxy pdf {e} url={stored_url}")
+        # fallback tenta converter raw -> image
         try:
-            # raw/upload/s--qqI2A6Bo--/v1/faltas/.../stream_flhlgk -> image/upload/v1/faltas/.../stream_flhlgk.pdf
-            # ou.../image/upload/faltas/.../stream_flhlgk
             image_url = stored_url.replace("/raw/upload/", "/image/upload/")
-            image_url = re.sub(r'/s--[A-Za-z0-9_-]+/', '/', image_url)
-            # garante extensão.pdf se não tiver
+            image_url = re.sub(r'/s--[A-Za-z0-9_\-]+--/', '/', image_url)
+            image_url = re.sub(r'/s--[A-Za-z0-9_\-]+/', '/', image_url)
             if not image_url.lower().endswith(".pdf"):
-                if "?" in image_url:
-                    base, qs = image_url.split("?", 1)
-                    image_url = base + ".pdf?" + qs
-                else:
-                    image_url = image_url + ".pdf"
-            logger.info(f"[ANEXO] RAW convertido para IMAGE {stored_url} -> {image_url}")
+                image_url = image_url + ".pdf"
             return RedirectResponse(image_url, status_code=302)
-        except Exception as e:
-            logger.error(f"[ANEXO] falha converter raw->image {e}")
+        except Exception:
+            raise HTTPException(status_code=500, detail="Erro ao gerar anexo")
 
-        # fallback: tenta private_download_url assinado
-        try:
-            import cloudinary.utils
-            m = re.search(r'faltas/([^?]+)', stored_url)
-            if m:
-                raw_id = m.group(1)
-                raw_id = re.sub(r'^v\d+/', '', raw_id)
-                raw_id = re.sub(r'^s--[A-Za-z0-9_-]+/', '', raw_id)
-                raw_id = raw_id.replace('.pdf','').split('?')[0]
-                public_id = f"faltas/{raw_id}"
-                expires_at = int(time.time()) + 60*60*24*30
-                signed = cloudinary.utils.private_download_url(
-                    public_id,
-                    resource_type="raw",
-                    type="upload",
-                    expires_at=expires_at,
-                    attachment=False
-                )
-                return RedirectResponse(signed, status_code=302)
-        except Exception as e:
-            logger.error(f"[ANEXO] falha private_download {e}")
-
-    # fallback final
-    return RedirectResponse(stored_url, status_code=302)
-
-# --- SEUS ROUTERS EXISTENTES (mantidos) ---
+# --- SEUS ROUTERS EXISTENTES ---
 @router.post("", response_model=FuncionarioResponse, status_code=201)
 def criar(dados: FuncionarioCreate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return func_service.criar_funcionario(db, company_id, dados)

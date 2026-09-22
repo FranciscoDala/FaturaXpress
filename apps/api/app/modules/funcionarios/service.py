@@ -335,10 +335,30 @@ def marcar_falta_manual(db: Session, company_id: uuid.UUID, funcionario_id: uuid
     db.add(falta); db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
 
+
 def justificar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, tipo: str, obs: str | None, anexo_url: str | None, justificado_por_id: uuid.UUID | None):
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
     if not falta:
         raise HTTPException(404, "Falta não encontrada")
+
+    # TRAVA 1: se essa mesma falta já está em análise
+    if falta.status in [StatusPedido.pendente_justificacao.value, StatusPedido.aguardando_admin.value, StatusPedido.encaminhado_admin.value]:
+        raise HTTPException(400, "Essa justificação já está em análise. Aguarde resposta do RH/Admin.")
+
+    # TRAVA 2: se já tem anexo e não foi rejeitada, não deixa reenviar
+    if falta.justificativa_anexo_url and falta.status != StatusPedido.rejeitado.value:
+        raise HTTPException(400, "Falta já justificada. Aguarde aprovação do RH/Admin.")
+
+    # TRAVA 3: bloqueio global - se ele já tem OUTRA falta pendente, bloqueia tudo
+    tem_pendente = db.query(PedidoRH).filter(
+        PedidoRH.company_id == company_id,
+        PedidoRH.funcionario_id == falta.funcionario_id,
+        PedidoRH.status.in_([StatusPedido.pendente_justificacao.value, StatusPedido.aguardando_admin.value, StatusPedido.encaminhado_admin.value]),
+        PedidoRH.id != falta.id
+    ).first()
+    if tem_pendente:
+        raise HTTPException(400, "Você já tem uma justificação em análise. Aguarde a resposta antes de enviar outra.")
+
     falta.justificativa_tipo = tipo
     falta.justificativa_obs = obs
     falta.justificativa_anexo_url = anexo_url
@@ -372,6 +392,9 @@ def justificar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, ti
         db.commit()
 
     return _falta_to_dict(db, falta)
+
+
+
 
 def aprovar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, aprovado_por_id: uuid.UUID | None, observacao: str | None = None):
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()

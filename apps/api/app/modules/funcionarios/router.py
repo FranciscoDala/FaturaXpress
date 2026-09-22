@@ -282,6 +282,9 @@ def falta_manual(payload: dict, db: Session = Depends(get_db), company_id: uuid.
             pass
     return func_service.marcar_falta_manual(db, company_id, fid, motivo, categoria, observacao, data_str, motivo_retroativo, lancado_uuid, is_admin=is_admin)
 
+
+
+
 @rh_router.post("/falta/{falta_id}/justificar")
 def falta_justificar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     tipo = payload.get("tipo", "atestado")
@@ -292,7 +295,18 @@ def falta_justificar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(g
         jid = uuid.UUID(justificado_por_id) if justificado_por_id else None
     except:
         jid = None
+
+    # garante que só justifica a própria falta (ou RH/Admin)
+    if jid:
+        falta_check = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id == falta_id, func_service.PedidoRH.company_id == company_id).first()
+        if falta_check and jid != falta_check.funcionario_id:
+            solicitante = db.query(Funcionario).filter(Funcionario.id == jid).first()
+            if solicitante and solicitante.cargo not in ["rh", "admin"]:
+                raise HTTPException(403, "Só pode justificar suas próprias faltas")
+
     return func_service.justificar_falta(db, company_id, falta_id, tipo, obs, anexo_url, jid)
+
+
 
 @rh_router.post("/falta/{falta_id}/aprovar")
 def falta_aprovar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):

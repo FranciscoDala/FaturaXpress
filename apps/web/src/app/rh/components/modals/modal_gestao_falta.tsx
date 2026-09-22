@@ -2,16 +2,9 @@ import { useEffect, useState, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { api, apiRoot } from '../../../../lib/api'
 import { toast } from 'sonner'
-import { X, Check, FileText, Upload, Eye, Info, Loader2, Lock, ChevronDown } from 'lucide-react'
+import { X, Check, FileText, Upload, Eye, Info, Loader2, Lock } from 'lucide-react'
 
 type AuditData = any
-
-const TIPOS_COMPROVANTE = [
-    { value: 'atestado', label: 'Atestado Médico' },
-    { value: 'declaracao', label: 'Declaração' },
-    { value: 'licenca', label: 'Licença' },
-    { value: 'outros', label: 'Outros' },
-]
 
 const CARGOS_PERMISSOES: Record<string, string[]> = {
     admin: ["*"],
@@ -26,55 +19,11 @@ function temPermissao(cargo: string, perm: string) {
     return perms.includes(perm) || perms.includes("*")
 }
 
-// SELECT LIST NO PADRAO DOS CARDS - QUADRADO FINO
-function SelectCard({ value, onChange, options, disabled }: { value: string, onChange: (v: string) => void, options: { value: string, label: string }[], disabled?: boolean }) {
-    const [open, setOpen] = useState(false)
-    const ref = useRef<HTMLDivElement>(null)
-    const selected = options.find(o => o.value === value)
-
-    useEffect(() => {
-        const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-        document.addEventListener('mousedown', h)
-        return () => document.removeEventListener('mousedown', h)
-    }, [])
-
-    return (
-        <div ref={ref} className="relative w-full">
-            <button
-                type="button"
-                disabled={disabled}
-                onClick={() => !disabled && setOpen(!open)}
-                className={`w-full h-[44px] flex items-center justify-between px-3 bg-white border border-gray-200 rounded-[12px] text-[13.5px] text-black focus:outline-none focus:border-[#0095ff] focus:ring-1 focus:ring-[#0095ff]/20 transition ${disabled ? 'opacity-60 bg-gray-50 cursor-not-allowed' : ''}`}
-            >
-                <span className="truncate">{selected?.label || 'Selecione'}</span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 transition ${open ? 'rotate-180' : ''}`} />
-            </button>
-            {open && (
-                <div className="absolute z-20 top-[48px] left-0 w-full bg-white/90 backdrop-blur border rounded-[3px] overflow-hidden shadow-sm">
-                    {options.map(opt => {
-                        const active = opt.value === value
-                        return (
-                            <button
-                                key={opt.value}
-                                type="button"
-                                onClick={() => { onChange(opt.value); setOpen(false) }}
-                                className={`w-full py-2.5 px-3 flex items-center justify-between text-center text-[13px] border-b last:border-b-0 border-gray-200 transition ${active ? 'bg-[#F0F7FF] text-[#0095ff] font-bold' : 'bg-white text-gray-800 hover:bg-gray-50'}`}
-                            >
-                                <span className="flex-1 text-center">{opt.label}</span>
-                                {active && <Check className="w-4 h-4 shrink-0" />}
-                            </button>
-                        )
-                    })}
-                </div>
-            )}
-        </div>
-    )
-}
-
 export default function ModalGestaoFalta({ data, open, onClose, onSaved, dataSelecionada, usuario }: { data: AuditData | null, open: boolean, onClose: () => void, onSaved: () => void, dataSelecionada: string, usuario?: any }) {
     const [tab, setTab] = useState<'detalhes' | 'justificar'>('detalhes')
-    const [tipo, setTipo] = useState<string>('atestado')
+    const [docNome, setDocNome] = useState<string>('Atestado Médico')
     const [obs, setObs] = useState<string>('')
+    const [showObs, setShowObs] = useState<boolean>(false)
     const [file, setFile] = useState<File | null>(null)
     const [previewUrl, setPreviewUrl] = useState<string | null>(null)
     const [loading, setLoading] = useState<boolean>(false)
@@ -85,18 +34,19 @@ export default function ModalGestaoFalta({ data, open, onClose, onSaved, dataSel
     }, [])
 
     const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || usuario?.cargo?.toLowerCase() || 'admin'
-    const podeJustificar = funcionarioLogado ? temPermissao(cargoAtual, 'justificar_falta') || temPermissao(cargoAtual, 'justificar_falta_propria') || cargoAtual === 'admin' : true
+    const podeJustificar = funcionarioLogado? temPermissao(cargoAtual, 'justificar_falta') || temPermissao(cargoAtual, 'justificar_falta_propria') || cargoAtual === 'admin' : true
 
     useEffect(() => {
         if (open) {
             document.body.style.overflow = 'hidden'
             document.documentElement.style.overflow = 'hidden'
             if (data?._kind === 'falta') {
-                setTipo(data.justificativa_tipo || 'atestado')
+                setDocNome(data.justificativa_tipo || 'Atestado Médico')
                 setObs(data.justificativa_obs || '')
+                setShowObs(!!data.justificativa_obs)
                 setPreviewUrl(data.justificativa_anexo_url || null)
                 setFile(null)
-                setTab(data.justificativa_tipo ? 'justificar' : 'detalhes')
+                setTab(data.justificativa_tipo? 'justificar' : 'detalhes')
             } else {
                 setTab('detalhes')
             }
@@ -114,20 +64,20 @@ export default function ModalGestaoFalta({ data, open, onClose, onSaved, dataSel
         else setPreviewUrl(null)
     }
 
-    if (!open || !data) return null
+    if (!open ||!data) return null
     const falta = data
     const token = localStorage.getItem('token') || localStorage.getItem('access_token') || ''
     const comprovanteEndpoint = `${apiRoot}/rh/falta/${falta.id}/anexo?token=${encodeURIComponent(token)}`
 
     const uploadAndJustificar = async () => {
         if (!podeJustificar) { toast.error('Sem permissão para justificar'); return }
-        if (!obs.trim()) { toast.error('Informe a observação da justificativa'); return }
-        if (!file && !previewUrl) { toast.error('Selecione o comprovante (PDF ou imagem)'); return }
+        if (!docNome.trim()) { toast.error('Informe o nome do documento'); return }
+        if (!file &&!previewUrl) { toast.error('Selecione o comprovante (PDF ou imagem)'); return }
 
         setLoading(true)
         try {
             const stored = localStorage.getItem('funcionario_logado')
-            const logado = stored ? JSON.parse(stored) : null
+            const logado = stored? JSON.parse(stored) : null
             let anexoUrl: string | null = null
 
             if (file) {
@@ -138,133 +88,168 @@ export default function ModalGestaoFalta({ data, open, onClose, onSaved, dataSel
                         headers: { 'Content-Type': 'multipart/form-data' }
                     })
                     anexoUrl = (up.data as any).url || (up.data as any).file_url
-
                     if (!anexoUrl) throw new Error('URL não retornada')
-
                 } catch (upErr: any) {
                     const status = upErr?.response?.status
                     const detail = upErr?.response?.data?.detail
-
-                    if (status === 404) {
-                        toast.error('Serviço de upload não configurado. Avise o admin para ativar /api/upload/falta')
-                    } else if (status === 413) {
-                        toast.error('Arquivo muito grande. Máximo 5MB')
-                    } else if (detail?.includes('cloudinary') || detail?.includes('CLOUDINARY')) {
-                        toast.error('Erro no servidor de arquivos. Tente novamente em 1 minuto')
-                    } else {
-                        toast.error(detail || 'Falha ao enviar comprovante. Verifique sua internet e tente novamente')
-                    }
+                    if (status === 404) toast.error('Serviço de upload não configurado.')
+                    else if (status === 413) toast.error('Arquivo muito grande. Máximo 5MB')
+                    else toast.error(detail || 'Falha ao enviar comprovante')
                     setLoading(false)
-                    return // PARA AQUI, não salva base64
+                    return
                 }
             } else {
-                anexoUrl = previewUrl // quando já existe uma justificativa anterior
+                anexoUrl = previewUrl
             }
 
             await api.post(`/api/rh/falta/${falta.id}/justificar`, {
-                tipo,
-                observacao: obs,
+                tipo: docNome.trim(),
+                observacao: showObs? obs : '',
                 anexo_url: anexoUrl,
                 justificado_por_id: logado?.id || usuario?.id
             })
 
-            toast.success('Justificativa enviada! Veja em Notificações')
+            toast.success('Justificativa enviada!')
             window.dispatchEvent(new CustomEvent('notificacoes-refresh'))
             onSaved(); onClose()
-
         } catch (e: any) {
             const msg = e?.response?.data?.detail
-            if (msg?.includes('Falta não encontrada')) toast.error('Essa falta foi removida')
-            else toast.error(msg || 'Erro ao justificar. Tente novamente')
-        }
-        finally { setLoading(false) }
+            toast.error(msg || 'Erro ao justificar')
+        } finally { setLoading(false) }
     }
 
     const TabButton = ({ id, label, icon: Icon }: { id: any, label: string, icon: any }) => (
-        <button type="button" onClick={() => setTab(id)} className={`flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium rounded-full transition border shrink-0 ${tab === id ? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff]' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}><Icon className="w-4 h-4" />{label}</button>
+        <button type="button" onClick={() => setTab(id)} className={`flex items-center gap-1.5 px-4 py-2 text-[13px] font-bold rounded-full transition border shrink-0 ${tab === id? 'bg-black text-white border-black' : 'bg-white border-gray-200 text-black hover:bg-gray-50'}`}><Icon className="w-4 h-4" />{label}</button>
     )
 
     const content = (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white rounded-[24px] w-full max-w-[460px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF] shrink-0">
-                    <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center"><FileText className="w-4 h-4 text-[#0095ff]" /></div>
-                    <button onClick={onClose} className="w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center hover:bg-gray-50"><X className="w-4 h-4 text-gray-500" /></button>
+            <div className="relative bg-white rounded-[20px] w-full max-w-[440px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="relative px-6 pt-6 pb-4 flex justify-between items-start shrink-0">
+                    <div>
+                        <h3 className="text-[18px] font-bold text-black tracking-tight">Gestão de Falta</h3>
+                        <p className="text-[12px] text-black/60 mt-1 font-medium">{dataSelecionada || data.data_inicio} • {falta.abonada? 'Abonada' : 'Não abonada'}</p>
+                    </div>
+                    <button onClick={onClose} className="w-9 h-9 rounded-full bg-gray-50 border flex items-center justify-center hover:bg-gray-100"><X className="w-4 h-4 text-black" /></button>
                 </div>
-                <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
-                    <h3 className="text-[18px] font-bold text-gray-900">Gestão de Falta <span className="text-[10px] bg-gray-100 border px-2 py-1 rounded-full ml-1">{cargoAtual.toUpperCase()}</span></h3>
-                    <p className="text-[13.5px] text-gray-500 mt-1">{falta.status} {falta.abonada ? '• abonada' : ''} • {falta.lancado_por_nome || 'RH'}</p>
-                    {!podeJustificar && (
-                        <div className="mt-2 p-2 rounded-[10px] bg-red-50 border border-red-200 flex items-center gap-2 text-[11px] text-red-700"><Lock className="w-3.5 h-3.5" /> Sem permissão</div>
-                    )}
-                    <div className="flex gap-2 mt-4">
+
+                <div className="px-6 pb-3 shrink-0">
+                    <div className="flex gap-2">
                         <TabButton id="detalhes" label="Detalhes" icon={Info} />
                         {podeJustificar && <TabButton id="justificar" label="Justificar" icon={FileText} />}
                     </div>
-                    <div className="mt-3 p-2 rounded-[10px] bg-amber-50 border border-amber-200 text-[11px] text-amber-800">
-                        A aprovação agora é feita em <b>Notificações → Ativas</b>. Aqui você só justifica.
-                    </div>
+                    {!podeJustificar && (
+                        <div className="mt-3 p-2.5 rounded-[12px] bg-red-50 border border-red-200 flex items-center gap-2 text-[12px] font-bold text-black"><Lock className="w-3.5 h-3.5" /> Sem permissão para justificar</div>
+                    )}
                 </div>
+
                 <div className="flex-1 overflow-y-auto no-scrollbar px-6 py-4">
-                    <style>{`.no-scrollbar::-webkit-scrollbar{display:none}`}</style>
+                    <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
                     {tab === 'detalhes' && (
                         <div className="flex flex-col gap-3">
-                            <div className="p-3 rounded-[12px] bg-gray-50 border text-[13px] text-black">
-                                <b>Funcionário:</b> {data.funcionario_nome || data.funcionario_id}<br />
-                                <b>Data:</b> {dataSelecionada || data.data_inicio}<br />
-                                <b>Lançado por:</b> {data.lancado_por_nome || 'RH'} • {cargoAtual}<br />
-                                {data.is_retroativo && <><b>Motivo retroativo:</b> {data.motivo_retroativo}<br /></>}
+                            <div className="p-4 rounded-[14px] bg-gray-50 border border-gray-100">
+                                <div className="flex flex-col gap-1.5 text-[13px] text-black">
+                                    <div className="flex justify-between"><span className="text-black/60 font-medium">Funcionário</span><span className="font-bold text-black truncate max-w-[160px]">{data.funcionario_nome || '—'}</span></div>
+                                    <div className="flex justify-between"><span className="text-black/60 font-medium">Data</span><span className="font-bold text-black">{dataSelecionada || data.data_inicio}</span></div>
+                                    <div className="flex justify-between"><span className="text-black/60 font-medium">Lançado por</span><span className="font-bold text-black">{data.lancado_por_nome || 'RH'}</span></div>
+                                </div>
                             </div>
-                            <div className="p-3 rounded-[12px] bg-amber-50 border border-amber-200 text-[13px] text-amber-900">{data.motivo_retroativo || data.motivo}</div>
+                            <div className="p-4 rounded-[14px] bg-white border border-gray-200">
+                                <p className="text-[11px] font-bold text-black/50 uppercase tracking-wider">Motivo da falta</p>
+                                <p className="text-[13px] font-medium text-black mt-1 leading-[18px]">{data.motivo_retroativo || data.motivo || 'Sem descrição'}</p>
+                            </div>
                             {falta.justificativa_tipo && (
-                                <div className="p-3 rounded-[12px] bg-blue-50 border border-blue-200 text-[13px]">
-                                    <b>{falta.justificativa_tipo}</b> • {falta.justificativa_obs}
+                                <div className="p-4 rounded-[14px] bg-[#F5F7FF] border border-[#DCE6FF]">
+                                    <p className="text-[11px] font-bold text-black/50 uppercase">Documento enviado</p>
+                                    <p className="text-[13px] font-bold text-black mt-1">{falta.justificativa_tipo}</p>
+                                    {falta.justificativa_obs && <p className="text-[12px] text-black/70 mt-1">{falta.justificativa_obs}</p>}
                                     {falta.justificativa_anexo_url && (
-                                        <div className="mt-2">
-                                            {falta.justificativa_anexo_url.includes('pdf') || falta.justificativa_anexo_url.startsWith('data:application') ?
-                                                <a href={falta.justificativa_anexo_url.startsWith('data:') ? falta.justificativa_anexo_url : comprovanteEndpoint} target="_blank" rel="noreferrer" className="w-full h-[40px] bg-black text-white rounded-[12px] flex items-center justify-center gap-2 text-[12px] font-bold"><Eye className="w-4 h-4" /> Abrir Comprovante</a> :
-                                                <img src={falta.justificativa_anexo_url} alt="doc" className="w-full max-h-[200px] object-contain rounded-[12px] border" />}
+                                        <div className="mt-3">
+                                            <a href={falta.justificativa_anexo_url.startsWith('data:')? falta.justificativa_anexo_url : comprovanteEndpoint} target="_blank" rel="noreferrer" className="w-full h-[44px] bg-black text-white rounded-full flex items-center justify-center gap-2 text-[13px] font-bold"><Eye className="w-4 h-4" /> Ver Comprovante</a>
                                         </div>
                                     )}
                                 </div>
                             )}
-                            <div className="p-3 rounded-[12px] bg-[#F0F7FF] border border-[#C2D8FF] text-[12px] text-[#0095ff]">
-                                Após justificar, vá em <b>Notificações</b> para o RH aceitar ou encaminhar para Admin.
-                            </div>
                         </div>
                     )}
+
                     {tab === 'justificar' && (
-                        <div className="flex flex-col gap-3">
-                            <SelectCard value={tipo} onChange={setTipo} options={TIPOS_COMPROVANTE} disabled={!podeJustificar} />
+                        <div className="flex flex-col gap-4">
                             <div className="flex flex-col gap-2">
-                                <input ref={fileRef} type="file" accept="application/pdf,image/*" onChange={handleFileChange} className="hidden" />
-                                <button type="button" disabled={!podeJustificar} onClick={() => podeJustificar && fileRef.current?.click()} className={`w-full h-[88px] border-2 border-dashed rounded-[12px] flex flex-col items-center justify-center gap-1 bg-white ${podeJustificar ? 'border-gray-300 hover:border-[#0095ff]' : 'border-gray-200 opacity-50 cursor-not-allowed'}`}>
-                                    <Upload className="w-5 h-5 text-black/60" />
-                                    <span className="text-[12px] text-black font-medium">{file ? file.name : 'Carregar PDF ou imagem'}</span>
-                                    <span className="text-[10px] text-black/50">PDF, JPG, PNG - máx 5MB</span>
-                                </button>
-                                {file && file.type.startsWith('image/') && previewUrl && <img src={previewUrl} alt="prev" className="w-full max-h-[160px] object-contain rounded-[12px] border" />}
+                                <label className="text-[12px] font-bold text-black ml-1">Nome do documento</label>
+                                <input
+                                    type="text"
+                                    value={docNome}
+                                    onChange={e => setDocNome(e.target.value)}
+                                    placeholder="Ex: Atestado Médico, Declaração..."
+                                    disabled={!podeJustificar}
+                                    className="w-full h-[48px] bg-white border border-gray-200 rounded-[12px] px-4 text-[13.5px] font-medium text-black placeholder:text-black/40 focus:outline-none focus:border-black focus:ring-1 focus:ring-black disabled:bg-gray-50"
+                                />
                             </div>
-                            <textarea disabled={!podeJustificar} value={obs} onChange={e => setObs(e.target.value)} placeholder="Observação da justificativa" className="w-full min-h-[80px] bg-white border border-gray-200 rounded-[12px] p-3 text-[13.5px] resize-none disabled:bg-gray-50" />
+
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[12px] font-bold text-black ml-1">Comprovante</label>
+                                <input ref={fileRef} type="file" accept="application/pdf,image/*" onChange={handleFileChange} className="hidden" />
+                                <button
+                                    type="button"
+                                    disabled={!podeJustificar}
+                                    onClick={() => podeJustificar && fileRef.current?.click()}
+                                    className="w-full min-h-[88px] border-2 border-dashed rounded-[14px] flex flex-col items-center justify-center gap-2 bg-gray-50/50 border-gray-300 hover:border-black hover:bg-white transition group px-3"
+                                >
+                                    <div className="w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center group-hover:scale-105 transition"><Upload className="w-4 h-4 text-black" /></div>
+                                    <div className="flex flex-col items-center max-w-full overflow-hidden">
+                                        <span className="text-[12.5px] font-bold text-black truncate max-w-[240px] block" title={file?.name}>{file? file.name : 'Carregar PDF ou imagem'}</span>
+                                        <span className="text-[11px] text-black/50 font-medium">PDF, JPG, PNG - máx 5MB</span>
+                                    </div>
+                                </button>
+                                {file && file.type.startsWith('image/') && previewUrl && <img src={previewUrl} alt="prev" className="w-full max-h-[180px] object-contain rounded-[12px] border border-gray-200" />}
+                                {file &&!file.type.startsWith('image/') && (
+                                    <div className="p-3 rounded-[12px] bg-black text-white flex items-center gap-2">
+                                        <FileText className="w-4 h-4 shrink-0" />
+                                        <span className="text-[12px] font-medium truncate flex-1" title={file.name}>{file.name}</span>
+                                        <span className="text-[10px] bg-white/20 px-2 py-1 rounded-full">PDF</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                                <input type="checkbox" checked={showObs} onChange={e => setShowObs(e.target.checked)} className="w-[18px] h-[18px] rounded-[6px] border-2 border-gray-300 accent-black" />
+                                <span className="text-[12.5px] font-bold text-black">Adicionar descrição (opcional)</span>
+                            </label>
+
+                            {showObs && (
+                                <div className="flex flex-col gap-2 animate-in fade-in">
+                                    <textarea
+                                        disabled={!podeJustificar}
+                                        value={obs}
+                                        onChange={e => setObs(e.target.value)}
+                                        placeholder="Escreva uma observação curta..."
+                                        className="w-full min-h-[90px] bg-white border border-gray-200 rounded-[12px] p-3.5 text-[13px] font-medium text-black placeholder:text-black/40 resize-none focus:outline-none focus:border-black focus:ring-1 focus:ring-black disabled:bg-gray-50"
+                                    />
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
-                <div className="shrink-0 px-6 py-4 border-t bg-white flex gap-2">
-                    {tab === 'justificar' ? (
+
+                <div className="shrink-0 px-6 py-4 border-t border-gray-100 bg-white flex gap-2">
+                    {tab === 'justificar'? (
                         <>
-                            <button type="button" onClick={() => setTab('detalhes')} className="flex-1 h-11 rounded-full border bg-white flex items-center justify-center"><X className="w-5 h-5" /></button>
-                            <button type="button" disabled={loading || !podeJustificar} onClick={uploadAndJustificar} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white flex items-center justify-center disabled:opacity-50">{loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />} Enviar</button>
+                            <button type="button" onClick={() => setTab('detalhes')} className="flex-1 h-[48px] rounded-full border border-gray-200 bg-white text-black font-bold text-[13px]">Voltar</button>
+                            <button type="button" disabled={loading ||!podeJustificar} onClick={uploadAndJustificar} className="flex-[1.6] h-[48px] rounded-full bg-black text-white font-bold text-[13px] flex items-center justify-center gap-2 disabled:opacity-50">
+                                {loading? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Enviar justificativa
+                            </button>
                         </>
                     ) : (
                         <>
-                            <button type="button" onClick={onClose} className="flex-1 h-11 rounded-full border bg-white text-[13px] font-medium">Fechar</button>
-                            {podeJustificar && <button type="button" onClick={() => setTab('justificar')} className="flex-1 h-11 rounded-full bg-[#0095ff] text-white flex items-center justify-center gap-2 text-[13px] font-medium"><Upload className="w-4 h-4" /> Justificar</button>}
+                            <button type="button" onClick={onClose} className="flex-1 h-[48px] rounded-full border border-gray-200 bg-white text-black font-bold text-[13px]">Fechar</button>
+                            {podeJustificar && <button type="button" onClick={() => setTab('justificar')} className="flex-1 h-[48px] rounded-full bg-black text-white font-bold text-[13px] flex items-center justify-center gap-2"><Upload className="w-4 h-4" /> Justificar falta</button>}
                         </>
                     )}
                 </div>
             </div>
         </div>
     )
-    return typeof document !== 'undefined' ? createPortal(content, document.body) : null
+    return typeof document!== 'undefined'? createPortal(content, document.body) : null
 }

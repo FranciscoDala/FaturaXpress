@@ -61,7 +61,6 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     }, [area])
     useEffect(() => { fetchNotifs(); const i = setInterval(fetchNotifs, 30000); return () => clearInterval(i) }, [fetchNotifs])
 
-    // LABELS CLAROS PARA O USUÁRIO ENTENDER NA HORA
     const getAlertStyle = (n: any) => {
         const s = (n.status_notificacao || n.status || n.falta?.status || '').toLowerCase()
         if (['aprovada','aprovado','justificado','abonada'].includes(s)) return { bg: 'bg-green-50', border: 'border-green-200', badge: 'bg-green-100 text-green-800 border-green-200', label: 'Falta justificada' }
@@ -71,11 +70,13 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         return { bg: 'bg-white', border: 'border-gray-200', badge: 'bg-gray-100 text-black border-gray-200', label: `Falta: ${getMotivo(n)}` }
     }
 
+    const getStatusKey = (n: any) => (n.status_notificacao || n.status || n.falta?.status || 'pendente').toLowerCase()
+
     const { ativas, historico } = useMemo(() => {
         const at = [...notifs].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         const limite = new Date(); limite.setDate(limite.getDate() - 7)
         const hist = notifs.filter(n => {
-            const s = (n.status_notificacao || '').toLowerCase()
+            const s = getStatusKey(n)
             const resolvida = ['aprovada','aprovado','justificado','abonada','rejeitada','rejeitado','ignorado','ignorada','aguardando_admin','encaminhado_admin','encaminhada','encaminhado'].includes(s)
             if (!resolvida) return false
             return new Date(n.updated_at || n.created_at) >= limite
@@ -155,6 +156,13 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                             {ativas.map((n: any) => {
                                 const nome = n.funcionario?.nome || 'Funcionário'
                                 const style = getAlertStyle(n)
+                                const status = getStatusKey(n)
+                                const isAprovado = ['aprovada','aprovado','justificado','abonada'].includes(status)
+                                const isEncaminhado = ['aguardando_admin','encaminhado_admin','encaminhada','encaminhado'].includes(status)
+                                const isRejeitado = ['rejeitada','rejeitado'].includes(status)
+                                const isIgnorado = ['ignorado','ignorada'].includes(status)
+                                const temAnexo =!!n.falta?.justificativa_anexo_url
+
                                 return (
                                     <SwipeCard
                                         key={n.notificacao_id}
@@ -162,16 +170,40 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                                         isOpen={openSwipeId === n.notificacao_id}
                                         setOpen={setOpenSwipeId}
                                         onDoubleTap={() => {
-                                            if ((n.status_notificacao || '').toLowerCase() === 'pendente' && n.falta?.id) {
+                                            if (getStatusKey(n) === 'pendente' && n.falta?.id) {
                                                 setIgnoreModal(n)
                                             }
                                         }}
                                         actions={
-                                            <div className="absolute inset-y-0 right-0 w-[260px] flex items-center justify-end gap-2 pr-3 bg-[#E8F2FF]">
-                                                <button disabled={!!actingId} onClick={() => handleFalta(n.falta?.id, 'rejeitar')} className="w-10 h-10 rounded-full bg-white border shadow-sm flex items-center justify-center text-red-600 active:scale-90 transition-transform"><X className="w-5 h-5" /></button>
-                                                <button disabled={!!actingId} onClick={() => handleFalta(n.falta?.id, 'encaminhar')} className="w-10 h-10 rounded-full bg-amber-500 shadow-sm flex items-center justify-center text-white active:scale-90 transition-transform"><Send className="w-4 h-4" /></button>
-                                                <button disabled={!!actingId} onClick={() => handleFalta(n.falta?.id, 'aprovar')} className="w-10 h-10 rounded-full bg-[#0095ff] shadow-sm flex items-center justify-center text-white active:scale-90 transition-transform"><Check className="w-5 h-5" /></button>
-                                                {n.falta?.justificativa_anexo_url && <button onClick={() => abrirComprovante(n.falta.id)} className="w-10 h-10 rounded-full bg-black shadow-sm flex items-center justify-center text-white"><Eye className="w-5 h-5" /></button>}
+                                            <div className="absolute inset-y-0 right-0 w-[300px] bg-[#E8F2FF] flex items-center justify-center">
+                                                <div className="flex items-center gap-3">
+                                                    {/* PENDENTE e IGNORADO = todos */}
+                                                    {!isAprovado &&!isEncaminhado &&!isRejeitado && (
+                                                        <>
+                                                            <button disabled={!!actingId} onClick={() => handleFalta(n.falta?.id, 'rejeitar')} className="w-11 h-11 rounded-full bg-white border shadow-sm flex items-center justify-center text-red-600 active:scale-90 transition-transform"><X className="w-5 h-5" /></button>
+                                                            <button disabled={!!actingId} onClick={() => handleFalta(n.falta?.id, 'encaminhar')} className="w-11 h-11 rounded-full bg-amber-500 shadow-sm flex items-center justify-center text-white active:scale-90 transition-transform"><Send className="w-[18px] h-[18px]" /></button>
+                                                            <button disabled={!!actingId} onClick={() => handleFalta(n.falta?.id, 'aprovar')} className="w-11 h-11 rounded-full bg-[#0095ff] shadow-sm flex items-center justify-center text-white active:scale-90 transition-transform"><Check className="w-5 h-5" /></button>
+                                                            {temAnexo && <button onClick={() => abrirComprovante(n.falta.id)} className="w-11 h-11 rounded-full bg-black shadow-sm flex items-center justify-center text-white"><Eye className="w-5 h-5" /></button>}
+                                                        </>
+                                                    )}
+                                                    {/* ENCAMINHADO = view + encaminhar */}
+                                                    {isEncaminhado && (
+                                                        <>
+                                                            {temAnexo && <button onClick={() => abrirComprovante(n.falta.id)} className="w-11 h-11 rounded-full bg-black shadow-sm flex items-center justify-center text-white"><Eye className="w-5 h-5" /></button>}
+                                                            <button disabled={!!actingId} onClick={() => handleFalta(n.falta?.id, 'encaminhar')} className="w-11 h-11 rounded-full bg-amber-500 shadow-sm flex items-center justify-center text-white active:scale-90 transition-transform"><Send className="w-[18px] h-[18px]" /></button>
+                                                        </>
+                                                    )}
+                                                    {/* APROVADO e REJEITADO = só view */}
+                                                    {(isAprovado || isRejeitado) && (
+                                                        <>
+                                                            {temAnexo? (
+                                                                <button onClick={() => abrirComprovante(n.falta.id)} className="w-11 h-11 rounded-full bg-black shadow-sm flex items-center justify-center text-white"><Eye className="w-5 h-5" /></button>
+                                                            ) : (
+                                                                <span className="text-[11px] text-black/40">Sem anexo</span>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         }
                                     >
@@ -272,7 +304,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     )
 }
 
-function SwipeCard({ children, id, isOpen, setOpen, swipeWidth = 260, actions, onDoubleTap }: any) {
+function SwipeCard({ children, id, isOpen, setOpen, swipeWidth = 300, actions, onDoubleTap }: any) {
     const cardRef = useRef<HTMLDivElement>(null)
     const startX = useRef(0)
     const startY = useRef(0)

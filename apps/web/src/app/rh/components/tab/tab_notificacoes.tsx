@@ -14,16 +14,9 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const [comprovante, setComprovante] = useState<{ url: string, type: string } | null>(null)
     const [diasVisiveis, setDiasVisiveis] = useState(1)
     const [ignoreModal, setIgnoreModal] = useState<any | null>(null)
-    const [tick, setTick] = useState(0)
     const firstLoad = useRef(true)
     const area = cargoAtual === 'admin'? 'admin' : 'rh'
     const listRef = useRef<HTMLDivElement>(null)
-    const abortRef = useRef<AbortController | null>(null)
-
-    useEffect(() => {
-        const t = setInterval(() => setTick(x => x+1), 15000)
-        return () => clearInterval(t)
-    }, [])
 
     const formatarTexto = (t: string) => {
         if (!t) return ''
@@ -58,29 +51,17 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
     }
 
-    const fetchNotifs = useCallback(async (isRetry = false) => {
+    const fetchNotifs = useCallback(async () => {
         if (firstLoad.current) setLoading(true)
-        if (abortRef.current) abortRef.current.abort()
-        const ctrl = new AbortController()
-        abortRef.current = ctrl
         try {
-            const { data } = await api.get(`/api/rh/notificacoes?area=${area}`, { signal: ctrl.signal as any })
-            if (!ctrl.signal.aborted) setNotifs(Array.isArray(data)? data : [])
-        } catch (e: any) {
-            const isNetwork = e?.code === 'ERR_NETWORK' || e?.message?.includes('Network') || e?.message?.includes('ERR_NAME')
-            if (isNetwork &&!isRetry) {
-                // retry silencioso, Render acordando
-                setTimeout(() => fetchNotifs(true), 2000)
-                return
-            }
-            if (!isNetwork) toast.error('Erro ao carregar')
-        } finally {
-            if (!isRetry) { setLoading(false); firstLoad.current = false }
-        }
+            const { data } = await api.get(`/api/rh/notificacoes?area=${area}`);
+            setNotifs(Array.isArray(data)? data : [])
+        } catch { /* silencioso pra não floodar quando Render dorme */ }
+        finally { setLoading(false); firstLoad.current = false }
     }, [area])
+    useEffect(() => { fetchNotifs(); const i = setInterval(fetchNotifs, 30000); return () => clearInterval(i) }, [fetchNotifs])
 
-    useEffect(() => { fetchNotifs(); const i = setInterval(() => fetchNotifs(), 30000); return () => { clearInterval(i); abortRef.current?.abort() } }, [fetchNotifs])
-
+    // BG FICA PRA SEMPRE COM A COR DO STATUS
     const getAlertStyle = (n: any) => {
         const s = (n.status_notificacao || n.status || n.falta?.status || '').toLowerCase()
         if (['aprovada','aprovado','justificado','abonada'].includes(s)) return { bg: 'bg-green-50', border: 'border-green-200', badge: 'bg-green-100 text-green-800 border-green-200', label: 'Abonada' }
@@ -91,26 +72,22 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     }
 
     const { ativas, historico } = useMemo(() => {
-        const agora = Date.now()
-        const at: any[] = []
-        const hist: any[] = []
-        notifs.forEach(n => {
+        // ATIVAS = tudo, inclusive resolvidas, pra bg ficar pra sempre
+        const at = [...notifs].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        // HISTORICO = só resolvidas dos últimos 7 dias
+        const limite = new Date(); limite.setDate(limite.getDate() - 7)
+        const hist = notifs.filter(n => {
             const s = (n.status_notificacao || '').toLowerCase()
             const resolvida = ['aprovada','aprovado','justificado','abonada','rejeitada','rejeitado','ignorado','ignorada','aguardando_admin','encaminhado_admin','encaminhada','encaminhado'].includes(s)
-            if (!resolvida) { at.push(n); return }
-            const refTime = new Date(n.updated_at || n.falta?.aprovado_em || n.created_at).getTime()
-            const diffMin = (agora - refTime) / 60000
-            if (diffMin < 30) at.push(n)
-            else hist.push(n)
+            if (!resolvida) return false
+            return new Date(n.updated_at || n.created_at) >= limite
         })
         return { ativas: at, historico: hist }
-    }, [notifs, tick])
+    }, [notifs])
 
     const historicoAgrupado = useMemo(() => {
-        const limite = new Date(); limite.setDate(limite.getDate() - 7)
-        const filtrado = historico.filter(n => new Date(n.updated_at || n.created_at) >= limite)
         const grupos: Record<string, any[]> = {}
-        filtrado.forEach(n => {
+        historico.forEach(n => {
             const chave = getDataChave(n.updated_at || n.created_at)
             if (!grupos[chave]) grupos[chave] = []
             grupos[chave].push(n)
@@ -169,7 +146,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                     </div>
                     <div className="flex bg-white border rounded-full p-1">
                         <button onClick={() => setTab('ativas')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'ativas'? 'bg-black text-white' : 'text-black/60'}`}>Ativas</button>
-                        <button onClick={() => { setTab('historico'); setDiasVisiveis(1) }} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'historico'? 'bg-black text-white' : 'text-black/60'}`}>Historico</button>
+                        <button onClick={() => { setTab('historico'); setDiasVisiveis(1) }} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'historico'? 'bg-black text-white' : 'text-black/60'}`}>Histórico</button>
                     </div>
                 </div>
 
@@ -180,19 +157,18 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                             {ativas.map((n: any) => {
                                 const nome = n.funcionario?.nome || 'Funcionário'
                                 const style = getAlertStyle(n)
-                                const s = (n.status_notificacao || '').toLowerCase()
-                                const isResolvida = s!== 'pendente'
-                                const tempoRestante = isResolvida? Math.max(0, 30 - Math.floor((Date.now() - new Date(n.updated_at || n.created_at).getTime())/60000)) : 0
                                 return (
                                     <SwipeCard
                                         key={n.notificacao_id}
                                         id={n.notificacao_id}
                                         isOpen={openSwipeId === n.notificacao_id}
                                         setOpen={setOpenSwipeId}
-                                        swipeWidth={260}
-                                        onDoubleTap={() => { if(!isResolvida) setIgnoreModal(n) }}
+                                        onDoubleTap={() => {
+                                            const s = (n.status_notificacao||'').toLowerCase()
+                                            if (s==='pendente') setIgnoreModal(n)
+                                        }}
                                         actions={
-                                            <div className="absolute top-0 right-0 bottom-0 w-[260px] flex items-center justify-end gap-2 pr-3 bg-[#E8F2FF]">
+                                            <div className="absolute inset-y-0 right-0 w-[260px] flex items-center justify-end gap-2 pr-3 bg-[#E8F2FF]">
                                                 <button disabled={!!actingId} onClick={() => handleFalta(n.falta?.id, 'rejeitar')} className="w-10 h-10 rounded-full bg-white border shadow-sm flex items-center justify-center text-red-600 active:scale-90 transition-transform"><X className="w-5 h-5" /></button>
                                                 <button disabled={!!actingId} onClick={() => handleFalta(n.falta?.id, 'encaminhar')} className="w-10 h-10 rounded-full bg-amber-500 shadow-sm flex items-center justify-center text-white active:scale-90 transition-transform"><Send className="w-4 h-4" /></button>
                                                 <button disabled={!!actingId} onClick={() => handleFalta(n.falta?.id, 'aprovar')} className="w-10 h-10 rounded-full bg-[#0095ff] shadow-sm flex items-center justify-center text-white active:scale-90 transition-transform"><Check className="w-5 h-5" /></button>
@@ -206,14 +182,13 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                                                     <p className="text-[13px] leading-[16px] truncate"><span className="font-bold text-black">{nome}</span><span className="text-black/60"> · {formatarTempo(n.created_at)}</span></p>
                                                     <div className="mt-1 flex flex-wrap gap-1">
                                                         <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-medium leading-none ${style.badge}`}>{style.label}</span>
-                                                        {isResolvida && <span className="inline-flex px-2 py-1 rounded-full text-[10px] bg-black text-white">{tempoRestante>0? `histórico em ${tempoRestante}min` : 'indo pro histórico'}</span>}
                                                     </div>
                                                     <p className="text-[12px] leading-[16px] text-black/70 mt-1.5">Doc: <span className="text-[#0095ff]">{formatarTexto(n.falta?.justificativa_tipo || 'Atestado')}</span></p>
                                                     {n.falta?.justificativa_obs && <p className="text-[12px] leading-[16px] text-black/60 mt-1">{n.falta.justificativa_obs}</p>}
                                                 </div>
                                                 <div className="flex flex-col items-end gap-2 shrink-0">
                                                     <span className="text-[12px] text-black/70">{formatarDataCurta(n.created_at)}</span>
-                                                    <button onClick={() => setOpenSwipeId(openSwipeId === n.notificacao_id? null : n.notificacao_id)} className="w-7 h-7 rounded-full bg-white border shadow-sm flex items-center justify-center active:scale-90 transition-transform"><Menu className="w-4 h-4" /></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); setOpenSwipeId(openSwipeId === n.notificacao_id? null : n.notificacao_id)}} className="w-7 h-7 rounded-full bg-white border shadow-sm flex items-center justify-center"><Menu className="w-4 h-4" /></button>
                                                 </div>
                                             </div>
                                         </div>
@@ -257,7 +232,6 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                                     </div>
                                 )
                             })}
-                            {diasVisiveis < 7 && historico.length > 0 && <p className="py-4 text-center text-[11px] text-black/40">Desça para carregar mais dias... {diasVisiveis}/7</p>}
                         </>
                     )}
                 </div>
@@ -276,7 +250,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
 
             {ignoreModal && (
                 <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4" onClick={() => setIgnoreModal(null)}>
-                    <div className="bg-white rounded-[16px] border overflow-hidden w-full max-w-[340px] shadow-2xl animate-[scaleIn_.2s_ease]" onClick={e=>e.stopPropagation()}>
+                    <div className="bg-white rounded-[16px] border overflow-hidden w-full max-w-[340px] shadow-2xl" onClick={e=>e.stopPropagation()}>
                         <div className="px-4 py-3 bg-blue-50 border-l-4 border-blue-200 border-b">
                             <div className="flex items-center gap-2">
                                 <div className="w-8 h-8 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center"><Ban className="w-4 h-4 text-blue-700" /></div>
@@ -284,7 +258,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                             </div>
                         </div>
                         <div className="p-4">
-                            <p className="text-[13px] leading-[18px] text-black/70">Duplo toque detectado! Quer ignorar a falta de <span className="font-bold text-black">{ignoreModal.funcionario?.nome}</span>?</p>
+                            <p className="text-[13px] leading-[18px] text-black/70">Quer ignorar a falta de <span className="font-bold text-black">{ignoreModal.funcionario?.nome}</span>?</p>
                             <div className="mt-4 flex gap-2">
                                 <button onClick={() => setIgnoreModal(null)} className="flex-1 h-10 rounded-full border bg-white text-[13px] font-bold text-black">Cancelar</button>
                                 <button disabled={!!actingId} onClick={() => handleFalta(ignoreModal.falta?.id, 'ignorar')} className="flex-1 h-10 rounded-full bg-black text-white text-[13px] font-bold flex items-center justify-center gap-2">
@@ -295,63 +269,58 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                     </div>
                 </div>
             )}
-            <style>{`@keyframes scaleIn{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
         </>
     )
 }
 
 function SwipeCard({ children, id, isOpen, setOpen, swipeWidth = 260, actions, onDoubleTap }: any) {
-    const containerRef = useRef<HTMLDivElement>(null)
-    const tx = useRef(0)
-    const startX = useRef<number | null>(null)
-    const startY = useRef<number | null>(null)
-    const isDragging = useRef(false)
-    const lastTap = useRef(0)
+    const cardRef = useRef<HTMLDivElement>(null)
+    const startX = useRef(0)
+    const startY = useRef(0)
+    const curX = useRef(0)
+    const dragging = useRef(false)
     const moved = useRef(false)
+    const lastTap = useRef(0)
 
-    const setTransform = (x: number, animate = false) => {
-        tx.current = x
-        if (containerRef.current) {
-            containerRef.current.style.transition = animate? 'transform 0.32s cubic-bezier(.32,.72,0,1)' : 'none'
-            containerRef.current.style.transform = `translate3d(${x}px,0,0)`
+    const setTx = (x: number, anim = false) => {
+        curX.current = x
+        if (cardRef.current) {
+            cardRef.current.style.transition = anim? 'transform 0.3s cubic-bezier(0.22,1,0.36,1)' : 'none'
+            cardRef.current.style.transform = `translate3d(${x}px,0,0)`
         }
     }
 
-    useEffect(() => { setTransform(isOpen? -swipeWidth : 0, true) }, [isOpen, swipeWidth])
+    useEffect(() => { setTx(isOpen? -swipeWidth : 0, true) }, [isOpen, swipeWidth])
 
-    const onPointerDown = (e: React.PointerEvent) => {
+    const handleDown = (e: React.PointerEvent) => {
         if ((e.target as HTMLElement).closest('button')) return
+        dragging.current = true
+        moved.current = false
         startX.current = e.clientX
         startY.current = e.clientY
-        isDragging.current = true
-        moved.current = false
-        ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+        cardRef.current?.setPointerCapture(e.pointerId)
     }
-    const onPointerMove = (e: React.PointerEvent) => {
-        if (!isDragging.current || startX.current===null || startY.current===null) return
+
+    const handleMove = (e: React.PointerEvent) => {
+        if (!dragging.current) return
         const dx = e.clientX - startX.current
         const dy = e.clientY - startY.current
-        if (!moved.current && Math.abs(dx) < 8 && Math.abs(dy) < 8) return
-        if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 15) {
-            isDragging.current = false
-            setTransform(isOpen? -swipeWidth : 0, true)
-            return
-        }
-        if (Math.abs(dx) > 10) moved.current = true
+        if (!moved.current && Math.abs(dx) < 5 && Math.abs(dy) < 5) return
+        if (Math.abs(dy) > Math.abs(dx)) return // deixa scrollar vertical
+        moved.current = true
         let next = dx
         if (isOpen) next = -swipeWidth + dx
-        next = Math.min(0, Math.max(-swipeWidth, next))
-        setTransform(next, false)
-        e.preventDefault()
+        next = Math.max(-swipeWidth, Math.min(0, next))
+        setTx(next, false)
     }
-    const onPointerUp = (e: React.PointerEvent) => {
-        if (!isDragging.current) return
-        isDragging.current = false
-        const dx = tx.current
+
+    const handleUp = (e: React.PointerEvent) => {
+        if (!dragging.current) return
+        dragging.current = false
 
         if (!moved.current) {
             const now = Date.now()
-            if (now - lastTap.current < 320) {
+            if (now - lastTap.current < 350) {
                 onDoubleTap?.()
                 lastTap.current = 0
             } else {
@@ -359,29 +328,28 @@ function SwipeCard({ children, id, isOpen, setOpen, swipeWidth = 260, actions, o
             }
         }
 
-        if (dx < -swipeWidth * 0.35) {
-            setTransform(-swipeWidth, true)
+        const threshold = -swipeWidth * 0.35
+        if (curX.current < threshold) {
+            setTx(-swipeWidth, true)
             setOpen(id)
         } else {
-            setTransform(0, true)
+            setTx(0, true)
             setOpen(null)
         }
-        startX.current = null
-        startY.current = null
     }
 
     return (
-        <div className="relative border-b last:border-b-0 overflow-hidden touch-pan-y">
+        <div className="relative overflow-hidden border-b last:border-b-0">
             {actions}
             <div
-                ref={containerRef}
-                className="relative bg-white will-change-transform"
-                style={{ transform: 'translate3d(0,0,0)' }}
-                onPointerDown={onPointerDown}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
-                onPointerCancel={onPointerUp}
+                ref={cardRef}
+                className="relative bg-white will-change-transform select-none"
+                onPointerDown={handleDown}
+                onPointerMove={handleMove}
+                onPointerUp={handleUp}
+                onPointerCancel={handleUp}
                 onDoubleClick={onDoubleTap}
+                style={{ touchAction: 'pan-y' }}
             >
                 {children}
             </div>

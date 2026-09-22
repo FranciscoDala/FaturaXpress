@@ -20,26 +20,19 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
 
     const formatarTexto = (texto: string) => {
         if (!texto) return ''
-        const mapa: Record<string, string> = {
-            'NAO_APARECEU': 'Não apareceu', 'DOENTE': 'Doente', 'ATESTADO': 'Atestado',
-            'ATESTADO_MEDICO': 'Atestado médico', 'OUTROS': 'Outros'
-        }
+        const mapa: Record<string, string> = { 'NAO_APARECEU': 'Não apareceu', 'DOENTE': 'Doente', 'ATESTADO': 'Atestado', 'ATESTADO_MEDICO': 'Atestado médico', 'OUTROS': 'Outros' }
         const upper = texto.toUpperCase().trim()
         if (mapa[upper]) return mapa[upper]
         return texto.replace(/_/g, ' ').toLowerCase().replace(/(^\w|\s\w)/g, m => m.toUpperCase())
     }
-
     const getMotivo = (n: any) => {
         if (n.tipo === 'atraso_excedido') return `${n.qtd_atrasos} atrasos`
         const raw = (n.falta?.motivo || '').split('|')[0].trim()
         return formatarTexto(raw.replace(/^(FALTA|OUTROS)\s*/i,'').trim() || raw) || 'Não informado'
     }
-
-    // TEMPO ONDE FICA ADMIN: agora, há 1min, 1h, 1d, 7d, 1 semana, 2 semanas, 1 mês
-    const formatarTempoAdmin = (iso: string) => {
+    const formatarTempo = (iso: string) => {
         if (!iso) return 'agora'
-        const diffMs = Date.now() - new Date(iso).getTime()
-        const min = Math.floor(diffMs / 60000)
+        const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
         if (min < 1) return 'agora'
         if (min < 60) return `há ${min}min`
         const h = Math.floor(min / 60)
@@ -50,25 +43,18 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         if (d < 21) return 'há 2 semanas'
         if (d < 28) return 'há 3 semanas'
         const m = Math.floor(d / 30)
-        if (m < 12) return m <= 1? 'há 1 mês' : `há ${m} meses`
-        return `há ${Math.floor(m/12)} ano`
+        return m <= 1? 'há 1 mês' : `há ${m} meses`
     }
-
     const formatarDataCurta = (iso: string) => {
         if (!iso) return ''
         const d = new Date(iso)
-        const dd = String(d.getDate()).padStart(2,'0')
-        const mm = String(d.getMonth()+1).padStart(2,'0')
-        const yy = String(d.getFullYear()).slice(-2)
-        return `${dd}/${mm}/${yy}`
+        return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getFullYear()).slice(-2)}`
     }
 
     const fetchNotifs = useCallback(async (silent = false) => {
         if (!silent && firstLoad.current) setLoading(true)
-        try {
-            const { data } = await api.get(`/api/rh/notificacoes?area=${area}`)
-            setNotifs(Array.isArray(data)? data : [])
-        } catch { if (!silent) toast.error('Erro') }
+        try { const { data } = await api.get(`/api/rh/notificacoes?area=${area}`); setNotifs(Array.isArray(data)? data : []) }
+        catch { if (!silent) toast.error('Erro') }
         finally { setLoading(false); firstLoad.current = false }
     }, [area])
 
@@ -76,7 +62,6 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
 
     const ativas = notifs.filter(n => n.status_notificacao === 'pendente')
     const historico = notifs.filter(n => n.status_notificacao!== 'pendente')
-
     const filtered = useMemo(() => {
         const list = tab === 'ativas'? ativas : historico
         if (!search.trim()) return list
@@ -84,15 +69,13 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         return list.filter(n => (n.funcionario?.nome || '').toLowerCase().includes(s))
     }, [ativas, historico, tab, search])
 
-    const marcarComoLida = async (notifId: string) => {
-        if (viewedIds.has(notifId)) return
-        setViewedIds(prev => new Set(prev).add(notifId))
-        try { await api.post(`/api/rh/notificacoes/${notifId}/lida`) } catch {}
+    const marcarComoLida = async (id: string) => {
+        if (viewedIds.has(id)) return
+        setViewedIds(p => new Set(p).add(id))
+        try { await api.post(`/api/rh/notificacoes/${id}/lida`) } catch {}
     }
-
     const handleExpand = (n: any) => {
-        const isNew =!n.lida &&!viewedIds.has(n.notificacao_id) && n.status_notificacao === 'pendente'
-        if (isNew) marcarComoLida(n.notificacao_id)
+        if (!n.lida &&!viewedIds.has(n.notificacao_id) && n.status_notificacao === 'pendente') marcarComoLida(n.notificacao_id)
         setExpandedId(expandedId === n.notificacao_id? null : n.notificacao_id)
     }
 
@@ -101,15 +84,12 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         const token = localStorage.getItem("token") || localStorage.getItem("access_token") || ""
         const url = `${apiRoot}/rh/falta/${faltaId}/anexo?token=${encodeURIComponent(token)}`
         setOpeningId(faltaId)
-        try {
-            const res = await fetch(url); if (!res.ok) throw new Error('Falha')
-            const blob = await res.blob()
-            setComprovante({ url: URL.createObjectURL(blob), type: blob.type })
-        } catch (e: any) { toast.error(e?.message) } finally { setOpeningId(null) }
+        try { const res = await fetch(url); if (!res.ok) throw new Error('Falha'); const blob = await res.blob(); setComprovante({ url: URL.createObjectURL(blob), type: blob.type }) }
+        catch (e: any) { toast.error(e?.message) } finally { setOpeningId(null) }
     }
 
     const handleFalta = async (faltaId: string, acao: 'aprovar' | 'rejeitar' | 'encaminhar') => {
-        if (!faltaId) return; setActingId(faltaId)
+        setActingId(faltaId)
         try {
             const logado = JSON.parse(localStorage.getItem('funcionario') || 'null')
             if (acao === 'aprovar') await api.post(`/api/rh/falta/${faltaId}/aprovar`, { aprovado_por_id: logado?.id })
@@ -119,7 +99,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         } catch (e: any) { toast.error(e?.response?.data?.detail || 'Erro') } finally { setActingId(null) }
     }
     const handleAtraso = async (funcId: string, acao: 'aplicar' | 'ignorar' | 'encaminhar') => {
-        if (!funcId) return; setActingId(funcId)
+        setActingId(funcId)
         try {
             const logado = JSON.parse(localStorage.getItem('funcionario') || 'null')
             if (acao === 'aplicar') await api.post(`/api/rh/atrasos/${funcId}/aplicar`, { aplicado_por_id: logado?.id })
@@ -133,28 +113,19 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
 
     return (
         <>
-            <style>{`.no-scrollbar::-webkit-scrollbar{display:none}`}</style>
             <div className="bg-white rounded-[16px] border overflow-hidden">
-                <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 w-full">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-white border flex items-center justify-center"><Bell className="w-4 h-4 text-black" /></div>
-                            <p className="text-[13px] font-bold text-black">Notificações • {ativas.length}</p>
-                        </div>
-                        <div className="flex items-center gap-2 w-full md:w-auto">
-                            <div className="relative flex-1 md:w-[260px]">
-                                <Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className="w-full h-[36px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[12px] focus:outline-none focus:border-black" />
-                            </div>
-                            <div className="flex bg-white border border-gray-200 rounded-full p-1">
-                                <button onClick={() => setTab('ativas')} className={`px-3 py-1 rounded-full text-[11px] font-bold ${tab === 'ativas'? 'bg-black text-white' : 'text-black/60'}`}>Ativas</button>
-                                <button onClick={() => setTab('historico')} className={`px-3 py-1 rounded-full text-[11px] font-bold ${tab === 'historico'? 'bg-black text-white' : 'text-black/60'}`}>Histórico</button>
-                            </div>
-                        </div>
+                <div className="p-3 border-b bg-gray-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-white border flex items-center justify-center"><Bell className="w-4 h-4" /></div>
+                        <p className="text-[13px] font-bold">Notificações • {ativas.length}</p>
+                    </div>
+                    <div className="flex bg-white border rounded-full p-1">
+                        <button onClick={() => setTab('ativas')} className={`px-3 py-1 rounded-full text-[11px] font-bold ${tab === 'ativas'? 'bg-black text-white' : 'text-black/60'}`}>Ativas</button>
+                        <button onClick={() => setTab('historico')} className={`px-3 py-1 rounded-full text-[11px] font-bold ${tab === 'historico'? 'bg-black text-white' : 'text-black/60'}`}>Histórico</button>
                     </div>
                 </div>
 
-                <div className="max-h-[70vh] overflow-y-auto no-scrollbar">
+                <div className="max-h-[75vh] overflow-y-auto">
                     {filtered.map((n: any) => {
                         const isExpanded = expandedId === n.notificacao_id
                         const isAtraso = n.tipo === 'atraso_excedido'
@@ -168,65 +139,55 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                         const isNew =!n.lida &&!viewedIds.has(n.notificacao_id) && isPending
 
                         return (
-                            <div key={n.notificacao_id} className={`px-3 md:px-4 py-3 border-b last:border-b-0 transition ${isNew? 'bg-[#F0F8FF]' : 'bg-white hover:bg-gray-50'}`}>
-                                <div className="flex justify-between items-start gap-2">
-                                    {/* ESQUERDA - Nome · Admin · tempo */}
-                                    <div className="min-w-0 flex-1">
-                                        <p className="text-[13px] text-black truncate">
+                            <div key={n.notificacao_id} className={`relative px-3 py-2 border-b last:border-b-0 ${isNew? 'bg-[#F0F8FF]' : 'bg-white'}`}>
+                                <div className="flex justify-between items-start">
+                                    {/* ESQUERDA */}
+                                    <div className="min-w-0 pr-3 leading-tight">
+                                        <p className="text-[13px] text-black leading-[18px] truncate">
                                             <span className="font-bold">{nome}</span>
-                                            <span className="font-normal text-black/60"> · Admin</span>
-                                            <span className="font-normal text-black/60"> · {formatarTempoAdmin(n.created_at)}</span>
+                                            <span className="font-normal text-black/60"> · {formatarTempo(n.created_at)}</span>
                                         </p>
-                                    </div>
-                                    {/* DIREITA - Data + menu 3 barras */}
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <span className="text-[12px] text-black/60 font-medium">{formatarDataCurta(n.created_at)}</span>
-                                        <button onClick={() => handleExpand(n)} className="w-7 h-7 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100">
-                                            <Menu className="w-4 h-4 text-black" />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="mt-2 flex flex-wrap gap-1">
-                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] border font-medium ${isAtraso? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
-                                        Falta aplicada por motivo de: {motivo}
-                                    </span>
-                                </div>
-
-                                {/* Doc: Atestado - azul, não negritado */}
-                                {!isAtraso && (
-                                    <div className="mt-2 space-y-1">
-                                        <p className="text-[12px] text-black/70">
-                                            Doc: <span className="text-[#0095ff] font-normal">{tipoJust || 'Atestado'}</span>
-                                        </p>
-                                        {justificacao && (
-                                            <p className="text-[12px] text-black/70 leading-5">{justificacao}</p>
+                                        <div className="mt-1 flex">
+                                            <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-medium leading-none ${isAtraso? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                                                Falta aplicada por motivo de: {motivo}
+                                            </span>
+                                        </div>
+                                        {!isAtraso && (
+                                            <div className="mt-1.5 leading-[18px]">
+                                                <p className="text-[12px] text-black/70 leading-[18px]">Doc: <span className="text-[#0095ff]">{tipoJust || 'Atestado'}</span></p>
+                                                {justificacao && <p className="text-[12px] text-black/70 leading-[18px] mt-0.5">{justificacao}</p>}
+                                            </div>
                                         )}
                                     </div>
-                                )}
 
-                                {isAtraso && (
-                                    <p className="text-[11px] text-black/60 mt-1.5">{n.qtd_atrasos} atrasos • Regra: {n.qtd_para_falta} = 1 falta</p>
-                                )}
+                                    {/* DIREITA - data em cima, menu embaixo */}
+                                    <div className="flex flex-col items-end gap-1 shrink-0 relative">
+                                        <span className="text-[12px] text-black/70 font-medium leading-none">{formatarDataCurta(n.created_at)}</span>
+                                        <button onClick={() => handleExpand(n)} className="w-7 h-7 rounded-full bg-white border shadow-sm flex items-center justify-center hover:bg-gray-50">
+                                            <Menu className="w-4 h-4" />
+                                        </button>
 
-                                {isExpanded && isPending && (
-                                    <div className="mt-3 grid grid-cols-1 gap-2">
-                                        <button disabled={!!actingId} onClick={() => isAtraso? handleAtraso(func?.id, 'ignorar') : handleFalta(n.falta?.id, 'rejeitar')} className="w-full h-[40px] rounded-full bg-white border border-red-200 text-red-600 text-[13px] font-bold hover:bg-red-50 flex items-center justify-center gap-1.5">
-                                            <X className="w-4 h-4" /> Rejeitar
-                                        </button>
-                                        <button disabled={!!actingId} onClick={() => isAtraso? handleAtraso(func?.id, 'aplicar') : handleFalta(n.falta?.id, 'aprovar')} className="w-full h-[40px] rounded-full bg-[#0095ff] text-white text-[13px] font-bold hover:bg-[#0085e6] flex items-center justify-center gap-1.5">
-                                            <Check className="w-4 h-4" /> {isAtraso? 'Aplicar falta' : 'Abonar falta'}
-                                        </button>
-                                        {temAnexo && (
-                                            <button disabled={!!openingId} onClick={() => abrirComprovante(n.falta.id)} className="w-full h-[40px] rounded-full bg-black text-white text-[13px] font-bold flex items-center justify-center gap-1.5">
-                                                <Eye className="w-4 h-4" /> Ver comprovante
-                                            </button>
+                                        {/* DROPDOWN LATERAL */}
+                                        {isExpanded && isPending && (
+                                            <div className="absolute right-0 top-12 z-20 w-[190px] bg-white border border-gray-200 rounded-[12px] shadow-xl p-2 animate-in fade-in zoom-in-95">
+                                                <button disabled={!!actingId} onClick={() => handleFalta(n.falta?.id, 'aprovar')} className="w-full h-9 rounded-full bg-[#0095ff] text-white text-[12px] font-bold hover:bg-[#0085e6] flex items-center justify-center gap-1.5">
+                                                    <Check className="w-4 h-4" /> Abonar
+                                                </button>
+                                                <button disabled={!!actingId} onClick={() => handleFalta(n.falta?.id, 'rejeitar')} className="w-full mt-1.5 h-9 rounded-full bg-white border border-red-200 text-red-600 text-[12px] font-bold hover:bg-red-50 flex items-center justify-center gap-1.5">
+                                                    <X className="w-4 h-4" /> Rejeitar
+                                                </button>
+                                                {temAnexo && (
+                                                    <button disabled={!!openingId} onClick={() => abrirComprovante(n.falta.id)} className="w-full mt-1.5 h-9 rounded-full bg-black text-white text-[12px] font-bold flex items-center justify-center gap-1.5">
+                                                        <Eye className="w-4 h-4" /> Ver
+                                                    </button>
+                                                )}
+                                                <button onClick={() => isAtraso? handleAtraso(func?.id, 'encaminhar') : handleFalta(n.falta?.id, 'encaminhar')} className="w-full mt-1.5 h-9 rounded-full bg-white border border-gray-200 text-black text-[12px] font-bold flex items-center justify-center gap-1.5">
+                                                    <ArrowUpRight className="w-4 h-4" /> Admin
+                                                </button>
+                                            </div>
                                         )}
-                                        <button onClick={() => isAtraso? handleAtraso(func?.id, 'encaminhar') : handleFalta(n.falta?.id, 'encaminhar')} className="w-full h-[40px] rounded-full bg-white border border-gray-200 text-black text-[13px] font-bold flex items-center justify-center gap-1.5">
-                                            <ArrowUpRight className="w-4 h-4" /> Admin
-                                        </button>
                                     </div>
-                                )}
+                                </div>
                             </div>
                         )
                     })}

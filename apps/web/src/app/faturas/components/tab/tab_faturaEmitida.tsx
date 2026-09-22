@@ -278,7 +278,7 @@ function FaturaCard({ fatura, ncVinculada, clienteProp, empresa, onView, onOpenN
         setDownloading(true)
         try {
             const idParaBaixar = ncVinculada?.id || fatura.id
-            const res = await api.get(`/faturas/${idParaBaixar}/pdf`, { responseType: 'blob' })
+            const res = await api.get(`faturas/${idParaBaixar}/pdf`, { responseType: 'blob' })
             const blob = new Blob([res.data], { type: 'application/pdf' })
             const url = window.URL.createObjectURL(blob)
             const a = document.createElement('a')

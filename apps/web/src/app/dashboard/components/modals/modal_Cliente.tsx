@@ -6,19 +6,19 @@ import { api } from '../../../../lib/api'
 const API_URL = "https://faturaxpress-backend.onrender.com/api"
 
 interface Cliente {
-  id: string
-  nome: string
-  nif: string
-  email: string | null
-  telefone: string | null
-  endereco: string | null
-  cidade: string | null
-  provincia: string | null
+    id: string
+    nome: string
+    nif: string
+    email: string | null
+    telefone: string | null
+    endereco: string | null
+    cidade: string | null
+    provincia: string | null
 }
 
 interface Props {
     open: boolean
-    cliente: Cliente | null
+    cliente?: any | null
     onClose: () => void
     onSuccess: () => void
 }
@@ -70,24 +70,24 @@ function CustomSelect({ value, options, onChange, placeholder, disabled }: { val
     const [open, setOpen] = useState(false)
     const ref = useRef<HTMLDivElement>(null)
     useEffect(() => {
-        const h = (e: MouseEvent) => { if (ref.current &&!ref.current.contains(e.target as Node)) setOpen(false) }
+        const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
         document.addEventListener('mousedown', h)
         return () => document.removeEventListener('mousedown', h)
     }, [])
     const selected = options.find(o => o.value === value)
     return (
         <div ref={ref} className="relative w-full">
-            <button type="button" disabled={disabled} onClick={() =>!disabled && setOpen(!open)} className={`w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black flex items-center justify-between focus:outline-none focus:border-[#0095ff] transition ${disabled? 'opacity-60 bg-gray-50 cursor-not-allowed' : ''}`}>
-                <span className={`flex items-center gap-2 ${selected? 'text-black' : 'text-black/60'}`}>
+            <button type="button" disabled={disabled} onClick={() => !disabled && setOpen(!open)} className={`w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13.5px] text-black flex items-center justify-between focus:outline-none focus:border-[#0095ff] transition ${disabled ? 'opacity-60 bg-gray-50 cursor-not-allowed' : ''}`}>
+                <span className={`flex items-center gap-2 ${selected ? 'text-black' : 'text-black/60'}`}>
                     <MapPin className="w-4 h-4 text-gray-400" />
-                    {selected? selected.label : placeholder}
+                    {selected ? selected.label : placeholder}
                 </span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
             {open && (
                 <div className="absolute z-50 top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5 max-h-[220px] overflow-y-auto no-scrollbar">
                     {options.map(o => (
-                        <button key={o.value} type="button" onClick={() => { onChange(o.value); setOpen(false) }} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[13px] flex items-center justify-between transition ${value === o.value? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-50 text-gray-700'}`}>
+                        <button key={o.value} type="button" onClick={() => { onChange(o.value); setOpen(false) }} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[13px] flex items-center justify-between transition ${value === o.value ? 'bg-[#E6F0FF] font-semibold text-black' : 'hover:bg-gray-50 text-gray-700'}`}>
                             {o.label} {value === o.value && <Check className="w-4 h-4 text-[#0095ff]" />}
                         </button>
                     ))}
@@ -103,7 +103,7 @@ async function validarDiretoNoNavegador(nif: string): Promise<{ nome_agt: string
     const getRes = await fetch(URL, { method: 'GET', credentials: 'include' })
     const getText = await getRes.text()
     const vsMatch = getText.match(/name="javax\.faces\.ViewState"[^>]*value="([^"]+)"/)
-    const viewState = vsMatch? vsMatch[1] : ''
+    const viewState = vsMatch ? vsMatch[1] : ''
     const form = new URLSearchParams()
     form.append('javax.faces.partial.ajax', 'true')
     form.append('javax.faces.source', 'j_id_2x:j_id_34')
@@ -117,11 +117,11 @@ async function validarDiretoNoNavegador(nif: string): Promise<{ nome_agt: string
     const postRes = await fetch(URL, { method: 'POST', body: form, headers: { 'Faces-Request': 'partial/ajax', 'X-Requested-With': 'XMLHttpRequest' } })
     const postText = await postRes.text()
     const cdataMatch = postText.match(/<update id="showpanelNIF"><!\[CDATA\[(.*?)\]\]><\/update>/s)
-    const html = cdataMatch? cdataMatch[1] : postText
-    if (!html.includes('taxPayerNidId') &&!html.includes('taxpayer')) throw new Error('NIF não encontrado na AGT')
+    const html = cdataMatch ? cdataMatch[1] : postText
+    if (!html.includes('taxPayerNidId') && !html.includes('taxpayer')) throw new Error('NIF não encontrado na AGT')
     const extract = (label: string) => {
         const m = html.match(new RegExp(`${label}:\\s*<\\/label>\\s*<div[^>]*>\\s*<label[^>]*>([^<]+)<\\/label>`, 'i'))
-        return m? m[1].trim() : undefined
+        return m ? m[1].trim() : undefined
     }
     const nome = extract('Nome')
     if (!nome) throw new Error('NIF não encontrado na AGT')
@@ -131,7 +131,7 @@ async function validarDiretoNoNavegador(nif: string): Promise<{ nome_agt: string
         estado: extract('Estado'),
         inadimplente: extract('Inadimplente'),
         regime_iva: extract('Regime de IVA'),
-        residente_fiscal: html.toLowerCase().includes('residente fiscal')? 'Sim' : undefined
+        residente_fiscal: html.toLowerCase().includes('residente fiscal') ? 'Sim' : undefined
     }
 }
 
@@ -153,11 +153,11 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
         try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
     }, [])
     const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
-    const podeGerir = funcionarioLogado? temPermissao(cargoAtual, 'gerir_clientes') || temPermissao(cargoAtual, 'criar_cliente') || cargoAtual === 'admin' : true
+    const podeGerir = funcionarioLogado ? temPermissao(cargoAtual, 'gerir_clientes') || temPermissao(cargoAtual, 'criar_cliente') || cargoAtual === 'admin' : true
 
-    const isEditMode =!!cliente
-    const municipiosDisponiveis = form.provincia? (MUNICIPIOS[form.provincia] || []) : []
-    const isNaoActivo = agtData?.estado &&!agtData.estado.toLowerCase().includes('activ')
+    const isEditMode = !!cliente
+    const municipiosDisponiveis = form.provincia ? (MUNICIPIOS[form.provincia] || []) : []
+    const isNaoActivo = agtData?.estado && !agtData.estado.toLowerCase().includes('activ')
 
     useEffect(() => {
         if (cliente) {
@@ -186,9 +186,9 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
     if (!podeGerir) {
         return (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                <div className="absolute inset-0 bg-black/60" onClick={onClose}/>
+                <div className="absolute inset-0 bg-black/60" onClick={onClose} />
                 <div className="relative bg-white rounded-[24px] p-8 text-center max-w-[360px] w-full">
-                    <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2"/>
+                    <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2" />
                     <p className="font-bold">Sem permissão</p>
                     <p className="text-[13px] text-gray-500 mt-1">Cargo <b>{cargoAtual.toUpperCase()}</b> não pode gerir clientes</p>
                     <button onClick={onClose} className="mt-4 w-full h-11 bg-black text-white rounded-full">Fechar</button>
@@ -198,15 +198,15 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
     }
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        setForm({...form, [e.target.name]: e.target.value })
+        setForm({ ...form, [e.target.name]: e.target.value })
     }
 
     const handleProvinceChange = (prov: string) => {
-        setForm(prev => ({...prev, provincia: prov, cidade: '' }))
+        setForm(prev => ({ ...prev, provincia: prov, cidade: '' }))
     }
 
     const handleCityChange = (cidade: string) => {
-        setForm(prev => ({...prev, cidade }))
+        setForm(prev => ({ ...prev, cidade }))
     }
 
     const handleValidarNif = async () => {
@@ -217,7 +217,7 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
         }
         if (nifClean === "999999999") {
             setAgtData({ nome: "CONSUMIDOR FINAL", tipo: "CONSUMIDOR", estado: "Activo" })
-            setForm(prev => ({...prev, nome: "CONSUMIDOR FINAL", nif: nifClean }))
+            setForm(prev => ({ ...prev, nome: "CONSUMIDOR FINAL", nif: nifClean }))
             setNifValidated(true)
             setNifExists(false)
             setClienteExistente(null)
@@ -279,13 +279,13 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                 } else {
                     setNifExists(false)
                     setClienteExistente(null)
-                    setForm(prev => ({...prev, nome: agtResult!.nome_agt, nif: nifClean }))
+                    setForm(prev => ({ ...prev, nome: agtResult!.nome_agt, nif: nifClean }))
                     toast.success(`NIF validado: ${agtResult.nome_agt}`, { position: 'top-center' })
                     setNifValidated(true)
                 }
             } catch {
                 setNifExists(false)
-                setForm(prev => ({...prev, nome: agtResult!.nome_agt, nif: nifClean }))
+                setForm(prev => ({ ...prev, nome: agtResult!.nome_agt, nif: nifClean }))
                 toast.success(`NIF validado: ${agtResult.nome_agt}`, { position: 'top-center' })
                 setNifValidated(true)
             }
@@ -318,7 +318,7 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!podeGerir) { toast.error('Sem permissão'); return }
-        if (!nifValidated &&!isEditMode) {
+        if (!nifValidated && !isEditMode) {
             toast.error("Valide o NIF na AGT primeiro", { position: 'top-center' })
             return
         }
@@ -358,13 +358,13 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                 toast.success('Cliente atualizado', { position: 'top-center' })
             } else {
                 const payload = {
-                  nome: (agtData?.nome || form.nome).trim(),
-                  nif: form.nif.trim(),
-                  email: form.email.trim(),
-                  telefone: form.telefone.trim(),
-                  endereco: form.endereco.trim(),
-                  cidade: form.cidade.trim(),
-                  provincia: form.provincia.trim()
+                    nome: (agtData?.nome || form.nome).trim(),
+                    nif: form.nif.trim(),
+                    email: form.email.trim(),
+                    telefone: form.telefone.trim(),
+                    endereco: form.endereco.trim(),
+                    cidade: form.cidade.trim(),
+                    provincia: form.provincia.trim()
                 }
                 await api.post('/api/clientes/', payload)
                 toast.success('Cliente criado com sucesso', { position: 'top-center' })
@@ -395,22 +395,22 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
             <div className="relative bg-white rounded-[24px] w-full max-w-[520px] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
                 <div className="relative h-[72px] px-5 pt-5 flex justify-between items-start bg-[#E6F0FF] shrink-0">
                     <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center"><User className="w-4 h-4 text-[#0095ff]" /></div>
-                    <div className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full border shadow-sm ${nifValidated? 'text-green-700 bg-green-50 border-green-300' : 'text-[#0095ff] bg-white border-gray-200'}`}>
-                        {nifValidated? <CheckCircle className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-                        {nifValidated? `NIF: ${form.nif.toUpperCase()} • ${cargoAtual.toUpperCase()}` : `Validação AGT • ${cargoAtual.toUpperCase()}`}
+                    <div className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full border shadow-sm ${nifValidated ? 'text-green-700 bg-green-50 border-green-300' : 'text-[#0095ff] bg-white border-gray-200'}`}>
+                        {nifValidated ? <CheckCircle className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                        {nifValidated ? `NIF: ${form.nif.toUpperCase()} • ${cargoAtual.toUpperCase()}` : `Validação AGT • ${cargoAtual.toUpperCase()}`}
                     </div>
                 </div>
 
                 <div className="px-6 pt-5 pb-3 shrink-0 border-b border-gray-100">
-                    <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{isEditMode? 'Editar Cliente' : 'Novo Cliente'} <span className="text-[10px] bg-black text-white px-2 py-1 rounded-full ml-1">{cargoAtual.toUpperCase()}</span></h3>
+                    <h3 className="text-[18px] font-bold text-gray-900 leading-tight">{isEditMode ? 'Editar Cliente' : 'Novo Cliente'} <span className="text-[10px] bg-black text-white px-2 py-1 rounded-full ml-1">{cargoAtual.toUpperCase()}</span></h3>
                     <p className="text-[13.5px] text-gray-500 mt-1 leading-relaxed">
-                        {isEditMode? 'Nome e NIF não podem ser alterados.' : nifValidated? (isNaoActivo? 'Cliente não activo - será fatura avulso' : nifExists? `NIF já cadastrado: ${clienteExistente?.nome} - não pode duplicar` : 'Preencha os dados para criar') : 'Adiciona o NIF do cliente para ser validado no Contribuinte da Administração Geral Tributária!'}
+                        {isEditMode ? 'Nome e NIF não podem ser alterados.' : nifValidated ? (isNaoActivo ? 'Cliente não activo - será fatura avulso' : nifExists ? `NIF já cadastrado: ${clienteExistente?.nome} - não pode duplicar` : 'Preencha os dados para criar') : 'Adiciona o NIF do cliente para ser validado no Contribuinte da Administração Geral Tributária!'}
                     </p>
                     {nifValidated && (
-                        <div className={`mt-[8px] flex items-center gap-1.5 px-3 py-1.5 rounded-full border w-fit ${isNaoActivo? 'bg-red-50 border-red-200' : nifExists? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
-                            {isNaoActivo? <AlertTriangle className="w-3.5 h-3.5 text-red-600" /> : nifExists? <AlertTriangle className="w-3.5 h-3.5 text-red-600" /> : <CheckCircle className="w-3.5 h-3.5 text-green-600" />}
-                            <span className={`text-[11px] font-semibold ${isNaoActivo? 'text-red-700' : nifExists? 'text-red-700' : 'text-green-700'}`}>
-                                {isNaoActivo? 'Cliente não activo - fatura avulso' : nifExists? 'NIF já existe - não pode duplicar' : `NIF validado pela AGT • ${cargoAtual.toUpperCase()}`}
+                        <div className={`mt-[8px] flex items-center gap-1.5 px-3 py-1.5 rounded-full border w-fit ${isNaoActivo ? 'bg-red-50 border-red-200' : nifExists ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                            {isNaoActivo ? <AlertTriangle className="w-3.5 h-3.5 text-red-600" /> : nifExists ? <AlertTriangle className="w-3.5 h-3.5 text-red-600" /> : <CheckCircle className="w-3.5 h-3.5 text-green-600" />}
+                            <span className={`text-[11px] font-semibold ${isNaoActivo ? 'text-red-700' : nifExists ? 'text-red-700' : 'text-green-700'}`}>
+                                {isNaoActivo ? 'Cliente não activo - fatura avulso' : nifExists ? 'NIF já existe - não pode duplicar' : `NIF validado pela AGT • ${cargoAtual.toUpperCase()}`}
                             </span>
                         </div>
                     )}
@@ -418,7 +418,7 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
 
                 <div className="flex-1 overflow-auto no-scrollbar px-6 py-4">
                     <div className="flex flex-col gap-[5px]">
-                        {!nifValidated &&!isEditMode? (
+                        {!nifValidated && !isEditMode ? (
                             <div className="flex flex-col gap-[5px]">
                                 {agtOffline && (
                                     <div className="bg-amber-50 border border-amber-200 rounded-[12px] p-3.5 text-[12.5px] leading-[1.6]">
@@ -438,34 +438,34 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                         ) : (
                             <>
                                 {agtData && (
-                                    <div className={`${isNaoActivo? 'bg-red-50 border-red-200' : nifExists? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'} border rounded-[12px] p-3.5 text-[12.5px] leading-[1.6]`}>
-                                        <div><span className={`${isNaoActivo? 'text-red-800/70' : nifExists? 'text-red-800/70' : 'text-green-800/70'} font-medium`}>Nome:</span> <span className={`font-bold uppercase ${isNaoActivo? 'text-red-900' : nifExists? 'text-red-900' : 'text-green-900'}`}>{agtData.nome}</span></div>
-                                        <div><span className={`${isNaoActivo? 'text-red-800/70' : nifExists? 'text-red-800/70' : 'text-green-800/70'} font-medium`}>Tipo:</span> <span className={`font-semibold ${isNaoActivo? 'text-red-800' : nifExists? 'text-red-800' : 'text-green-800'}`}>{agtData.tipo || "SINGULAR"}</span></div>
-                                        <div><span className={`${isNaoActivo? 'text-red-800/70' : nifExists? 'text-red-800/70' : 'text-green-800/70'} font-medium`}>Estado:</span> <span className={`font-bold ${isNaoActivo? 'text-red-700' : nifExists? 'text-red-700' : 'text-green-700'}`}>{agtData.estado || "Activo"}</span></div>
+                                    <div className={`${isNaoActivo ? 'bg-red-50 border-red-200' : nifExists ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'} border rounded-[12px] p-3.5 text-[12.5px] leading-[1.6]`}>
+                                        <div><span className={`${isNaoActivo ? 'text-red-800/70' : nifExists ? 'text-red-800/70' : 'text-green-800/70'} font-medium`}>Nome:</span> <span className={`font-bold uppercase ${isNaoActivo ? 'text-red-900' : nifExists ? 'text-red-900' : 'text-green-900'}`}>{agtData.nome}</span></div>
+                                        <div><span className={`${isNaoActivo ? 'text-red-800/70' : nifExists ? 'text-red-800/70' : 'text-green-800/70'} font-medium`}>Tipo:</span> <span className={`font-semibold ${isNaoActivo ? 'text-red-800' : nifExists ? 'text-red-800' : 'text-green-800'}`}>{agtData.tipo || "SINGULAR"}</span></div>
+                                        <div><span className={`${isNaoActivo ? 'text-red-800/70' : nifExists ? 'text-red-800/70' : 'text-green-800/70'} font-medium`}>Estado:</span> <span className={`font-bold ${isNaoActivo ? 'text-red-700' : nifExists ? 'text-red-700' : 'text-green-700'}`}>{agtData.estado || "Activo"}</span></div>
                                         {isNaoActivo && <div className="mt-2 text-[11px] font-semibold text-red-700">⚠️ Este cliente não está activo - fatura será avulso no SAFT</div>}
-                                        {nifExists &&!isEditMode && <div className="mt-2 text-[11px] font-semibold text-red-700">⛔ Este NIF já está cadastrado como {clienteExistente?.nome}. Não pode criar duplicado.</div>}
+                                        {nifExists && !isEditMode && <div className="mt-2 text-[11px] font-semibold text-red-700">⛔ Este NIF já está cadastrado como {clienteExistente?.nome}. Não pode criar duplicado.</div>}
                                     </div>
                                 )}
                                 <form id="form-cliente" onSubmit={handleSubmit} className="flex flex-col gap-[5px] mt-[5px]">
                                     <input type="hidden" value={form.nif} readOnly />
                                     <input type="hidden" value={form.nome} readOnly />
                                     <div className="relative">
-                                        <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="Email *" className={inputWithIcon} disabled={nifExists &&!isEditMode} />
+                                        <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="Email *" className={inputWithIcon} disabled={nifExists && !isEditMode} />
                                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                     </div>
                                     <div className="grid grid-cols-2 gap-[5px]">
                                         <div className="relative">
-                                            <input name="telefone" value={form.telefone} onChange={handleChange} placeholder="Telefone *" className={`${inputClass} pl-10`} disabled={nifExists &&!isEditMode} />
+                                            <input name="telefone" value={form.telefone} onChange={handleChange} placeholder="Telefone *" className={`${inputClass} pl-10`} disabled={nifExists && !isEditMode} />
                                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                         </div>
                                         <div className="relative">
-                                            <input name="endereco" value={form.endereco} onChange={handleChange} placeholder="Endereço *" className={`${inputClass} pl-10`} disabled={nifExists &&!isEditMode} />
+                                            <input name="endereco" value={form.endereco} onChange={handleChange} placeholder="Endereço *" className={`${inputClass} pl-10`} disabled={nifExists && !isEditMode} />
                                             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-[5px]">
-                                        <CustomSelect value={form.provincia} onChange={handleProvinceChange} placeholder="Província *" options={PROVINCIAS.map(p => ({ value: p, label: p }))} disabled={nifExists &&!isEditMode} />
-                                        <CustomSelect value={form.cidade} onChange={handleCityChange} placeholder={form.provincia? "Município *" : "Município *"} options={municipiosDisponiveis.map(m => ({ value: m, label: m }))} disabled={!form.provincia || (nifExists &&!isEditMode)} />
+                                        <CustomSelect value={form.provincia} onChange={handleProvinceChange} placeholder="Província *" options={PROVINCIAS.map(p => ({ value: p, label: p }))} disabled={nifExists && !isEditMode} />
+                                        <CustomSelect value={form.cidade} onChange={handleCityChange} placeholder={form.provincia ? "Município *" : "Município *"} options={municipiosDisponiveis.map(m => ({ value: m, label: m }))} disabled={!form.provincia || (nifExists && !isEditMode)} />
                                     </div>
                                 </form>
                             </>
@@ -479,21 +479,21 @@ export default function ClienteModal({ open, cliente, onClose, onSuccess }: Prop
                     </button>
                     <button
                         type="button"
-                        onClick={nifValidated? (e) => handleSubmit(e as any) : handleValidarNif}
-                        disabled={validatingNif || loading || (!nifValidated &&!form.nif) || (!isEditMode && nifExists) ||!podeGerir}
-                        className={`flex-1 h-11 rounded-full font-semibold flex items-center justify-center gap-2 transition ${(!isEditMode && nifExists) ||!podeGerir? 'bg-red-100 text-red-700 border border-red-200 cursor-not-allowed' : 'bg-[#0095ff] text-white hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)]'} disabled:opacity-60`}
+                        onClick={nifValidated ? (e) => handleSubmit(e as any) : handleValidarNif}
+                        disabled={validatingNif || loading || (!nifValidated && !form.nif) || (!isEditMode && nifExists) || !podeGerir}
+                        className={`flex-1 h-11 rounded-full font-semibold flex items-center justify-center gap-2 transition ${(!isEditMode && nifExists) || !podeGerir ? 'bg-red-100 text-red-700 border border-red-200 cursor-not-allowed' : 'bg-[#0095ff] text-white hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)]'} disabled:opacity-60`}
                     >
-                        {validatingNif || loading? (
+                        {validatingNif || loading ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : nifValidated? (
-                            (!isEditMode && nifExists)? (
+                        ) : nifValidated ? (
+                            (!isEditMode && nifExists) ? (
                                 <><AlertTriangle className="w-5 h-5" /> NIF já existe</>
                             ) : (
                                 <Check className="w-5 h-5" />
                             )
                         ) : (
                             <>
-                                <span>{agtOffline? "Tentar novamente" : "Consultar NIF"}</span>
+                                <span>{agtOffline ? "Tentar novamente" : "Consultar NIF"}</span>
                                 <ArrowRight className="w-5 h-5" />
                             </>
                         )}

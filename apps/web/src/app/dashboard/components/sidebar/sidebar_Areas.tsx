@@ -21,8 +21,8 @@ const MENU_DASH = [
     { id: '3', label: 'Faturas AGT FT', Icon: Receipt, area: 'emitidas', view: 'faturas' as const, ftab: 'emitidas' as const },
     { id: '4', label: 'Proformas PP', Icon: FileText, area: 'proformas', view: 'faturas' as const, ftab: 'curso' as const },
     { id: '5', label: 'Emitir Fatura', Icon: PlusCircle, area: 'emitir', view: 'faturas' as const, ftab: 'emitir' as const },
-    { id: '6', label: 'Clientes', Icon: Users, area: 'clientes', view: 'gestao' as const, list: 'clientes' as const },
-    { id: '7', label: 'Produtos', Icon: Package, area: 'produtos', view: 'gestao' as const, list: 'produtos' as const },
+    { id: '6', label: 'Clientes', Icon: Users, area: 'clientes', view: 'gestao' as const, list: 'clientes' as const, action: 'modal_cliente' as const },
+    { id: '7', label: 'Produtos', Icon: Package, area: 'produtos', view: 'gestao' as const, list: 'produtos' as const, action: 'modal_produto' as const },
     { id: '8', label: 'Serviços', Icon: Settings2, area: 'servicos', view: 'gestao' as const, list: 'servicos' as const },
 ]
 
@@ -36,7 +36,7 @@ const MENU_RH = [
     { id: 'rh7', label: 'Notificações', Icon: Bell, area: 'rh_notificacoes', rtab: 'notificacoes' as const, isNotif: true },
 ]
 
-export default function SidebarAreas({ open, onClose, notifCount = 0 }: { open: boolean, onClose: () => void, notifCount?: number }) {
+export default function SidebarAreas({ open, onClose, notifCount = 0, onOpenCliente, onOpenProduto }: { open: boolean, onClose: () => void, notifCount?: number, onOpenCliente?: () => void, onOpenProduto?: () => void }) {
     const navigate = useNavigate()
     const location = useLocation()
     const isRH = location.pathname.includes('/app/rh')
@@ -50,6 +50,18 @@ export default function SidebarAreas({ open, onClose, notifCount = 0 }: { open: 
     const MENU = BASE.map(m => ({...m, disabled:!temAcesso(cargoAtual, (m as any).area) }))
 
     const handleNav = (item: any) => {
+        // ABRE MODAL DIRETO
+        if (item.action === 'modal_cliente') {
+            onClose()
+            onOpenCliente?.()
+            return
+        }
+        if (item.action === 'modal_produto') {
+            onClose()
+            onOpenProduto?.()
+            return
+        }
+
         onClose()
         if (item.to) { navigate(item.to); return }
         if (item.view) localStorage.setItem('dashboard_homeView', item.view)

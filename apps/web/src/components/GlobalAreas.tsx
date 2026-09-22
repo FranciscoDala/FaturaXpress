@@ -3,9 +3,15 @@ import { Settings } from 'lucide-react'
 import SidebarAreas from '../app/dashboard/components/sidebar/sidebar_Areas'
 import { api } from '../lib/api'
 
+// importa suas modais - ajusta o path se for diferente
+import ModalCliente from '../app/dashboard/components/modals/modal_Cliente'
+import ProdutoModal from '../app/dashboard/components/modals/modal_Produto'
+
 export default function GlobalAreas() {
     const [open, setOpen] = useState(false)
     const [count, setCount] = useState(0)
+    const [openCliente, setOpenCliente] = useState(false)
+    const [openProduto, setOpenProduto] = useState(false)
 
     const fetchCount = async () => {
         try {
@@ -21,7 +27,7 @@ export default function GlobalAreas() {
 
     useEffect(() => {
         fetchCount()
-        const id = setInterval(fetchCount, 15000) // realtime sem refresh
+        const id = setInterval(fetchCount, 15000)
         window.addEventListener('notificacoes-refresh' as any, fetchCount as any)
         window.addEventListener('notificacoes-count' as any, (e:any)=> setCount(e.detail?.count || 0))
         return () => {
@@ -32,7 +38,39 @@ export default function GlobalAreas() {
 
     return (
         <>
-            <SidebarAreas open={open} onClose={() => setOpen(false)} notifCount={count} />
+            <SidebarAreas
+                open={open}
+                onClose={() => setOpen(false)}
+                notifCount={count}
+                onOpenCliente={() => setOpenCliente(true)}
+                onOpenProduto={() => setOpenProduto(true)}
+            />
+
+            {/* MODAL CLIENTE */}
+            {openCliente && (
+                <ModalCliente
+                    open={openCliente}
+                    onClose={() => setOpenCliente(false)}
+                    onSuccess={() => {
+                        setOpenCliente(false)
+                        window.dispatchEvent(new CustomEvent('sidebar-nav', { detail: { view: 'gestao', list: 'clientes' } }))
+                        window.dispatchEvent(new CustomEvent('clientes-refresh'))
+                    }}
+                />
+            )}
+
+            {/* MODAL PRODUTO */}
+            {openProduto && (
+                <ProdutoModal
+                    open={openProduto}
+                    produto={null}
+                    onClose={() => setOpenProduto(false)}
+                    onSuccess={() => {
+                        setOpenProduto(false)
+                        window.dispatchEvent(new CustomEvent('produtos-refresh'))
+                    }}
+                />
+            )}
 
             <button
                 onClick={() => setOpen(true)}

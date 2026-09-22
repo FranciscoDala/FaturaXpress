@@ -7,6 +7,7 @@ import re
 import time
 import logging
 import requests
+import cloudinary
 import cloudinary.uploader
 import cloudinary.utils
 from typing import List, Optional
@@ -21,6 +22,13 @@ from app.modules.funcionarios import service as func_service
 from app.modules.funcionarios.models import Funcionario, Notificacao
 
 logger = logging.getLogger(__name__)
+
+cloudinary.config(
+    cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+    api_key=settings.CLOUDINARY_API_KEY,
+    api_secret=settings.CLOUDINARY_API_SECRET,
+    secure=True,
+)
 
 router = APIRouter(prefix="/funcionarios", tags=["Funcionários"])
 rh_router = APIRouter(prefix="/rh", tags=["RH - Ponto"])
@@ -40,8 +48,13 @@ async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Dep
         use_filename=True,
         unique_filename=True
     )
-    # resolve o 401: salve public_id no banco, não só a URL
-    return {"url": res.get("secure_url"), "public_id": res.get("public_id"), "tipo": "pdf" if is_pdf else "imagem"}
+    return {
+        "url": res["secure_url"],
+        "public_id": res["public_id"],
+        "resource_type": res["resource_type"],
+        "format": res.get("format") or ("pdf" if is_pdf else None),
+        "tipo": "pdf" if is_pdf else "imagem",
+    }
 
 # ---------- DOWNLOAD UNICO - PROXY PRA PDF ----------
 @rh_router.get("/falta/{falta_id}/anexo")
@@ -76,25 +89,26 @@ def falta_get_anexo(
     if not stored_url:
         raise HTTPException(status_code=404, detail="Falta sem anexo")
 
-    # CASO 1: IMAGEM - redirect funciona
-    if "/image/upload" in stored_url:
+    is_pdf = stored_url.lower().split("?", 1)[0].endswith(".pdf")
+
+    # Imagens públicas podem ser abertas diretamente pelo CDN.
+    if "/image/upload/" in stored_url and not is_pdf:
         return RedirectResponse(stored_url, status_code=302)
 
-    # CASO 2: PDF RAW - FAZ STREAM PELO BACKEND (acaba 401)
     try:
-        if "cloudinary.com" in stored_url:
-            public_id = stored_url.split("/upload/")[-1]
-            public_id = re.sub(r'^v\d+/', '', public_id)
-            public_id = re.sub(r'^s--[A-Za-z0-9_\-]+--/', '', public_id)
-            public_id = re.sub(r'^s--[A-Za-z0-9_\-]+/', '', public_id)
-            public_id = public_id.rsplit(".", 1)[0]
-            public_id = public_id.split("?")[0]
-        else:
-            public_id = stored_url.rsplit(".", 1)[0].split("?")[0]
+        if "cloudinary.com" not in stored_url or "/upload/" not in stored_url:
+            raise ValueError("URL de anexo inválida")
+
+        resource_type = "raw" if "/raw/upload/" in stored_url else "image"
+        public_id = stored_url.split("/upload/", 1)[1].split("?", 1)[0]
+        public_id = re.sub(r"^v\d+/", "", public_id)
+        public_id = re.sub(r"^s--[A-Za-z0-9_-]+--/", "", public_id)
+        public_id = public_id.rsplit(".", 1)[0]
 
         signed_url = cloudinary.utils.private_download_url(
             public_id,
-            resource_type="raw",
+            "pdf" if is_pdf else "",
+            resource_type=resource_type,
             type="upload",
             expires_at=int(time.time()) + 3600
         )
@@ -104,21 +118,12 @@ def falta_get_anexo(
 
         return StreamingResponse(
             r.iter_content(chunk_size=8192),
-            media_type="application/pdf",
+            media_type="application/pdf" if is_pdf else "application/octet-stream",
             headers={"Content-Disposition": f"inline; filename={public_id.split('/')[-1]}.pdf"}
         )
-    except Exception as e:
+    except (requests.RequestException, ValueError) as e:
         logger.error(f"[ANEXO] falha proxy pdf {e} url={stored_url}")
-        # fallback tenta converter raw -> image
-        try:
-            image_url = stored_url.replace("/raw/upload/", "/image/upload/")
-            image_url = re.sub(r'/s--[A-Za-z0-9_\-]+--/', '/', image_url)
-            image_url = re.sub(r'/s--[A-Za-z0-9_\-]+/', '/', image_url)
-            if not image_url.lower().endswith(".pdf"):
-                image_url = image_url + ".pdf"
-            return RedirectResponse(image_url, status_code=302)
-        except Exception:
-            raise HTTPException(status_code=500, detail="Erro ao gerar anexo")
+        raise HTTPException(status_code=502, detail="Não foi possível obter o anexo")
 
 # --- SEUS ROUTERS EXISTENTES ---
 @router.post("", response_model=FuncionarioResponse, status_code=201)

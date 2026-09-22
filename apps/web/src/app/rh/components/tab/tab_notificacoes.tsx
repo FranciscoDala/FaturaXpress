@@ -58,10 +58,9 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const historico = notifs.filter(n => n.status_notificacao !== 'pendente')
     const list = tab === 'ativas' ? ativas : historico
 
-    // AJUSTE: backend agora retorna RedirectResponse 302 pro Cloudinary, não precisa blob
     const abrirComprovante = (faltaId: string) => {
         const token = localStorage.getItem("token") || localStorage.getItem("access_token") || ""
-        const url = `https://faturaxpress-backend.onrender.com/api/rh/falta/${faltaId}/anexo?token=${token}`
+        const url = `https://faturaxpress-backend.onrender.com/api/rh/falta/${faltaId}/anexo?token=${encodeURIComponent(token)}`
         window.open(url, '_blank', 'noopener,noreferrer')
     }
 

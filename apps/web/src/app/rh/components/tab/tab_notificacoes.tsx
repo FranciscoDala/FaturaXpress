@@ -20,7 +20,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
 
     const formatarTexto = (t: string) => {
         if (!t) return ''
-        const mapa: any = { 'NAO_APARECEU': 'Não apareceu', 'DOENTE': 'Doente', 'ATESTADO': 'Atestado' }
+        const mapa: any = { 'NAO_APARECEU': 'Não apareceu', 'DOENTE': 'Doente', 'ATESTADO': 'Atestado', 'DECLARACAO': 'Declaração' }
         const u = t.toUpperCase().trim()
         if (mapa[u]) return mapa[u]
         return t.replace(/_/g,' ').toLowerCase().replace(/(^\w|\s\w)/g, s=>s.toUpperCase())
@@ -56,25 +56,23 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         try {
             const { data } = await api.get(`/api/rh/notificacoes?area=${area}`);
             setNotifs(Array.isArray(data)? data : [])
-        } catch { /* silencioso pra não floodar quando Render dorme */ }
+        } catch {}
         finally { setLoading(false); firstLoad.current = false }
     }, [area])
     useEffect(() => { fetchNotifs(); const i = setInterval(fetchNotifs, 30000); return () => clearInterval(i) }, [fetchNotifs])
 
-    // BG FICA PRA SEMPRE COM A COR DO STATUS
+    // LABELS CLAROS PARA O USUÁRIO ENTENDER NA HORA
     const getAlertStyle = (n: any) => {
         const s = (n.status_notificacao || n.status || n.falta?.status || '').toLowerCase()
-        if (['aprovada','aprovado','justificado','abonada'].includes(s)) return { bg: 'bg-green-50', border: 'border-green-200', badge: 'bg-green-100 text-green-800 border-green-200', label: 'Abonada' }
-        if (['rejeitada','rejeitado'].includes(s)) return { bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-700 border-red-200', label: 'Rejeitada' }
-        if (['aguardando_admin','encaminhado_admin','encaminhada','encaminhado'].includes(s)) return { bg: 'bg-amber-50', border: 'border-amber-200', badge: 'bg-amber-100 text-amber-800 border-amber-200', label: 'Encaminhada' }
-        if (['ignorado','ignorada'].includes(s)) return { bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-100 text-blue-700 border-blue-200', label: 'Ignorada' }
-        return { bg: 'bg-white', border: 'border-gray-200', badge: 'bg-red-50 text-red-700 border-red-200', label: `Motivo da falta: ${getMotivo(n)}` }
+        if (['aprovada','aprovado','justificado','abonada'].includes(s)) return { bg: 'bg-green-50', border: 'border-green-200', badge: 'bg-green-100 text-green-800 border-green-200', label: 'Falta justificada' }
+        if (['rejeitada','rejeitado'].includes(s)) return { bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-700 border-red-200', label: 'Justificação não aceite' }
+        if (['aguardando_admin','encaminhado_admin','encaminhada','encaminhado'].includes(s)) return { bg: 'bg-amber-50', border: 'border-amber-200', badge: 'bg-amber-100 text-amber-800 border-amber-200', label: 'Encaminhada para o admin' }
+        if (['ignorado','ignorada'].includes(s)) return { bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-100 text-blue-700 border-blue-200', label: 'Notificação ignorada' }
+        return { bg: 'bg-white', border: 'border-gray-200', badge: 'bg-gray-100 text-black border-gray-200', label: `Falta: ${getMotivo(n)}` }
     }
 
     const { ativas, historico } = useMemo(() => {
-        // ATIVAS = tudo, inclusive resolvidas, pra bg ficar pra sempre
         const at = [...notifs].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        // HISTORICO = só resolvidas dos últimos 7 dias
         const limite = new Date(); limite.setDate(limite.getDate() - 7)
         const hist = notifs.filter(n => {
             const s = (n.status_notificacao || '').toLowerCase()
@@ -124,7 +122,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
             if (acao === 'rejeitar') await api.post(`/api/rh/falta/${faltaId}/rejeitar`, { aprovado_por_id: logado?.id })
             if (acao === 'encaminhar') await api.post(`/api/rh/falta/${faltaId}/encaminhar-admin`, { encaminhado_por_id: logado?.id })
             if (acao === 'ignorar') await api.post(`/api/rh/falta/${faltaId}/ignorar`, { ignorado_por_id: logado?.id })
-            toast.success(acao === 'aprovar'? 'Abonada' : acao === 'rejeitar'? 'Rejeitada' : acao === 'ignorar'? 'Ignorada' : 'Encaminhada')
+            toast.success(acao === 'aprovar'? 'Falta justificada' : acao === 'rejeitar'? 'Justificação não aceite' : acao === 'ignorar'? 'Ignorada' : 'Encaminhada para o admin')
             setOpenSwipeId(null);
             await fetchNotifs()
         } catch (e: any) {
@@ -222,7 +220,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                                                     <div className="flex justify-between gap-2">
                                                         <div className="min-w-0 flex-1 leading-tight">
                                                             <p className="text-[13px] leading-[16px] truncate"><span className="font-bold text-black">{nome}</span><span className="text-black/60"> · {formatarTempo(n.created_at)}</span></p>
-                                                            <div className="mt-1"><span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-medium leading-none ${style.badge}`}>{style.label}: {getMotivo(n)}</span></div>
+                                                            <div className="mt-1"><span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-medium leading-none ${style.badge}`}>{style.label}</span></div>
                                                             <p className="text-[11px] text-black/50 mt-1">{formatarDataCurta(n.updated_at || n.created_at)} • {new Date(n.updated_at || n.created_at).toLocaleTimeString('pt-AO', {hour:'2-digit', minute:'2-digit'})}</p>
                                                         </div>
                                                         <span className="text-[12px] text-black/70">{formatarDataCurta(n.updated_at || n.created_at)}</span>
@@ -315,7 +313,7 @@ function SwipeCard({ children, id, isOpen, setOpen, swipeWidth = 260, actions, o
         const dx = e.clientX - startX.current
         const dy = e.clientY - startY.current
         if (!moved.current && Math.abs(dx) < 5 && Math.abs(dy) < 5) return
-        if (Math.abs(dy) > Math.abs(dx)) return // deixa scrollar vertical
+        if (Math.abs(dy) > Math.abs(dx)) return
         moved.current = true
         let next = dx
         if (isOpen) next = -swipeWidth + dx
@@ -326,7 +324,6 @@ function SwipeCard({ children, id, isOpen, setOpen, swipeWidth = 260, actions, o
     const handleUp = (e: React.PointerEvent) => {
         if (!dragging.current) return
         dragging.current = false
-
         if (!moved.current) {
             const now = Date.now()
             if (now - lastTap.current < 350) {
@@ -336,7 +333,6 @@ function SwipeCard({ children, id, isOpen, setOpen, swipeWidth = 260, actions, o
                 lastTap.current = now
             }
         }
-
         const threshold = -swipeWidth * 0.35
         if (curX.current < threshold) {
             setTx(-swipeWidth, true)

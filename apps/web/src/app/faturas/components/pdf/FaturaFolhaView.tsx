@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import FaturaPDF from './pdf_Fatura'
-import { getNumero, isNotaCredito } from '../../EmitirFaturaPage'
+import { getNumero, isNotaCredito } from '../../page'
 import { Menu, Download, Printer, Share2, Lock } from 'lucide-react'
 
 const CARGOS_PERMISSOES: Record<string, string[]> = {

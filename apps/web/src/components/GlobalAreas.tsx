@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Settings } from 'lucide-react'
-import SidebarAreas from '../app/dashboard/components/sidebar/sidebar_Areas'
+import SidebarAreas from '../app/sidebar/sidebar'
 import { api } from '../lib/api'
 
 // importa suas modais - ajusta o path se for diferente

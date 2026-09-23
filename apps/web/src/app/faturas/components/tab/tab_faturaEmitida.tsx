@@ -3,7 +3,7 @@ import { FileText, Eye, Search, ChevronDown, Check, Ban, Lock, Download } from '
 import { toast } from 'sonner'
 import { TabEmitidasSkeleton } from '../../../../components/CardsSkeleton'
 import { api } from '../../../../lib/api'
-import { getNumero, getTotal, isNotaCredito } from '../../EmitirFaturaPage'
+import { getNumero, getTotal, isNotaCredito } from '../../page'
 import FaturaFolhaView from '../../components/pdf/FaturaFolhaView'
 import ModalMotivoNC from '../../../dashboard/components/modals/modal_MotivoNC'
 

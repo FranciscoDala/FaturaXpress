@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { getNumero, isNotaCredito } from '../../EmitirFaturaPage'
+import { getNumero, isNotaCredito } from '../../page'
 
 interface Props {
     fatura: any;

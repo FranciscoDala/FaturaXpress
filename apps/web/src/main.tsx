@@ -5,10 +5,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import './index.css'
 
-import LoginPage from './app/login/login'
+import LoginPage from './app/login/page'
 import Register from './app/login/Register'
 import DashboardPage from './app/dashboard/page'
-import EmitirFaturaPage from './app/faturas/EmitirFaturaPage'
+import EmitirFaturaPage from './app/faturas/page'
 import AssinaturaPage from './app/assinatura/page'
 import RHPage from './app/rh/page'
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { api } from '../../../../lib/api'
+import { api } from '../../../../../lib/api'
 import { Lock } from 'lucide-react'
 
 const CARGOS_PERMISSOES: Record<string, string[]> = {

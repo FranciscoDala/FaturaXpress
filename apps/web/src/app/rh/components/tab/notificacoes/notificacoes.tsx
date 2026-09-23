@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { Loader2, Check, X, Eye, Bell, Menu, Send, Ban } from 'lucide-react'
 import { toast } from 'sonner'
-import { api, apiRoot } from '../../../../lib/api'
+import { api, apiRoot } from '../../../../../lib/api'
 
 type Props = { cargoAtual: string }
 

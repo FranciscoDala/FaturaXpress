@@ -7,7 +7,7 @@ import { TabEmitidasSkeleton } from '../../../../components/CardsSkeleton'
 import { api } from '../../../../lib/api'
 import { getNumero, getTotal, isNotaCredito } from '../../page'
 import FaturaFolhaView from '../../components/pdf/FaturaFolhaView'
-import FaturaFolhaView from '../../components/pdf/FaturaFolhaView'
+import FaturaPDF from '../../components/pdf/pdf_Fatura'
 import ModalMotivoNC from '../../../dashboard/components/modals/modal_MotivoNC'
 
 const OPTIONS = [

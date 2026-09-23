@@ -156,13 +156,13 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
             </div>
             {!podeBaixar && (
                 <div className="absolute inset-0 z-[5] flex items-center justify-center pointer-events-none">
-                    <p className="text-[80px] font-black text-black/[0.06] rotate-[-25deg] tracking-widest">SÓ LEITURA - {cargoAtual.toUpperCase()}</p>
+                    <p className="text-[80px] font-black text-black/[0.06] rotate-[-25deg] tracking-widest">SÓ LEITURA</p>
                 </div>
             )}
             <div className="relative z-10 flex flex-col flex-1">
                 <div className="flex gap-3">
                     {hasLogo? <img src={emp.logo} className="w-[110px] h-[90px] object-contain shrink-0" alt="logo" /> : <LogoDefault nome={emp.nome} />}
-                    <div className="text-[11px] leading-[15px]"><p className="font-bold text-[14px]">{mask(emp.nome)}</p><p>NIF: {mask(emp.nif)}</p><p>Endereço: {mask(emp.endereco)}</p><p>Contactos: {mask(emp.telefone)}</p><p>Email: {mask(emp.email)}</p><p>{mask(emp.cidade)} • {cargoAtual.toUpperCase()} {podeBaixar? '' : '(cópia leitura)'}</p></div>
+                    <div className="text-[11px] leading-[15px]"><p className="font-bold text-[14px]">{mask(emp.nome)}</p><p>NIF: {mask(emp.nif)}</p><p>Endereço: {mask(emp.endereco)}</p><p>Contactos: {mask(emp.telefone)}</p><p>Email: {mask(emp.email)}</p><p>{mask(emp.cidade)}</p></div>
                 </div>
 
                 <div className={`flex justify-between items-start mt-6 border-b border-dotted border-gray-300 pb-3 ${isNC? 'bg-[#FFF0F0]' : ''}`}>
@@ -179,8 +179,8 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
                     <div className="flex gap-3 items-start">
                         <div className="text-right leading-[14px]">
                             <p className={`font-bold text-[15px] ${isNC? 'text-red-600' : ''}`}>{numeroDoc || 'PROFORMA'}</p>
-                            <p className="text-[#777] text-[11px] mt-1">{isNC? 'Anula FT' : isOficial? 'Regime Geral' : 'Sem valor fiscal'} {podeBaixar? '' : '• LEITURA'}</p>
-                            <p className="font-bold text-[12px] mt-1">{isNC? 'CÓPIA NC' : isOficial? 'Original' : 'Proforma'} {cargoAtual.toUpperCase()}</p>
+                            <p className="text-[#777] text-[11px] mt-1">{isNC? 'Anula FT' : isOficial? 'Regime Geral' : 'Sem valor fiscal'}</p>
+                            <p className="font-bold text-[12px] mt-1">{isNC? 'CÓPIA NC' : isOficial? 'ORIGINAL' : 'PROFORMA'}</p>
                             <p className="text-[10px] mt-1">Emissão: {fmtDataHora(dataEmissao)}</p>
                             <p className="text-[10px]">Venc: {fmtData(fatura?.data_vencimento || fatura?.validade_proforma)}</p>
                         </div>
@@ -311,8 +311,8 @@ export const FaturaPDF = ({ fatura, empresa, cliente }: Props) => {
               @import url('https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap');
               #fatura-pdf-wrapper{display:flex;justify-content:center;width:100%;overflow-x:hidden;background:transparent}
               #fatura-pdf{transform-origin:top center}
-           .no-scrollbar::-webkit-scrollbar{display:none}
-           .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+          .no-scrollbar::-webkit-scrollbar{display:none}
+          .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
               @media (max-width:768px){
                 #fatura-pdf-wrapper{overflow-x:hidden!important;width:100%!important}
                 #fatura-pdf{transform:scale(0.45);transform-origin:top center;margin-bottom:-55%;width:210mm!important;min-width:210mm!important}

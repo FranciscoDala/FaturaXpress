@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react'
 import { Settings } from 'lucide-react'
 import SidebarAreas from '../app/sidebar/sidebar'
 import { api } from '../lib/api'
-
-// importa suas modais - ajusta o path se for diferente
 import ModalCliente from '../app/dashboard/components/modals/modal_Cliente'
 import ProdutoModal from '../app/dashboard/components/modals/modal_Produto'
 
@@ -15,14 +13,14 @@ export default function GlobalAreas() {
 
     const fetchCount = async () => {
         try {
-            const raw = localStorage.getItem("funcionario")
+            const raw = localStorage.getItem("funcionario") || localStorage.getItem("funcionario_logado")
             const cargo = raw? JSON.parse(raw)?.cargo?.toLowerCase() : 'admin'
             const area = cargo === 'admin'? 'admin' : 'rh'
             const { data } = await api.get(`/api/rh/notificacoes?area=${area}&status=pendente`)
             const total = Array.isArray(data)? data.length : 0
             setCount(total)
             window.dispatchEvent(new CustomEvent('notificacoes-count', { detail: { count: total } }))
-        } catch { /* silencioso */ }
+        } catch {}
     }
 
     useEffect(() => {
@@ -45,8 +43,6 @@ export default function GlobalAreas() {
                 onOpenCliente={() => setOpenCliente(true)}
                 onOpenProduto={() => setOpenProduto(true)}
             />
-
-            {/* MODAL CLIENTE */}
             {openCliente && (
                 <ModalCliente
                     open={openCliente}
@@ -58,8 +54,6 @@ export default function GlobalAreas() {
                     }}
                 />
             )}
-
-            {/* MODAL PRODUTO */}
             {openProduto && (
                 <ProdutoModal
                     open={openProduto}
@@ -71,7 +65,6 @@ export default function GlobalAreas() {
                     }}
                 />
             )}
-
             <button
                 onClick={() => setOpen(true)}
                 className="fixed right-4 bottom-6 z-[9997] w-12 h-12 rounded-full bg-white border border-gray-200 shadow-[0_4px_20px_rgba(0,0,0,0.12)] flex items-center justify-center hover:scale-105 transition-all"

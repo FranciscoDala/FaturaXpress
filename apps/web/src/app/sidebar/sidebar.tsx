@@ -1,10 +1,10 @@
-import { Leaf, ChevronLeft, Home, Users, Package, Settings2, Receipt, FileText, PlusCircle, Factory, Lock, UserCheck, Plane, Clock, FileHeart, ClipboardList, Bell, Eye, UserPlus, PackagePlus } from 'lucide-react'
+import { Leaf, ChevronLeft, Home, Users, Package, Settings2, Receipt, FileText, PlusCircle, Factory, UserCheck, Plane, Clock, FileHeart, ClipboardList, Bell, UserPlus, PackagePlus } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useMemo } from 'react'
 
 const CARGOS_PERMISSOES: Record<string, string[]> = {
     admin: ["*"],
-    financeira: ["dashboard", "faturas", "emitidas", "proformas", "emitir", "clientes", "produtos", "servicos"],
+    financeira: ["dashboard", "faturas", "emitidas", "proformas", "emitir", "clientes", "produtos", "servicos", "rh_notificacoes"],
     recepcao: ["dashboard", "proformas", "clientes", "emitir"],
     rh: ["dashboard","rh", "rh_presente", "rh_ferias", "rh_ponto", "rh_pedidos", "rh_recibos", "rh_notificacoes"]
 }
@@ -21,13 +21,12 @@ const MENU_DASH = [
     { id: '3', label: 'Faturas AGT FT', Icon: Receipt, area: 'emitidas', view: 'faturas' as const, ftab: 'emitidas' as const },
     { id: '4', label: 'Proformas PP', Icon: FileText, area: 'proformas', view: 'faturas' as const, ftab: 'curso' as const },
     { id: '5', label: 'Emitir Fatura', Icon: PlusCircle, area: 'emitir', view: 'faturas' as const, ftab: 'emitir' as const },
-    // CLIENTES SEPARADO
     { id: '6', label: 'Adicionar Cliente', Icon: UserPlus, area: 'clientes', action: 'modal_cliente' as const },
     { id: '6b', label: 'Ver Clientes', Icon: Users, area: 'clientes', view: 'gestao' as const, list: 'clientes' as const },
-    // PRODUTOS SEPARADO
     { id: '7', label: 'Adicionar Produto', Icon: PackagePlus, area: 'produtos', action: 'modal_produto' as const },
     { id: '7b', label: 'Ver Produtos', Icon: Package, area: 'produtos', view: 'gestao' as const, list: 'produtos' as const },
     { id: '8', label: 'Serviços', Icon: Settings2, area: 'servicos', view: 'gestao' as const, list: 'servicos' as const },
+    { id: '9', label: 'Notificações', Icon: Bell, area: 'rh_notificacoes', to: '/app/rh?rtab=notificacoes', isNotif: true, rtab: 'notificacoes' as const },
 ]
 
 const MENU_RH = [
@@ -46,23 +45,19 @@ export default function SidebarAreas({ open, onClose, notifCount = 0, onOpenClie
     const isRH = location.pathname.includes('/app/rh')
 
     const funcionarioLogado = useMemo(() => {
-        try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
+        try { return JSON.parse(localStorage.getItem("funcionario") || localStorage.getItem("funcionario_logado") || "null") } catch { return null }
     }, [])
     const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
+
+    // FILTRA E OCULTA O QUE NÃO TEM ACESSO - não mostra trancado
     const BASE = isRH? MENU_RH : MENU_DASH
-    const MENU = BASE.map(m => ({...m, disabled:!temAcesso(cargoAtual, (m as any).area) }))
+    const MENU = useMemo(() => {
+        return BASE.filter(m => temAcesso(cargoAtual, (m as any).area))
+    }, [BASE, cargoAtual])
 
     const handleNav = (item: any) => {
-        if (item.action === 'modal_cliente') {
-            onClose()
-            onOpenCliente?.()
-            return
-        }
-        if (item.action === 'modal_produto') {
-            onClose()
-            onOpenProduto?.()
-            return
-        }
+        if (item.action === 'modal_cliente') { onClose(); onOpenCliente?.(); return }
+        if (item.action === 'modal_produto') { onClose(); onOpenProduto?.(); return }
         onClose()
         if (item.to) { navigate(item.to); return }
         if (item.view) localStorage.setItem('dashboard_homeView', item.view)
@@ -115,13 +110,6 @@ export default function SidebarAreas({ open, onClose, notifCount = 0, onOpenClie
                         <div className="px-1 pb-2 text-[10px] font-bold tracking-widest text-[#0095ff]/60">{isRH? 'RH • ABAS' : 'ÁREAS'}</div>
                         <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col gap-[5px] pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                             {MENU.map((m: any) => {
-                                if (m.disabled) {
-                                    return (
-                                        <div key={m.id} className="h-[40px] shrink-0 rounded-full bg-gray-100 border border-gray-200 flex items-center gap-2.5 px-4 text-gray-400 text-[13.5px] font-medium cursor-not-allowed">
-                                            <Lock className="w-[16px] h-[16px]" />{m.label}<span className="ml-auto text-[9px] bg-gray-200 px-1.5 py-0.5 rounded-full">BLOQ</span>
-                                        </div>
-                                    )
-                                }
                                 const active = isRH && m.rtab? (localStorage.getItem('rh_tab') || 'presente') === m.rtab :!isRH && m.area === 'rh' && location.pathname.includes('/app/rh')
                                 if (active) {
                                     return (
@@ -129,7 +117,7 @@ export default function SidebarAreas({ open, onClose, notifCount = 0, onOpenClie
                                             <div className="absolute inset-0 bg-white rounded-l-full border border-[#e6f0ff] shadow-[0_2px_10px_rgba(0,149,255,0.10)]" />
                                             <button onClick={() => handleNav(m)} className="relative z-10 w-full h-full flex items-center gap-2.5 px-4 text-[#0095ff] font-semibold text-[13.5px]">
                                                 <m.Icon className="w-[16px] h-[16px]" />{m.label}
-                                                {(m as any).isNotif && notifCount > 0 && <span className="ml-auto bg-[#FF3B30] text-white text-[10px] font-bold min-w-[20px] h-[20px] flex items-center justify-center rounded-full px-1">{notifCount > 9? '9+' : notifCount}</span>}
+                                                {m.isNotif && notifCount > 0 && <span className="ml-auto bg-[#FF3B30] text-white text-[10px] font-bold min-w-[20px] h-[20px] flex items-center justify-center rounded-full px-1">{notifCount > 9? '9+' : notifCount}</span>}
                                             </button>
                                         </div>
                                     )
@@ -137,10 +125,13 @@ export default function SidebarAreas({ open, onClose, notifCount = 0, onOpenClie
                                 return (
                                     <button key={m.id} onClick={() => handleNav(m)} className="h-[40px] shrink-0 rounded-full bg-white/70 backdrop-blur border border-[#e6f0ff] flex items-center gap-2.5 px-4 text-gray-700 text-[13.5px] font-medium hover:bg-white text-left">
                                         <m.Icon className="w-[16px] h-[16px] text-[#0095ff]/70" />{m.label}
-                                        {(m as any).isNotif && notifCount > 0 && <span className="ml-auto bg-[#FF3B30] text-white text-[10px] font-bold min-w-[20px] h-[20px] flex items-center justify-center rounded-full px-1 animate-pulse">{notifCount > 9? '9+' : notifCount}</span>}
+                                        {m.isNotif && notifCount > 0 && <span className="ml-auto bg-[#FF3B30] text-white text-[10px] font-bold min-w-[20px] h-[20px] flex items-center justify-center rounded-full px-1 animate-pulse">{notifCount > 9? '9+' : notifCount}</span>}
                                     </button>
                                 )
                             })}
+                            {MENU.length === 0 && (
+                                <div className="text-[12px] text-gray-400 text-center py-6">Sem permissões para este módulo</div>
+                            )}
                         </div>
                     </div>
                     <style>{`.bubble{position:absolute;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(0,149,255,0.18),rgba(0,149,255,0.04) 65%);border:1px solid rgba(0,149,255,0.12);animation:floatBubble 8s infinite ease-in-out}.bubble-1{width:70px;height:70px;left:8%;top:18%}.bubble-2{width:100px;height:100px;left:60%;top:8%}.bubble-3{width:50px;height:50px;left:30%;top:65%}.bubble-4{width:36px;height:36px;left:75%;top:50%}@keyframes floatBubble{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}`}</style>

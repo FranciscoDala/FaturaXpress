@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { FileText, Eye, Search, ChevronDown, Check, Ban, Lock, Download } from 'lucide-react'
+import { FileText, Eye, Search, ChevronDown, Check, Ban, AlertTriangle, Lock, Download } from 'lucide-react'
 import { toast } from 'sonner'
+import jsPDF from 'jspdf'
+import { createRoot, type Root } from 'react-dom/client'
 import { TabEmitidasSkeleton } from '../../../../components/CardsSkeleton'
 import { api } from '../../../../lib/api'
-import { getNumero, getTotal, isNotaCredito } from '../../page'
+import { getNumero, getTotal, isNotaCredito } from '../../EmitirFaturaPage'
 import FaturaFolhaView from '../../components/pdf/FaturaFolhaView'
 import ModalMotivoNC from '../../../dashboard/components/modals/modal_MotivoNC'
 
@@ -30,9 +32,9 @@ const MOTIVOS_MAP: Record<string, string> = {
 
 const CARGOS_PERMISSOES: Record<string, string[]> = {
     admin: ["*"],
-    financeira: ["ver_faturas", "emitir_nc", "ver_nc", "baixar_fatura"],
+    financeira: ["ver_faturas", "emitir_nc", "ver_nc"],
     rh: [],
-    recepcao: ["ver_faturas", "baixar_fatura"]
+    recepcao: ["ver_faturas"]
 }
 
 function temPermissao(cargo: string, perm: string) {
@@ -262,43 +264,60 @@ function FaturaCard({ fatura, ncVinculada, clienteProp, empresa, onView, onOpenN
     const nomeCliente = fatura.cliente_nome || clienteProp?.nome || 'Cliente Avulso'
     const nifCliente = fatura.cliente_nif || clienteProp?.nif || ''
     const motivoLabel = ncVinculada? (MOTIVOS_MAP[ncVinculada.motivo_credito] || ncVinculada.motivo_credito) : ''
-
     const [downloading, setDownloading] = useState(false)
 
     const podeBaixar = useMemo(() => {
         try {
-            const raw = localStorage.getItem("funcionario")
-            const cargo = raw? JSON.parse(raw)?.cargo?.toLowerCase() : cargoAtual
-            return temPermissao(cargo, 'baixar_fatura')
-        } catch { return true }
+            const funcionario = JSON.parse(localStorage.getItem('funcionario') || 'null')
+            return temPermissao(funcionario?.cargo?.toLowerCase() || cargoAtual, 'baixar_fatura')
+        } catch {
+            return true
+        }
     }, [cargoAtual])
 
     const handleDownload = async () => {
-        if (!podeBaixar) { toast.error('Sem permissão para baixar'); return }
+        if (!podeBaixar) {
+            toast.error('Sem permissão para baixar')
+            return
+        }
+
         setDownloading(true)
+        let container: HTMLDivElement | null = null
+        let root: Root | null = null
         try {
-            // tenta endpoint oficial de PDF
-            const res = await api.get(`/api/faturas/${fatura.id}/pdf`, { responseType: 'blob' })
-            const blob = new Blob([res.data], { type: 'application/pdf' })
-            const url = window.URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `${getNumero(ncVinculada || fatura)}.pdf`
-            document.body.appendChild(a)
-            a.click()
-            a.remove()
-            window.URL.revokeObjectURL(url)
-            toast.success('Fatura baixada')
-        } catch (e) {
-            // fallback: abre a folha e deixa o usuario imprimir como PDF
-            try {
-                // tenta gerar via html2pdf usando a view existente
-                onView(ncVinculada || fatura)
-                toast.info('Abrindo fatura... use Imprimir > Salvar como PDF', { duration: 4000 })
-            } catch {
-                toast.error('Erro ao baixar PDF')
+            const documento = ncVinculada || fatura
+            const cliente = clienteProp || {
+                nome: documento.cliente_nome || 'Cliente Avulso',
+                nif: documento.cliente_nif || '999999999',
+                telefone: documento.cliente_telefone,
+                email: documento.cliente_email,
+                endereco: documento.cliente_endereco,
             }
+            container = document.createElement('div')
+            container.style.cssText = 'position:fixed;left:-10000px;top:0;width:210mm;background:#fff;pointer-events:none;'
+            document.body.appendChild(container)
+            root = createRoot(container)
+            root.render(<FaturaPDF fatura={documento} cliente={cliente} empresa={empresa} />)
+            await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+
+            const element = container.querySelector<HTMLElement>('#fatura-pdf')
+            if (!element) throw new Error('Conteúdo da fatura não foi renderizado')
+
+            const pdf = new jsPDF('p', 'mm', 'a4')
+            await pdf.html(element, {
+                margin: [0, 0, 0, 0],
+                autoPaging: 'slice',
+                html2canvas: { scale: 2, useCORS: true },
+                width: 210,
+                windowWidth: element.scrollWidth,
+            })
+            pdf.save(`${getNumero(documento)}.pdf`)
+            toast.success('Fatura baixada')
+        } catch {
+            toast.error('Erro ao gerar PDF')
         } finally {
+            root?.unmount()
+            container?.remove()
             setDownloading(false)
         }
     }
@@ -340,10 +359,10 @@ function FaturaCard({ fatura, ncVinculada, clienteProp, empresa, onView, onOpenN
                 )}
             </div>
             <div className="grid grid-cols-3 border-t border-gray-100 mt-auto">
-                <button onClick={() => onView(ncVinculada || fatura)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group" title="Ver"><Eye className="w-4 h-4 text-gray-600 group-hover:text-black" /></button>
-                <button onClick={() => onView(ncVinculada || fatura)} className="py-3.5 flex justify-center border-x border-gray-100 hover:bg-gray-50 transition group" title="Detalhes"><FileText className="w-4 h-4 text-gray-600 group-hover:text-blue-600" /></button>
-                <button onClick={handleDownload} disabled={downloading ||!podeBaixar} className="py-3.5 flex justify-center hover:bg-gray-50 transition group disabled:opacity-50" title={podeBaixar? 'Baixar PDF' : 'Sem permissão'}>
-                    {downloading? <div className="w-4 h-4 border-2 border-gray-300 border-t-black rounded-full animate-spin" /> : <Download className={`w-4 h-4 ${isNC || ncVinculada? 'text-red-500' : 'text-[#0095ff]'} group-hover:scale-110 transition`} />}
+                <button onClick={() => onView(ncVinculada || fatura)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group"><Eye className="w-4 h-4 text-gray-600 group-hover:text-black" /></button>
+                <button onClick={() => onView(ncVinculada || fatura)} className="py-3.5 flex justify-center border-x border-gray-100 hover:bg-gray-50 transition group"><FileText className="w-4 h-4 text-gray-600 group-hover:text-blue-600" /></button>
+                <button disabled={downloading || !podeBaixar} onClick={handleDownload} className={`py-3.5 flex justify-center transition group ${downloading || !podeBaixar ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-50'}`} title="Baixar PDF">
+                    {downloading ? <span className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" /> : <Download className="w-4 h-4 text-gray-600 group-hover:text-blue-600" />}
                 </button>
             </div>
         </div>

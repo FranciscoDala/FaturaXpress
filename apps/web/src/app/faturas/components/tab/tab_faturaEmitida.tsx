@@ -8,6 +8,7 @@ import { TabEmitidasSkeleton } from '../../../../components/CardsSkeleton'
 import { api } from '../../../../lib/api'
 import { getNumero, getTotal, isNotaCredito } from '../../page'
 import FaturaFolhaView from '../../components/pdf/FaturaFolhaView'
+import FaturaPDF from '../../components/pdf/pdf_Fatura'
 import ModalMotivoNC from '../../../dashboard/components/modals/modal_MotivoNC'
 
 const OPTIONS = [
@@ -304,22 +305,52 @@ function FaturaCard({ fatura, ncVinculada, clienteProp, empresa, onView, onOpenN
             const element = container.querySelector<HTMLElement>('#fatura-pdf')
             if (!element) throw new Error('Conteúdo da fatura não foi renderizado')
 
-            const canvas = await html2canvas(element, {
-                scale: Math.min(2, window.devicePixelRatio || 1),
+            const imagens = Array.from(container.querySelectorAll('img'))
+            await Promise.all(imagens.map(img => img.complete
+                ? Promise.resolve()
+                : new Promise<void>(resolve => {
+                    img.addEventListener('load', () => resolve(), { once: true })
+                    img.addEventListener('error', () => resolve(), { once: true })
+                    setTimeout(resolve, 3000)
+                })))
+
+            const capturarFolha = (removerImagensExternas: boolean) => html2canvas(element, {
+                scale: Math.min(1.5, window.devicePixelRatio || 1),
                 useCORS: true,
+                imageTimeout: 3000,
                 backgroundColor: '#ffffff',
-                width: element.scrollWidth,
-                height: element.scrollHeight,
-                windowWidth: element.scrollWidth,
-                windowHeight: element.scrollHeight,
+                width: element.clientWidth,
+                height: element.clientHeight,
+                windowWidth: element.clientWidth,
+                windowHeight: element.clientHeight,
+                onclone: clonedDocument => {
+                    if (!removerImagensExternas) return
+                    clonedDocument.querySelectorAll<HTMLImageElement>('#fatura-pdf img').forEach(img => {
+                        if (!img.src.startsWith('data:')) img.remove()
+                    })
+                },
             })
+
+            let canvas: HTMLCanvasElement
+            try {
+                canvas = await capturarFolha(false)
+            } catch {
+                canvas = await capturarFolha(true)
+            }
+            let imagemPdf: string
+            try {
+                imagemPdf = canvas.toDataURL('image/jpeg', 0.9)
+            } catch {
+                canvas = await capturarFolha(true)
+                imagemPdf = canvas.toDataURL('image/jpeg', 0.9)
+            }
             const pdf = new jsPDF('p', 'mm', 'a4')
             const pageWidth = 210
             const pageHeight = 297
             const scale = Math.min(pageWidth / canvas.width, pageHeight / canvas.height)
             const imageWidth = canvas.width * scale
             const imageHeight = canvas.height * scale
-            pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', (pageWidth - imageWidth) / 2, (pageHeight - imageHeight) / 2, imageWidth, imageHeight)
+            pdf.addImage(imagemPdf, 'JPEG', (pageWidth - imageWidth) / 2, (pageHeight - imageHeight) / 2, imageWidth, imageHeight)
             pdf.save(`${getNumero(documento)}.pdf`)
             toast.success('Fatura baixada')
         } catch {

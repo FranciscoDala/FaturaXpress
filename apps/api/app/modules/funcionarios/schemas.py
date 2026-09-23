@@ -24,6 +24,9 @@ BANCOS_ANGOLA = [
     "FNB - First National Bank Angola",
 ]
 
+CARGOS_VALIDOS = ["admin", "financeira", "recepcao", "rh", "funcionario"]
+GENEROS_VALIDOS = ["M", "F", "m", "f", "Masculino", "Feminino"]
+
 class FuncionarioCreate(BaseModel):
     nome: str = Field(..., max_length=150)
     numero_bi: str = Field(..., max_length=20, description="Nº BI - login")
@@ -69,6 +72,21 @@ class FuncionarioCreate(BaseModel):
         if v is None:
             return v
         return str(v).upper().strip()
+
+    @field_validator('cargo', mode='before')
+    @classmethod
+    def normalize_cargo(cls, v):
+        if v is None:
+            return "rh"
+        v = str(v).lower().strip()
+        return v
+
+    @field_validator('banco1', 'banco2', mode='before')
+    @classmethod
+    def normalize_banco(cls, v):
+        if v is None or v == "":
+            return None
+        return str(v).strip()
 
 class FuncionarioUpdate(BaseModel):
     nome: Optional[str] = Field(None, max_length=150)
@@ -117,8 +135,23 @@ class FuncionarioUpdate(BaseModel):
             return v
         return str(v).upper().strip()
 
+    @field_validator('banco1', 'banco2', mode='before')
+    @classmethod
+    def normalize_banco_update(cls, v):
+        if v is None or v == "":
+            return None
+        return str(v).strip()
+
     class Config:
         extra = "allow"
+
+class AreaSimples(BaseModel):
+    id: UUID
+    nome: str
+    codigo: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 class FuncionarioResponse(BaseModel):
     id: UUID
@@ -150,13 +183,14 @@ class FuncionarioResponse(BaseModel):
     tem_acesso: bool
     cargo: str
     area_principal_id: Optional[UUID] = None
+    areas: List[AreaSimples] = Field(default_factory=list)
     ativo: bool
+    ultimo_reset_atrasos: Optional[date] = None
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
-
 
 class NotificacaoResponse(BaseModel):
     notificacao_id: UUID
@@ -168,3 +202,6 @@ class NotificacaoResponse(BaseModel):
     lida: bool
     created_at: datetime
     falta: dict | None = None
+
+    class Config:
+        from_attributes = True

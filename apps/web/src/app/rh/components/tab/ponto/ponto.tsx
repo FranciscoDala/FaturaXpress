@@ -60,23 +60,26 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
     const isRetro =!isHoje
 
     const funcionarioLogado = useMemo(() => {
-        try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
+        try {
+            return JSON.parse(localStorage.getItem("funcionario") || localStorage.getItem("funcionario_logado") || "null")
+        } catch { return null }
     }, [])
 
-    const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
-    const podeVer = funcionarioLogado? temPermissao(cargoAtual, 'ver_ponto') || temPermissao(cargoAtual, 'gerir_funcionarios') || cargoAtual === 'admin' : true
-    const podeBater = funcionarioLogado? temPermissao(cargoAtual, 'bater_ponto') || temPermissao(cargoAtual, 'gerir_funcionarios') || cargoAtual === 'admin' : true
-    const podeConfig = funcionarioLogado? temPermissao(cargoAtual, 'config_ponto') || cargoAtual === 'admin' : true
-    const podeGerirFalta = funcionarioLogado? temPermissao(cargoAtual, 'gerir_faltas') || cargoAtual === 'admin' : true
+    const cargoAtual = (funcionarioLogado?.cargo?.toLowerCase() || usuario?.cargo?.toLowerCase() || 'admin')
+    const podeVer = temPermissao(cargoAtual, 'ver_ponto') || temPermissao(cargoAtual, 'gerir_funcionarios')
+    const podeBater = temPermissao(cargoAtual, 'bater_ponto') || temPermissao(cargoAtual, 'gerir_funcionarios')
+    const podeConfig = temPermissao(cargoAtual, 'config_ponto')
+    const podeGerirFalta = temPermissao(cargoAtual, 'gerir_faltas')
 
     const load = async () => {
         setLoading(true)
         try {
+            // CORRIGIDO: sem /api porque baseURL já tem /api
             const [fRes, pRes, cRes, faltaRes] = await Promise.all([
-                api.get('/api/funcionarios'),
-                api.get(`/api/rh/ponto?data=${dataSelecionada}`),
-                api.get('/api/rh/ponto/config').catch(() => ({ data: null })),
-                api.get(`/api/rh/faltas?data=${dataSelecionada}`).catch(() => ({ data: [] }))
+                api.get('/funcionarios'),
+                api.get(`/rh/ponto?data=${dataSelecionada}`),
+                api.get('/rh/ponto/config').catch(() => ({ data: null })),
+                api.get(`/rh/faltas?data=${dataSelecionada}`).catch(() => ({ data: [] }))
             ])
             setFuncs((fRes.data as any[]).map((f: any) => ({...f, area: f.area_principal?.nome || f.area || 'Geral', funcao: f.funcao_principal?.nome || f.funcao || f.cargo || f.area_principal?.nome || 'Geral'})))
             setPontos(pRes.data as Ponto[])
@@ -84,7 +87,7 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
             if ((cRes.data as any)) setConfig(cRes.data as Config)
             try {
                 const periodo = (cRes.data as any)?.periodo_regra || 'semana'
-                const { data: pontosPeriodo } = await api.get(`/api/rh/ponto/${periodo}`)
+                const { data: pontosPeriodo } = await api.get(`/rh/ponto/${periodo}`)
                 const contagem: Record<string, number> = {}
                 ;(pontosPeriodo as any[]).forEach((p: any) => { if (p.tipo === 'entrada' && p.atraso_min > 0) { contagem[p.funcionario_id] = (contagem[p.funcionario_id] || 0) + 1 } })
                 setFaltasPeriodo(contagem)
@@ -105,10 +108,11 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
         if (isRetro &&!podeGerirFalta) { toast.error('Só admin/RH pode lançar retroativo'); return }
         setBatendo(funcId)
         try {
-            const stored = localStorage.getItem('funcionario_logado'); const logado = stored? JSON.parse(stored): null
-            const payload: any = { funcionario_id: funcId, tipo, data: dataSelecionada, lancado_por_id: logado?.id || funcionarioLogado?.id }
+            const stored = localStorage.getItem('funcionario') || localStorage.getItem('funcionario_logado')
+            const logado = stored? JSON.parse(stored): null
+            const payload: any = { funcionario_id: funcId, tipo, data: dataSelecionada, lancado_por_id: logado?.id || funcionarioLogado?.id || usuario?.id }
             if (isRetro) payload.motivo_retroativo = `Lançamento retroativo ${formatDisplay(dataSelecionada)} - Correção RH`
-            const { data } = await api.post('/api/rh/ponto/bater', payload)
+            const { data } = await api.post('/rh/ponto/bater', payload)
             const atraso = (data as any).atraso_min?? (data as any).ponto?.atraso_min?? 0
             if (atraso > 0) toast.warning(`Entrada com ${formatAtraso(atraso)}`); else toast.success(`${tipo} batido em ${formatDisplay(dataSelecionada)}`)
             if ((data as any).falta_gerada) toast.error(`FALTA GERADA: ${config?.qtd_atrasos_para_falta} atrasos`)

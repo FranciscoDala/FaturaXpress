@@ -32,9 +32,7 @@ def _get_nome_lancador(db: Session, lancado_por_id):
 def _ponto_to_dict(db: Session, p: Ponto) -> dict:
     if not p:
         return {}
-    tipo_str = str(p.tipo) if getattr(p, "tipo", None) else ""
-    if "." in tipo_str:
-        tipo_str = tipo_str.split(".")[-1]
+    tipo_str = str(p.tipo).split(".")[-1] if getattr(p, "tipo", None) else ""
     lancado_por_id = getattr(p, "lancado_por_id", None)
     lancado_em = getattr(p, "lancado_em", None)
     data_val = getattr(p, "data", None)
@@ -61,14 +59,8 @@ def _ponto_to_dict(db: Session, p: Ponto) -> dict:
 def _falta_to_dict(db: Session, f: PedidoRH) -> dict:
     if not f:
         return {}
-    status_raw = getattr(f, "status", "")
-    status_str = str(status_raw)
-    if "." in status_str:
-        status_str = status_str.split(".")[-1]
-    tipo_raw = getattr(f, "tipo", "")
-    tipo_str = str(tipo_raw)
-    if "." in tipo_str:
-        tipo_str = tipo_str.split(".")[-1]
+    status_str = str(f.status).split(".")[-1] if getattr(f, "status", None) else ""
+    tipo_str = str(f.tipo).split(".")[-1] if getattr(f, "tipo", None) else ""
     data_inicio = getattr(f, "data_inicio", None)
     data_fim = getattr(f, "data_fim", None)
     lancado_por_id = getattr(f, "lancado_por_id", None)
@@ -258,7 +250,6 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
     )
     db.add(ponto); db.commit(); db.refresh(ponto)
 
-    # --- NOVA LOGICA DE ATRASOS ---
     notificacao_gerada = None
     qtd_atrasos = 0
     if tipo=="entrada" and atraso>0 and cfg.regra_atraso_ativa and not is_retro:
@@ -268,7 +259,6 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
             inicio_config = data_alvo.replace(day=1)
         else:
             inicio_config = data_alvo - timedelta(days=data_alvo.weekday())
-        # FIX 1: evita TypeError no max() quando ultimo_reset é None e compara datas com segurança
         inicio_periodo = inicio_config
         if ultimo_reset and ultimo_reset > inicio_config:
             inicio_periodo = ultimo_reset
@@ -335,103 +325,83 @@ def marcar_falta_manual(db: Session, company_id: uuid.UUID, funcionario_id: uuid
     db.add(falta); db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
 
+# --- JUSTIFICAR FINAL - SEM ENUM, SEM FK QUEBRANDO ---
 def justificar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, tipo: str, obs: str | None, anexo_url: str | None, justificado_por_id: uuid.UUID | None):
-    import traceback
+    falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
+    if not falta:
+        raise HTTPException(404, "Falta não encontrada")
+
+    status_atual = str(falta.status).split(".")[-1] if falta.status else ""
+
+    # TRAVA 1: essa falta já em análise
+    if status_atual in ["pendente_justificacao", "aguardando_admin", "encaminhado_admin"]:
+        raise HTTPException(400, "Essa justificação já está em análise.")
+
+    # TRAVA 2: já tem anexo e não foi rejeitada
+    if falta.justificativa_anexo_url and status_atual!= "rejeitado":
+        raise HTTPException(400, "Falta já justificada. Aguarde aprovação.")
+
+    # TRAVA 3: bloqueio global - CORRIGIDO pra VARCHAR (não usa Enum)
+    tem_pendente = db.query(PedidoRH).filter(
+        PedidoRH.company_id == company_id,
+        PedidoRH.funcionario_id == falta.funcionario_id,
+        PedidoRH.status.in_(["pendente_justificacao", "aguardando_admin", "encaminhado_admin"]),
+        PedidoRH.id!= falta.id
+    ).first()
+    if tem_pendente:
+        raise HTTPException(400, "Você já tem uma justificação em análise. Aguarde a resposta antes de enviar outra.")
+
+    # AGORA models novo aceita qualquer UUID, não quebra FK
+    falta.justificativa_tipo = tipo
+    falta.justificativa_obs = obs
+    falta.justificativa_anexo_url = anexo_url
+    falta.justificado_por_id = justificado_por_id
+    falta.justificado_em = datetime.now(timezone.utc)
+    falta.status = "pendente_justificacao"
+    falta.dono_atual = "rh"
+    falta.area_origem = "rh"
+
+    db.commit()
+    db.refresh(falta)
+
     try:
-        falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
-        if not falta:
-            raise HTTPException(404, "Falta não encontrada")
-
-        # normaliza status (pode vir como Enum ou string)
-        status_atual = str(falta.status).split(".")[-1] if falta.status else ""
-
-        # TRAVA 1: se essa mesma falta já está em análise
-        if status_atual in [StatusPedido.pendente_justificacao.value, StatusPedido.aguardando_admin.value, StatusPedido.encaminhado_admin.value, "pendente_justificacao", "aguardando_admin", "encaminhado_admin"]:
-            raise HTTPException(400, "Essa justificação já está em análise. Aguarde resposta do RH/Admin.")
-
-        # TRAVA 2: se já tem anexo e não foi rejeitada, não deixa reenviar
-        if falta.justificativa_anexo_url and status_atual != StatusPedido.rejeitado.value and status_atual != "rejeitado":
-            raise HTTPException(400, "Falta já justificada. Aguarde aprovação do RH/Admin.")
-
-        # TRAVA 3: bloqueio global - se ele já tem OUTRA falta pendente, bloqueia tudo
-        tem_pendente = db.query(PedidoRH).filter(
-            PedidoRH.company_id == company_id,
-            PedidoRH.funcionario_id == falta.funcionario_id,
-            PedidoRH.status.in_([StatusPedido.pendente_justificacao.value, StatusPedido.aguardando_admin.value, StatusPedido.encaminhado_admin.value]),
-            PedidoRH.id != falta.id
+        existe_notif = db.query(Notificacao).filter(
+            Notificacao.company_id==company_id,
+            Notificacao.referencia_id==falta.id,
+            Notificacao.tipo=="falta",
+            Notificacao.status=="pendente"
         ).first()
-        if tem_pendente:
-            raise HTTPException(400, "Você já tem uma justificação em análise. Aguarde a resposta antes de enviar outra.")
-
-        # FIX FK: se o justificado_por_id não existe em funcionarios, salva None pra não quebrar
-        jid_valido = None
-        if justificado_por_id:
-            existe = db.query(Funcionario).filter(Funcionario.id == justificado_por_id).first()
-            if existe:
-                jid_valido = justificado_por_id
-            else:
-                print(f"[JUSTIFICAR] jid {justificado_por_id} não existe em funcionarios, usando None")
-
-        falta.justificativa_tipo = tipo
-        falta.justificativa_obs = obs
-        falta.justificativa_anexo_url = anexo_url
-        falta.justificado_por_id = jid_valido
-        falta.justificado_em = datetime.now(timezone.utc)
-        falta.status = StatusPedido.pendente_justificacao.value
-        falta.dono_atual = "rh"
-        falta.area_origem = "rh"
-
-        db.commit()
-        db.refresh(falta)
-
-        # cria notificação tipo falta para cair na tab - não pode quebrar a justificativa se falhar
-        try:
-            existe_notif = db.query(Notificacao).filter(
-                Notificacao.company_id==company_id,
-                Notificacao.referencia_id==falta.id,
-                Notificacao.tipo=="falta",
-                Notificacao.status=="pendente"
-            ).first()
-            if not existe_notif:
-                notif = Notificacao(
-                    id=uuid.uuid4(),
-                    company_id=company_id,
-                    tipo="falta",
-                    referencia_id=falta.id,
-                    area_origem="rh",
-                    area_destino="rh",
-                    dono_atual="rh",
-                    status="pendente"
-                )
-                db.add(notif)
-                db.commit()
-        except Exception as notif_err:
-            db.rollback()
-            print(f"[JUSTIFICAR] Erro ao criar notificacao (ignorado): {notif_err}")
-
-        return _falta_to_dict(db, falta)
-
-    except HTTPException:
-        raise
+        if not existe_notif:
+            notif = Notificacao(
+                id=uuid.uuid4(),
+                company_id=company_id,
+                tipo="falta",
+                referencia_id=falta.id,
+                area_origem="rh",
+                area_destino="rh",
+                dono_atual="rh",
+                status="pendente"
+            )
+            db.add(notif)
+            db.commit()
     except Exception as e:
         db.rollback()
-        traceback.print_exc()
-        print(f"!!! ERRO JUSTIFICAR REAL: {e}")
-        raise HTTPException(status_code=500, detail=f"ERRO REAL: {str(e)}")
+        print(f"[JUSTIFICAR] Erro notificacao ignorado: {e}")
+        # não falha a justificativa por causa da notificação
+        db.commit()
 
-
+    return _falta_to_dict(db, falta)
 
 def aprovar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, aprovado_por_id: uuid.UUID | None, observacao: str | None = None):
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
     if not falta:
         raise HTTPException(404, "Falta não encontrada")
-    falta.status = StatusPedido.justificado.value
+    falta.status = "justificado"
     falta.abonada = True
     falta.aprovado_por_id = aprovado_por_id
     falta.aprovado_em = datetime.now(timezone.utc)
     if observacao:
         falta.observacao_gestor = observacao
-    # ATUALIZA NOTIFICAÇÃO PARA OS 30MIN FUNCIONAREM
     db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==falta_id, Notificacao.tipo=="falta", Notificacao.status=="pendente").update({"status":"aprovada", "lida":True, "updated_at": datetime.now(timezone.utc)})
     db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
@@ -440,7 +410,7 @@ def rejeitar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, apro
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
     if not falta:
         raise HTTPException(404, "Falta não encontrada")
-    falta.status = StatusPedido.rejeitado.value
+    falta.status = "rejeitado"
     falta.abonada = False
     falta.aprovado_por_id = aprovado_por_id
     falta.aprovado_em = datetime.now(timezone.utc)
@@ -454,8 +424,9 @@ def remover_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID):
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
     if not falta:
         raise HTTPException(404, "Falta não encontrada")
-    if not falta.abonada and falta.status not in [StatusPedido.justificado.value, "justificado", StatusPedido.aprovado.value, "aprovado"]:
-        raise HTTPException(400, "Só é permitido remover falta justificada/abonada. Use aprovar antes.")
+    status_str = str(falta.status).split(".")[-1]
+    if not falta.abonada and status_str not in ["justificado", "aprovado"]:
+        raise HTTPException(400, "Só é permitido remover falta justificada/abonada.")
     db.delete(falta); db.commit()
     return {"ok": True, "id": str(falta_id)}
 
@@ -465,20 +436,18 @@ def encaminhar_falta_para_admin(db: Session, company_id: uuid.UUID, falta_id: uu
         raise HTTPException(404, "Falta não encontrada")
     if getattr(falta, "dono_atual", "rh") == "admin":
         raise HTTPException(400, "Já encaminhado para admin")
-    if falta.status!= StatusPedido.pendente_justificacao.value:
+    status_str = str(falta.status).split(".")[-1]
+    if status_str!= "pendente_justificacao":
         raise HTTPException(400, "Só pode encaminhar falta com justificativa pendente")
     falta.dono_atual = "admin"
     falta.encaminhado_para_admin = True
     falta.encaminhado_em = datetime.now(timezone.utc)
     falta.encaminhado_por_id = encaminhado_por_id
-    falta.status = StatusPedido.aguardando_admin.value
-    # fecha a notificação do RH e abre pro admin - ISSO GARANTE O UPDATED_AT
+    falta.status = "aguardando_admin"
     db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==falta_id, Notificacao.tipo=="falta", Notificacao.status=="pendente", Notificacao.area_destino=="rh").update({"status":"encaminhada", "lida":True, "updated_at": datetime.now(timezone.utc)})
     notif = Notificacao(id=uuid.uuid4(), company_id=company_id, tipo="falta", referencia_id=falta.id, area_origem="rh", area_destino="admin", dono_atual="admin", status="pendente")
     db.add(notif); db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
-
-
 
 def _funcionario_full_dict(f: Funcionario | None) -> dict | None:
     if not f:
@@ -503,6 +472,7 @@ def _funcionario_full_dict(f: Funcionario | None) -> dict | None:
         "tem_acesso": f.tem_acesso,
         "ultimo_reset_atrasos": f.ultimo_reset_atrasos.isoformat() if f.ultimo_reset_atrasos else None,
     }
+
 def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: str | None = None):
     q = db.query(Notificacao).filter(Notificacao.company_id == company_id, Notificacao.area_destino == area)
     if status:
@@ -528,7 +498,6 @@ def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: s
             item["funcionario"] = _funcionario_full_dict(func)
             item["funcionario_id"] = str(func.id) if func else None
             item["funcionario_nome"] = func.nome if func else None
-            # já coloca o funcionario completo dentro da falta também
             if item["falta"]:
                 item["falta"]["funcionario"] = _funcionario_full_dict(func)
                 item["falta"]["funcionario_nome"] = func.nome if func else None
@@ -552,10 +521,6 @@ def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: s
         result.append(item)
     return result
 
-
-
-
-# --- NOVAS FUNCOES ATRASO ---
 def aplicar_falta_por_atraso(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, aplicado_por_id: uuid.UUID | None):
     func = db.query(Funcionario).filter(Funcionario.id==funcionario_id, Funcionario.company_id==company_id).first()
     if not func:
@@ -565,7 +530,7 @@ def aplicar_falta_por_atraso(db: Session, company_id: uuid.UUID, funcionario_id:
         id=uuid.uuid4(), company_id=company_id, funcionario_id=funcionario_id,
         tipo="falta_justificada", data_inicio=date.today(), data_fim=date.today(),
         dias_uteis=1, motivo=f"Regra: {cfg.qtd_atrasos_para_falta} atrasos no {cfg.periodo_regra} = 1 falta. Func: {func.nome}",
-        status=StatusPedido.aprovado.value, abonada=False,
+        status="aprovado", abonada=False,
         dono_atual="rh", area_origem="sistema",
         lancado_por_id=aplicado_por_id, lancado_em=datetime.now(timezone.utc)
     )
@@ -596,15 +561,10 @@ def encaminhar_atraso_para_admin(db: Session, company_id: uuid.UUID, funcionario
     db.commit(); db.refresh(notif)
     return {"ok": True, "msg": "Encaminhado para admin"}
 
-
-
 def ignorar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, ignorado_por_id: uuid.UUID | None = None):
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
     if not falta:
         raise HTTPException(404, "Falta não encontrada")
-    # não muda a falta, só a notificação - continua pendente mas vai pro histórico como ignorada depois dos 30min
-    # se quiser mudar a falta também, descomenta:
-    # falta.status = StatusPedido.rejeitado.value
     agora = datetime.now(timezone.utc)
     db.query(Notificacao).filter(
         Notificacao.company_id==company_id,

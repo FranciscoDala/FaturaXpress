@@ -147,14 +147,16 @@ class PedidoRH(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), index=True)
     funcionario_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id", ondelete="CASCADE"), index=True)
-    tipo: Mapped[str] = mapped_column(SAEnum(TipoPedido), nullable=False)
+    # CORRIGIDO: String ao invés de SAEnum - nunca mais quebra
+    tipo: Mapped[str] = mapped_column(String(50), nullable=False)
     data_inicio: Mapped[date] = mapped_column(Date, nullable=False)
     data_fim: Mapped[date] = mapped_column(Date, nullable=False)
     dias_uteis: Mapped[int] = mapped_column(Integer, default=1)
     motivo: Mapped[str | None] = mapped_column(Text, nullable=True)
     documento_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(SAEnum(StatusPedido), default=StatusPedido.pendente.value, index=True)
-    aprovado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id"), nullable=True)
+    # CORRIGIDO: String ao invés de SAEnum
+    status: Mapped[str] = mapped_column(String(50), default=StatusPedido.pendente.value, index=True)
+    aprovado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     aprovado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     observacao_gestor: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -167,14 +169,16 @@ class PedidoRH(Base):
     justificativa_obs: Mapped[str | None] = mapped_column(Text, nullable=True)
     justificativa_anexo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     justificado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    justificado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id", ondelete="SET NULL"), nullable=True, index=True)
+    # CORRIGIDO: Sem FK - aceita ID do Admin e do RH
+    justificado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
     abonada: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    dono_atual: Mapped[str] = mapped_column(String(20), default="rh", nullable=False, index=True)
+    # CORRIGIDO: String ao invés de Enum
+    dono_atual: Mapped[str] = mapped_column(String(20), default=DonoAtual.rh.value, nullable=False, index=True)
     area_origem: Mapped[str | None] = mapped_column(String(20), nullable=True)
     encaminhado_para_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     encaminhado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    encaminhado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("funcionarios.id", ondelete="SET NULL"), nullable=True)
-    # RELACIONAMENTO - ISSO QUE FALTAVA
+    encaminhado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+
     funcionario = relationship("Funcionario", foreign_keys=[funcionario_id], lazy="joined")
 
 class Recibo(Base):

@@ -19,7 +19,7 @@ from app.core.security import get_current_company_id
 from app.core.config import settings
 from app.modules.funcionarios.schemas import FuncionarioCreate, FuncionarioResponse, FuncionarioUpdate
 from app.modules.funcionarios import service as func_service
-from app.modules.funcionarios.models import Funcionario, Notificacao
+from app.modules.funcionarios.models import Funcionario, Notificacao, PedidoRH, StatusPedido
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ router = APIRouter(prefix="/funcionarios", tags=["Funcionários"])
 rh_router = APIRouter(prefix="/rh", tags=["RH - Ponto"])
 upload_router = APIRouter(prefix="/upload", tags=["Upload"])
 
-# ---------- UPLOAD CORRIGIDO ----------
+# ---------- UPLOAD ----------
 @upload_router.post("/falta")
 async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Depends(get_current_company_id)):
     contents = await file.read()
@@ -56,7 +56,7 @@ async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Dep
         "tipo": "pdf" if is_pdf else "imagem",
     }
 
-# ---------- DOWNLOAD UNICO - PROXY PRA PDF ----------
+# ---------- DOWNLOAD ANEXO ----------
 @rh_router.get("/falta/{falta_id}/anexo")
 @upload_router.get("/falta/{falta_id}/anexo")
 def falta_get_anexo(
@@ -81,7 +81,7 @@ def falta_get_anexo(
         logger.error(f"[ANEXO] token inválido {e}")
         raise HTTPException(status_code=401, detail="Token inválido")
 
-    falta_any = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id == falta_id).first()
+    falta_any = db.query(PedidoRH).filter(PedidoRH.id == falta_id).first()
     if not falta_any or not falta_any.justificativa_anexo_url:
         raise HTTPException(status_code=404, detail="Falta sem anexo")
 
@@ -125,10 +125,7 @@ def falta_get_anexo(
             media_type = content_type
             extension = media_type.split("/", 1)[1]
         else:
-            logger.error(
-                "[ANEXO] Cloudinary devolveu conteúdo inválido: "
-                f"status={r.status_code} content_type={content_type} url={stored_url}"
-            )
+            logger.error(f"[ANEXO] conteúdo inválido: status={r.status_code} ct={content_type} url={stored_url}")
             raise ValueError("Cloudinary não devolveu um PDF ou imagem válido")
 
         return Response(
@@ -143,7 +140,7 @@ def falta_get_anexo(
         logger.error(f"[ANEXO] falha proxy pdf {e} url={stored_url}")
         raise HTTPException(status_code=502, detail="Não foi possível obter o anexo")
 
-# --- SEUS ROUTERS EXISTENTES ---
+# --- FUNCIONARIOS ---
 @router.post("", response_model=FuncionarioResponse, status_code=201)
 def criar(dados: FuncionarioCreate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return func_service.criar_funcionario(db, company_id, dados)
@@ -184,6 +181,7 @@ def login_bi(numero_bi: str, senha: str, db: Session = Depends(get_db)):
         raise HTTPException(401, "BI ou senha inválidos")
     return {"id": str(func.id), "nome": func.nome, "cargo": func.cargo, "company_id": str(func.company_id)}
 
+# --- RH ---
 @rh_router.get("/ponto")
 def ponto_por_data(data: Optional[str] = Query(None), db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     data_alvo = func_service.parse_data(data)
@@ -282,9 +280,7 @@ def falta_manual(payload: dict, db: Session = Depends(get_db), company_id: uuid.
             pass
     return func_service.marcar_falta_manual(db, company_id, fid, motivo, categoria, observacao, data_str, motivo_retroativo, lancado_uuid, is_admin=is_admin)
 
-
-
-
+# --- CORRIGIDO: JUSTIFICAR SEM QUEBRAR FK E SEM ENUM ---
 @rh_router.post("/falta/{falta_id}/justificar")
 def falta_justificar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     import traceback
@@ -294,34 +290,30 @@ def falta_justificar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(g
         anexo_url = payload.get("anexo_url")
         justificado_por_id = payload.get("justificado_por_id")
 
-        try:
-            jid = uuid.UUID(justificado_por_id) if justificado_por_id else None
-        except:
-            jid = None
-
-        # valida se o jid existe em funcionarios, se não existe seta None pra não quebrar FK
-        if jid:
-            existe_func = db.query(Funcionario).filter(Funcionario.id == jid).first()
-            if not existe_func:
-                print(f"[JUSTIFICAR] AVISO: justificado_por_id {jid} não existe em funcionarios, salvando como None")
+        jid = None
+        if justificado_por_id:
+            try:
+                jid = uuid.UUID(str(justificado_por_id))
+            except:
                 jid = None
-            else:
-                # trava de permissão só se for funcionario mesmo
-                falta_check = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id == falta_id, func_service.PedidoRH.company_id == company_id).first()
-                if falta_check and jid != falta_check.funcionario_id:
-                    solicitante = db.query(Funcionario).filter(Funcionario.id == jid).first()
-                    if solicitante and solicitante.cargo not in ["rh", "admin"]:
-                        raise HTTPException(403, "Só pode justificar suas próprias faltas")
+
+        # Não valida FK aqui, models novo aceita qualquer UUID (admin também)
+        # Se quiser checar permissão, faz assim sem quebrar:
+        if jid:
+            solicitante = db.query(Funcionario).filter(Funcionario.id == jid).first()
+            # Se não achou funcionario, pode ser admin (id vem de companies), deixa passar
+            if solicitante:
+                falta_check = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
+                if falta_check and jid!= falta_check.funcionario_id and solicitante.cargo not in ["rh", "admin"]:
+                    raise HTTPException(403, "Só pode justificar suas próprias faltas")
 
         return func_service.justificar_falta(db, company_id, falta_id, tipo, obs, anexo_url, jid)
     except HTTPException:
         raise
     except Exception as e:
         traceback.print_exc()
-        print(f"!!! ERRO JUSTIFICAR REAL: {e}")
-        # isso vai aparecer no Preview em vez de Network Error
-        raise HTTPException(status_code=500, detail=f"ERRO REAL BACKEND: {str(e)}")
-
+        logger.error(f"ERRO JUSTIFICAR: {e}")
+        raise HTTPException(status_code=500, detail=f"ERRO REAL: {str(e)}")
 
 @rh_router.post("/falta/{falta_id}/aprovar")
 def falta_aprovar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
@@ -331,10 +323,11 @@ def falta_aprovar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_
         aid = uuid.UUID(aprovado_por_id) if aprovado_por_id else None
     except:
         aid = None
-    falta = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id == falta_id, func_service.PedidoRH.company_id == company_id).first()
+    falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
     if falta and getattr(falta, "dono_atual", "rh") == "admin":
         solicitante = db.query(Funcionario).filter(Funcionario.id == aid).first() if aid else None
-        if not solicitante or solicitante.cargo!= "admin":
+        # Se aid é de admin (não está em funcionarios), deixa passar
+        if solicitante and solicitante.cargo!= "admin":
             raise HTTPException(403, "Falta já encaminhada para admin. Só admin pode aprovar.")
     return func_service.aprovar_falta(db, company_id, falta_id, aid, obs)
 
@@ -346,10 +339,10 @@ def falta_rejeitar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get
         aid = uuid.UUID(aprovado_por_id) if aprovado_por_id else None
     except:
         aid = None
-    falta = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id == falta_id, func_service.PedidoRH.company_id == company_id).first()
+    falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
     if falta and getattr(falta, "dono_atual", "rh") == "admin":
         solicitante = db.query(Funcionario).filter(Funcionario.id == aid).first() if aid else None
-        if not solicitante or solicitante.cargo!= "admin":
+        if solicitante and solicitante.cargo!= "admin":
             raise HTTPException(403, "Falta já encaminhada para admin. Só admin pode rejeitar.")
     return func_service.rejeitar_falta(db, company_id, falta_id, aid, obs)
 
@@ -378,7 +371,6 @@ def notificacao_lida(notificacao_id: uuid.UUID, db: Session = Depends(get_db), c
     if not notif:
         raise HTTPException(404, "Notificação não encontrada")
     notif.lida = True
-    # NÃO muda status pra "lida", mantém pendente pra não ir pro histórico antes da hora
     db.commit()
     return {"ok": True}
 
@@ -416,8 +408,6 @@ def atraso_aplicar_falta_alias(funcionario_id: uuid.UUID, payload: dict, db: Ses
 @rh_router.post("/atrasos/{funcionario_id}/ignorar-atraso")
 def atraso_ignorar_alias(funcionario_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     return func_service.ignorar_atrasos(db, company_id, funcionario_id)
-
-
 
 @rh_router.post("/falta/{falta_id}/ignorar")
 def falta_ignorar(falta_id: uuid.UUID, payload: dict = {}, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):

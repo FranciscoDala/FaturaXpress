@@ -287,25 +287,40 @@ def falta_manual(payload: dict, db: Session = Depends(get_db), company_id: uuid.
 
 @rh_router.post("/falta/{falta_id}/justificar")
 def falta_justificar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    tipo = payload.get("tipo", "atestado")
-    obs = payload.get("observacao")
-    anexo_url = payload.get("anexo_url")
-    justificado_por_id = payload.get("justificado_por_id")
+    import traceback
     try:
-        jid = uuid.UUID(justificado_por_id) if justificado_por_id else None
-    except:
-        jid = None
+        tipo = payload.get("tipo", "atestado")
+        obs = payload.get("observacao")
+        anexo_url = payload.get("anexo_url")
+        justificado_por_id = payload.get("justificado_por_id")
 
-    # garante que só justifica a própria falta (ou RH/Admin)
-    if jid:
-        falta_check = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id == falta_id, func_service.PedidoRH.company_id == company_id).first()
-        if falta_check and jid != falta_check.funcionario_id:
-            solicitante = db.query(Funcionario).filter(Funcionario.id == jid).first()
-            if solicitante and solicitante.cargo not in ["rh", "admin"]:
-                raise HTTPException(403, "Só pode justificar suas próprias faltas")
+        try:
+            jid = uuid.UUID(justificado_por_id) if justificado_por_id else None
+        except:
+            jid = None
 
-    return func_service.justificar_falta(db, company_id, falta_id, tipo, obs, anexo_url, jid)
+        # valida se o jid existe em funcionarios, se não existe seta None pra não quebrar FK
+        if jid:
+            existe_func = db.query(Funcionario).filter(Funcionario.id == jid).first()
+            if not existe_func:
+                print(f"[JUSTIFICAR] AVISO: justificado_por_id {jid} não existe em funcionarios, salvando como None")
+                jid = None
+            else:
+                # trava de permissão só se for funcionario mesmo
+                falta_check = db.query(func_service.PedidoRH).filter(func_service.PedidoRH.id == falta_id, func_service.PedidoRH.company_id == company_id).first()
+                if falta_check and jid != falta_check.funcionario_id:
+                    solicitante = db.query(Funcionario).filter(Funcionario.id == jid).first()
+                    if solicitante and solicitante.cargo not in ["rh", "admin"]:
+                        raise HTTPException(403, "Só pode justificar suas próprias faltas")
 
+        return func_service.justificar_falta(db, company_id, falta_id, tipo, obs, anexo_url, jid)
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        print(f"!!! ERRO JUSTIFICAR REAL: {e}")
+        # isso vai aparecer no Preview em vez de Network Error
+        raise HTTPException(status_code=500, detail=f"ERRO REAL BACKEND: {str(e)}")
 
 
 @rh_router.post("/falta/{falta_id}/aprovar")

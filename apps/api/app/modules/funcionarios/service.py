@@ -335,64 +335,89 @@ def marcar_falta_manual(db: Session, company_id: uuid.UUID, funcionario_id: uuid
     db.add(falta); db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
 
-
 def justificar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, tipo: str, obs: str | None, anexo_url: str | None, justificado_por_id: uuid.UUID | None):
-    falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
-    if not falta:
-        raise HTTPException(404, "Falta não encontrada")
+    import traceback
+    try:
+        falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
+        if not falta:
+            raise HTTPException(404, "Falta não encontrada")
 
-    # TRAVA 1: se essa mesma falta já está em análise
-    if falta.status in [StatusPedido.pendente_justificacao.value, StatusPedido.aguardando_admin.value, StatusPedido.encaminhado_admin.value]:
-        raise HTTPException(400, "Essa justificação já está em análise. Aguarde resposta do RH/Admin.")
+        # normaliza status (pode vir como Enum ou string)
+        status_atual = str(falta.status).split(".")[-1] if falta.status else ""
 
-    # TRAVA 2: se já tem anexo e não foi rejeitada, não deixa reenviar
-    if falta.justificativa_anexo_url and falta.status != StatusPedido.rejeitado.value:
-        raise HTTPException(400, "Falta já justificada. Aguarde aprovação do RH/Admin.")
+        # TRAVA 1: se essa mesma falta já está em análise
+        if status_atual in [StatusPedido.pendente_justificacao.value, StatusPedido.aguardando_admin.value, StatusPedido.encaminhado_admin.value, "pendente_justificacao", "aguardando_admin", "encaminhado_admin"]:
+            raise HTTPException(400, "Essa justificação já está em análise. Aguarde resposta do RH/Admin.")
 
-    # TRAVA 3: bloqueio global - se ele já tem OUTRA falta pendente, bloqueia tudo
-    tem_pendente = db.query(PedidoRH).filter(
-        PedidoRH.company_id == company_id,
-        PedidoRH.funcionario_id == falta.funcionario_id,
-        PedidoRH.status.in_([StatusPedido.pendente_justificacao.value, StatusPedido.aguardando_admin.value, StatusPedido.encaminhado_admin.value]),
-        PedidoRH.id != falta.id
-    ).first()
-    if tem_pendente:
-        raise HTTPException(400, "Você já tem uma justificação em análise. Aguarde a resposta antes de enviar outra.")
+        # TRAVA 2: se já tem anexo e não foi rejeitada, não deixa reenviar
+        if falta.justificativa_anexo_url and status_atual != StatusPedido.rejeitado.value and status_atual != "rejeitado":
+            raise HTTPException(400, "Falta já justificada. Aguarde aprovação do RH/Admin.")
 
-    falta.justificativa_tipo = tipo
-    falta.justificativa_obs = obs
-    falta.justificativa_anexo_url = anexo_url
-    falta.justificado_por_id = justificado_por_id
-    falta.justificado_em = datetime.now(timezone.utc)
-    falta.status = StatusPedido.pendente_justificacao.value
-    falta.dono_atual = "rh"
-    falta.area_origem = "rh"
-    db.commit()
-    db.refresh(falta)
+        # TRAVA 3: bloqueio global - se ele já tem OUTRA falta pendente, bloqueia tudo
+        tem_pendente = db.query(PedidoRH).filter(
+            PedidoRH.company_id == company_id,
+            PedidoRH.funcionario_id == falta.funcionario_id,
+            PedidoRH.status.in_([StatusPedido.pendente_justificacao.value, StatusPedido.aguardando_admin.value, StatusPedido.encaminhado_admin.value]),
+            PedidoRH.id != falta.id
+        ).first()
+        if tem_pendente:
+            raise HTTPException(400, "Você já tem uma justificação em análise. Aguarde a resposta antes de enviar outra.")
 
-    # cria notificação tipo falta para cair na tab
-    existe = db.query(Notificacao).filter(
-        Notificacao.company_id==company_id,
-        Notificacao.referencia_id==falta.id,
-        Notificacao.tipo=="falta",
-        Notificacao.status=="pendente"
-    ).first()
-    if not existe:
-        notif = Notificacao(
-            id=uuid.uuid4(),
-            company_id=company_id,
-            tipo="falta",
-            referencia_id=falta.id,
-            area_origem="rh",
-            area_destino="rh",
-            dono_atual="rh",
-            status="pendente"
-        )
-        db.add(notif)
+        # FIX FK: se o justificado_por_id não existe em funcionarios, salva None pra não quebrar
+        jid_valido = None
+        if justificado_por_id:
+            existe = db.query(Funcionario).filter(Funcionario.id == justificado_por_id).first()
+            if existe:
+                jid_valido = justificado_por_id
+            else:
+                print(f"[JUSTIFICAR] jid {justificado_por_id} não existe em funcionarios, usando None")
+
+        falta.justificativa_tipo = tipo
+        falta.justificativa_obs = obs
+        falta.justificativa_anexo_url = anexo_url
+        falta.justificado_por_id = jid_valido
+        falta.justificado_em = datetime.now(timezone.utc)
+        falta.status = StatusPedido.pendente_justificacao.value
+        falta.dono_atual = "rh"
+        falta.area_origem = "rh"
+
         db.commit()
+        db.refresh(falta)
 
-    return _falta_to_dict(db, falta)
+        # cria notificação tipo falta para cair na tab - não pode quebrar a justificativa se falhar
+        try:
+            existe_notif = db.query(Notificacao).filter(
+                Notificacao.company_id==company_id,
+                Notificacao.referencia_id==falta.id,
+                Notificacao.tipo=="falta",
+                Notificacao.status=="pendente"
+            ).first()
+            if not existe_notif:
+                notif = Notificacao(
+                    id=uuid.uuid4(),
+                    company_id=company_id,
+                    tipo="falta",
+                    referencia_id=falta.id,
+                    area_origem="rh",
+                    area_destino="rh",
+                    dono_atual="rh",
+                    status="pendente"
+                )
+                db.add(notif)
+                db.commit()
+        except Exception as notif_err:
+            db.rollback()
+            print(f"[JUSTIFICAR] Erro ao criar notificacao (ignorado): {notif_err}")
 
+        return _falta_to_dict(db, falta)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        traceback.print_exc()
+        print(f"!!! ERRO JUSTIFICAR REAL: {e}")
+        raise HTTPException(status_code=500, detail=f"ERRO REAL: {str(e)}")
 
 
 

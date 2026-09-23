@@ -69,15 +69,15 @@ export default function ModalGestaoFalta({ data, open, onClose, onSaved, dataSel
     const token = localStorage.getItem('token') || localStorage.getItem('access_token') || ''
     const comprovanteEndpoint = `${apiRoot}/rh/falta/${falta.id}/anexo?token=${encodeURIComponent(token)}`
 
-    const uploadAndJustificar = async () => {
+        const uploadAndJustificar = async () => {
         if (!podeJustificar) { toast.error('Sem permissão para justificar'); return }
         if (!docNome.trim()) { toast.error('Informe o nome do documento'); return }
-        if (!file &&!previewUrl) { toast.error('Selecione o comprovante'); return }
+        if (!file && !previewUrl) { toast.error('Selecione o comprovante'); return }
 
         setLoading(true)
         try {
             const stored = localStorage.getItem('funcionario')
-            const logado = stored? JSON.parse(stored) : null
+            const logado = stored ? JSON.parse(stored) : null
             let anexoUrl: string | null = null
 
             if (file) {
@@ -88,7 +88,9 @@ export default function ModalGestaoFalta({ data, open, onClose, onSaved, dataSel
                     anexoUrl = (up.data as any).url || (up.data as any).file_url
                     if (!anexoUrl) throw new Error('URL não retornada')
                 } catch (upErr: any) {
-                    toast.error(upErr?.response?.data?.detail || 'Falha ao enviar comprovante')
+                    console.error('[UPLOAD FALTA] ERRO REAL:', upErr?.response?.data || upErr)
+                    const d = upErr?.response?.data?.detail || JSON.stringify(upErr?.response?.data) || upErr?.message
+                    toast.error(`Falha upload: ${d}`)
                     setLoading(false)
                     return
                 }
@@ -96,9 +98,11 @@ export default function ModalGestaoFalta({ data, open, onClose, onSaved, dataSel
                 anexoUrl = previewUrl
             }
 
+            console.log('[JUSTIFICAR] enviando:', { tipo: docNome.trim(), anexo_url: anexoUrl })
+
             await api.post(`/api/rh/falta/${falta.id}/justificar`, {
                 tipo: docNome.trim(),
-                observacao: showObs? obs : '',
+                observacao: showObs ? obs : '',
                 anexo_url: anexoUrl,
                 justificado_por_id: logado?.id || usuario?.id
             })
@@ -107,7 +111,15 @@ export default function ModalGestaoFalta({ data, open, onClose, onSaved, dataSel
             window.dispatchEvent(new CustomEvent('notificacoes-refresh'))
             onSaved(); onClose()
         } catch (e: any) {
-            toast.error(e?.response?.data?.detail || 'Erro ao justificar')
+            console.error('[JUSTIFICAR] ERRO REAL COMPLETO:', e)
+            console.error('[JUSTIFICAR] RESPONSE DATA:', e?.response?.data)
+            console.error('[JUSTIFICAR] STATUS:', e?.response?.status)
+            const detail = e?.response?.data?.detail
+                || e?.response?.data?.message
+                || JSON.stringify(e?.response?.data)
+                || e?.message
+                || 'Erro desconhecido'
+            toast.error(`Erro ao justificar: ${detail}`, { duration: 8000 })
         } finally { setLoading(false) }
     }
 

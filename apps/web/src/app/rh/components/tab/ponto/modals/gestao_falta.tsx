@@ -76,7 +76,7 @@ export default function ModalGestaoFalta({ data, open, onClose, onSaved, dataSel
 
         setLoading(true)
         try {
-            const stored = localStorage.getItem('funcionario_logado')
+            const stored = localStorage.getItem('funcionario')
             const logado = stored? JSON.parse(stored) : null
             let anexoUrl: string | null = null
 

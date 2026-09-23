@@ -2,12 +2,12 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { FileText, Eye, Search, ChevronDown, Check, Ban, AlertTriangle, Lock, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 import { createRoot, type Root } from 'react-dom/client'
 import { TabEmitidasSkeleton } from '../../../../components/CardsSkeleton'
 import { api } from '../../../../lib/api'
-import { getNumero, getTotal, isNotaCredito } from '../../page'
+import { getNumero, getTotal, isNotaCredito } from '../../EmitirFaturaPage'
 import FaturaFolhaView from '../../components/pdf/FaturaFolhaView'
-import FaturaPDF from '../../components/pdf/pdf_Fatura'
 import ModalMotivoNC from '../../../dashboard/components/modals/modal_MotivoNC'
 
 const OPTIONS = [
@@ -304,14 +304,22 @@ function FaturaCard({ fatura, ncVinculada, clienteProp, empresa, onView, onOpenN
             const element = container.querySelector<HTMLElement>('#fatura-pdf')
             if (!element) throw new Error('Conteúdo da fatura não foi renderizado')
 
-            const pdf = new jsPDF('p', 'mm', 'a4')
-            await pdf.html(element, {
-                margin: [0, 0, 0, 0],
-                autoPaging: 'slice',
-                html2canvas: { scale: 2, useCORS: true },
-                width: 210,
+            const canvas = await html2canvas(element, {
+                scale: Math.min(2, window.devicePixelRatio || 1),
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                width: element.scrollWidth,
+                height: element.scrollHeight,
                 windowWidth: element.scrollWidth,
+                windowHeight: element.scrollHeight,
             })
+            const pdf = new jsPDF('p', 'mm', 'a4')
+            const pageWidth = 210
+            const pageHeight = 297
+            const scale = Math.min(pageWidth / canvas.width, pageHeight / canvas.height)
+            const imageWidth = canvas.width * scale
+            const imageHeight = canvas.height * scale
+            pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', (pageWidth - imageWidth) / 2, (pageHeight - imageHeight) / 2, imageWidth, imageHeight)
             pdf.save(`${getNumero(documento)}.pdf`)
             toast.success('Fatura baixada')
         } catch {

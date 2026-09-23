@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { X, Check, Clock, Timer, Settings, ShieldAlert, CalendarRange, ChevronDown, Loader2, Lock } from 'lucide-react'
 import { createPortal } from 'react-dom'
-import { api } from '../../../../lib/api'
+import { api } from '../../../../../../lib/api'
 import { toast } from 'sonner'
 
 type Config = { hora_entrada: string; tolerancia_min: number; regra_atraso_ativa: boolean; qtd_atrasos_para_falta: number; periodo_regra: string }

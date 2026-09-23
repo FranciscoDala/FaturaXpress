@@ -1,12 +1,12 @@
 import { useEffect, useState, useMemo } from 'react'
-import { api } from '../../../../lib/api'
+import { api } from '../../../../../lib/api'
 import { toast } from 'sonner'
 import { Settings, Search, Loader2, Calendar, ChevronDown, AlertTriangle, Info, FileText, Lock } from 'lucide-react'
-import ModalConfigPonto from '../modals/modal_configurar_atraso'
-import ModalMarcarFalta from '../modals/modal_marcar_falta'
-import ModalCalendarioPonto from '../modals/modal_calendario_ponto'
-import RelatorioAuditoriaPonto from '../pdf/pdf_relatorioPonto'
-import ModalGestaoFalta from '../modals/modal_gestao_falta'
+import ModalConfigPonto from './modals/configurar_atraso'
+import ModalMarcarFalta from './modals/marcar_falta'
+import ModalCalendarioPonto from './modals/calendario'
+import RelatorioAuditoriaPonto from './pdf/relatorio_ponto'
+import ModalGestaoFalta from './modals/gestao_falta'
 
 type Func = { id: string; nome: string; area?: string; funcao?: string; cargo?: string; area_principal?: any; funcao_principal?: any }
 type BaseAudit = { id: string; funcionario_id: string; is_retroativo?: boolean; lancado_por_id?: string | null; lancado_por_nome?: string | null; motivo_retroativo?: string | null; lancado_em?: string | null; justificativa_tipo?: string | null; justificativa_obs?: string | null; justificativa_anexo_url?: string | null; abonada?: boolean; }

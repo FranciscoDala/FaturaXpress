@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { api, apiRoot } from '../../../../lib/api'
+import { api, apiRoot } from '../../../../../../lib/api'
 import { toast } from 'sonner'
 import { X, Check, FileText, Upload, Eye, Info, Loader2, Lock } from 'lucide-react'
 

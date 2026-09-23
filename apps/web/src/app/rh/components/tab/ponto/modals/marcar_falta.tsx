@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { X, Check, AlertTriangle, HeartPulse, FileText, Calendar, Loader2, ChevronDown, Lock } from 'lucide-react'
 import { createPortal } from 'react-dom'
-import { api } from '../../../../lib/api'
+import { api } from '../../../../../../lib/api'
 import { toast } from 'sonner'
-import ModalCalendarioPonto from './modal_calendario_ponto'
+import ModalCalendarioPonto from './calendario'
 
 type Func = { id: string; nome: string }
 

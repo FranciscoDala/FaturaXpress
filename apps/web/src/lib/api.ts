@@ -2,18 +2,16 @@ import axios from 'axios'
 import { toast } from 'sonner'
 
 const raw = import.meta.env.VITE_API_URL || 'https://faturaxpress-backend.onrender.com/api'
-// limpa barra e remove /api do final se tiver, pra não duplicar
-const root = raw.replace(/\/$/, '').replace(/\/api$/, '')
-const baseURL = `${root}/api`
-const apiRoot = baseURL // sempre https://.../api
+const root = raw.replace(/\/$/, '').replace(/\/api$/, '') // https://faturaxpress-backend.onrender.com
+const baseURL = root // SEM /api
+const apiRoot = `${root}/api` // https://.../api
 
 const api = axios.create({
-    baseURL, // já tem /api
+    baseURL,
     headers: { 'Content-Type': 'application/json' },
 })
 
 api.interceptors.request.use((config) => {
-    // aceita os dois nomes de token que você usa no Modal
     const token = localStorage.getItem('access_token') || localStorage.getItem('token')
     if (token) config.headers.Authorization = `Bearer ${token}`
     return config
@@ -38,15 +36,12 @@ api.interceptors.response.use(
             })
             return Promise.reject(error)
         }
-        if (status >= 400 && status !== 403) {
+        if (status >= 400 && status!== 403) {
             const silentPaths = ['/faturas', '/clientes', '/produtos']
             const url = error.config?.url || ''
             const isSilent = silentPaths.some(p => url.includes(p)) && status === 400
-            if (!isSilent && detail && typeof detail === 'string' && detail.length < 200) {
-                // não mostra toast aqui se for rota de falta, deixa o Modal mostrar o erro real
-                if (!url.includes('/falta')) {
-                    toast.error('Erro', { description: detail })
-                }
+            if (!isSilent && detail && typeof detail === 'string' && detail.length < 200 && !url.includes('/falta')) {
+                toast.error('Erro', { description: detail })
             }
         }
         return Promise.reject(error)

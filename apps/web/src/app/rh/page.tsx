@@ -7,7 +7,6 @@ import ModalConfirmSair from '../dashboard/components/modals/modal_ConfirmSair'
 import ModalUsuario from './components/modals/modal_UsuarioView'
 import ModalFuncionario from './components/modals/modal_Funcionario'
 import TabPresente from './components/tab/funcioarios/tab_func_presente'
-import TabFerias from './components/tab/ferias/ferias'
 import TabPonto from './components/tab/ponto/ponto'
 import TabPedidos from './components/tab/pedido/pedidos'
 import TabRecibos from './components/tab/recibos/recibos'
@@ -229,8 +228,10 @@ export default function RHPage() {
                     </div>
                     <style>{`.bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; }.bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; } @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }`}</style>
                 </div>
+
+                {/* IGUAL DASHBOARD - SEM PADDING NA MÃE */}
                 <div className="w-full py-6">
-                    <div className="w-full px-4 sm:px-0 mt-0">
+                    <div className="w-full py-2">
                         <div id="tabela">
                             {loadingFunc? <p className="text-center py-16 bg-white rounded-[20px] border text-black/50">Carregando...</p> : (
                                 <>

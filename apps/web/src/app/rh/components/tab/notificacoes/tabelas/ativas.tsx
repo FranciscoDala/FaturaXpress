@@ -117,9 +117,9 @@ export default function AtivasTab({ agrupado, area, actingId, openSwipeId, setOp
                                         <div className="flex justify-between gap-3 items-start">
                                             <div className="min-w-0 flex-1">
                                                 <div className="text-[13px] leading-[18px] break-words whitespace-normal">
-                                                    <span className="font-bold text-black">Justificação de falta de • {nomeFunc}</span>
+                                                    <span className="font-bold text-black">Justificação de falta de • {nomeFunc} <span className="text-[11px] text-black/50 font-normal mt-0.5 inline-block">• {formatarTempo(n.created_at)}</span></span>
                                                 </div>
-                                                <span className="text-[11px] text-black/50 font-normal mt-0.5 inline-block">• {formatarTempo(n.created_at)}</span>
+
                                                 <div className="mt-1"><span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-bold ${style.badge}`}>{style.label}</span></div>
                                             </div>
                                         </div>

@@ -1,4 +1,4 @@
-import { Eye, Pencil, CalendarOff, Lock, Search, ChevronDown, Check, Loader2 } from 'lucide-react'
+import { Eye, Pencil, CalendarOff, Lock, Search, ChevronDown, Check, Loader2, Settings, FileText, Clock, Wallet, Folder, Star, Power, ChevronRight } from 'lucide-react'
 import { useMemo, useState, useEffect, useRef } from 'react'
 
 interface Funcionario {
@@ -19,6 +19,7 @@ interface Props {
     onView?: (f: Funcionario) => void
     onEdit?: (f: Funcionario) => void
     onFerias?: (f: Funcionario) => void
+    onAction?: (action: string, f: Funcionario) => void
 }
 
 const CARGOS_PERMISSOES: Record<string, string[]> = {
@@ -34,7 +35,41 @@ function temPermissao(cargo: string, perm: string) {
     return perms.includes(perm) || perms.includes("*")
 }
 
-export default function TabPresente({ funcionarios, presentesIds, search: searchProp, loading = false, onView, onEdit, onFerias }: Props) {
+const MENU_RH = [
+    { id: 'vinculo', label: 'Vínculo', icon: FileText, items: [
+        { id: 'ver_contrato', label: 'Ver contrato' },
+        { id: 'editar_contrato', label: 'Editar contrato / Aditivo' },
+        { id: 'alterar_cargo', label: 'Alterar cargo / área / salário' },
+        { id: 'definir_horario', label: 'Definir horário / turno' },
+    ]},
+    { id: 'ponto', label: 'Ponto & Presença', icon: Clock, items: [
+        { id: 'historico_ponto', label: 'Histórico de ponto' },
+        { id: 'justificar_falta', label: 'Justificar falta' },
+        { id: 'marcar_ferias', label: 'Marcar férias / folga' },
+        { id: 'licenca', label: 'Licença / Atestado' },
+    ]},
+    { id: 'financeiro', label: 'Financeiro RH', icon: Wallet, items: [
+        { id: 'salario', label: 'Salário / Subsídios' },
+        { id: 'descontos', label: 'Descontos / Adiantamento' },
+        { id: 'recibos', label: 'Recibo / Folha' },
+    ]},
+    { id: 'documentos', label: 'Documentos', icon: Folder, items: [
+        { id: 'docs_pessoais', label: 'BI, NIF, Comprovativos' },
+        { id: 'contrato_assinado', label: 'Contrato assinado' },
+        { id: 'anexos', label: 'Outros anexos' },
+    ]},
+    { id: 'desempenho', label: 'Desempenho', icon: Star, items: [
+        { id: 'formacoes', label: 'Formações' },
+        { id: 'avaliacao', label: 'Avaliação de desempenho' },
+        { id: 'advertencia', label: 'Advertência / Disciplinar' },
+    ]},
+    { id: 'estado', label: 'Estado', icon: Power, items: [
+        { id: 'suspender', label: 'Suspender / Desativar' },
+        { id: 'demitir', label: 'Demitir funcionário' },
+    ]},
+]
+
+export default function TabPresente({ funcionarios, presentesIds, search: searchProp, loading = false, onView, onEdit, onFerias, onAction }: Props) {
     const [searchInternal, setSearchInternal] = useState(searchProp || '')
     const [areaFiltro, setAreaFiltro] = useState('todos')
     const [openSelect, setOpenSelect] = useState(false)
@@ -123,12 +158,7 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
                 </div>
                 <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-0">
                     <Search className="w-4 h-4 text-black absolute left-4 top-1/2 -translate-y-1/2" />
-                    <input
-                        value={searchInternal}
-                        onChange={e => setSearchInternal(e.target.value)}
-                        placeholder="Buscar funcionário..."
-                        className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] font-bold text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
-                    />
+                    <input value={searchInternal} onChange={e => setSearchInternal(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] font-bold text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
                 </div>
             </div>
 
@@ -144,13 +174,11 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
             )}
 
             {funcionariosFiltrados.length === 0? (
-                <div className="text-center text-black py-16 bg-white rounded-[22px] border shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
-                    Nenhum funcionário {searchInternal || areaFiltro!== 'todos'? `para "${searchInternal || areaFiltro}"` : 'da empresa'}!
-                </div>
+                <div className="text-center text-black py-16 bg-white rounded-[22px] border shadow-[0_4px_24px_rgba(0,0,0,0.06)]">Nenhum funcionário!</div>
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {funcionariosFiltrados.map((f) => (
-                        <FuncionarioCard key={f.id} func={f} presentesIds={presentesIds} onView={onView} onEdit={onEdit} onFerias={onFerias} podeEditar={podeEditar} podeFerias={podeFerias} cargoAtual={cargoAtual} />
+                        <FuncionarioCard key={f.id} func={f} presentesIds={presentesIds} onView={onView} onEdit={onEdit} onFerias={onFerias} onAction={onAction} podeEditar={podeEditar} podeFerias={podeFerias} cargoAtual={cargoAtual} />
                     ))}
                 </div>
             )}
@@ -158,18 +186,62 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
     )
 }
 
-function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, podeEditar, podeFerias, cargoAtual }: { func: Funcionario; presentesIds?: Set<string>; onView?: Props['onView']; onEdit?: Props['onEdit']; onFerias?: Props['onFerias']; podeEditar: boolean; podeFerias: boolean; cargoAtual: string }) {
+function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onAction, podeEditar, podeFerias, cargoAtual }: { func: Funcionario; presentesIds?: Set<string>; onView?: Props['onView']; onEdit?: Props['onEdit']; onFerias?: Props['onFerias']; onAction?: Props['onAction']; podeEditar: boolean; podeFerias: boolean; cargoAtual: string }) {
+    const [openMenu, setOpenMenu] = useState(false)
+    const [openSub, setOpenSub] = useState<string | null>(null)
+    const menuRef = useRef<HTMLDivElement>(null)
     const initials = func.nome.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
     const isPresente = presentesIds? presentesIds.has(String(func.id)) : true
+
+    useEffect(() => {
+        const close = (e: MouseEvent) => {
+            if (menuRef.current &&!menuRef.current.contains(e.target as Node)) { setOpenMenu(false); setOpenSub(null) }
+        }
+        if (openMenu) document.addEventListener('mousedown', close)
+        return () => document.removeEventListener('mousedown', close)
+    }, [openMenu])
+
     return (
-        <div className="w-full min-w-full md:min-w-[320px] md:max-w-[320px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
+        <div className="w-full min-w-full md:min-w-[320px] md:max-w-[320px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col relative">
             <div className="relative h-[90px] bg-[#E6F0FF] shrink-0">
-                <div className="absolute top-3 right-3 px-3 py-1 rounded-full text-[12px] font-bold shadow-sm border max-w-[55%] truncate bg-white border-gray-200 text-black">{func.area}</div>
+                <div className="absolute top-3 right-3 flex items-center gap-2">
+                    <span className="px-3 py-1 rounded-full text-[12px] font-bold shadow-sm border truncate bg-white border-gray-200 text-black max-w-[90px]">{func.area}</span>
+                    <div className="relative" ref={menuRef}>
+                        <button onClick={() => setOpenMenu(!openMenu)} className="w-8 h-8 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center hover:bg-gray-50 text-black">
+                            <Settings className="w-4 h-4" />
+                        </button>
+                        {openMenu && (
+                            <div className="absolute right-0 top-[40px] w-[260px] bg-white rounded-[16px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden z-[100] p-1.5 max-h-[340px] overflow-y-auto">
+                                {MENU_RH.map(group => {
+                                    const isOpen = openSub === group.id
+                                    return (
+                                        <div key={group.id} className="mb-1 last:mb-0">
+                                            <button onClick={() => setOpenSub(isOpen? null : group.id)} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[12px] text-[13px] font-bold text-black hover:bg-gray-50 transition ${isOpen? 'bg-[#E6F0FF]' : ''}`}>
+                                                <span className="flex items-center gap-2"><group.icon className="w-4 h-4" />{group.label}</span>
+                                                <ChevronRight className={`w-3.5 h-3.5 transition ${isOpen? 'rotate-90' : ''}`} />
+                                            </button>
+                                            {isOpen && (
+                                                <div className="mt-1 ml-2 border-l border-gray-100 pl-2 space-y-0.5">
+                                                    {group.items.map(it => (
+                                                        <button key={it.id} onClick={() => { onAction?.(it.id, func); setOpenMenu(false); if(it.id==='marcar_ferias') onFerias?.(func) }} className="w-full text-left px-3 py-2 rounded-[10px] text-[12.5px] text-black/80 hover:bg-gray-50 hover:text-black">
+                                                            {it.label}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white shrink-0">
                     <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-black overflow-hidden">{initials}</div>
                 </div>
-                {!podeEditar && <div className="absolute top-3 left-3 bg-black/70 text-white px-2 py-1 rounded-full text-[9px] font-bold">{cargoAtual?.toUpperCase()} - SOMENTE LEITURA</div>}
+                {!podeEditar && <div className="absolute top-3 left-3 bg-black/70 text-white px-2 py-1 rounded-full text-[9px] font-bold">{cargoAtual?.toUpperCase()}</div>}
             </div>
+
             <div className="pt-14 px-5 pb-4 min-w-0 overflow-hidden">
                 <div className="flex items-center gap-1.5 mb-3"><span className="text-[11px] text-black">exp.</span><div className="flex gap-[2px]">{Array.from({ length: 10 }).map((_, i) => (<div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5? 'bg-green-400' : 'bg-gray-200'}`} />))}</div></div>
                 <h3 className="font-bold text-[16px] text-black leading-tight truncate">{func.nome}</h3>
@@ -181,6 +253,7 @@ function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, podeEdi
                 </div>
                 <div className="mt-3 min-w-0"><span className={`inline-flex items-center max-w-full truncate px-2.5 py-[3px] rounded-full border text-[10px] font-bold leading-tight ${isPresente? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-black'}`}>{isPresente? 'Presente • Ativo' : 'Ausente • Hoje'}</span></div>
             </div>
+
             <div className="grid grid-cols-3 border-t border-gray-100 mt-auto shrink-0">
                 <button onClick={() => onView?.(func)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group"><Eye className="w-4 h-4 text-black group-hover:text-blue-600" /></button>
                 <button onClick={() => podeEditar && onEdit?.(func)} disabled={!podeEditar} className={`py-3.5 flex justify-center border-x border-gray-100 transition group ${podeEditar? 'hover:bg-gray-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}><Pencil className={`w-4 h-4 ${podeEditar? 'text-black group-hover:text-blue-600' : 'text-gray-400'}`} /></button>

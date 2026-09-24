@@ -1,5 +1,5 @@
-import { Eye, Pencil, CalendarOff, Lock, Search } from 'lucide-react'
-import { useMemo, useState, useEffect } from 'react'
+import { Eye, Pencil, CalendarOff, Lock, Search, ChevronDown, Check } from 'lucide-react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 
 interface Funcionario {
     id: string
@@ -14,7 +14,7 @@ interface Funcionario {
 interface Props {
     funcionarios: Funcionario[]
     presentesIds?: Set<string>
-    search?: string // <- ADICIONADO PRA BATER COM A PAGE
+    search?: string
     onView?: (f: Funcionario) => void
     onEdit?: (f: Funcionario) => void
     onFerias?: (f: Funcionario) => void
@@ -35,9 +35,12 @@ function temPermissao(cargo: string, perm: string) {
 
 export default function TabPresente({ funcionarios, presentesIds, search: searchProp, onView, onEdit, onFerias }: Props) {
     const [searchInternal, setSearchInternal] = useState(searchProp || '')
-    const [areaFiltro, setAreaFiltro] = useState('')
+    const [areaFiltro, setAreaFiltro] = useState('todos')
+    const [openSelect, setOpenSelect] = useState(false)
+    const wrapperRef = useRef<HTMLDivElement>(null)
+    const btnRef = useRef<HTMLButtonElement>(null)
+    const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 320 })
 
-    // sincroniza se a page mandar search de fora
     useEffect(() => {
         if (searchProp!== undefined) setSearchInternal(searchProp)
     }, [searchProp])
@@ -57,13 +60,45 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
         return Array.from(s).sort()
     }, [funcionarios])
 
+    const OPTIONS = useMemo(() => {
+        return [{ value: 'todos', label: 'Todas as áreas' },...areasEmpresa.map(a => ({ value: a, label: a }))]
+    }, [areasEmpresa])
+
+    const updatePosition = () => {
+        if (btnRef.current) {
+            const rect = btnRef.current.getBoundingClientRect()
+            setDropdownPos({ top: rect.bottom + 8, left: rect.left, width: rect.width })
+        }
+    }
+
+    useEffect(() => { if (openSelect) updatePosition() }, [openSelect])
+    useEffect(() => {
+        if (!openSelect) return
+        const handle = () => updatePosition()
+        window.addEventListener('scroll', handle, true)
+        window.addEventListener('resize', handle)
+        return () => {
+            window.removeEventListener('scroll', handle, true)
+            window.removeEventListener('resize', handle)
+        }
+    }, [openSelect])
+    useEffect(() => {
+        const close = (e: MouseEvent) => {
+            if (wrapperRef.current &&!wrapperRef.current.contains(e.target as Node) &&!(e.target as HTMLElement).closest('[data-select-dropdown]')) {
+                setOpenSelect(false)
+            }
+        }
+        document.addEventListener('mousedown', close)
+        return () => document.removeEventListener('mousedown', close)
+    }, [])
+
     const funcionariosFiltrados = useMemo(() => {
         let list = funcionarios
         const q = searchInternal.toLowerCase().trim()
         if (q) {
             list = list.filter(f => f.nome?.toLowerCase().includes(q) || f.cargo?.toLowerCase().includes(q) || String(f.area).toLowerCase().includes(q))
         }
-        if (areaFiltro) {
+        if (areaFiltro!== 'todos') {
             list = list.filter(f => String(f.area) === areaFiltro)
         }
         return list
@@ -71,7 +106,7 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
 
     if (!podeVer) {
         return (
-            <div className="text-center py-16 bg-white rounded-[20px] border">
+            <div className="w-full px-4 sm:px-0 text-center py-16 bg-white rounded-[20px] border">
                 <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2" />
                 <p className="text-black/60 text-[13px]">Seu cargo <b>{cargoAtual}</b> não pode ver funcionários</p>
             </div>
@@ -79,20 +114,33 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
     }
 
     return (
-        <div className="w-full">
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                <div className="relative flex-1 sm:max-w-[320px]">
-                    <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                    <input value={searchInternal} onChange={e => setSearchInternal(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow" />
+        <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+            <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                <div ref={wrapperRef} className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-40">
+                    <button ref={btnRef} onClick={() => setOpenSelect(!openSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
+                        <span className="text-gray-900 truncate">{OPTIONS.find(o => o.value === areaFiltro)?.label} • {funcionariosFiltrados.length}</span>
+                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openSelect? 'rotate-180' : ''}`} />
+                    </button>
                 </div>
-                <select value={areaFiltro} onChange={e => setAreaFiltro(e.target.value)} className="h-[46px] px-4 bg-white border border-gray-200 rounded-full text-[14px] shadow focus:outline-none focus:ring-2 focus:ring-blue-100">
-                    <option value="">Todas as áreas</option>
-                    {areasEmpresa.map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
+                <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-0">
+                    <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <input value={searchInternal} onChange={e => setSearchInternal(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
+                </div>
             </div>
 
+            {openSelect && (
+                <div data-select-dropdown style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
+                    {OPTIONS.map(opt => (
+                        <button key={opt.value} onClick={() => { setAreaFiltro(opt.value); setOpenSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${areaFiltro === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                            {opt.label}
+                            {areaFiltro === opt.value && <Check className="w-4 h-4 text-[#0095ff]" />}
+                        </button>
+                    ))}
+                </div>
+            )}
+
             {funcionariosFiltrados.length === 0? (
-                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhum funcionário {searchInternal || areaFiltro? `para "${searchInternal || areaFiltro}"` : 'da empresa'}!</p>
+                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhum funcionário {searchInternal || areaFiltro!== 'todos'? `para "${searchInternal || areaFiltro}"` : 'da empresa'}!</p>
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {funcionariosFiltrados.map((f) => (
@@ -127,7 +175,7 @@ function FuncionarioCard({
     const isPresente = presentesIds? presentesIds.has(String(func.id)) : true
 
     return (
-        <div className="min-w-full md:min-w-[320px] md:max-w-[320px] max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
+        <div className="w-full min-w-[calc(100vw-32px)] md:min-w-[320px] md:max-w-[320px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
             <div className="relative h-[90px] bg-[#E6F0FF] shrink-0">
                 <div className="absolute top-3 right-3 px-3 py-1 rounded-full text-[12px] font-medium shadow-sm border max-w-[55%] truncate bg-white border-gray-200 text-gray-700">
                     {func.area}

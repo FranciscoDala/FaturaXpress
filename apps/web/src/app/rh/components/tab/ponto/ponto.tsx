@@ -118,124 +118,134 @@ export default function TabPonto({ empresa, usuario }: { empresa?: any, usuario?
 
     if (!podeVer) {
         return (
-            <div className="bg-white rounded-[16px] border p-10 text-center">
-                <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2"/>
-                <p className="text-[13px] text-gray-500">Seu cargo <b>{cargoAtual}</b> não tem acesso ao ponto</p>
+            <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+                <div className="bg-white rounded-[22px] border p-10 text-center shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+                    <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2"/>
+                    <p className="text-[13px] text-gray-500">Seu cargo <b>{cargoAtual}</b> não tem acesso ao ponto</p>
+                </div>
             </div>
         )
     }
 
-    if (loading) return (<div className="bg-white rounded-[16px] border h-[300px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-black/40" /></div>)
+    if (loading) return (
+        <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+            <div className="bg-white rounded-[22px] border h-[300px] flex items-center justify-center shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+                <Loader2 className="w-6 h-6 animate-spin text-black/40" />
+            </div>
+        </div>
+    )
 
     return (
         <>
             <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
-            <div className="bg-white rounded-[16px] border overflow-hidden">
-                <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 w-full">
-                        <div className="w-full md:w-auto flex items-center gap-2">
-                            <button type="button" onClick={() => setOpenCal(true)} className="flex-1 md:flex-none md:w-auto min-w-0 h-[40px] md:h-[36px] px-3 bg-white border rounded-full flex items-center justify-between gap-2 text-[14px] md:text-[13px] font-bold text-black hover:border-black transition shrink">
-                                <span className="flex items-center gap-2 truncate"><Calendar className="w-4 h-4 shrink-0" />{formatDisplay(dataSelecionada)}</span>
-                                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
-                            </button>
-                            {isRetro && <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold whitespace-nowrap"><AlertTriangle className="w-3 h-3" /> Retroativo {cargoAtual.toUpperCase()}</span>}
-                            {!podeBater && <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 border text-[10px] font-bold">SOMENTE LEITURA</span>}
-                        </div>
-                        <div className="flex items-center gap-2 w-full md:w-auto">
-                            <div className="relative flex-1 md:flex-none md:w-[300px]">
-                                <Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[40px] md:h-[36px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[13px] md:text-[12px] text-black placeholder:text-black/40 focus:outline-none focus:border-black" />
-                            </div>
-                            <button onClick={()=>setOpenRelatorio(true)} className="h-[40px] w-10 md:w-auto md:h-[36px] md:px-4 rounded-full bg-black text-white flex items-center justify-center gap-1.5 hover:bg-black/90 shrink-0">
-                                <FileText className="w-4 h-4" />
-                                <span className="hidden md:inline text-[11px] font-bold">Relatório</span>
-                            </button>
-                            {podeConfig? (
-                                <button onClick={() => setOpenCfg(true)} className="w-10 h-10 md:w-9 md:h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 shadow-sm shrink-0">
-                                    <Settings className="w-4 h-4 text-black" />
+            <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+                <div className="bg-white rounded-[22px] border overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+                    <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 w-full">
+                            <div className="w-full md:w-auto flex items-center gap-2">
+                                <button type="button" onClick={() => setOpenCal(true)} className="flex-1 md:flex-none md:w-auto min-w-0 h-[40px] md:h-[36px] px-3 bg-white border rounded-full flex items-center justify-between gap-2 text-[14px] md:text-[13px] font-bold text-black hover:border-black transition shrink">
+                                    <span className="flex items-center gap-2 truncate"><Calendar className="w-4 h-4 shrink-0" />{formatDisplay(dataSelecionada)}</span>
+                                    <ChevronDown className="w-3.5 h-3.5 shrink-0" />
                                 </button>
-                            ) : (
-                                <div className="w-10 h-10 md:w-9 md:h-9 rounded-full bg-gray-100 border flex items-center justify-center opacity-50"><Settings className="w-4 h-4 text-gray-400" /></div>
-                            )}
-                        </div>
-                    </div>
-                    <p className="text-[11px] text-black/60">Lista de presença de todos funcionarios da empresa • {cargoAtual}</p>
-                </div>
-
-                <div className="max-h-[70vh] overflow-y-auto no-scrollbar overscroll-contain">
-                    {paginatedFuncs.length === 0 && <p className="text-center py-8 text-[12px] text-black/50">Nenhum funcionário para "{search}"</p>}
-                    {paginatedFuncs.map((f: Func) => {
-                        const lista = (pontosPorFunc.get(f.id) || []).sort((a, b) => +new Date(b.timestamp) - +new Date(a.timestamp))
-                        const temEntrada = lista.some(p => p.tipo === 'entrada')
-                        const temSaida = lista.some(p => p.tipo === 'saida')
-                        const falta = faltasPorFunc.get(f.id)
-                        const atrasos = faltasPeriodo[f.id] || 0
-                        const statusFalta = (falta?.status || '').toLowerCase()
-                        const isJustificada = ['justificado','justificada','aprovada','aprovado','abonada','abonado'].includes(statusFalta) || falta?.abonada
-                        const isRejeitada = ['rejeitada','rejeitado'].includes(statusFalta)
-                        return (
-                            <div key={f.id} className="px-3 md:px-4 py-2.5 border-b last:border-b-0 flex justify-between items-center gap-3">
-                                <div className="min-w-0 flex-1">
-                                    <p className="font-bold text-[13px] text-black truncate">{f.nome} <span className="font-normal text-black/60">• {f.funcao}</span></p>
-                                    {falta? (
-                                      <div className="mt-1.5 flex flex-wrap gap-1">
-                                        {isJustificada? (
-                                          <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0 px-2.5 py-1 rounded-full bg-green-50 border border-green-200 text-[11px] leading-[14px] text-green-800 max-w-full">
-                                            <span className="whitespace-nowrap">Motivo: {prettyFalta(falta.motivo)} •</span>
-                                            <span className="font-bold whitespace-nowrap">Falta justificada</span>
-                                          </span>
-                                        ) : isRejeitada? (
-                                          <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0 px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] leading-[14px] text-red-700 max-w-full">
-                                            <span className="whitespace-nowrap">Motivo: {prettyFalta(falta.motivo)} •</span>
-                                            <span className="font-bold whitespace-nowrap">Justificação não aceite</span>
-                                          </span>
-                                        ) : (
-                                          <>
-                                            <span className="inline-flex flex-wrap items-center px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] leading-[14px] text-red-700 max-w-full">
-                                              Motivo: {prettyFalta(falta.motivo)}
-                                            </span>
-                                            <button onClick={() => setAuditData({...falta, _kind: 'falta' } as AuditData)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-bold hover:bg-amber-100 whitespace-nowrap">
-                                              <Info className="w-3 h-3"/> Ver motivo
-                                            </button>
-                                          </>
-                                        )}
-                                      </div>
-                                    ) : lista.length === 0? (
-                                      <div className="mt-1.5 flex flex-wrap gap-1 items-center">
-                                        <span className="text-[11px] text-black/60">Sem ponto em {formatDisplay(dataSelecionada)}</span>
-                                        {atrasos > 0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium whitespace-nowrap">{atrasos} atraso</span>}
-                                      </div>
-                                    ) : (
-                                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                        {lista.map((p: Ponto) => {
-                                          const isAtraso =!!(p.atraso_min && p.atraso_min > 0);
-                                          if (isAtraso) {
-                                            return (
-                                              <span key={p.id} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] border bg-amber-50 border-amber-200 text-amber-800 font-medium whitespace-nowrap">
-                                                Entrou ás {new Date(p.timestamp).toLocaleTimeString('pt-AO')} ({formatAtraso(p.atraso_min!)})
-                                              </span>
-                                            )
-                                          }
-                                          return (
-                                            <span key={p.id} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] border whitespace-nowrap ${p.tipo === 'entrada'? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff] font-semibold' : 'bg-gray-50 border-gray-200 text-black/60'}`}>
-                                              {p.tipo} {new Date(p.timestamp).toLocaleTimeString('pt-AO')}
-                                            </span>
-                                          )
-                                        })}
-                                        {atrasos > 0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium whitespace-nowrap">{atrasos} atraso</span>}
-                                      </div>
-                                    )}
-                                </div>
-                                <div className="flex gap-1.5 shrink-0">
-                                  {falta? (
-                                    <span className="h-[26px] px-3 flex items-center text-[11px] bg-red-600 text-white rounded-full font-medium whitespace-nowrap">Falta</span>
-                                  ) :!temEntrada? (<><button disabled={batendo === f.id ||!podeBater} onClick={() => bater(f.id, 'entrada')} className={`h-[26px] px-3 rounded-full text-[11px] font-medium disabled:opacity-50 whitespace-nowrap ${podeBater? 'bg-[#0095ff] text-white hover:bg-[#0085e6]' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>Entrada</button><button disabled={!podeGerirFalta} onClick={() => podeGerirFalta && setOpenFalta({ open: true, func: f })} className={`h-[26px] px-3 rounded-full text-[11px] font-medium whitespace-nowrap ${podeGerirFalta? 'bg-red-50 border border-red-200 text-red-600 hover:bg-red-100' : 'bg-gray-100 text-gray-400 cursor-not-allowed border'}`}>Falta</button></>) :!temSaida? (<button disabled={batendo === f.id ||!podeBater} onClick={() => bater(f.id, 'saida')} className={`h-[26px] px-3 border rounded-full text-[11px] whitespace-nowrap ${podeBater? 'bg-white text-black hover:bg-gray-50' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>Saída</button>) : (<span className="h-[26px] px-3 flex items-center text-[11px] bg-gray-100 text-black rounded-full border whitespace-nowrap">Completo</span>)}
-                                </div>
+                                {isRetro && <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-[11px] text-amber-800 font-bold whitespace-nowrap"><AlertTriangle className="w-3 h-3" /> Retroativo {cargoAtual.toUpperCase()}</span>}
+                                {!podeBater && <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 border text-[10px] font-bold">SOMENTE LEITURA</span>}
                             </div>
-                        )
-                    })}
+                            <div className="flex items-center gap-2 w-full md:w-auto">
+                                <div className="relative flex-1 md:flex-none md:w-[300px]">
+                                    <Search className="w-3.5 h-3.5 text-black/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[40px] md:h-[36px] bg-white border border-gray-200 rounded-full pl-8 pr-3 text-[13px] md:text-[12px] text-black placeholder:text-black/40 focus:outline-none focus:border-black" />
+                                </div>
+                                <button onClick={()=>setOpenRelatorio(true)} className="h-[40px] w-10 md:w-auto md:h-[36px] md:px-4 rounded-full bg-black text-white flex items-center justify-center gap-1.5 hover:bg-black/90 shrink-0">
+                                    <FileText className="w-4 h-4" />
+                                    <span className="hidden md:inline text-[11px] font-bold">Relatório</span>
+                                </button>
+                                {podeConfig? (
+                                    <button onClick={() => setOpenCfg(true)} className="w-10 h-10 md:w-9 md:h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 shadow-sm shrink-0">
+                                        <Settings className="w-4 h-4 text-black" />
+                                    </button>
+                                ) : (
+                                    <div className="w-10 h-10 md:w-9 md:h-9 rounded-full bg-gray-100 border flex items-center justify-center opacity-50"><Settings className="w-4 h-4 text-gray-400" /></div>
+                                )}
+                            </div>
+                        </div>
+                        <p className="text-[11px] text-black/60">Lista de presença de todos funcionarios da empresa • {cargoAtual}</p>
+                    </div>
+
+                    <div className="max-h-[70vh] overflow-y-auto no-scrollbar overscroll-contain">
+                        {paginatedFuncs.length === 0 && <p className="text-center py-8 text-[12px] text-black/50">Nenhum funcionário para "{search}"</p>}
+                        {paginatedFuncs.map((f: Func) => {
+                            const lista = (pontosPorFunc.get(f.id) || []).sort((a, b) => +new Date(b.timestamp) - +new Date(a.timestamp))
+                            const temEntrada = lista.some(p => p.tipo === 'entrada')
+                            const temSaida = lista.some(p => p.tipo === 'saida')
+                            const falta = faltasPorFunc.get(f.id)
+                            const atrasos = faltasPeriodo[f.id] || 0
+                            const statusFalta = (falta?.status || '').toLowerCase()
+                            const isJustificada = ['justificado','justificada','aprovada','aprovado','abonada','abonado'].includes(statusFalta) || falta?.abonada
+                            const isRejeitada = ['rejeitada','rejeitado'].includes(statusFalta)
+                            return (
+                                <div key={f.id} className="px-3 md:px-4 py-2.5 border-b last:border-b-0 flex justify-between items-center gap-3">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-bold text-[13px] text-black truncate">{f.nome} <span className="font-normal text-black/60">• {f.funcao}</span></p>
+                                        {falta? (
+                                          <div className="mt-1.5 flex flex-wrap gap-1">
+                                            {isJustificada? (
+                                              <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0 px-2.5 py-1 rounded-full bg-green-50 border border-green-200 text-[11px] leading-[14px] text-green-800 max-w-full">
+                                                <span className="whitespace-nowrap">Motivo: {prettyFalta(falta.motivo)} •</span>
+                                                <span className="font-bold whitespace-nowrap">Falta justificada</span>
+                                              </span>
+                                            ) : isRejeitada? (
+                                              <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0 px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] leading-[14px] text-red-700 max-w-full">
+                                                <span className="whitespace-nowrap">Motivo: {prettyFalta(falta.motivo)} •</span>
+                                                <span className="font-bold whitespace-nowrap">Justificação não aceite</span>
+                                              </span>
+                                            ) : (
+                                              <>
+                                                <span className="inline-flex flex-wrap items-center px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] leading-[14px] text-red-700 max-w-full">
+                                                  Motivo: {prettyFalta(falta.motivo)}
+                                                </span>
+                                                <button onClick={() => setAuditData({...falta, _kind: 'falta' } as AuditData)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-bold hover:bg-amber-100 whitespace-nowrap">
+                                                  <Info className="w-3 h-3"/> Ver motivo
+                                                </button>
+                                              </>
+                                            )}
+                                          </div>
+                                        ) : lista.length === 0? (
+                                          <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                                            <span className="text-[11px] text-black/60">Sem ponto em {formatDisplay(dataSelecionada)}</span>
+                                            {atrasos > 0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium whitespace-nowrap">{atrasos} atraso</span>}
+                                          </div>
+                                        ) : (
+                                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                            {lista.map((p: Ponto) => {
+                                              const isAtraso =!!(p.atraso_min && p.atraso_min > 0);
+                                              if (isAtraso) {
+                                                return (
+                                                  <span key={p.id} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] border bg-amber-50 border-amber-200 text-amber-800 font-medium whitespace-nowrap">
+                                                    Entrou ás {new Date(p.timestamp).toLocaleTimeString('pt-AO')} ({formatAtraso(p.atraso_min!)})
+                                                  </span>
+                                                )
+                                              }
+                                              return (
+                                                <span key={p.id} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] border whitespace-nowrap ${p.tipo === 'entrada'? 'bg-[#E6F0FF] border-[#C2D8FF] text-[#0095ff] font-semibold' : 'bg-gray-50 border-gray-200 text-black/60'}`}>
+                                                  {p.tipo} {new Date(p.timestamp).toLocaleTimeString('pt-AO')}
+                                                </span>
+                                              )
+                                            })}
+                                            {atrasos > 0 && <span className="px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium whitespace-nowrap">{atrasos} atraso</span>}
+                                          </div>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-1.5 shrink-0">
+                                      {falta? (
+                                        <span className="h-[26px] px-3 flex items-center text-[11px] bg-red-600 text-white rounded-full font-medium whitespace-nowrap">Falta</span>
+                                      ) :!temEntrada? (<><button disabled={batendo === f.id ||!podeBater} onClick={() => bater(f.id, 'entrada')} className={`h-[26px] px-3 rounded-full text-[11px] font-medium disabled:opacity-50 whitespace-nowrap ${podeBater? 'bg-[#0095ff] text-white hover:bg-[#0085e6]' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>Entrada</button><button disabled={!podeGerirFalta} onClick={() => podeGerirFalta && setOpenFalta({ open: true, func: f })} className={`h-[26px] px-3 rounded-full text-[11px] font-medium whitespace-nowrap ${podeGerirFalta? 'bg-red-50 border border-red-200 text-red-600 hover:bg-red-100' : 'bg-gray-100 text-gray-400 cursor-not-allowed border'}`}>Falta</button></>) :!temSaida? (<button disabled={batendo === f.id ||!podeBater} onClick={() => bater(f.id, 'saida')} className={`h-[26px] px-3 border rounded-full text-[11px] whitespace-nowrap ${podeBater? 'bg-white text-black hover:bg-gray-50' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>Saída</button>) : (<span className="h-[26px] px-3 flex items-center text-[11px] bg-gray-100 text-black rounded-full border whitespace-nowrap">Completo</span>)}
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                    {totalPages > 1 && (<div className="flex justify-between items-center p-2.5 border-t bg-gray-50 rounded-b-[22px]"><button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-3 py-1 text-[11px] rounded-full border bg-white text-black disabled:opacity-40">Anterior</button><span className="text-[11px] text-black/60">Página {page} de {totalPages} • {formatDisplay(dataSelecionada)}</span><button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="px-3 py-1 text-[11px] rounded-full bg-black text-white disabled:opacity-40">Próxima</button></div>)}
                 </div>
-                {totalPages > 1 && (<div className="flex justify-between items-center p-2.5 border-t bg-gray-50"><button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-3 py-1 text-[11px] rounded-full border bg-white text-black disabled:opacity-40">Anterior</button><span className="text-[11px] text-black/60">Página {page} de {totalPages} • {formatDisplay(dataSelecionada)}</span><button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="px-3 py-1 text-[11px] rounded-full bg-black text-white disabled:opacity-40">Próxima</button></div>)}
             </div>
             {openRelatorio && <RelatorioAuditoriaPonto dataSelecionada={dataSelecionada} pontos={pontos} faltas={faltas} funcs={funcs} empresa={empresa} minDate={minDate} hoje={hoje} onClose={()=>setOpenRelatorio(false)} />}
             {podeGerirFalta && <ModalGestaoFalta data={auditData} open={!!auditData} onClose={()=>setAuditData(null)} onSaved={load} dataSelecionada={dataSelecionada} usuario={usuario} />}

@@ -29,9 +29,7 @@ def _get_nome_lancador(db: Session, lancado_por_id):
     f = db.query(Funcionario).filter(Funcionario.id == lancado_por_id).first()
     if f:
         return f.nome
-    # Se não achou em funcionarios, é a conta empresa (dono principal)
     try:
-        # tenta buscar company pra mostrar nome
         from app.modules.auth.models import Company
         comp = db.query(Company).filter(Company.id == lancado_por_id).first()
         if comp:
@@ -260,7 +258,6 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
         lancado_por_id=lancado_por_id, lancado_em=agora_utc if is_retro else None
     )
     db.add(ponto); db.commit(); db.refresh(ponto)
-
     notificacao_gerada = None
     qtd_atrasos = 0
     if tipo=="entrada" and atraso>0 and cfg.regra_atraso_ativa and not is_retro:
@@ -273,7 +270,6 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
         inicio_periodo = inicio_config
         if ultimo_reset and ultimo_reset > inicio_config:
             inicio_periodo = ultimo_reset
-
         pontos_atraso = db.query(Ponto).filter(
             Ponto.company_id==company_id,
             Ponto.funcionario_id==funcionario_alvo_id,
@@ -282,7 +278,6 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
             Ponto.atraso_min>0
         ).order_by(Ponto.data.asc()).all()
         qtd_atrasos = len(pontos_atraso)
-
         if qtd_atrasos >= cfg.qtd_atrasos_para_falta:
             ja_notif = db.query(Notificacao).filter(
                 Notificacao.company_id==company_id,
@@ -303,7 +298,6 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
                 )
                 db.add(notif); db.commit(); db.refresh(notif)
                 notificacao_gerada = notif
-
     ponto_dict = _ponto_to_dict(db, ponto)
     return {
         "ponto": ponto_dict,
@@ -336,7 +330,7 @@ def marcar_falta_manual(db: Session, company_id: uuid.UUID, funcionario_id: uuid
     db.add(falta); db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
 
-# --- JUSTIFICAR FINAL - ACEITA DONO ---
+# --- JUSTIFICAR CORRIGIDO - PERMITE DIAS DIFERENTES ---
 def justificar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, tipo: str, obs: str | None, anexo_url: str | None, justificado_por_id: uuid.UUID | None):
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
     if not falta:
@@ -344,20 +338,16 @@ def justificar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, ti
 
     status_atual = str(falta.status).split(".")[-1] if falta.status else ""
 
+    # só bloqueia se ESSA falta já está em análise
     if status_atual in ["pendente_justificacao", "aguardando_admin", "encaminhado_admin"]:
         raise HTTPException(400, "Essa justificação já está em análise.")
 
+    # só bloqueia reenvio da MESMA falta
     if falta.justificativa_anexo_url and status_atual!= "rejeitado":
         raise HTTPException(400, "Falta já justificada. Aguarde aprovação.")
 
-    tem_pendente = db.query(PedidoRH).filter(
-        PedidoRH.company_id == company_id,
-        PedidoRH.funcionario_id == falta.funcionario_id,
-        PedidoRH.status.in_(["pendente_justificacao", "aguardando_admin", "encaminhado_admin"]),
-        PedidoRH.id!= falta.id
-    ).first()
-    if tem_pendente:
-        raise HTTPException(400, "Você já tem uma justificação em análise. Aguarde a resposta antes de enviar outra.")
+    # REMOVIDO o bloqueio global de "tem_pendente" de outro dia
+    # Agora dia 20 pendente não bloqueia dia 24
 
     falta.justificativa_tipo = tipo
     falta.justificativa_obs = obs

@@ -40,8 +40,11 @@ const parseError = (e: any) => {
         return detail + ' — RH pode editar até 7 dias, Admin/Dono até 30 dias.'
     }
     if (d.includes('já existe falta')) return 'Já existe falta lançada nesse dia para este funcionário.'
-    if (d.includes('já tem uma justificação') || d.includes('justificacao em analise')) return 'Este funcionário já tem uma justificação em análise. Aguarde a resposta do RH/Admin.'
-    if (d.includes('já está em análise') || d.includes('essa justificação já')) return 'Essa falta já está em análise.'
+    // AJUSTADO AQUI - agora só bloqueia a mesma falta
+    if (d.includes('já tem uma justificação') || d.includes('justificacao em analise')) {
+        return 'Essa falta já está em análise. Você pode justificar faltas de outros dias normalmente.'
+    }
+    if (d.includes('já está em análise') || d.includes('essa justificação já')) return 'Essa falta específica já está em análise. Aguarde a resposta.'
     if (d.includes('já justificada')) return 'Essa falta já foi justificada. Aguarde aprovação.'
     if (d.includes('futuro')) return 'Não é possível lançar ponto/falta em data futura.'
     if (d.includes('motivo') && d.includes('retro')) return 'Para datas passadas, informe o motivo do lançamento retroativo.'

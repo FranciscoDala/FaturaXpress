@@ -27,7 +27,18 @@ def _get_nome_lancador(db: Session, lancado_por_id):
     if not lancado_por_id:
         return None
     f = db.query(Funcionario).filter(Funcionario.id == lancado_por_id).first()
-    return f.nome if f else None
+    if f:
+        return f.nome
+    # Se não achou em funcionarios, é a conta empresa (dono principal)
+    try:
+        # tenta buscar company pra mostrar nome
+        from app.modules.auth.models import Company
+        comp = db.query(Company).filter(Company.id == lancado_por_id).first()
+        if comp:
+            return f"{comp.nome_fantasia or comp.razao_social} (Dono)"
+    except:
+        pass
+    return "Admin Principal (Empresa)"
 
 def _ponto_to_dict(db: Session, p: Ponto) -> dict:
     if not p:
@@ -325,7 +336,7 @@ def marcar_falta_manual(db: Session, company_id: uuid.UUID, funcionario_id: uuid
     db.add(falta); db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
 
-# --- JUSTIFICAR FINAL - SEM ENUM, SEM FK QUEBRANDO ---
+# --- JUSTIFICAR FINAL - ACEITA DONO ---
 def justificar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, tipo: str, obs: str | None, anexo_url: str | None, justificado_por_id: uuid.UUID | None):
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
     if not falta:
@@ -333,15 +344,12 @@ def justificar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, ti
 
     status_atual = str(falta.status).split(".")[-1] if falta.status else ""
 
-    # TRAVA 1: essa falta já em análise
     if status_atual in ["pendente_justificacao", "aguardando_admin", "encaminhado_admin"]:
         raise HTTPException(400, "Essa justificação já está em análise.")
 
-    # TRAVA 2: já tem anexo e não foi rejeitada
     if falta.justificativa_anexo_url and status_atual!= "rejeitado":
         raise HTTPException(400, "Falta já justificada. Aguarde aprovação.")
 
-    # TRAVA 3: bloqueio global - CORRIGIDO pra VARCHAR (não usa Enum)
     tem_pendente = db.query(PedidoRH).filter(
         PedidoRH.company_id == company_id,
         PedidoRH.funcionario_id == falta.funcionario_id,
@@ -351,7 +359,6 @@ def justificar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, ti
     if tem_pendente:
         raise HTTPException(400, "Você já tem uma justificação em análise. Aguarde a resposta antes de enviar outra.")
 
-    # AGORA models novo aceita qualquer UUID, não quebra FK
     falta.justificativa_tipo = tipo
     falta.justificativa_obs = obs
     falta.justificativa_anexo_url = anexo_url
@@ -387,7 +394,6 @@ def justificar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, ti
     except Exception as e:
         db.rollback()
         print(f"[JUSTIFICAR] Erro notificacao ignorado: {e}")
-        # não falha a justificativa por causa da notificação
         db.commit()
 
     return _falta_to_dict(db, falta)
@@ -402,7 +408,7 @@ def aprovar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, aprov
     falta.aprovado_em = datetime.now(timezone.utc)
     if observacao:
         falta.observacao_gestor = observacao
-    db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==falta_id, Notificacao.tipo=="falta", Notificacao.status=="pendente").update({"status":"aprovada", "lida":True, "updated_at": datetime.now(timezone.utc)})
+    db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==falta_id, Notificacao.tipo=="falta", Notificacao.status=="pendente").update({"status":"aprovada", "lida":True, "updated_at": datetime.now(timezone.utc)}, synchronize_session=False)
     db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
 
@@ -416,7 +422,7 @@ def rejeitar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, apro
     falta.aprovado_em = datetime.now(timezone.utc)
     if observacao:
         falta.observacao_gestor = observacao
-    db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==falta_id, Notificacao.tipo=="falta", Notificacao.status=="pendente").update({"status":"rejeitada", "lida":True, "updated_at": datetime.now(timezone.utc)})
+    db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==falta_id, Notificacao.tipo=="falta", Notificacao.status=="pendente").update({"status":"rejeitada", "lida":True, "updated_at": datetime.now(timezone.utc)}, synchronize_session=False)
     db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
 
@@ -444,7 +450,7 @@ def encaminhar_falta_para_admin(db: Session, company_id: uuid.UUID, falta_id: uu
     falta.encaminhado_em = datetime.now(timezone.utc)
     falta.encaminhado_por_id = encaminhado_por_id
     falta.status = "aguardando_admin"
-    db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==falta_id, Notificacao.tipo=="falta", Notificacao.status=="pendente", Notificacao.area_destino=="rh").update({"status":"encaminhada", "lida":True, "updated_at": datetime.now(timezone.utc)})
+    db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==falta_id, Notificacao.tipo=="falta", Notificacao.status=="pendente", Notificacao.area_destino=="rh").update({"status":"encaminhada", "lida":True, "updated_at": datetime.now(timezone.utc)}, synchronize_session=False)
     notif = Notificacao(id=uuid.uuid4(), company_id=company_id, tipo="falta", referencia_id=falta.id, area_origem="rh", area_destino="admin", dono_atual="admin", status="pendente")
     db.add(notif); db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
@@ -472,8 +478,6 @@ def _funcionario_full_dict(f: Funcionario | None) -> dict | None:
         "tem_acesso": f.tem_acesso,
         "ultimo_reset_atrasos": f.ultimo_reset_atrasos.isoformat() if f.ultimo_reset_atrasos else None,
     }
-
-
 
 def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: str | None = None):
     q = db.query(Notificacao).filter(Notificacao.company_id == company_id, Notificacao.area_destino == area)
@@ -526,18 +530,14 @@ def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: s
             item["atrasos"] = [_ponto_to_dict(db, p) for p in pontos]
             item["periodo"] = cfg.periodo_regra
             item["qtd_para_falta"] = cfg.qtd_atrasos_para_falta
-            # para o frontend limpo usar
             item["falta"] = None
         result.append(item)
     return result
-
 
 def aplicar_falta_por_atraso(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, aplicado_por_id: uuid.UUID | None):
     func = db.query(Funcionario).filter(Funcionario.id==funcionario_id, Funcionario.company_id==company_id).first()
     if not func:
         raise HTTPException(404, "Funcionário não encontrado")
-
-    # TRAVA: já tem falta hoje?
     hoje = date.today()
     ja_tem_falta = db.query(PedidoRH).filter(
         PedidoRH.company_id==company_id,
@@ -547,14 +547,13 @@ def aplicar_falta_por_atraso(db: Session, company_id: uuid.UUID, funcionario_id:
     ).first()
     if ja_tem_falta:
         raise HTTPException(400, f"Funcionário já tem falta registrada hoje ({hoje})")
-
     cfg = get_config_ponto(db, company_id)
     falta = PedidoRH(
         id=uuid.uuid4(), company_id=company_id, funcionario_id=funcionario_id,
         tipo="falta_justificada", data_inicio=hoje, data_fim=hoje,
         dias_uteis=1,
         motivo=f"REGRA ATRASO | {cfg.qtd_atrasos_para_falta} atrasos no periodo {cfg.periodo_regra} = 1 falta | Func: {func.nome}",
-        status="aprovado",  # falta aplicada por atraso
+        status="aprovado",
         abonada=False,
         dono_atual="rh", area_origem="sistema",
         lancado_por_id=aplicado_por_id,
@@ -562,21 +561,16 @@ def aplicar_falta_por_atraso(db: Session, company_id: uuid.UUID, funcionario_id:
         observacao_gestor=f"Aplicada automaticamente por {cfg.qtd_atrasos_para_falta} atrasos"
     )
     func.ultimo_reset_atrasos = hoje
-
-    # CORREÇÃO: usa 'aprovada' para cair no historico e BG verde correto
     db.add(falta)
     db.query(Notificacao).filter(
         Notificacao.company_id==company_id,
         Notificacao.referencia_id==funcionario_id,
         Notificacao.tipo=="atraso_excedido",
         Notificacao.status=="pendente"
-    ).update({"status":"aprovada", "lida":True, "updated_at": datetime.now(timezone.utc)})
+    ).update({"status":"aprovada", "lida":True, "updated_at": datetime.now(timezone.utc)}, synchronize_session=False)
     db.commit()
     db.refresh(falta)
     return _falta_to_dict(db, falta)
-
-
-
 
 def ignorar_atrasos(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, ignorado_por_id: uuid.UUID | None = None):
     func = db.query(Funcionario).filter(Funcionario.id==funcionario_id, Funcionario.company_id==company_id).first()
@@ -588,10 +582,9 @@ def ignorar_atrasos(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUI
         Notificacao.referencia_id==funcionario_id,
         Notificacao.tipo=="atraso_excedido",
         Notificacao.status=="pendente"
-    ).update({"status":"ignorada", "lida":True, "updated_at": datetime.now(timezone.utc)})
+    ).update({"status":"ignorada", "lida":True, "updated_at": datetime.now(timezone.utc)}, synchronize_session=False)
     db.commit()
     return {"ok": True, "msg": "Atrasos zerados, contador reiniciado", "ignorado_por": str(ignorado_por_id) if ignorado_por_id else None}
-
 
 def encaminhar_atraso_para_admin(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, encaminhado_por_id: uuid.UUID | None):
     notif = db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==funcionario_id, Notificacao.tipo=="atraso_excedido", Notificacao.status=="pendente", Notificacao.area_destino=="rh").first()
@@ -615,6 +608,6 @@ def ignorar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, ignor
         Notificacao.referencia_id==falta_id,
         Notificacao.tipo=="falta",
         Notificacao.status=="pendente"
-    ).update({"status":"ignorada", "lida":True, "updated_at": agora})
+    ).update({"status":"ignorada", "lida":True, "updated_at": agora}, synchronize_session=False)
     db.commit()
     return {"ok": True, "msg": "Ignorada"}

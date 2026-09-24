@@ -79,6 +79,9 @@ class FuncionarioCreate(BaseModel):
         if v is None:
             return "rh"
         v = str(v).lower().strip()
+        # permite admin principal vir como company
+        if v in ["company", "empresa", "owner"]:
+            v = "admin"
         return v
 
     @field_validator('banco1', 'banco2', mode='before')
@@ -200,8 +203,17 @@ class NotificacaoResponse(BaseModel):
     dono_atual: str
     status_notificacao: str
     lida: bool
-    created_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     falta: dict | None = None
+    funcionario: dict | None = None
+    funcionario_id: Optional[UUID] = None
+    funcionario_nome: Optional[str] = None
+    # campos de atraso
+    qtd_atrasos: Optional[int] = None
+    qtd_para_falta: Optional[int] = None
+    periodo: Optional[str] = None
+    atrasos: Optional[list] = None
 
     class Config:
         from_attributes = True

@@ -34,6 +34,20 @@ router = APIRouter(prefix="/funcionarios", tags=["Funcionários"])
 rh_router = APIRouter(prefix="/rh", tags=["RH - Ponto"])
 upload_router = APIRouter(prefix="/upload", tags=["Upload"])
 
+def _is_admin_principal(lancado_uuid: uuid.UUID | None, company_id: uuid.UUID, db: Session) -> bool:
+    """Dono da empresa (company_id) ou funcionario com cargo admin = admin principal"""
+    if lancado_uuid is None:
+        return True # token da empresa sem id enviado = dono
+    if lancado_uuid == company_id:
+        return True
+    solicitante = db.query(Funcionario).filter(Funcionario.id == lancado_uuid).first()
+    if solicitante and solicitante.cargo == 'admin':
+        return True
+    if solicitante is None:
+        # ID não está em funcionarios = provavelmente conta empresa / owner
+        return True
+    return False
+
 # ---------- UPLOAD ----------
 @upload_router.post("/falta")
 async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Depends(get_current_company_id)):
@@ -245,12 +259,14 @@ def ponto_bater(payload: dict, request: Request, db: Session = Depends(get_db), 
     is_admin = False
     if lancado_por_id:
         try:
-            lancado_uuid = uuid.UUID(lancado_por_id)
-            solicitante = db.query(Funcionario).filter(Funcionario.id == lancado_uuid).first()
-            if solicitante and solicitante.cargo == 'admin':
-                is_admin = True
+            lancado_uuid = uuid.UUID(str(lancado_por_id))
+            is_admin = _is_admin_principal(lancado_uuid, company_id, db)
         except:
-            pass
+            is_admin = True
+    else:
+        # sem id = conta empresa
+        is_admin = True
+        lancado_uuid = None
     return func_service.bater_ponto_rh(db, company_id, fid, tipo, ip, data_str, motivo_retroativo, lancado_uuid, is_admin=is_admin)
 
 @rh_router.post("/falta")
@@ -272,12 +288,12 @@ def falta_manual(payload: dict, db: Session = Depends(get_db), company_id: uuid.
     is_admin = False
     if lancado_por_id:
         try:
-            lancado_uuid = uuid.UUID(lancado_por_id)
-            solicitante = db.query(Funcionario).filter(Funcionario.id == lancado_uuid).first()
-            if solicitante and solicitante.cargo == 'admin':
-                is_admin = True
+            lancado_uuid = uuid.UUID(str(lancado_por_id))
+            is_admin = _is_admin_principal(lancado_uuid, company_id, db)
         except:
-            pass
+            is_admin = True
+    else:
+        is_admin = True
     return func_service.marcar_falta_manual(db, company_id, fid, motivo, categoria, observacao, data_str, motivo_retroativo, lancado_uuid, is_admin=is_admin)
 
 @rh_router.post("/falta/{falta_id}/justificar")
@@ -296,7 +312,8 @@ def falta_justificar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(g
             except:
                 jid = None
 
-        if jid:
+        # CORRIGIDO: dono da empresa pode justificar qualquer falta
+        if jid and jid!= company_id:
             solicitante = db.query(Funcionario).filter(Funcionario.id == jid).first()
             if solicitante:
                 falta_check = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
@@ -316,14 +333,10 @@ def falta_aprovar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_
     aprovado_por_id = payload.get("aprovado_por_id")
     obs = payload.get("observacao")
     try:
-        aid = uuid.UUID(aprovado_por_id) if aprovado_por_id else None
+        aid = uuid.UUID(str(aprovado_por_id)) if aprovado_por_id else None
     except:
         aid = None
-    falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
-    if falta and getattr(falta, "dono_atual", "rh") == "admin":
-        solicitante = db.query(Funcionario).filter(Funcionario.id == aid).first() if aid else None
-        if solicitante and solicitante.cargo!= "admin":
-            raise HTTPException(403, "Falta já encaminhada para admin. Só admin pode aprovar.")
+    # dono da empresa pode aprovar tudo, sem checagem de cargo
     return func_service.aprovar_falta(db, company_id, falta_id, aid, obs)
 
 @rh_router.post("/falta/{falta_id}/rejeitar")
@@ -331,14 +344,9 @@ def falta_rejeitar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get
     aprovado_por_id = payload.get("aprovado_por_id")
     obs = payload.get("observacao")
     try:
-        aid = uuid.UUID(aprovado_por_id) if aprovado_por_id else None
+        aid = uuid.UUID(str(aprovado_por_id)) if aprovado_por_id else None
     except:
         aid = None
-    falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
-    if falta and getattr(falta, "dono_atual", "rh") == "admin":
-        solicitante = db.query(Funcionario).filter(Funcionario.id == aid).first() if aid else None
-        if solicitante and solicitante.cargo!= "admin":
-            raise HTTPException(403, "Falta já encaminhada para admin. Só admin pode rejeitar.")
     return func_service.rejeitar_falta(db, company_id, falta_id, aid, obs)
 
 @rh_router.delete("/falta/{falta_id}")
@@ -349,7 +357,7 @@ def falta_remover(falta_id: uuid.UUID, db: Session = Depends(get_db), company_id
 def falta_encaminhar_admin(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     encaminhado_por_id = payload.get("encaminhado_por_id")
     try:
-        eid = uuid.UUID(encaminhado_por_id) if encaminhado_por_id else None
+        eid = uuid.UUID(str(encaminhado_por_id)) if encaminhado_por_id else None
     except:
         eid = None
     return func_service.encaminhar_falta_para_admin(db, company_id, falta_id, eid)
@@ -375,7 +383,7 @@ def notificacao_lida(notificacao_id: uuid.UUID, db: Session = Depends(get_db), c
 def atraso_aplicar(funcionario_id: uuid.UUID, payload: dict = {}, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     aplicado_por_id = payload.get("aplicado_por_id")
     try:
-        aid = uuid.UUID(aplicado_por_id) if aplicado_por_id else None
+        aid = uuid.UUID(str(aplicado_por_id)) if aplicado_por_id else None
     except:
         aid = None
     return func_service.aplicar_falta_por_atraso(db, company_id, funcionario_id, aid)
@@ -390,7 +398,7 @@ def atraso_ignorar(
 ):
     ignorado_por_id = payload.get("ignorado_por_id") or payload.get("aplicado_por_id")
     try:
-        iid = uuid.UUID(ignorado_por_id) if ignorado_por_id else None
+        iid = uuid.UUID(str(ignorado_por_id)) if ignorado_por_id else None
     except:
         iid = None
     return func_service.ignorar_atrasos(db, company_id, funcionario_id, iid)
@@ -399,7 +407,7 @@ def atraso_ignorar(
 def atraso_encaminhar(funcionario_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     encaminhado_por_id = payload.get("encaminhado_por_id")
     try:
-        eid = uuid.UUID(encaminhado_por_id) if encaminhado_por_id else None
+        eid = uuid.UUID(str(encaminhado_por_id)) if encaminhado_por_id else None
     except:
         eid = None
     return func_service.encaminhar_atraso_para_admin(db, company_id, funcionario_id, eid)
@@ -409,7 +417,7 @@ def atraso_encaminhar(funcionario_id: uuid.UUID, payload: dict, db: Session = De
 def falta_ignorar(falta_id: uuid.UUID, payload: dict = {}, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     ignorado_por_id = payload.get("ignorado_por_id") or payload.get("aprovado_por_id")
     try:
-        iid = uuid.UUID(ignorado_por_id) if ignorado_por_id else None
+        iid = uuid.UUID(str(ignorado_por_id)) if ignorado_por_id else None
     except:
         iid = None
     return func_service.ignorar_falta(db, company_id, falta_id, iid)

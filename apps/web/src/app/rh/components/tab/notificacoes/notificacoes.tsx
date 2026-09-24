@@ -18,9 +18,9 @@ const getLogadoId = () => {
             const raw = localStorage.getItem(k)
             if (!raw) continue
             const obj = JSON.parse(raw)
-            const id = obj?.id || obj?.user?.id || obj?.company?.id || obj?.funcionario?.id || obj?.data?.id
+            const id = obj?.id || obj?.user?.id || obj?.company?.id || obj?.funcionario?.id || obj?.data?.id || obj?.company_id
             if (id) return id
-        } catch {}
+        } catch { }
     }
     try {
         const tokenRaw = localStorage.getItem('token') || localStorage.getItem('access_token') || ''
@@ -28,8 +28,29 @@ const getLogadoId = () => {
             const payload = JSON.parse(atob(tokenRaw.split('.')[1]))
             if (payload?.sub || payload?.id || payload?.company_id) return payload.sub || payload.id || payload.company_id
         }
-    } catch {}
+    } catch { }
     return null
+}
+
+const parseError = (e: any) => {
+    const detail = e?.response?.data?.detail || e?.response?.data?.msg || e?.message || 'Erro inesperado'
+    const d = String(detail).toLowerCase()
+
+    if (d.includes('edição bloqueada') || d.includes('edicao bloqueada')) {
+        return detail + ' — RH pode editar até 7 dias, Admin/Dono até 30 dias.'
+    }
+    if (d.includes('já existe falta')) return 'Já existe falta lançada nesse dia para este funcionário.'
+    if (d.includes('já tem uma justificação') || d.includes('justificacao em analise')) return 'Este funcionário já tem uma justificação em análise. Aguarde a resposta do RH/Admin.'
+    if (d.includes('já está em análise') || d.includes('essa justificação já')) return 'Essa falta já está em análise.'
+    if (d.includes('já justificada')) return 'Essa falta já foi justificada. Aguarde aprovação.'
+    if (d.includes('futuro')) return 'Não é possível lançar ponto/falta em data futura.'
+    if (d.includes('motivo') && d.includes('retro')) return 'Para datas passadas, informe o motivo do lançamento retroativo.'
+    if (d.includes('bi ou senha inválidos')) return detail
+    if (d.includes('funcionário não encontrado')) return 'Funcionário não encontrado.'
+    if (d.includes('sem anexo')) return 'Esta falta não tem documento anexo.'
+    if (d.includes('notificação') && d.includes('não encontrada')) return 'Notificação não encontrada ou já resolvida.'
+
+    return detail
 }
 
 export default function TabNotificacoes({ cargoAtual }: Props) {
@@ -42,16 +63,16 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const [diasVisiveis, setDiasVisiveis] = useState(1)
     const [ignoreModal, setIgnoreModal] = useState<any | null>(null)
     const firstLoad = useRef(true)
-    const area = cargoAtual === 'admin'? 'admin' : 'rh'
+    const area = cargoAtual === 'admin' ? 'admin' : 'rh'
     const listRef = useRef<HTMLDivElement>(null)
 
     const fetchNotifs = useCallback(async () => {
         if (firstLoad.current) setLoading(true)
         try {
             const { data } = await api.get(`/api/rh/notificacoes?area=${area}`);
-            setNotifs(Array.isArray(data)? data : [])
+            setNotifs(Array.isArray(data) ? data : [])
         } catch {
-            toast.error('Erro ao carregar notificações')
+            toast.error('Erro ao carregar notificações. Verifique sua conexão.')
         } finally {
             setLoading(false);
             firstLoad.current = false
@@ -87,7 +108,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     }, [historico, diasVisiveis])
 
     const onScroll = () => {
-        if (!listRef.current || tab!== 'historico') return
+        if (!listRef.current || tab !== 'historico') return
         const { scrollTop, scrollHeight, clientHeight } = listRef.current
         if (scrollHeight - scrollTop - clientHeight < 120 && diasVisiveis < 7) {
             setDiasVisiveis(d => d + 1)
@@ -102,8 +123,9 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
             const res = await fetch(url);
             if (!res.ok) throw new Error();
             const blob = await res.blob();
+            if (blob.size < 100) throw new Error('vazio')
             setComprovante({ url: URL.createObjectURL(blob), type: blob.type })
-        } catch { toast.error('Sem anexo') }
+        } catch { toast.error('Sem anexo ou arquivo não encontrado no Cloudinary') }
     }
 
     const fecharComprovante = () => {
@@ -116,18 +138,18 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         setActingId(faltaId)
         const statusMap: any = { aprovar: 'aprovada', rejeitar: 'rejeitada', encaminhar: 'encaminhada', ignorar: 'ignorada' }
         const nowIso = new Date().toISOString()
-        setNotifs(prev => prev.map(n => n.falta?.id === faltaId? {...n, status_notificacao: statusMap[acao], updated_at: nowIso } : n))
+        setNotifs(prev => prev.map(n => n.falta?.id === faltaId ? { ...n, status_notificacao: statusMap[acao], updated_at: nowIso } : n))
         try {
             const logadoId = getLogadoId()
             if (acao === 'aprovar') await api.post(`/api/rh/falta/${faltaId}/aprovar`, { aprovado_por_id: logadoId })
             if (acao === 'rejeitar') await api.post(`/api/rh/falta/${faltaId}/rejeitar`, { aprovado_por_id: logadoId })
             if (acao === 'encaminhar') await api.post(`/api/rh/falta/${faltaId}/encaminhar-admin`, { encaminhado_por_id: logadoId })
             if (acao === 'ignorar') await api.post(`/api/rh/falta/${faltaId}/ignorar`, { ignorado_por_id: logadoId })
-            toast.success(acao === 'aprovar'? 'Falta justificada' : acao === 'rejeitar'? 'Justificação não aceite' : acao === 'ignorar'? 'Ignorada' : 'Encaminhada para o admin')
+            toast.success(acao === 'aprovar' ? 'Falta justificada e abonada com sucesso' : acao === 'rejeitar' ? 'Justificação rejeitada' : acao === 'ignorar' ? 'Notificação ignorada' : 'Encaminhada para o Admin Principal')
             setOpenSwipeId(null);
             await fetchNotifs()
         } catch (e: any) {
-            toast.error(e?.response?.data?.detail || e.message || 'Erro')
+            toast.error(parseError(e))
             await fetchNotifs()
         } finally { setActingId(null); setIgnoreModal(null) }
     }
@@ -137,17 +159,17 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         setActingId(funcionarioId)
         const statusMap: any = { aplicar: 'aprovada', ignorar: 'ignorada', encaminhar: 'encaminhada' }
         const nowIso = new Date().toISOString()
-        setNotifs(prev => prev.map(n => (n.funcionario_id === funcionarioId && n.tipo === 'atraso_excedido')? {...n, status_notificacao: statusMap[acao], updated_at: nowIso } : n))
+        setNotifs(prev => prev.map(n => (n.funcionario_id === funcionarioId && n.tipo === 'atraso_excedido') ? { ...n, status_notificacao: statusMap[acao], updated_at: nowIso } : n))
         try {
             const logadoId = getLogadoId()
             if (acao === 'aplicar') await api.post(`/api/rh/atrasos/${funcionarioId}/aplicar-falta`, { aplicado_por_id: logadoId })
             if (acao === 'ignorar') await api.post(`/api/rh/atrasos/${funcionarioId}/ignorar-atraso`, { ignorado_por_id: logadoId })
             if (acao === 'encaminhar') await api.post(`/api/rh/atrasos/${funcionarioId}/encaminhar-admin`, { encaminhado_por_id: logadoId })
-            toast.success(acao === 'aplicar'? 'Falta aplicada por atrasos' : acao === 'ignorar'? 'Atrasos zerados' : 'Encaminhado para o admin')
+            toast.success(acao === 'aplicar' ? 'Falta aplicada por excesso de atrasos' : acao === 'ignorar' ? 'Contador de atrasos zerado' : 'Atraso encaminhado para o Admin Principal')
             setOpenSwipeId(null);
             await fetchNotifs()
         } catch (e: any) {
-            toast.error(e?.response?.data?.detail || e.message || 'Erro')
+            toast.error(parseError(e))
             await fetchNotifs()
         } finally { setActingId(null); setIgnoreModal(null) }
     }
@@ -164,13 +186,13 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                         <p className="text-[14px] font-bold text-black">Notificações</p>
                     </div>
                     <div className="flex bg-white border rounded-full p-1">
-                        <button onClick={() => setTab('ativas')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'ativas'? 'bg-black text-white' : 'text-black/60'}`}>Ativas</button>
-                        <button onClick={() => { setTab('historico'); setDiasVisiveis(1) }} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'historico'? 'bg-black text-white' : 'text-black/60'}`}>Histórico</button>
+                        <button onClick={() => setTab('ativas')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'ativas' ? 'bg-black text-white' : 'text-black/60'}`}>Ativas</button>
+                        <button onClick={() => { setTab('historico'); setDiasVisiveis(1) }} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'historico' ? 'bg-black text-white' : 'text-black/60'}`}>Histórico</button>
                     </div>
                 </div>
 
                 <div ref={listRef} onScroll={onScroll} className="max-h-[75vh] overflow-y-auto no-scrollbar">
-                    {tab === 'ativas'? (
+                    {tab === 'ativas' ? (
                         <AtivasTab
                             ativas={ativas}
                             area={area}

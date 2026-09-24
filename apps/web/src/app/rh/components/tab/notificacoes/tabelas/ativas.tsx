@@ -16,7 +16,7 @@ type Props = {
 }
 
 export default function AtivasTab({ ativas, area, actingId, openSwipeId, setOpenSwipeId, onAction, onActionAtraso, onViewDoc, onIgnore }: Props) {
-    if (ativas.length === 0) return <p className="py-12 text-center text-[12px] text-black/50">Nenhuma ativa</p>
+    if (ativas.length === 0) return <p className="py-12 text-center text-[12px] text-black/50">Nenhuma notificação ativa</p>
 
     return (
         <>
@@ -33,20 +33,32 @@ export default function AtivasTab({ ativas, area, actingId, openSwipeId, setOpen
                 const isFinalizada = _isAprovado || _isRejeitado || _isEncaminhado
                 const funcionarioId = n.funcionario_id || n.funcionario?.id
 
-                // CARD DE ATRASO
+                // ----- ATRASO -----
                 if (isAtraso) {
+                    const botoesAtraso = []
+                    if (isFinalizada) botoesAtraso.push('label')
+                    else {
+                        botoesAtraso.push('ignorar')
+                        if (!isAdmin) botoesAtraso.push('encaminhar')
+                        botoesAtraso.push('aplicar')
+                    }
+                    const qtd = botoesAtraso.length
+                    const swipeWidth = qtd === 1 ? 90 : qtd === 2 ? 150 : qtd === 3 ? 210 : 300
+                    const isFew = qtd <= 3
+
                     return (
                         <SwipeCard
                             key={n.notificacao_id}
                             id={n.notificacao_id}
                             isOpen={openSwipeId === n.notificacao_id}
                             setOpen={setOpenSwipeId}
+                            swipeWidth={swipeWidth}
                             onDoubleTap={() => { if (status === 'pendente') onIgnore(n) }}
                             actions={
-                                <div className="absolute inset-y-0 right-0 w-[300px] bg-[#FFF3E0] flex items-center justify-center">
-                                    <div className="flex items-center gap-3">
+                                <div className="absolute inset-y-0 right-0 bg-[#FFF3E0] flex items-center" style={{ width: swipeWidth }}>
+                                    <div className={`flex items-center gap-3 w-full px-3 ${isFew ? 'justify-end' : 'justify-center'}`}>
                                         {isFinalizada ? (
-                                            <span className="text-[11px] text-black/40">{style.label}</span>
+                                            <span className="text-[11px] font-bold text-black/40">{style.label}</span>
                                         ) : (
                                             <>
                                                 <button disabled={!!actingId} onClick={() => onActionAtraso(funcionarioId, 'ignorar')} className="w-11 h-11 rounded-full bg-white border shadow-sm flex items-center justify-center text-blue-600 active:scale-90 transition-transform"><Ban className="w-5 h-5" /></button>
@@ -67,9 +79,9 @@ export default function AtivasTab({ ativas, area, actingId, openSwipeId, setOpen
                                         <div className="mt-1 flex flex-wrap gap-1">
                                             <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-medium leading-none ${style.badge}`}>{style.label}</span>
                                         </div>
-                                        <p className="text-[12px] leading-[16px] text-black/70 mt-1.5">{n.qtd_atrasos} atrasos no período de {n.periodo} (regra: {n.qtd_para_falta})</p>
+                                        <p className="text-[12px] leading-[16px] text-black/70 mt-1.5">{n.qtd_atrasos} atrasos em {n.periodo} (limite: {n.qtd_para_falta})</p>
                                         {n.atrasos?.slice(0, 3).map((a: any) => (
-                                            <p key={a.id} className="text-[11px] text-black/50">• {formatarDataCurta(a.data)} {a.atraso_min}min atraso</p>
+                                            <p key={a.id} className="text-[11px] text-black/50">• {formatarDataCurta(a.data)} — {a.atraso_min}min atraso</p>
                                         ))}
                                     </div>
                                     <div className="flex flex-col items-end gap-2 shrink-0">
@@ -82,17 +94,31 @@ export default function AtivasTab({ ativas, area, actingId, openSwipeId, setOpen
                     )
                 }
 
-                // CARD DE FALTA (seu original mantido)
+                // ----- FALTA -----
+                const botoesFalta = []
+                if (_isEncaminhado) botoesFalta.push(temAnexo ? 'ver' : 'sem')
+                else if (_isAprovado || _isRejeitado) botoesFalta.push(temAnexo ? 'ver' : 'sem')
+                else {
+                    botoesFalta.push('rejeitar')
+                    if (!isAdmin) botoesFalta.push('encaminhar')
+                    botoesFalta.push('aprovar')
+                    if (temAnexo) botoesFalta.push('ver')
+                }
+                const qtdFalta = botoesFalta.length
+                const swipeWidthFalta = qtdFalta === 1 ? 90 : qtdFalta === 2 ? 150 : qtdFalta === 3 ? 210 : 300
+                const isFewFalta = qtdFalta <= 3
+
                 return (
                     <SwipeCard
                         key={n.notificacao_id}
                         id={n.notificacao_id}
                         isOpen={openSwipeId === n.notificacao_id}
                         setOpen={setOpenSwipeId}
+                        swipeWidth={swipeWidthFalta}
                         onDoubleTap={() => { if (status === 'pendente' && n.falta?.id) onIgnore(n) }}
                         actions={
-                            <div className="absolute inset-y-0 right-0 w-[300px] bg-[#E8F2FF] flex items-center justify-center">
-                                <div className="flex items-center gap-3">
+                            <div className="absolute inset-y-0 right-0 bg-[#E8F2FF] flex items-center" style={{ width: swipeWidthFalta }}>
+                                <div className={`flex items-center gap-3 w-full px-3 ${isFewFalta ? 'justify-end' : 'justify-center'}`}>
                                     {_isEncaminhado && (
                                         <>{temAnexo ? (<button onClick={() => onViewDoc(n.falta.id)} className="w-11 h-11 rounded-full bg-black shadow-sm flex items-center justify-center text-white"><Eye className="w-5 h-5" /></button>) : <span className="text-[11px] text-black/40">Sem anexo</span>}</>
                                     )}
@@ -119,7 +145,8 @@ export default function AtivasTab({ ativas, area, actingId, openSwipeId, setOpen
                                         <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-medium leading-none ${style.badge}`}>{style.label}</span>
                                     </div>
                                     <p className="text-[12px] leading-[16px] text-black/70 mt-1.5">Doc: <span className="text-[#0095ff]">{formatarTexto(n.falta?.justificativa_tipo || 'Atestado')}</span></p>
-                                    {n.falta?.justificativa_obs && <p className="text-[12px] leading-[16px] text-black/60 mt-1">{n.falta.justificativa_obs}</p>}
+                                    {n.falta?.justificativa_obs && <p className="text-[12px] leading-[16px] text-black/60 mt-1 line-clamp-2">{n.falta.justificativa_obs}</p>}
+                                    {n.falta?.lancado_por_nome && <p className="text-[11px] text-black/40 mt-1">Lançado por: {n.falta.lancado_por_nome}</p>}
                                 </div>
                                 <div className="flex flex-col items-end gap-2 shrink-0">
                                     <span className="text-[12px] text-black/70">{formatarDataCurta(n.created_at)}</span>

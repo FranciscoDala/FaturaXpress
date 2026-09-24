@@ -33,20 +33,41 @@ def _sanitiza_por_id(por_id: uuid.UUID | None, company_id: uuid.UUID) -> uuid.UU
         pass
     return por_id
 
-def _get_nome_lancador(db: Session, lancado_por_id):
+def _get_nome_lancador(db: Session, lancado_por_id, company_id: uuid.UUID | None = None):
+    # Se não tem ID, é o dono/empresa
     if not lancado_por_id:
-        return "Dono / Admin Principal"
+        if company_id:
+            try:
+                from app.modules.auth.models import Company
+                comp = db.query(Company).filter(Company.id == company_id).first()
+                if comp:
+                    nome = (comp.nome_fantasia or comp.razao_social or "Empresa").strip()
+                    return f"{nome} (Dono)"
+            except:
+                pass
+        return "Empresa (Dono)"
+
+    # Tenta achar funcionário
     f = db.query(Funcionario).filter(Funcionario.id == lancado_por_id).first()
     if f:
-        return f.nome
-    try:
-        from app.modules.auth.models import Company
-        comp = db.query(Company).filter(Company.id == lancado_por_id).first()
-        if comp:
-            return f"{comp.nome_fantasia or comp.razao_social} (Dono)"
-    except:
-        pass
-    return "Admin Principal (Empresa)"
+        cargo = (f.cargo or "admin").lower()
+        cargo_label = cargo.capitalize()
+        if cargo == "admin":
+            cargo_label = "Admin"
+        return f"{f.nome} ({cargo_label})"
+
+    # Se não achou func, tenta empresa pelo company_id
+    if company_id:
+        try:
+            from app.modules.auth.models import Company
+            comp = db.query(Company).filter(Company.id == company_id).first()
+            if comp:
+                nome = (comp.nome_fantasia or comp.razao_social or "Empresa").strip()
+                return f"{nome} (Dono)"
+        except:
+            pass
+
+    return "Admin Principal"
 
 def _ponto_to_dict(db: Session, p: Ponto) -> dict:
     if not p:
@@ -69,7 +90,7 @@ def _ponto_to_dict(db: Session, p: Ponto) -> dict:
         "is_retroativo": bool(getattr(p, "is_retroativo", False)),
         "motivo_retroativo": getattr(p, "motivo_retroativo", None),
         "lancado_por_id": str(lancado_por_id) if lancado_por_id else None,
-        "lancado_por_nome": _get_nome_lancador(db, lancado_por_id),
+        "lancado_por_nome": _get_nome_lancador(db, lancado_por_id, p.company_id),
         "lancado_em": lancado_em.isoformat() if lancado_em else None,
         "distancia_m": getattr(p, "distancia_m", None),
         "ip": getattr(p, "ip", None),
@@ -90,6 +111,7 @@ def _falta_to_dict(db: Session, f: PedidoRH) -> dict:
     aprovado_em = getattr(f, "aprovado_em", None)
     encaminhado_em = getattr(f, "encaminhado_em", None)
     encaminhado_por_id = getattr(f, "encaminhado_por_id", None)
+    comp_id = getattr(f, "company_id", None)
     return {
         "id": str(f.id),
         "company_id": str(f.company_id),
@@ -103,16 +125,16 @@ def _falta_to_dict(db: Session, f: PedidoRH) -> dict:
         "is_retroativo": bool(getattr(f, "is_retroativo", False)),
         "motivo_retroativo": getattr(f, "motivo_retroativo", None),
         "lancado_por_id": str(lancado_por_id) if lancado_por_id else None,
-        "lancado_por_nome": _get_nome_lancador(db, lancado_por_id),
+        "lancado_por_nome": _get_nome_lancador(db, lancado_por_id, comp_id),
         "lancado_em": lancado_em.isoformat() if lancado_em else None,
         "justificativa_tipo": getattr(f, "justificativa_tipo", None),
         "justificativa_obs": getattr(f, "justificativa_obs", None),
         "justificativa_anexo_url": getattr(f, "justificativa_anexo_url", None),
         "justificado_em": justificado_em.isoformat() if justificado_em else None,
         "justificado_por_id": str(justificado_por_id) if justificado_por_id else None,
-        "justificado_por_nome": _get_nome_lancador(db, justificado_por_id),
+        "justificado_por_nome": _get_nome_lancador(db, justificado_por_id, comp_id),
         "aprovado_por_id": str(aprovado_por_id) if aprovado_por_id else None,
-        "aprovado_por_nome": _get_nome_lancador(db, aprovado_por_id),
+        "aprovado_por_nome": _get_nome_lancador(db, aprovado_por_id, comp_id),
         "aprovado_em": aprovado_em.isoformat() if aprovado_em else None,
         "abonada": bool(getattr(f, "abonada", False)),
         "dono_atual": getattr(f, "dono_atual", "rh") or "rh",
@@ -402,17 +424,13 @@ def aprovar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, aprov
         falta.observacao_gestor = observacao
     elif aprovado_por_id_safe is None:
         falta.observacao_gestor = "Aprovado pelo Dono / Admin Principal"
-
     agora = datetime.now(timezone.utc)
-    # AJUSTE PROFISSIONAL: atualiza TODA notificação dessa falta pra verde e marca como não lida pra RH ver retorno
     db.query(Notificacao).filter(
         Notificacao.company_id==company_id,
         Notificacao.referencia_id==falta_id,
         Notificacao.tipo=="falta",
         Notificacao.status.in_(["pendente", "encaminhada", "aguardando_admin"])
     ).update({"status":"aprovada", "lida":False, "updated_at": agora, "dono_atual": "rh"}, synchronize_session=False)
-
-    # Cria notificação de retorno pro RH
     notif_retorno = Notificacao(
         id=uuid.uuid4(),
         company_id=company_id,
@@ -444,7 +462,6 @@ def rejeitar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, apro
         falta.observacao_gestor = observacao
     elif aprovado_por_id_safe is None:
         falta.observacao_gestor = "Rejeitado pelo Dono / Admin Principal"
-
     agora = datetime.now(timezone.utc)
     db.query(Notificacao).filter(
         Notificacao.company_id==company_id,
@@ -452,7 +469,6 @@ def rejeitar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, apro
         Notificacao.tipo=="falta",
         Notificacao.status.in_(["pendente", "encaminhada", "aguardando_admin"])
     ).update({"status":"rejeitada", "lida":False, "updated_at": agora, "dono_atual": "rh"}, synchronize_session=False)
-
     notif_retorno = Notificacao(
         id=uuid.uuid4(),
         company_id=company_id,
@@ -497,7 +513,6 @@ def encaminhar_falta_para_admin(db: Session, company_id: uuid.UUID, falta_id: uu
     falta.encaminhado_por_id = encaminhado_por_id_safe
     falta.status = "aguardando_admin"
     agora = datetime.now(timezone.utc)
-    # AJUSTE: marca como lida pra sair das ativas do RH e ir pro histórico como "encaminhada"
     db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==falta_id, Notificacao.tipo=="falta", Notificacao.status=="pendente", Notificacao.area_destino=="rh").update({"status":"encaminhada", "lida":True, "updated_at": agora}, synchronize_session=False)
     notif = Notificacao(id=uuid.uuid4(), company_id=company_id, tipo="falta", referencia_id=falta.id, area_origem="rh", area_destino="admin", dono_atual="admin", status="pendente", lida=False, created_at=agora, updated_at=agora)
     db.add(notif); db.commit(); db.refresh(falta)
@@ -527,15 +542,11 @@ def _funcionario_full_dict(f: Funcionario | None) -> dict | None:
         "ultimo_reset_atrasos": f.ultimo_reset_atrasos.isoformat() if f.ultimo_reset_atrasos else None,
     }
 
-# --- AJUSTADO: LISTAR COM TAB ---
 def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: str | None = None, tab: str | None = None):
     q = db.query(Notificacao).filter(Notificacao.company_id == company_id, Notificacao.area_destino == area)
     if status:
         q = q.filter(Notificacao.status == status)
-
-    # FILTRO PROFISSIONAL
     if tab == "ativas":
-        # só pendente + retorno do admin não lido
         q = q.filter(
             (Notificacao.status == "pendente") |
             ((Notificacao.area_origem == "admin") & (Notificacao.lida == False))
@@ -546,7 +557,6 @@ def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: s
             Notificacao.status.in_(["aprovada", "aprovado", "justificado", "abonada", "rejeitada", "rejeitado", "ignorado", "ignorada", "encaminhada", "encaminhado", "aguardando_admin", "encaminhado_admin"]),
             Notificacao.updated_at >= limite
         )
-
     notifs = q.order_by(Notificacao.created_at.desc()).all()
     result = []
     for n in notifs:
@@ -564,13 +574,17 @@ def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: s
         if n.tipo == "falta":
             falta = db.query(PedidoRH).filter(PedidoRH.id == n.referencia_id).first()
             func = falta.funcionario if falta and hasattr(falta, 'funcionario') and falta.funcionario else (db.query(Funcionario).filter(Funcionario.id == falta.funcionario_id).first() if falta else None)
-            item["falta"] = _falta_to_dict(db, falta) if falta else None
+            falta_dict = _falta_to_dict(db, falta) if falta else None
+            item["falta"] = falta_dict
             item["funcionario"] = _funcionario_full_dict(func)
             item["funcionario_id"] = str(func.id) if func else None
             item["funcionario_nome"] = func.nome if func else None
             if item["falta"]:
                 item["falta"]["funcionario"] = _funcionario_full_dict(func)
                 item["falta"]["funcionario_nome"] = func.nome if func else None
+            # GARANTE NOME DE QUEM APROVOU NO RETORNO
+            if n.area_origem == "admin" and falta_dict:
+                item["aprovado_por_nome"] = falta_dict.get("aprovado_por_nome")
         elif n.tipo == "atraso_excedido":
             func = db.query(Funcionario).filter(Funcionario.id == n.referencia_id).first()
             cfg = get_config_ponto(db, company_id)

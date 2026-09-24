@@ -116,30 +116,35 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
         <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
             <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-3 mb-4 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <div ref={wrapperRef} className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-40">
-                    <button ref={btnRef} onClick={() => setOpenSelect(!openSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-medium">
-                        <span className="text-gray-900 truncate">{OPTIONS.find(o => o.value === areaFiltro)?.label} • {funcionariosFiltrados.length}</span>
-                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${openSelect? 'rotate-180' : ''}`} />
+                    <button ref={btnRef} onClick={() => setOpenSelect(!openSelect)} className="w-full h-[46px] bg-white border border-gray-200 rounded-full px-4 flex items-center justify-between shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] font-bold text-black">
+                        <span className="text-black truncate">{OPTIONS.find(o => o.value === areaFiltro)?.label} • {funcionariosFiltrados.length}</span>
+                        <ChevronDown className={`w-4 h-4 text-black transition-transform ${openSelect? 'rotate-180' : ''}`} />
                     </button>
                 </div>
                 <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] snap-center flex-shrink-0 z-0">
-                    <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                    <input value={searchInternal} onChange={e => setSearchInternal(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]" />
+                    <Search className="w-4 h-4 text-black absolute left-4 top-1/2 -translate-y-1/2" />
+                    <input
+                        value={searchInternal}
+                        onChange={e => setSearchInternal(e.target.value)}
+                        placeholder="Buscar funcionário..."
+                        className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] font-bold text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
+                    />
                 </div>
             </div>
 
             {openSelect && (
                 <div data-select-dropdown style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }} className="fixed bg-white rounded-[20px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden p-1.5 z-[9999]">
                     {OPTIONS.map(opt => (
-                        <button key={opt.value} onClick={() => { setAreaFiltro(opt.value); setOpenSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${areaFiltro === opt.value? 'bg-[#E6F0FF] text-gray-900 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}>
+                        <button key={opt.value} onClick={() => { setAreaFiltro(opt.value); setOpenSelect(false) }} className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] flex items-center justify-between transition ${areaFiltro === opt.value? 'bg-[#E6F0FF] text-black font-bold' : 'hover:bg-gray-50 text-black'}`}>
                             {opt.label}
-                            {areaFiltro === opt.value && <Check className="w-4 h-4 text-[#0095ff]" />}
+                            {areaFiltro === opt.value && <Check className="w-4 h-4 text-black" />}
                         </button>
                     ))}
                 </div>
             )}
 
             {funcionariosFiltrados.length === 0? (
-                <div className="text-center text-gray-500 py-16 bg-white rounded-[22px] border shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+                <div className="text-center text-black py-16 bg-white rounded-[22px] border shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
                     Nenhum funcionário {searchInternal || areaFiltro!== 'todos'? `para "${searchInternal || areaFiltro}"` : 'da empresa'}!
                 </div>
             ) : (
@@ -159,27 +164,27 @@ function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, podeEdi
     return (
         <div className="w-full min-w-full md:min-w-[320px] md:max-w-[320px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
             <div className="relative h-[90px] bg-[#E6F0FF] shrink-0">
-                <div className="absolute top-3 right-3 px-3 py-1 rounded-full text-[12px] font-medium shadow-sm border max-w-[55%] truncate bg-white border-gray-200 text-gray-700">{func.area}</div>
+                <div className="absolute top-3 right-3 px-3 py-1 rounded-full text-[12px] font-bold shadow-sm border max-w-[55%] truncate bg-white border-gray-200 text-black">{func.area}</div>
                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white shrink-0">
-                    <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-gray-700 overflow-hidden">{initials}</div>
+                    <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-black overflow-hidden">{initials}</div>
                 </div>
                 {!podeEditar && <div className="absolute top-3 left-3 bg-black/70 text-white px-2 py-1 rounded-full text-[9px] font-bold">{cargoAtual?.toUpperCase()} - SOMENTE LEITURA</div>}
             </div>
             <div className="pt-14 px-5 pb-4 min-w-0 overflow-hidden">
-                <div className="flex items-center gap-1.5 mb-3"><span className="text-[11px] text-gray-400">exp.</span><div className="flex gap-[2px]">{Array.from({ length: 10 }).map((_, i) => (<div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5? 'bg-green-400' : 'bg-gray-200'}`} />))}</div></div>
-                <h3 className="font-bold text-[16px] text-gray-900 leading-tight truncate">{func.nome}</h3>
+                <div className="flex items-center gap-1.5 mb-3"><span className="text-[11px] text-black">exp.</span><div className="flex gap-[2px]">{Array.from({ length: 10 }).map((_, i) => (<div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5? 'bg-green-400' : 'bg-gray-200'}`} />))}</div></div>
+                <h3 className="font-bold text-[16px] text-black leading-tight truncate">{func.nome}</h3>
                 <div className="mt-2 flex flex-col gap-0.5 min-w-0">
-                    <p className="text-[12.5px] text-gray-500 truncate">Cargo: {func.cargo}</p>
-                    <p className="text-[12.5px] text-gray-500 truncate">Área: {func.area}</p>
-                    <p className="text-[12.5px] text-gray-500 truncate">E-mail: {func.email || '---'}</p>
-                    <p className="text-[12.5px] text-gray-500 truncate">Tel: {func.telefone || '---'}</p>
+                    <p className="text-[12.5px] text-black truncate">Cargo: {func.cargo}</p>
+                    <p className="text-[12.5px] text-black truncate">Área: {func.area}</p>
+                    <p className="text-[12.5px] text-black truncate">E-mail: {func.email || '---'}</p>
+                    <p className="text-[12.5px] text-black truncate">Tel: {func.telefone || '---'}</p>
                 </div>
-                <div className="mt-3 min-w-0"><span className={`inline-flex items-center max-w-full truncate px-2.5 py-[3px] rounded-full border text-[10px] font-medium leading-tight ${isPresente? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>{isPresente? 'Presente • Ativo' : 'Ausente • Hoje'}</span></div>
+                <div className="mt-3 min-w-0"><span className={`inline-flex items-center max-w-full truncate px-2.5 py-[3px] rounded-full border text-[10px] font-bold leading-tight ${isPresente? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-black'}`}>{isPresente? 'Presente • Ativo' : 'Ausente • Hoje'}</span></div>
             </div>
             <div className="grid grid-cols-3 border-t border-gray-100 mt-auto shrink-0">
-                <button onClick={() => onView?.(func)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group"><Eye className="w-4 h-4 text-gray-600 group-hover:text-blue-600" /></button>
-                <button onClick={() => podeEditar && onEdit?.(func)} disabled={!podeEditar} className={`py-3.5 flex justify-center border-x border-gray-100 transition group ${podeEditar? 'hover:bg-gray-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}><Pencil className={`w-4 h-4 ${podeEditar? 'text-gray-600 group-hover:text-blue-600' : 'text-gray-400'}`} /></button>
-                <button onClick={() => podeFerias && onFerias?.(func)} disabled={!podeFerias} className={`py-3.5 flex justify-center transition group ${podeFerias? 'hover:bg-gray-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}><CalendarOff className={`w-4 h-4 ${podeFerias? 'text-gray-600 group-hover:text-yellow-600' : 'text-gray-400'}`} /></button>
+                <button onClick={() => onView?.(func)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group"><Eye className="w-4 h-4 text-black group-hover:text-blue-600" /></button>
+                <button onClick={() => podeEditar && onEdit?.(func)} disabled={!podeEditar} className={`py-3.5 flex justify-center border-x border-gray-100 transition group ${podeEditar? 'hover:bg-gray-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}><Pencil className={`w-4 h-4 ${podeEditar? 'text-black group-hover:text-blue-600' : 'text-gray-400'}`} /></button>
+                <button onClick={() => podeFerias && onFerias?.(func)} disabled={!podeFerias} className={`py-3.5 flex justify-center transition group ${podeFerias? 'hover:bg-gray-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}><CalendarOff className={`w-4 h-4 ${podeFerias? 'text-black group-hover:text-yellow-600' : 'text-gray-400'}`} /></button>
             </div>
         </div>
     )

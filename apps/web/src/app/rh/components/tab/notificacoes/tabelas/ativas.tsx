@@ -58,16 +58,16 @@ export default function AtivasTab({ agrupado, area, actingId, openSwipeId, setOp
                                         </div>
                                     }>
                                         <div className={`px-3 py-3 ${style.bg} border-l-4 ${style.border}`}>
-                                            <div className="flex justify-between gap-3 items-center">
-                                                <div className="min-w-0 flex-1 overflow-hidden leading-tight">
-                                                    <p className="text-[13px] leading-[18px] truncate whitespace-nowrap">
-                                                        <span className="font-bold text-black">{aprovadorNome} respondeu • {nomeFunc}</span>
-                                                        <span className="text-[11px] text-black/50 font-normal ml-1.5">• {formatarTempo(n.created_at)}</span>
-                                                    </p>
+                                            <div className="flex justify-between gap-3 items-start">
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex flex-wrap items-baseline gap-x-1.5 text-[13px] leading-[18px]">
+                                                        <span className="font-bold text-black break-words">{aprovadorNome} respondeu • {nomeFunc}</span>
+                                                        <span className="text-[11px] text-black/50 font-normal whitespace-nowrap">• {formatarTempo(n.created_at)}</span>
+                                                    </div>
                                                     <div className="mt-1.5"><span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-bold ${style.badge}`}>{style.label}</span></div>
-                                                    <p className="text-[12px] text-black/70 mt-1 truncate">Falta do dia {formatarDataCurta(n.falta?.data_inicio || n.created_at)} foi {_isAprovado? 'aprovada' : 'rejeitada'}.</p>
+                                                    <p className="text-[12px] text-black/70 mt-1 break-words whitespace-normal">Falta do dia {formatarDataCurta(n.falta?.data_inicio || n.created_at)} foi {_isAprovado? 'aprovada' : 'rejeitada'}.</p>
                                                 </div>
-                                                <button onClick={(e) => { e.stopPropagation(); setOpenSwipeId(openSwipeId === n.notificacao_id? null : n.notificacao_id) }} className="w-9 h-9 rounded-full bg-white border border-black/10 flex items-center justify-center shrink-0 shadow-sm"><Menu className="w-4 h-4 text-black" /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); setOpenSwipeId(openSwipeId === n.notificacao_id? null : n.notificacao_id) }} className="w-9 h-9 rounded-full bg-white border border-black/10 flex items-center justify-center self-center shrink-0 shadow-sm"><Menu className="w-4 h-4 text-black" /></button>
                                             </div>
                                         </div>
                                     </SwipeCard>
@@ -91,16 +91,16 @@ export default function AtivasTab({ agrupado, area, actingId, openSwipeId, setOp
                                         </div>
                                     }>
                                         <div className={`px-3 py-3 ${style.bg} border-l-4 ${style.border}`}>
-                                            <div className="flex justify-between gap-3 items-center">
-                                                <div className="min-w-0 flex-1 overflow-hidden">
-                                                    <p className="text-[13px] leading-[18px] truncate whitespace-nowrap">
-                                                        <span className="font-bold text-black">{nomeFunc}</span>
-                                                        <span className="text-[11px] text-black/50 font-normal ml-1.5">• {formatarTempo(n.created_at)}</span>
-                                                    </p>
+                                            <div className="flex justify-between gap-3 items-start">
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex flex-wrap items-baseline gap-x-1.5 text-[13px] leading-[18px]">
+                                                        <span className="font-bold text-black break-words">{nomeFunc}</span>
+                                                        <span className="text-[11px] text-black/50 font-normal whitespace-nowrap">• {formatarTempo(n.created_at)}</span>
+                                                    </div>
                                                     <div className="mt-1"><span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-bold ${style.badge}`}>{style.label}</span></div>
-                                                    <p className="text-[12px] text-black/70 mt-1 truncate">{n.qtd_atrasos} atrasos em {n.periodo}</p>
+                                                    <p className="text-[12px] text-black/70 mt-1 break-words whitespace-normal">{n.qtd_atrasos} atrasos em {n.periodo}</p>
                                                 </div>
-                                                <button onClick={(e) => { e.stopPropagation(); setOpenSwipeId(openSwipeId === n.notificacao_id? null : n.notificacao_id) }} className="w-9 h-9 rounded-full bg-white border border-black/10 flex items-center justify-center shrink-0 shadow-sm"><Menu className="w-4 h-4 text-black" /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); setOpenSwipeId(openSwipeId === n.notificacao_id? null : n.notificacao_id) }} className="w-9 h-9 rounded-full bg-white border border-black/10 flex items-center justify-center self-center shrink-0 shadow-sm"><Menu className="w-4 h-4 text-black" /></button>
                                             </div>
                                         </div>
                                     </SwipeCard>
@@ -112,12 +112,12 @@ export default function AtivasTab({ agrupado, area, actingId, openSwipeId, setOp
                             if (botoesFalta.length === 0) {
                                 return (
                                     <div key={n.notificacao_id} className={`px-3 py-3 border-b last:border-b-0 ${style.bg} border-l-4 ${style.border}`}>
-                                        <div className="flex justify-between gap-3 items-center">
-                                            <div className="min-w-0 flex-1 overflow-hidden">
-                                                <p className="text-[13px] leading-[18px] truncate whitespace-nowrap">
-                                                    <span className="font-bold text-black">Justificação de falta de • {nomeFunc}</span>
-                                                    <span className="text-[11px] text-black/50 font-normal ml-1.5">• {formatarTempo(n.created_at)}</span>
-                                                </p>
+                                        <div className="flex justify-between gap-3 items-start">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex flex-wrap items-baseline gap-x-1.5 text-[13px] leading-[18px]">
+                                                    <span className="font-bold text-black break-words">Justificação de falta de • {nomeFunc}</span>
+                                                    <span className="text-[11px] text-black/50 font-normal whitespace-nowrap">• {formatarTempo(n.created_at)}</span>
+                                                </div>
                                                 <div className="mt-1"><span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-bold ${style.badge}`}>{style.label}</span></div>
                                             </div>
                                         </div>
@@ -143,19 +143,19 @@ export default function AtivasTab({ agrupado, area, actingId, openSwipeId, setOp
                                     </div>
                                 }>
                                     <div className={`px-3 py-3 ${style.bg} border-l-4 ${style.border}`}>
-                                        <div className="flex justify-between gap-3 items-center">
-                                            <div className="min-w-0 flex-1 overflow-hidden">
-                                                <p className="text-[13px] leading-[18px] truncate whitespace-nowrap">
-                                                    <span className="font-bold text-black">Justificação de falta de • {nomeFunc}</span>
-                                                    <span className="text-[11px] text-black/50 font-normal ml-1.5">• {formatarTempo(n.created_at)}</span>
-                                                </p>
-                                                <div className="mt-1.5 flex flex-wrap gap-1">
-                                                    <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-bold ${style.badge}`}>{style.label}</span>
+                                        <div className="flex justify-between gap-3 items-start">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex flex-wrap items-baseline gap-x-1.5 text-[13px] leading-[18px]">
+                                                    <span className="font-bold text-black break-words">Justificação de falta de • {nomeFunc}</span>
+                                                    <span className="text-[11px] text-black/50 font-normal whitespace-nowrap">• {formatarTempo(n.created_at)}</span>
                                                 </div>
-                                                <p className="text-[12px] text-black mt-1.5 truncate">Documento anexado: <span className="text-[#0095ff] font-bold">{formatarTexto(n.falta?.justificativa_tipo || 'Atestado')}</span></p>
-                                                {n.falta?.justificativa_obs && <p className="text-[12px] text-black/60 truncate">{n.falta.justificativa_obs}</p>}
+                                                <div className="mt-1.5 flex flex-wrap gap-1">
+                                                    <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-bold ${style.badge} break-words whitespace-normal`}>{style.label}</span>
+                                                </div>
+                                                <p className="text-[12px] text-black mt-1.5 break-words whitespace-normal">Documento anexado: <span className="text-[#0095ff] font-bold">{formatarTexto(n.falta?.justificativa_tipo || 'Atestado')}</span></p>
+                                                {n.falta?.justificativa_obs && <p className="text-[12px] text-black/60 break-words whitespace-normal line-clamp-3">{n.falta.justificativa_obs}</p>}
                                             </div>
-                                            <button onClick={(e) => { e.stopPropagation(); setOpenSwipeId(openSwipeId === n.notificacao_id? null : n.notificacao_id) }} className="w-9 h-9 rounded-full bg-white border border-black/10 flex items-center justify-center shrink-0 shadow-sm"><Menu className="w-4 h-4 text-black" /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); setOpenSwipeId(openSwipeId === n.notificacao_id? null : n.notificacao_id) }} className="w-9 h-9 rounded-full bg-white border border-black/10 flex items-center justify-center self-center shrink-0 shadow-sm"><Menu className="w-4 h-4 text-black" /></button>
                                         </div>
                                     </div>
                                 </SwipeCard>

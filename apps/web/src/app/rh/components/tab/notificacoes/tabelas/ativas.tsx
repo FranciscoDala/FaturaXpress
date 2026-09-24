@@ -50,7 +50,6 @@ export default function AtivasTab({ agrupado, area, actingId, openSwipeId, setOp
                             const aprovadorNome = style.aprovador || n.aprovado_por_nome || n.falta?.aprovado_por_nome || 'Admin'
 
                             if (_isRetorno) {
-                                // RETORNO DO ADMIN COM NOME REAL + CARGO
                                 return (
                                     <SwipeCard key={n.notificacao_id} id={n.notificacao_id} isOpen={openSwipeId === n.notificacao_id} setOpen={setOpenSwipeId} swipeWidth={temAnexo? 170 : 110} actions={
                                         <div className="absolute inset-y-0 right-0 bg-green-100 flex items-center justify-end px-3 gap-2" style={{ width: temAnexo? 170 : 110 }}>
@@ -59,16 +58,18 @@ export default function AtivasTab({ agrupado, area, actingId, openSwipeId, setOp
                                         </div>
                                     }>
                                         <div className={`px-3 py-3 ${style.bg} border-l-4 ${style.border}`}>
-                                            <div className="flex justify-between gap-2 items-center">
+                                            <div className="flex justify-between gap-3 items-center">
                                                 <div className="min-w-0 flex-1 leading-tight">
                                                     <p className="text-[13px] leading-[16px] truncate">
-                                                        <span className="font-bold text-black">{aprovadorNome} respondeu</span>
-                                                        <span className="text-black/60"> • {nomeFunc} • {formatarTempo(n.created_at)}</span>
+                                                        <span className="font-bold text-black">{aprovadorNome}</span>
+                                                        <span className="font-medium text-black"> respondeu • </span>
+                                                        <span className="font-bold text-black">{nomeFunc}</span>
+                                                        <span className="text-black/50 font-normal"> • {formatarTempo(n.created_at)}</span>
                                                     </p>
-                                                    <div className="mt-1.5"><span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border ${style.badge}`}>{style.label}</span></div>
+                                                    <div className="mt-1.5"><span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-bold ${style.badge}`}>{style.label}</span></div>
                                                     <p className="text-[12px] text-black/70 mt-1">Falta do dia {formatarDataCurta(n.falta?.data_inicio || n.created_at)} foi {_isAprovado? 'aprovada' : 'rejeitada'}.</p>
                                                 </div>
-                                                <button onClick={(e) => { e.stopPropagation(); setOpenSwipeId(openSwipeId === n.notificacao_id? null : n.notificacao_id) }} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center self-center shrink-0"><Menu className="w-4 h-4" /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); setOpenSwipeId(openSwipeId === n.notificacao_id? null : n.notificacao_id) }} className="w-9 h-9 rounded-full bg-white border border-black/10 flex items-center justify-center self-center shrink-0 shadow-sm"><Menu className="w-4 h-4 text-black" /></button>
                                             </div>
                                         </div>
                                     </SwipeCard>
@@ -81,7 +82,7 @@ export default function AtivasTab({ agrupado, area, actingId, openSwipeId, setOp
                                     <SwipeCard key={n.notificacao_id} id={n.notificacao_id} isOpen={openSwipeId === n.notificacao_id} setOpen={setOpenSwipeId} swipeWidth={swipeWidth} onDoubleTap={() => { if (status === 'pendente') onIgnore(n) }} actions={
                                         <div className="absolute inset-y-0 right-0 bg-[#FFF3E0] flex items-center justify-end px-3 gap-2" style={{ width: swipeWidth }}>
                                             {isFinalizada? (
-                                                <span className="text-[11px] font-bold text-black/40">{style.label}</span>
+                                                <span className="text-[11px] font-bold text-black/60">{style.label}</span>
                                             ) : (
                                                 <>
                                                     <button disabled={!!actingId} onClick={() => onActionAtraso(funcionarioId, 'ignorar')} className="w-11 h-11 rounded-full bg-white border flex items-center justify-center text-blue-600"><Ban className="w-5 h-5" /></button>
@@ -92,32 +93,34 @@ export default function AtivasTab({ agrupado, area, actingId, openSwipeId, setOp
                                         </div>
                                     }>
                                         <div className={`px-3 py-3 ${style.bg} border-l-4 ${style.border}`}>
-                                            <div className="flex justify-between gap-2 items-center">
+                                            <div className="flex justify-between gap-3 items-center">
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="text-[13px] truncate"><span className="font-bold">{nomeFunc}</span><span className="text-black/60"> · {formatarTempo(n.created_at)}</span></p>
-                                                    <span className={`mt-1.5 inline-flex px-2.5 py-1 rounded-full text-[11px] border ${style.badge}`}>{style.label}</span>
+                                                    <p className="text-[13px] leading-[16px] truncate">
+                                                        <span className="font-bold text-black">{nomeFunc}</span>
+                                                        <span className="text-black/50 font-normal"> • {formatarTempo(n.created_at)}</span>
+                                                    </p>
+                                                    <span className={`mt-1.5 inline-flex px-2.5 py-1 rounded-full text-[11px] border font-bold ${style.badge}`}>{style.label}</span>
                                                     <p className="text-[12px] text-black/70 mt-1">{n.qtd_atrasos} atrasos em {n.periodo}</p>
                                                 </div>
-                                                <button onClick={(e) => { e.stopPropagation(); setOpenSwipeId(openSwipeId === n.notificacao_id? null : n.notificacao_id) }} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center self-center shrink-0"><Menu className="w-4 h-4" /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); setOpenSwipeId(openSwipeId === n.notificacao_id? null : n.notificacao_id) }} className="w-9 h-9 rounded-full bg-white border border-black/10 flex items-center justify-center self-center shrink-0 shadow-sm"><Menu className="w-4 h-4 text-black" /></button>
                                             </div>
                                         </div>
                                     </SwipeCard>
                                 )
                             }
 
-                            // FALTA - LOGICA FINAL: SE JA TEM AÇÃO, SÓ OLHO
-                            const botoesFalta = isFinalizada
-                               ? (temAnexo? ['ver'] : []) // só olho, nunca sem botão
-                                : ['rejeitar',...(!isAdmin? ['encaminhar'] : []), 'aprovar',...(temAnexo? ['ver'] : [])]
+                            const botoesFalta = isFinalizada? (temAnexo? ['ver'] : []) : ['rejeitar',...(!isAdmin? ['encaminhar'] : []), 'aprovar',...(temAnexo? ['ver'] : [])]
 
                             if (botoesFalta.length === 0) {
-                                // Sem anexo e finalizada = não swipeable, mas mostra nome
                                 return (
                                     <div key={n.notificacao_id} className={`px-3 py-3 border-b last:border-b-0 ${style.bg} border-l-4 ${style.border}`}>
-                                        <div className="flex justify-between gap-2 items-center">
+                                        <div className="flex justify-between gap-3 items-center">
                                             <div className="min-w-0 flex-1">
-                                                <p className="text-[13px] truncate"><span className="font-bold">{nomeFunc}</span><span className="text-black/60"> · {formatarTempo(n.created_at)}</span></p>
-                                                <span className={`mt-1.5 inline-flex px-2.5 py-1 rounded-full text-[11px] border ${style.badge}`}>{style.label}</span>
+                                                <p className="text-[13px] leading-[16px] truncate">
+                                                    <span className="font-bold text-black">{nomeFunc}</span>
+                                                    <span className="text-black/50 font-normal"> • {formatarTempo(n.created_at)}</span>
+                                                </p>
+                                                <span className={`mt-1.5 inline-flex px-2.5 py-1 rounded-full text-[11px] border font-bold ${style.badge}`}>{style.label}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -142,14 +145,18 @@ export default function AtivasTab({ agrupado, area, actingId, openSwipeId, setOp
                                     </div>
                                 }>
                                     <div className={`px-3 py-3 ${style.bg} border-l-4 ${style.border}`}>
-                                        <div className="flex justify-between gap-2 items-center">
+                                        <div className="flex justify-between gap-3 items-center">
                                             <div className="min-w-0 flex-1">
-                                                <p className="text-[13px] truncate"><span className="font-bold">{nomeFunc}</span><span className="text-black/60"> · {formatarTempo(n.created_at)}</span></p>
-                                                <span className={`mt-1.5 inline-flex px-2.5 py-1 rounded-full text-[11px] border ${style.badge}`}>{style.label}</span>
-                                                <p className="text-[12px] text-black/70 mt-1">Doc: <span className="text-[#0095ff]">{formatarTexto(n.falta?.justificativa_tipo || 'Atestado')}</span></p>
+                                                <p className="text-[13px] leading-[16px] truncate">
+                                                    <span className="font-bold text-black">Justificação de falta de • {nomeFunc}</span>
+                                                    <span className="text-black/50 font-normal"> • {formatarTempo(n.created_at)}</span>
+                                                </p>
+                                                <span className={`mt-1.5 inline-flex px-2.5 py-1 rounded-full text-[11px] border font-bold ${style.badge}`}>{style.label}</span>
+                                                
+                                                <p className="text-[12px] text-black mt-1">Documento anexado: <span className="text-[#0095ff] font-bold">{formatarTexto(n.falta?.justificativa_tipo || 'Atestado')}</span></p>
                                                 {n.falta?.justificativa_obs && <p className="text-[12px] text-black/60 line-clamp-2">{n.falta.justificativa_obs}</p>}
                                             </div>
-                                            <button onClick={(e) => { e.stopPropagation(); setOpenSwipeId(openSwipeId === n.notificacao_id? null : n.notificacao_id) }} className="w-8 h-8 rounded-full bg-white border flex items-center justify-center self-center shrink-0"><Menu className="w-4 h-4" /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); setOpenSwipeId(openSwipeId === n.notificacao_id? null : n.notificacao_id) }} className="w-9 h-9 rounded-full bg-white border border-black/10 flex items-center justify-center self-center shrink-0 shadow-sm"><Menu className="w-4 h-4 text-black" /></button>
                                         </div>
                                     </div>
                                 </SwipeCard>

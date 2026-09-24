@@ -16,8 +16,7 @@ type Props = {
     onLida: (id: string) => void
 }
 
-// Helper pra hora ficar grudada no último sobrenome
-function NomeComHora({ prefixo, nome, tempo }: { prefixo?: string, nome: string, tempo: string }) {
+function NomeComHora({ prefixo, nome, tempo, data }: { prefixo?: string, nome: string, tempo: string, data: string }) {
     const partes = nome.trim().split(' ').filter(Boolean)
     const ultimo = partes.pop() || ''
     const resto = partes.join(' ')
@@ -27,7 +26,7 @@ function NomeComHora({ prefixo, nome, tempo }: { prefixo?: string, nome: string,
             {resto && <span className="font-bold text-black">{resto} </span>}
             <span className="font-bold text-black whitespace-nowrap">
                 {ultimo}
-                <span className="text-[11px] text-black/50 font-normal ml-1.5">• {tempo}</span>
+                <span className="text-[11px] text-black/50 font-normal ml-1.5 whitespace-nowrap">• {tempo} - {data}</span>
             </span>
         </span>
     )
@@ -64,8 +63,9 @@ export default function AtivasTab({ agrupado, area, actingId, openSwipeId, setOp
                             const isAdmin = area === 'admin'
                             const isFinalizada = _isAprovado || _isRejeitado || _isEncaminhado
                             const funcionarioId = n.funcionario_id || n.funcionario?.id
-                            const aprovadorNome = style.aprovador || n.aprovado_por_nome || n.falta?.aprovado_por_nome || 'Admin'
+                            const aprovadorNome = style.aprovador
                             const tempo = formatarTempo(n.created_at)
+                            const dataCurta = formatarDataCurta(n.created_at)
 
                             if (_isRetorno) {
                                 return (
@@ -78,7 +78,7 @@ export default function AtivasTab({ agrupado, area, actingId, openSwipeId, setOp
                                         <div className={`px-3 py-3 ${style.bg} border-l-4 ${style.border}`}>
                                             <div className="flex justify-between gap-3 items-start">
                                                 <div className="min-w-0 flex-1">
-                                                    <NomeComHora prefixo={`${aprovadorNome} respondeu •`} nome={nomeFunc} tempo={tempo} />
+                                                    <NomeComHora prefixo={`${aprovadorNome} respondeu •`} nome={nomeFunc} tempo={tempo} data={dataCurta} />
                                                     <div className="mt-1.5"><span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-bold ${style.badge}`}>{style.label}</span></div>
                                                     <p className="text-[12px] text-black/70 mt-1 break-words">Falta do dia {formatarDataCurta(n.falta?.data_inicio || n.created_at)} foi {_isAprovado? 'aprovada' : 'rejeitada'}.</p>
                                                 </div>
@@ -106,7 +106,7 @@ export default function AtivasTab({ agrupado, area, actingId, openSwipeId, setOp
                                         <div className={`px-3 py-3 ${style.bg} border-l-4 ${style.border}`}>
                                             <div className="flex justify-between gap-3 items-start">
                                                 <div className="min-w-0 flex-1">
-                                                    <NomeComHora nome={nomeFunc} tempo={tempo} />
+                                                    <NomeComHora nome={nomeFunc} tempo={tempo} data={dataCurta} />
                                                     <div className="mt-1"><span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-bold ${style.badge}`}>{style.label}</span></div>
                                                     <p className="text-[12px] text-black/70 mt-1 break-words">{n.qtd_atrasos} atrasos em {n.periodo}</p>
                                                 </div>
@@ -124,7 +124,7 @@ export default function AtivasTab({ agrupado, area, actingId, openSwipeId, setOp
                                     <div key={n.notificacao_id} className={`px-3 py-3 border-b last:border-b-0 ${style.bg} border-l-4 ${style.border}`}>
                                         <div className="flex justify-between gap-3 items-start">
                                             <div className="min-w-0 flex-1">
-                                                <NomeComHora prefixo="Justificação de falta de •" nome={nomeFunc} tempo={tempo} />
+                                                <NomeComHora prefixo="Justificação de falta de •" nome={nomeFunc} tempo={tempo} data={dataCurta} />
                                                 <div className="mt-1"><span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-bold ${style.badge}`}>{style.label}</span></div>
                                             </div>
                                         </div>
@@ -150,7 +150,7 @@ export default function AtivasTab({ agrupado, area, actingId, openSwipeId, setOp
                                     <div className={`px-3 py-3 ${style.bg} border-l-4 ${style.border}`}>
                                         <div className="flex justify-between gap-3 items-start">
                                             <div className="min-w-0 flex-1">
-                                                <NomeComHora prefixo="Justificação de falta de •" nome={nomeFunc} tempo={tempo} />
+                                                <NomeComHora prefixo="Justificação de falta de •" nome={nomeFunc} tempo={tempo} data={dataCurta} />
                                                 <div className="mt-1.5 flex flex-wrap gap-1">
                                                     <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-bold ${style.badge}`}>{style.label}</span>
                                                 </div>

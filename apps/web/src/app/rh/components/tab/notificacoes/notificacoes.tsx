@@ -191,7 +191,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                     {tab === 'ativas'? (
                         <AtivasTab agrupado={agrupado} area={area} actingId={actingId} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onAction={handleFalta} onActionAtraso={handleAtraso} onViewDoc={abrirComprovante} onIgnore={setIgnoreModal} onLida={handleLida} />
                     ) : (
-                        <HistoricoTab agrupado={agrupado} onViewDoc={abrirComprovante} />
+                        <HistoricoTab agrupado={agrupado} onViewDoc={abrirComprovante} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} />
                     )}
                 </div>
             </div>

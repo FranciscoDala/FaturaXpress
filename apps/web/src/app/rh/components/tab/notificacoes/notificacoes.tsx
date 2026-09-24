@@ -11,6 +11,27 @@ import IgnoreModal from './modals/ignorar'
 
 type Props = { cargoAtual: string }
 
+const getLogadoId = () => {
+    const keys = ['funcionario', 'user', 'admin', 'auth', 'company', 'profile', 'usuario']
+    for (const k of keys) {
+        try {
+            const raw = localStorage.getItem(k)
+            if (!raw) continue
+            const obj = JSON.parse(raw)
+            const id = obj?.id || obj?.user?.id || obj?.company?.id || obj?.funcionario?.id || obj?.data?.id
+            if (id) return id
+        } catch {}
+    }
+    try {
+        const tokenRaw = localStorage.getItem('token') || localStorage.getItem('access_token') || ''
+        if (tokenRaw && tokenRaw.includes('.')) {
+            const payload = JSON.parse(atob(tokenRaw.split('.')[1]))
+            if (payload?.sub || payload?.id || payload?.company_id) return payload.sub || payload.id || payload.company_id
+        }
+    } catch {}
+    return null
+}
+
 export default function TabNotificacoes({ cargoAtual }: Props) {
     const [tab, setTab] = useState<'ativas' | 'historico'>('ativas')
     const [notifs, setNotifs] = useState<any[]>([])
@@ -21,14 +42,14 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const [diasVisiveis, setDiasVisiveis] = useState(1)
     const [ignoreModal, setIgnoreModal] = useState<any | null>(null)
     const firstLoad = useRef(true)
-    const area = cargoAtual === 'admin' ? 'admin' : 'rh'
+    const area = cargoAtual === 'admin'? 'admin' : 'rh'
     const listRef = useRef<HTMLDivElement>(null)
 
     const fetchNotifs = useCallback(async () => {
         if (firstLoad.current) setLoading(true)
         try {
             const { data } = await api.get(`/api/rh/notificacoes?area=${area}`);
-            setNotifs(Array.isArray(data) ? data : [])
+            setNotifs(Array.isArray(data)? data : [])
         } catch {
             toast.error('Erro ao carregar notificações')
         } finally {
@@ -66,7 +87,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     }, [historico, diasVisiveis])
 
     const onScroll = () => {
-        if (!listRef.current || tab !== 'historico') return
+        if (!listRef.current || tab!== 'historico') return
         const { scrollTop, scrollHeight, clientHeight } = listRef.current
         if (scrollHeight - scrollTop - clientHeight < 120 && diasVisiveis < 7) {
             setDiasVisiveis(d => d + 1)
@@ -95,15 +116,14 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         setActingId(faltaId)
         const statusMap: any = { aprovar: 'aprovada', rejeitar: 'rejeitada', encaminhar: 'encaminhada', ignorar: 'ignorada' }
         const nowIso = new Date().toISOString()
-        setNotifs(prev => prev.map(n => n.falta?.id === faltaId ? { ...n, status_notificacao: statusMap[acao], updated_at: nowIso } : n))
+        setNotifs(prev => prev.map(n => n.falta?.id === faltaId? {...n, status_notificacao: statusMap[acao], updated_at: nowIso } : n))
         try {
-            const logado = JSON.parse(localStorage.getItem('funcionario') || 'null')
-            if (!logado?.id) throw new Error('Usuário não identificado')
-            if (acao === 'aprovar') await api.post(`/api/rh/falta/${faltaId}/aprovar`, { aprovado_por_id: logado?.id })
-            if (acao === 'rejeitar') await api.post(`/api/rh/falta/${faltaId}/rejeitar`, { aprovado_por_id: logado?.id })
-            if (acao === 'encaminhar') await api.post(`/api/rh/falta/${faltaId}/encaminhar-admin`, { encaminhado_por_id: logado?.id })
-            if (acao === 'ignorar') await api.post(`/api/rh/falta/${faltaId}/ignorar`, { ignorado_por_id: logado?.id })
-            toast.success(acao === 'aprovar' ? 'Falta justificada' : acao === 'rejeitar' ? 'Justificação não aceite' : acao === 'ignorar' ? 'Ignorada' : 'Encaminhada para o admin')
+            const logadoId = getLogadoId()
+            if (acao === 'aprovar') await api.post(`/api/rh/falta/${faltaId}/aprovar`, { aprovado_por_id: logadoId })
+            if (acao === 'rejeitar') await api.post(`/api/rh/falta/${faltaId}/rejeitar`, { aprovado_por_id: logadoId })
+            if (acao === 'encaminhar') await api.post(`/api/rh/falta/${faltaId}/encaminhar-admin`, { encaminhado_por_id: logadoId })
+            if (acao === 'ignorar') await api.post(`/api/rh/falta/${faltaId}/ignorar`, { ignorado_por_id: logadoId })
+            toast.success(acao === 'aprovar'? 'Falta justificada' : acao === 'rejeitar'? 'Justificação não aceite' : acao === 'ignorar'? 'Ignorada' : 'Encaminhada para o admin')
             setOpenSwipeId(null);
             await fetchNotifs()
         } catch (e: any) {
@@ -117,14 +137,13 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         setActingId(funcionarioId)
         const statusMap: any = { aplicar: 'aprovada', ignorar: 'ignorada', encaminhar: 'encaminhada' }
         const nowIso = new Date().toISOString()
-        setNotifs(prev => prev.map(n => (n.funcionario_id === funcionarioId && n.tipo === 'atraso_excedido') ? { ...n, status_notificacao: statusMap[acao], updated_at: nowIso } : n))
+        setNotifs(prev => prev.map(n => (n.funcionario_id === funcionarioId && n.tipo === 'atraso_excedido')? {...n, status_notificacao: statusMap[acao], updated_at: nowIso } : n))
         try {
-            const logado = JSON.parse(localStorage.getItem('funcionario') || 'null')
-            if (!logado?.id) throw new Error('Usuário não identificado')
-            if (acao === 'aplicar') await api.post(`/api/rh/atrasos/${funcionarioId}/aplicar-falta`, { aplicado_por_id: logado?.id })
-            if (acao === 'ignorar') await api.post(`/api/rh/atrasos/${funcionarioId}/ignorar-atraso`, { ignorado_por_id: logado?.id })
-            if (acao === 'encaminhar') await api.post(`/api/rh/atrasos/${funcionarioId}/encaminhar-admin`, { encaminhado_por_id: logado?.id })
-            toast.success(acao === 'aplicar' ? 'Falta aplicada por atrasos' : acao === 'ignorar' ? 'Atrasos zerados' : 'Encaminhado para o admin')
+            const logadoId = getLogadoId()
+            if (acao === 'aplicar') await api.post(`/api/rh/atrasos/${funcionarioId}/aplicar-falta`, { aplicado_por_id: logadoId })
+            if (acao === 'ignorar') await api.post(`/api/rh/atrasos/${funcionarioId}/ignorar-atraso`, { ignorado_por_id: logadoId })
+            if (acao === 'encaminhar') await api.post(`/api/rh/atrasos/${funcionarioId}/encaminhar-admin`, { encaminhado_por_id: logadoId })
+            toast.success(acao === 'aplicar'? 'Falta aplicada por atrasos' : acao === 'ignorar'? 'Atrasos zerados' : 'Encaminhado para o admin')
             setOpenSwipeId(null);
             await fetchNotifs()
         } catch (e: any) {
@@ -145,13 +164,13 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                         <p className="text-[14px] font-bold text-black">Notificações</p>
                     </div>
                     <div className="flex bg-white border rounded-full p-1">
-                        <button onClick={() => setTab('ativas')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'ativas' ? 'bg-black text-white' : 'text-black/60'}`}>Ativas</button>
-                        <button onClick={() => { setTab('historico'); setDiasVisiveis(1) }} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'historico' ? 'bg-black text-white' : 'text-black/60'}`}>Histórico</button>
+                        <button onClick={() => setTab('ativas')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'ativas'? 'bg-black text-white' : 'text-black/60'}`}>Ativas</button>
+                        <button onClick={() => { setTab('historico'); setDiasVisiveis(1) }} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'historico'? 'bg-black text-white' : 'text-black/60'}`}>Histórico</button>
                     </div>
                 </div>
 
                 <div ref={listRef} onScroll={onScroll} className="max-h-[75vh] overflow-y-auto no-scrollbar">
-                    {tab === 'ativas' ? (
+                    {tab === 'ativas'? (
                         <AtivasTab
                             ativas={ativas}
                             area={area}

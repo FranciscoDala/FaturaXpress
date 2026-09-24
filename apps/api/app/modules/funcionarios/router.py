@@ -280,7 +280,6 @@ def falta_manual(payload: dict, db: Session = Depends(get_db), company_id: uuid.
             pass
     return func_service.marcar_falta_manual(db, company_id, fid, motivo, categoria, observacao, data_str, motivo_retroativo, lancado_uuid, is_admin=is_admin)
 
-# --- CORRIGIDO: JUSTIFICAR SEM QUEBRAR FK E SEM ENUM ---
 @rh_router.post("/falta/{falta_id}/justificar")
 def falta_justificar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     import traceback
@@ -297,11 +296,8 @@ def falta_justificar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(g
             except:
                 jid = None
 
-        # Não valida FK aqui, models novo aceita qualquer UUID (admin também)
-        # Se quiser checar permissão, faz assim sem quebrar:
         if jid:
             solicitante = db.query(Funcionario).filter(Funcionario.id == jid).first()
-            # Se não achou funcionario, pode ser admin (id vem de companies), deixa passar
             if solicitante:
                 falta_check = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
                 if falta_check and jid!= falta_check.funcionario_id and solicitante.cargo not in ["rh", "admin"]:
@@ -326,7 +322,6 @@ def falta_aprovar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
     if falta and getattr(falta, "dono_atual", "rh") == "admin":
         solicitante = db.query(Funcionario).filter(Funcionario.id == aid).first() if aid else None
-        # Se aid é de admin (não está em funcionarios), deixa passar
         if solicitante and solicitante.cargo!= "admin":
             raise HTTPException(403, "Falta já encaminhada para admin. Só admin pode aprovar.")
     return func_service.aprovar_falta(db, company_id, falta_id, aid, obs)
@@ -374,8 +369,10 @@ def notificacao_lida(notificacao_id: uuid.UUID, db: Session = Depends(get_db), c
     db.commit()
     return {"ok": True}
 
+# --- ATRASOS - BLOCO UNICO SEM DUPLICIDADE ---
 @rh_router.post("/atrasos/{funcionario_id}/aplicar")
-def atraso_aplicar(funcionario_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+@rh_router.post("/atrasos/{funcionario_id}/aplicar-falta")
+def atraso_aplicar(funcionario_id: uuid.UUID, payload: dict = {}, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     aplicado_por_id = payload.get("aplicado_por_id")
     try:
         aid = uuid.UUID(aplicado_por_id) if aplicado_por_id else None
@@ -384,8 +381,19 @@ def atraso_aplicar(funcionario_id: uuid.UUID, payload: dict, db: Session = Depen
     return func_service.aplicar_falta_por_atraso(db, company_id, funcionario_id, aid)
 
 @rh_router.post("/atrasos/{funcionario_id}/ignorar")
-def atraso_ignorar(funcionario_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    return func_service.ignorar_atrasos(db, company_id, funcionario_id)
+@rh_router.post("/atrasos/{funcionario_id}/ignorar-atraso")
+def atraso_ignorar(
+    funcionario_id: uuid.UUID,
+    payload: dict = {},
+    db: Session = Depends(get_db),
+    company_id: uuid.UUID = Depends(get_current_company_id)
+):
+    ignorado_por_id = payload.get("ignorado_por_id") or payload.get("aplicado_por_id")
+    try:
+        iid = uuid.UUID(ignorado_por_id) if ignorado_por_id else None
+    except:
+        iid = None
+    return func_service.ignorar_atrasos(db, company_id, funcionario_id, iid)
 
 @rh_router.post("/atrasos/{funcionario_id}/encaminhar-admin")
 def atraso_encaminhar(funcionario_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
@@ -396,19 +404,7 @@ def atraso_encaminhar(funcionario_id: uuid.UUID, payload: dict, db: Session = De
         eid = None
     return func_service.encaminhar_atraso_para_admin(db, company_id, funcionario_id, eid)
 
-@rh_router.post("/atrasos/{funcionario_id}/aplicar-falta")
-def atraso_aplicar_falta_alias(funcionario_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    aplicado_por_id = payload.get("aplicado_por_id")
-    try:
-        aid = uuid.UUID(aplicado_por_id) if aplicado_por_id else None
-    except:
-        aid = None
-    return func_service.aplicar_falta_por_atraso(db, company_id, funcionario_id, aid)
-
-@rh_router.post("/atrasos/{funcionario_id}/ignorar-atraso")
-def atraso_ignorar_alias(funcionario_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    return func_service.ignorar_atrasos(db, company_id, funcionario_id)
-
+# --- FALTA IGNORAR ---
 @rh_router.post("/falta/{falta_id}/ignorar")
 def falta_ignorar(falta_id: uuid.UUID, payload: dict = {}, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     ignorado_por_id = payload.get("ignorado_por_id") or payload.get("aprovado_por_id")

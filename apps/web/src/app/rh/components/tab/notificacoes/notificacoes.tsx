@@ -95,7 +95,6 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         setActingId(faltaId)
         const statusMap: any = { aprovar: 'aprovada', rejeitar: 'rejeitada', encaminhar: 'encaminhada', ignorar: 'ignorada' }
         const nowIso = new Date().toISOString()
-        // Optimistic update - força o BG correto imediatamente
         setNotifs(prev => prev.map(n => n.falta?.id === faltaId ? { ...n, status_notificacao: statusMap[acao], updated_at: nowIso } : n))
         try {
             const logado = JSON.parse(localStorage.getItem('funcionario') || 'null')
@@ -105,6 +104,27 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
             if (acao === 'encaminhar') await api.post(`/api/rh/falta/${faltaId}/encaminhar-admin`, { encaminhado_por_id: logado?.id })
             if (acao === 'ignorar') await api.post(`/api/rh/falta/${faltaId}/ignorar`, { ignorado_por_id: logado?.id })
             toast.success(acao === 'aprovar' ? 'Falta justificada' : acao === 'rejeitar' ? 'Justificação não aceite' : acao === 'ignorar' ? 'Ignorada' : 'Encaminhada para o admin')
+            setOpenSwipeId(null);
+            await fetchNotifs()
+        } catch (e: any) {
+            toast.error(e?.response?.data?.detail || e.message || 'Erro')
+            await fetchNotifs()
+        } finally { setActingId(null); setIgnoreModal(null) }
+    }
+
+    const handleAtraso = async (funcionarioId: string, acao: 'aplicar' | 'ignorar' | 'encaminhar') => {
+        if (!funcionarioId || actingId) return;
+        setActingId(funcionarioId)
+        const statusMap: any = { aplicar: 'aprovada', ignorar: 'ignorada', encaminhar: 'encaminhada' }
+        const nowIso = new Date().toISOString()
+        setNotifs(prev => prev.map(n => (n.funcionario_id === funcionarioId && n.tipo === 'atraso_excedido') ? { ...n, status_notificacao: statusMap[acao], updated_at: nowIso } : n))
+        try {
+            const logado = JSON.parse(localStorage.getItem('funcionario') || 'null')
+            if (!logado?.id) throw new Error('Usuário não identificado')
+            if (acao === 'aplicar') await api.post(`/api/rh/atrasos/${funcionarioId}/aplicar-falta`, { aplicado_por_id: logado?.id })
+            if (acao === 'ignorar') await api.post(`/api/rh/atrasos/${funcionarioId}/ignorar-atraso`, { ignorado_por_id: logado?.id })
+            if (acao === 'encaminhar') await api.post(`/api/rh/atrasos/${funcionarioId}/encaminhar-admin`, { encaminhado_por_id: logado?.id })
+            toast.success(acao === 'aplicar' ? 'Falta aplicada por atrasos' : acao === 'ignorar' ? 'Atrasos zerados' : 'Encaminhado para o admin')
             setOpenSwipeId(null);
             await fetchNotifs()
         } catch (e: any) {
@@ -139,6 +159,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                             openSwipeId={openSwipeId}
                             setOpenSwipeId={setOpenSwipeId}
                             onAction={handleFalta}
+                            onActionAtraso={handleAtraso}
                             onViewDoc={abrirComprovante}
                             onIgnore={setIgnoreModal}
                         />
@@ -149,7 +170,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
             </div>
 
             {comprovante && <ComprovanteModal comprovante={comprovante} onClose={fecharComprovante} />}
-            {ignoreModal && <IgnoreModal data={ignoreModal} actingId={actingId} onClose={() => setIgnoreModal(null)} onConfirm={(id) => handleFalta(id, 'ignorar')} />}
+            {ignoreModal && <IgnoreModal data={ignoreModal} actingId={actingId} onClose={() => setIgnoreModal(null)} onConfirmFalta={(id: any) => handleFalta(id, 'ignorar')} onConfirmAtraso={(fid: any) => handleAtraso(fid, 'ignorar')} />}
         </>
     )
 }

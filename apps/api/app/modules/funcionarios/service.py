@@ -473,6 +473,8 @@ def _funcionario_full_dict(f: Funcionario | None) -> dict | None:
         "ultimo_reset_atrasos": f.ultimo_reset_atrasos.isoformat() if f.ultimo_reset_atrasos else None,
     }
 
+
+
 def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: str | None = None):
     q = db.query(Notificacao).filter(Notificacao.company_id == company_id, Notificacao.area_destino == area)
     if status:
@@ -510,7 +512,13 @@ def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: s
                     inicio = date.today().replace(day=1)
                 else:
                     inicio = date.today() - timedelta(days=date.today().weekday())
-            pontos = db.query(Ponto).filter(Ponto.company_id==company_id, Ponto.funcionario_id==n.referencia_id, Ponto.data>=inicio, Ponto.tipo==TipoPonto.entrada, Ponto.atraso_min>0).order_by(Ponto.data.desc()).all()
+            pontos = db.query(Ponto).filter(
+                Ponto.company_id==company_id,
+                Ponto.funcionario_id==n.referencia_id,
+                Ponto.data>=inicio,
+                Ponto.tipo==TipoPonto.entrada,
+                Ponto.atraso_min>0
+            ).order_by(Ponto.data.desc()).all()
             item["funcionario"] = _funcionario_full_dict(func)
             item["funcionario_id"] = str(func.id) if func else None
             item["funcionario_nome"] = func.nome if func else None
@@ -518,36 +526,72 @@ def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: s
             item["atrasos"] = [_ponto_to_dict(db, p) for p in pontos]
             item["periodo"] = cfg.periodo_regra
             item["qtd_para_falta"] = cfg.qtd_atrasos_para_falta
+            # para o frontend limpo usar
+            item["falta"] = None
         result.append(item)
     return result
+
 
 def aplicar_falta_por_atraso(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, aplicado_por_id: uuid.UUID | None):
     func = db.query(Funcionario).filter(Funcionario.id==funcionario_id, Funcionario.company_id==company_id).first()
     if not func:
         raise HTTPException(404, "Funcionário não encontrado")
+
+    # TRAVA: já tem falta hoje?
+    hoje = date.today()
+    ja_tem_falta = db.query(PedidoRH).filter(
+        PedidoRH.company_id==company_id,
+        PedidoRH.funcionario_id==funcionario_id,
+        PedidoRH.data_inicio==hoje,
+        PedidoRH.tipo=="falta_justificada"
+    ).first()
+    if ja_tem_falta:
+        raise HTTPException(400, f"Funcionário já tem falta registrada hoje ({hoje})")
+
     cfg = get_config_ponto(db, company_id)
     falta = PedidoRH(
         id=uuid.uuid4(), company_id=company_id, funcionario_id=funcionario_id,
-        tipo="falta_justificada", data_inicio=date.today(), data_fim=date.today(),
-        dias_uteis=1, motivo=f"Regra: {cfg.qtd_atrasos_para_falta} atrasos no {cfg.periodo_regra} = 1 falta. Func: {func.nome}",
-        status="aprovado", abonada=False,
+        tipo="falta_justificada", data_inicio=hoje, data_fim=hoje,
+        dias_uteis=1,
+        motivo=f"REGRA ATRASO | {cfg.qtd_atrasos_para_falta} atrasos no periodo {cfg.periodo_regra} = 1 falta | Func: {func.nome}",
+        status="aprovado",  # falta aplicada por atraso
+        abonada=False,
         dono_atual="rh", area_origem="sistema",
-        lancado_por_id=aplicado_por_id, lancado_em=datetime.now(timezone.utc)
+        lancado_por_id=aplicado_por_id,
+        lancado_em=datetime.now(timezone.utc),
+        observacao_gestor=f"Aplicada automaticamente por {cfg.qtd_atrasos_para_falta} atrasos"
     )
-    func.ultimo_reset_atrasos = date.today()
+    func.ultimo_reset_atrasos = hoje
+
+    # CORREÇÃO: usa 'aprovada' para cair no historico e BG verde correto
     db.add(falta)
-    db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==funcionario_id, Notificacao.tipo=="atraso_excedido", Notificacao.status=="pendente").update({"status":"resolvido", "lida":True, "updated_at": datetime.now(timezone.utc)})
-    db.commit(); db.refresh(falta)
+    db.query(Notificacao).filter(
+        Notificacao.company_id==company_id,
+        Notificacao.referencia_id==funcionario_id,
+        Notificacao.tipo=="atraso_excedido",
+        Notificacao.status=="pendente"
+    ).update({"status":"aprovada", "lida":True, "updated_at": datetime.now(timezone.utc)})
+    db.commit()
+    db.refresh(falta)
     return _falta_to_dict(db, falta)
 
-def ignorar_atrasos(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID):
+
+
+
+def ignorar_atrasos(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, ignorado_por_id: uuid.UUID | None = None):
     func = db.query(Funcionario).filter(Funcionario.id==funcionario_id, Funcionario.company_id==company_id).first()
     if not func:
         raise HTTPException(404, "Funcionário não encontrado")
     func.ultimo_reset_atrasos = date.today()
-    db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==funcionario_id, Notificacao.tipo=="atraso_excedido", Notificacao.status=="pendente").update({"status":"ignorado", "lida":True, "updated_at": datetime.now(timezone.utc)})
+    db.query(Notificacao).filter(
+        Notificacao.company_id==company_id,
+        Notificacao.referencia_id==funcionario_id,
+        Notificacao.tipo=="atraso_excedido",
+        Notificacao.status=="pendente"
+    ).update({"status":"ignorada", "lida":True, "updated_at": datetime.now(timezone.utc)})
     db.commit()
-    return {"ok": True, "msg": "Atrasos zerados, contador reiniciado"}
+    return {"ok": True, "msg": "Atrasos zerados, contador reiniciado", "ignorado_por": str(ignorado_por_id) if ignorado_por_id else None}
+
 
 def encaminhar_atraso_para_admin(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, encaminhado_por_id: uuid.UUID | None):
     notif = db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==funcionario_id, Notificacao.tipo=="atraso_excedido", Notificacao.status=="pendente", Notificacao.area_destino=="rh").first()

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { Loader2, Bell } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, apiRoot } from '../../../../../lib/api'
-import { getStatusKey, isRetornoAdmin } from './utils/status'
+import { getStatusKey } from './utils/status'
 import { getDataChave } from './utils/format'
 import AtivasTab from './tabelas/ativas'
 import HistoricoTab from './tabelas/historico'
@@ -35,13 +35,9 @@ const getLogadoId = () => {
 const parseError = (e: any) => {
     const detail = e?.response?.data?.detail || e?.response?.data?.msg || e?.message || 'Erro inesperado'
     const d = String(detail).toLowerCase()
-    if (d.includes('edição bloqueada') || d.includes('edicao bloqueada')) {
-        return detail + ' — RH pode editar até 7 dias, Admin/Dono até 30 dias.'
-    }
+    if (d.includes('edição bloqueada') || d.includes('edicao bloqueada')) return detail + ' — RH pode editar até 7 dias, Admin/Dono até 30 dias.'
     if (d.includes('já existe falta')) return 'Já existe falta lançada nesse dia para este funcionário.'
-    if (d.includes('já tem uma justificação') || d.includes('justificacao em analise')) {
-        return 'Essa falta já está em análise. Você pode justificar faltas de outros dias normalmente.'
-    }
+    if (d.includes('já tem uma justificação') || d.includes('justificacao em analise')) return 'Essa falta já está em análise. Você pode justificar faltas de outros dias normalmente.'
     if (d.includes('já está em análise') || d.includes('essa justificação já')) return 'Essa falta específica já está em análise. Aguarde a resposta.'
     if (d.includes('já justificada')) return 'Essa falta já foi justificada. Aguarde aprovação.'
     if (d.includes('futuro')) return 'Não é possível lançar ponto/falta em data futura.'
@@ -63,14 +59,14 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const [diasVisiveis, setDiasVisiveis] = useState(1)
     const [ignoreModal, setIgnoreModal] = useState<any | null>(null)
     const firstLoad = useRef(true)
-    const area = cargoAtual === 'admin' ? 'admin' : 'rh'
+    const area = cargoAtual === 'admin'? 'admin' : 'rh'
     const listRef = useRef<HTMLDivElement>(null)
 
     const fetchNotifs = useCallback(async () => {
         if (firstLoad.current) setLoading(true)
         try {
             const { data } = await api.get(`/api/rh/notificacoes?area=${area}`);
-            setNotifs(Array.isArray(data) ? data : [])
+            setNotifs(Array.isArray(data)? data : [])
         } catch {
             toast.error('Erro ao carregar notificações. Verifique sua conexão.')
         } finally {
@@ -85,35 +81,32 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         return () => clearInterval(i)
     }, [fetchNotifs])
 
-    const { ativas, historico } = useMemo(() => {
-        // ATIVAS = tudo que não foi lido (inclui retorno do admin que fica verde com OK)
-        const at = [...notifs]
-            .filter(n => !n.lida)
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-
+    const { ativasAgrupado, historicoAgrupado } = useMemo(() => {
+        const sorted = [...notifs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         const limite = new Date(); limite.setDate(limite.getDate() - 7)
-        const hist = notifs.filter(n => {
-            if (!n.lida) return false
+
+        const histList = sorted.filter(n => {
             const s = getStatusKey(n)
             const resolvida = ['aprovada', 'aprovado', 'justificado', 'abonada', 'rejeitada', 'rejeitado', 'ignorado', 'ignorada', 'aguardando_admin', 'encaminhado_admin', 'encaminhada', 'encaminhado'].includes(s)
-            if (!resolvida && !isRetornoAdmin(n)) return false
+            if (!resolvida) return false
             return new Date(n.updated_at || n.created_at) >= limite
         })
-        return { ativas: at, historico: hist }
-    }, [notifs])
 
-    const historicoAgrupado = useMemo(() => {
-        const grupos: Record<string, any[]> = {}
-        historico.forEach(n => {
-            const chave = getDataChave(n.updated_at || n.created_at)
-            if (!grupos[chave]) grupos[chave] = []
-            grupos[chave].push(n)
-        })
-        return Object.entries(grupos).sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime()).slice(0, diasVisiveis)
-    }, [historico, diasVisiveis])
+        const agrupar = (lista: any[]) => {
+            const grupos: Record<string, any[]> = {}
+            lista.forEach(n => {
+                const chave = getDataChave(n.updated_at || n.created_at)
+                if (!grupos[chave]) grupos[chave] = []
+                grupos[chave].push(n)
+            })
+            return Object.entries(grupos).sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime()).slice(0, diasVisiveis) as [string, any[]][]
+        }
+
+        return { ativasAgrupado: agrupar(sorted), historicoAgrupado: agrupar(histList) }
+    }, [notifs, diasVisiveis])
 
     const onScroll = () => {
-        if (!listRef.current || tab !== 'historico') return
+        if (!listRef.current) return
         const { scrollTop, scrollHeight, clientHeight } = listRef.current
         if (scrollHeight - scrollTop - clientHeight < 120 && diasVisiveis < 7) {
             setDiasVisiveis(d => d + 1)
@@ -141,19 +134,13 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const handleLida = async (notificacaoId: string) => {
         if (!notificacaoId || actingId) return
         setActingId(notificacaoId)
-        // otimista: tira da lista de ativas
-        setNotifs(prev => prev.map(n => n.notificacao_id === notificacaoId ? { ...n, lida: true, updated_at: new Date().toISOString() } : n))
         try {
             await api.post(`/api/rh/notificacoes/${notificacaoId}/lida`)
-            toast.success('Notificação confirmada')
-            setOpenSwipeId(null)
+            toast.success('Confirmado')
             await fetchNotifs()
         } catch (e: any) {
             toast.error(parseError(e))
-            await fetchNotifs()
-        } finally {
-            setActingId(null)
-        }
+        } finally { setActingId(null); setOpenSwipeId(null) }
     }
 
     const handleFalta = async (faltaId: string, acao: 'aprovar' | 'rejeitar' | 'encaminhar' | 'ignorar') => {
@@ -161,14 +148,14 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         setActingId(faltaId)
         const statusMap: any = { aprovar: 'aprovada', rejeitar: 'rejeitada', encaminhar: 'encaminhada', ignorar: 'ignorada' }
         const nowIso = new Date().toISOString()
-        setNotifs(prev => prev.map(n => n.falta?.id === faltaId ? { ...n, status_notificacao: statusMap[acao], updated_at: nowIso } : n))
+        setNotifs(prev => prev.map(n => n.falta?.id === faltaId? {...n, status_notificacao: statusMap[acao], updated_at: nowIso } : n))
         try {
             const logadoId = getLogadoId()
             if (acao === 'aprovar') await api.post(`/api/rh/falta/${faltaId}/aprovar`, { aprovado_por_id: logadoId })
             if (acao === 'rejeitar') await api.post(`/api/rh/falta/${faltaId}/rejeitar`, { aprovado_por_id: logadoId })
             if (acao === 'encaminhar') await api.post(`/api/rh/falta/${faltaId}/encaminhar-admin`, { encaminhado_por_id: logadoId })
             if (acao === 'ignorar') await api.post(`/api/rh/falta/${faltaId}/ignorar`, { ignorado_por_id: logadoId })
-            toast.success(acao === 'aprovar' ? 'Falta justificada e abonada com sucesso' : acao === 'rejeitar' ? 'Justificação rejeitada' : acao === 'ignorar' ? 'Notificação ignorada' : 'Encaminhada para o Admin Principal')
+            toast.success(acao === 'aprovar'? 'Falta justificada e abonada com sucesso' : acao === 'rejeitar'? 'Justificação rejeitada' : acao === 'ignorar'? 'Notificação ignorada' : 'Encaminhada para o Admin Principal')
             setOpenSwipeId(null);
             await fetchNotifs()
         } catch (e: any) {
@@ -182,13 +169,13 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         setActingId(funcionarioId)
         const statusMap: any = { aplicar: 'aprovada', ignorar: 'ignorada', encaminhar: 'encaminhada' }
         const nowIso = new Date().toISOString()
-        setNotifs(prev => prev.map(n => (n.funcionario_id === funcionarioId && n.tipo === 'atraso_excedido') ? { ...n, status_notificacao: statusMap[acao], updated_at: nowIso } : n))
+        setNotifs(prev => prev.map(n => (n.funcionario_id === funcionarioId && n.tipo === 'atraso_excedido')? {...n, status_notificacao: statusMap[acao], updated_at: nowIso } : n))
         try {
             const logadoId = getLogadoId()
             if (acao === 'aplicar') await api.post(`/api/rh/atrasos/${funcionarioId}/aplicar-falta`, { aplicado_por_id: logadoId })
             if (acao === 'ignorar') await api.post(`/api/rh/atrasos/${funcionarioId}/ignorar-atraso`, { ignorado_por_id: logadoId })
             if (acao === 'encaminhar') await api.post(`/api/rh/atrasos/${funcionarioId}/encaminhar-admin`, { encaminhado_por_id: logadoId })
-            toast.success(acao === 'aplicar' ? 'Falta aplicada por excesso de atrasos' : acao === 'ignorar' ? 'Contador de atrasos zerado' : 'Atraso encaminhado para o Admin Principal')
+            toast.success(acao === 'aplicar'? 'Falta aplicada por excesso de atrasos' : acao === 'ignorar'? 'Contador de atrasos zerado' : 'Atraso encaminhado para o Admin Principal')
             setOpenSwipeId(null);
             await fetchNotifs()
         } catch (e: any) {
@@ -209,25 +196,14 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                         <p className="text-[14px] font-bold text-black">Notificações</p>
                     </div>
                     <div className="flex bg-white border rounded-full p-1">
-                        <button onClick={() => setTab('ativas')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'ativas' ? 'bg-black text-white' : 'text-black/60'}`}>Ativas ({ativas.length})</button>
-                        <button onClick={() => { setTab('historico'); setDiasVisiveis(1) }} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'historico' ? 'bg-black text-white' : 'text-black/60'}`}>Histórico</button>
+                        <button onClick={() => setTab('ativas')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'ativas'? 'bg-black text-white' : 'text-black/60'}`}>Ativas</button>
+                        <button onClick={() => { setTab('historico'); setDiasVisiveis(1) }} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'historico'? 'bg-black text-white' : 'text-black/60'}`}>Histórico</button>
                     </div>
                 </div>
 
                 <div ref={listRef} onScroll={onScroll} className="max-h-[75vh] overflow-y-auto no-scrollbar">
-                    {tab === 'ativas' ? (
-                        <AtivasTab
-                            ativas={ativas}
-                            area={area}
-                            actingId={actingId}
-                            openSwipeId={openSwipeId}
-                            setOpenSwipeId={setOpenSwipeId}
-                            onAction={handleFalta}
-                            onActionAtraso={handleAtraso}
-                            onViewDoc={abrirComprovante}
-                            onIgnore={setIgnoreModal}
-                            onLida={handleLida}
-                        />
+                    {tab === 'ativas'? (
+                        <AtivasTab agrupado={ativasAgrupado} area={area} actingId={actingId} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onAction={handleFalta} onActionAtraso={handleAtraso} onViewDoc={abrirComprovante} onIgnore={setIgnoreModal} onLida={handleLida} />
                     ) : (
                         <HistoricoTab agrupado={historicoAgrupado} />
                     )}

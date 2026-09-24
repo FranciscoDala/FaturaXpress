@@ -1,16 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { FileText, Lock, ArrowRight, Eye, EyeOff, AlertTriangle, ShieldAlert, Building2, User } from 'lucide-react'
+import { FileText, Lock, ArrowRight, Eye, EyeOff, ShieldAlert, Building2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 const API_URL = "https://faturaxpress-backend.onrender.com/api"
 
-type TabLogin = 'empresa' | 'funcionario'
-
 export default function LoginPage() {
-    const [tab, setTab] = useState<TabLogin>('empresa')
-    const [nif, setNif] = useState('')
-    const [bi, setBi] = useState('')
+    const [identificador, setIdentificador] = useState('')
     const [password, setPassword] = useState('')
     const [showPassword, setShowPassword] = useState(false)
     const [loading, setLoading] = useState(false)
@@ -21,47 +17,78 @@ export default function LoginPage() {
         e.preventDefault()
         setLoading(true)
         setAgtBlock(null)
-        try {
-            if (tab === 'empresa') {
-                const nifLimpo = nif.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
-                const res = await fetch(`${API_URL}/auth/login`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ nif: nifLimpo, password })
-                })
-                const data = await res.json()
-                if (!res.ok) {
-                    if (res.status === 403) setAgtBlock(data.detail || "NIF Inactivo na AGT")
-                    throw new Error(data.detail || "Credenciais inválidas")
-                }
-                localStorage.setItem("access_token", data.access_token)
-                localStorage.setItem("company_id", data.company_id)
-                localStorage.setItem("company_name", data.company_name)
-                localStorage.setItem("login_tipo", "company")
-                localStorage.removeItem("funcionario")
-                toast.success("Login empresa realizado!")
-                setTimeout(() => navigate('/app/dashboard'), 400)
-            } else {
-                const biLimpo = bi.trim().toUpperCase()
-                const res = await fetch(`${API_URL}/auth/login-funcionario`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ numero_bi: biLimpo, senha: password })
-                })
-                const data = await res.json()
-                if (!res.ok) throw new Error(data.detail || "BI ou senha inválidos")
 
-                // IMPORTANTE: não substitui empresa, só adiciona funcionario
-                localStorage.setItem("access_token", data.access_token)
-                localStorage.setItem("company_id", data.company_id)
-                localStorage.setItem("company_name", data.company_name)
-                localStorage.setItem("login_tipo", "funcionario")
-                localStorage.setItem("funcionario", JSON.stringify(data.funcionario))
-                toast.success(`Bem-vindo ${data.funcionario.nome}!`)
-                setTimeout(() => navigate('/app/dashboard'), 400)
+        const idLimpo = identificador.trim().toUpperCase()
+        const idAlfaNum = idLimpo.replace(/[^A-Z0-9]/g, '')
+
+        try {
+            // 1ª tentativa: EMPRESA (NIF)
+            try {
+                const resEmpresa = await fetch(`${API_URL}/auth/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ nif: idAlfaNum, password })
+                })
+                const dataEmpresa = await resEmpresa.json()
+
+                if (resEmpresa.ok) {
+                    localStorage.setItem("access_token", dataEmpresa.access_token)
+                    localStorage.setItem("company_id", dataEmpresa.company_id)
+                    localStorage.setItem("company_name", dataEmpresa.company_name)
+                    localStorage.setItem("login_tipo", "company")
+                    localStorage.removeItem("funcionario")
+
+                    // NOVO: Bem-vindo NOME DA EMPRESA
+                    const nomeEmpresa = dataEmpresa.company_name || dataEmpresa.nome_fantasia || "Empresa"
+                    toast.success(`Bem-vindo, ${nomeEmpresa}!`)
+                    setTimeout(() => navigate('/app/dashboard'), 400)
+                    return
+                } else {
+                    if (resEmpresa.status === 403) {
+                        setAgtBlock(dataEmpresa.detail || "NIF Inactivo na AGT")
+                        throw new Error(dataEmpresa.detail || "NIF Inactivo na AGT")
+                    }
+                    // se não for 403, não lança ainda, tenta como funcionário
+                    if (resEmpresa.status !== 401 && resEmpresa.status !== 404) {
+                        throw new Error(dataEmpresa.detail || "Credenciais inválidas")
+                    }
+                }
+            } catch (err: any) {
+                // Se foi bloqueio AGT, para aqui
+                if (err.message?.toLowerCase().includes('agt') || agtBlock) throw err
+                // senão continua pra tentar como funcionário
             }
+
+            // 2ª tentativa: FUNCIONÁRIO (BI)
+            const resFunc = await fetch(`${API_URL}/auth/login-funcionario`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ numero_bi: idLimpo, senha: password })
+            })
+            const dataFunc = await resFunc.json()
+
+            if (!resFunc.ok) {
+                throw new Error(dataFunc.detail || "NIF/BI ou senha inválidos")
+            }
+
+            // Login funcionário OK - não substitui empresa, só adiciona cargo
+            localStorage.setItem("access_token", dataFunc.access_token)
+            localStorage.setItem("company_id", dataFunc.company_id)
+            localStorage.setItem("company_name", dataFunc.company_name)
+            localStorage.setItem("login_tipo", "funcionario")
+            localStorage.setItem("funcionario", JSON.stringify(dataFunc.funcionario))
+
+            // Toast com nome do funcionário + empresa
+            toast.success(`Bem-vindo, ${dataFunc.funcionario.nome}!`)
+            setTimeout(() => navigate('/app/dashboard'), 400)
+
         } catch (err: any) {
-            toast.error(err.message, { position: 'top-center' })
+            const msg = err.message || "Erro ao fazer login"
+            if (!agtBlock) {
+                toast.error(msg, { position: 'top-center' })
+            } else {
+                toast.error(agtBlock, { position: 'top-center' })
+            }
         } finally {
             setLoading(false)
         }
@@ -78,17 +105,13 @@ export default function LoginPage() {
                     </div>
                     <div className="h-7 px-3 rounded-full bg-white border border-blue-200 shadow-sm flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-[#0095ff] animate-pulse" />
-                        <span className="text-[11px] font-semibold text-[#0095ff] tracking-wide">Login</span>
+                        <span className="text-[11px] font-semibold text-[#0095ff] tracking-wide">Login único</span>
                     </div>
                 </div>
 
                 <div className="px-6 pt-4">
-                    <div className="flex p-1 bg-gray-100 rounded-full">
-                        <button type="button" onClick={() => setTab('empresa')} className={`flex-1 h-9 rounded-full text-[13px] font-semibold flex items-center justify-center gap-1.5 transition ${tab === 'empresa' ? 'bg-white shadow text-black' : 'text-gray-500'}`}><Building2 className="w-4 h-4" /> Empresa</button>
-                        <button type="button" onClick={() => setTab('funcionario')} className={`flex-1 h-9 rounded-full text-[13px] font-semibold flex items-center justify-center gap-1.5 transition ${tab === 'funcionario' ? 'bg-white shadow text-black' : 'text-gray-500'}`}><User className="w-4 h-4" /> Funcionário</button>
-                    </div>
-                    <h1 className="text-[18px] font-bold text-gray-900 mt-4">{tab === 'empresa' ? 'FT-Xpress Empresa' : 'FT-Xpress Funcionário'}</h1>
-                    <p className="text-[13px] text-gray-500 mt-1">{tab === 'empresa' ? 'Insere NIF da empresa e senha' : 'Insere Nº BI e senha'}</p>
+                    <h1 className="text-[18px] font-bold text-gray-900">FT-Xpress</h1>
+                    <p className="text-[13px] text-gray-500 mt-1">Use NIF da empresa ou BI do funcionário</p>
                 </div>
 
                 {agtBlock && (
@@ -102,40 +125,48 @@ export default function LoginPage() {
                 )}
 
                 <form onSubmit={handleLogin} className="px-6 pb-6 pt-4 flex flex-col gap-[8px]">
-                    {tab === 'empresa' ? (
-                        <div className="relative">
-                            <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} required className={`${inputClass} pl-10`} placeholder="NIF nº" disabled={loading} />
-                            <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        </div>
-                    ) : (
-                        <div className="relative">
-                            <input type="text" value={bi} onChange={(e) => setBi(e.target.value.toUpperCase())} required className={`${inputClass} pl-10`} placeholder="BI nº" disabled={loading} />
-                            <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        </div>
-                    )}
-                    <div className="relative group">
-                        <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required className={`${inputClass} pl-10 pr-10`} placeholder={tab === 'empresa' ? "Senha" : "Senha"} disabled={loading} />
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100"><>{showPassword ? <EyeOff className="h-4 w-4 text-gray-500" /> : <Eye className="h-4 w-4 text-gray-500" />}</></button>
+                    <div className="relative">
+                        <input
+                            type="text"
+                            value={identificador}
+                            onChange={(e) => setIdentificador(e.target.value.toUpperCase())}
+                            required
+                            className={`${inputClass} pl-10`}
+                            placeholder="NIF ou BI nº"
+                            disabled={loading}
+                        />
+                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     </div>
 
-                    {/* {tab==='funcionario' && (
-                        <div className="flex items-center gap-2 px-1 mt-1">
-                            <AlertTriangle className="w-3.5 h-3.5 text-gray-400" />
-                            <p className="text-[11px] text-gray-500">Você entra dentro da empresa com seu cargo. Empresa no topo continua a mesma.</p>
-                        </div>
-                    )} */}
+                    <div className="relative group">
+                        <input
+                            type={showPassword ? "text" : "password"}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            className={`${inputClass} pl-10 pr-10`}
+                            placeholder="Senha"
+                            disabled={loading}
+                        />
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100">
+                            {showPassword ? <EyeOff className="h-4 w-4 text-gray-500" /> : <Eye className="h-4 w-4 text-gray-500" />}
+                        </button>
+                    </div>
 
                     <div className="mt-2">
                         <button type="submit" disabled={loading} className="w-full h-11 rounded-full bg-[#0095ff] text-white font-semibold hover:bg-[#0085e6] shadow-[0_6px_20px_rgba(0,149,255,0.35)] flex items-center justify-center disabled:opacity-50">
                             {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ArrowRight className="w-5 h-5" />}
                         </button>
                     </div>
-                    {(tab === 'empresa' || tab === 'funcionario') && (
-                        <p className="text-center text-[13px] text-gray-600 mt-3">
-                            Não tem conta? <Link to="/register" className="text-[#0095ff] font-semibold">Registra-se</Link>
-                        </p>
-                    )}
+
+                    <p className="text-center text-[13px] text-gray-600 mt-3">
+                        Não tem conta? <Link to="/register" className="text-[#0095ff] font-semibold">Registra-se</Link>
+                    </p>
+
+                    <p className="text-center text-[11px] text-gray-400 mt-2">
+                        Empresa usa NIF • Funcionário usa BI
+                    </p>
                 </form>
             </div>
         </div>

@@ -175,8 +175,27 @@ def criar_funcionario(db: Session, company_id: uuid.UUID, dados: FuncionarioCrea
     if dados.areas_ids:
         areas = db.query(Area).filter(Area.id.in_(dados.areas_ids), Area.company_id == company_id).all()
         func.areas = areas
-    db.add(func); db.commit(); db.refresh(func)
+    db.add(func)
+    db.commit()
+    db.refresh(func)
+
+    # ===== GERACAO AUTOMATICA DE CONTRATO - NAO QUEBRA SE FALHAR =====
+    try:
+        from app.modules.documentos.service import gerar_contrato_automatico_ao_criar
+        extras = {}
+        # pega extras se frontend mandar salario_base, etc
+        if hasattr(dados, 'model_extra') and dados.model_extra:
+            extras = dados.model_extra
+        elif hasattr(dados, '__pydantic_extra__') and dados.__pydantic_extra__:
+            extras = dados.__pydantic_extra__
+
+        gerar_contrato_automatico_ao_criar(db, company_id, func, extras_contrato=extras)
+    except Exception as e:
+        # Se não tem modelo padrão, só ignora e continua
+        print(f"[DOCS] Contrato automático não gerado (normal se não tem modelo padrão): {e}")
+
     return func
+
 
 def listar_funcionarios(db: Session, company_id: uuid.UUID) -> List[Funcionario]:
     return db.query(Funcionario).filter(Funcionario.company_id == company_id, Funcionario.ativo == True).order_by(Funcionario.nome).all()

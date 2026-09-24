@@ -43,3 +43,8 @@ try:
     from app.modules.auditoria.models import AtividadeLog  # noqa: F401
 except ImportError:
     pass
+
+try:
+    from app.modules.documentos.models import ModeloDocumento, DocumentoGerado  # noqa: F401
+except ImportError:
+    pass

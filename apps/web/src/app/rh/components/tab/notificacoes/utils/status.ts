@@ -33,7 +33,7 @@ export const getAlertStyle = (n: any) => {
     if (isAtraso) {
         return { bg: 'bg-orange-50', border: 'border-orange-200', badge: 'bg-orange-100 text-orange-800 border-orange-200', label: `Atraso: ${n.qtd_atrasos || 0}/${n.qtd_para_falta || 3} • ${n.periodo || 'semana'}`, aprovador }
     }
-    return { bg: 'bg-white', border: 'border-gray-200', badge: 'bg-gray-100 text-black border-gray-200', label: `Falta: ${getMotivo(n)}`, aprovador }
+    return { bg: 'bg-white', border: 'border-gray-200', badge: 'bg-gray-100 text-black border-gray-200', label: `Falta aplicada por motivo de: ${getMotivo(n)}`, aprovador }
 }
 
 export const isEncaminhado = (s: string) => ['aguardando_admin', 'encaminhado_admin', 'encaminhada', 'encaminhado'].includes(s)

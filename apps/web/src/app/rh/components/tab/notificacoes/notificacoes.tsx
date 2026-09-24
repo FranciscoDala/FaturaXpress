@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { Loader2, Bell } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, apiRoot } from '../../../../../lib/api'
-import { getStatusKey } from './utils/status'
+import { getStatusKey, isRetornoAdmin } from './utils/status'
 import { getDataChave } from './utils/format'
 import AtivasTab from './tabelas/ativas'
 import HistoricoTab from './tabelas/historico'
@@ -35,12 +35,10 @@ const getLogadoId = () => {
 const parseError = (e: any) => {
     const detail = e?.response?.data?.detail || e?.response?.data?.msg || e?.message || 'Erro inesperado'
     const d = String(detail).toLowerCase()
-
     if (d.includes('edição bloqueada') || d.includes('edicao bloqueada')) {
         return detail + ' — RH pode editar até 7 dias, Admin/Dono até 30 dias.'
     }
     if (d.includes('já existe falta')) return 'Já existe falta lançada nesse dia para este funcionário.'
-    // AJUSTADO AQUI - agora só bloqueia a mesma falta
     if (d.includes('já tem uma justificação') || d.includes('justificacao em analise')) {
         return 'Essa falta já está em análise. Você pode justificar faltas de outros dias normalmente.'
     }
@@ -52,7 +50,6 @@ const parseError = (e: any) => {
     if (d.includes('funcionário não encontrado')) return 'Funcionário não encontrado.'
     if (d.includes('sem anexo')) return 'Esta falta não tem documento anexo.'
     if (d.includes('notificação') && d.includes('não encontrada')) return 'Notificação não encontrada ou já resolvida.'
-
     return detail
 }
 
@@ -89,12 +86,17 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     }, [fetchNotifs])
 
     const { ativas, historico } = useMemo(() => {
-        const at = [...notifs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        // ATIVAS = tudo que não foi lido (inclui retorno do admin que fica verde com OK)
+        const at = [...notifs]
+            .filter(n => !n.lida)
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
         const limite = new Date(); limite.setDate(limite.getDate() - 7)
         const hist = notifs.filter(n => {
+            if (!n.lida) return false
             const s = getStatusKey(n)
             const resolvida = ['aprovada', 'aprovado', 'justificado', 'abonada', 'rejeitada', 'rejeitado', 'ignorado', 'ignorada', 'aguardando_admin', 'encaminhado_admin', 'encaminhada', 'encaminhado'].includes(s)
-            if (!resolvida) return false
+            if (!resolvida && !isRetornoAdmin(n)) return false
             return new Date(n.updated_at || n.created_at) >= limite
         })
         return { ativas: at, historico: hist }
@@ -134,6 +136,24 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const fecharComprovante = () => {
         if (comprovante) URL.revokeObjectURL(comprovante.url);
         setComprovante(null)
+    }
+
+    const handleLida = async (notificacaoId: string) => {
+        if (!notificacaoId || actingId) return
+        setActingId(notificacaoId)
+        // otimista: tira da lista de ativas
+        setNotifs(prev => prev.map(n => n.notificacao_id === notificacaoId ? { ...n, lida: true, updated_at: new Date().toISOString() } : n))
+        try {
+            await api.post(`/api/rh/notificacoes/${notificacaoId}/lida`)
+            toast.success('Notificação confirmada')
+            setOpenSwipeId(null)
+            await fetchNotifs()
+        } catch (e: any) {
+            toast.error(parseError(e))
+            await fetchNotifs()
+        } finally {
+            setActingId(null)
+        }
     }
 
     const handleFalta = async (faltaId: string, acao: 'aprovar' | 'rejeitar' | 'encaminhar' | 'ignorar') => {
@@ -189,7 +209,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                         <p className="text-[14px] font-bold text-black">Notificações</p>
                     </div>
                     <div className="flex bg-white border rounded-full p-1">
-                        <button onClick={() => setTab('ativas')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'ativas' ? 'bg-black text-white' : 'text-black/60'}`}>Ativas</button>
+                        <button onClick={() => setTab('ativas')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'ativas' ? 'bg-black text-white' : 'text-black/60'}`}>Ativas ({ativas.length})</button>
                         <button onClick={() => { setTab('historico'); setDiasVisiveis(1) }} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'historico' ? 'bg-black text-white' : 'text-black/60'}`}>Histórico</button>
                     </div>
                 </div>
@@ -206,6 +226,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                             onActionAtraso={handleAtraso}
                             onViewDoc={abrirComprovante}
                             onIgnore={setIgnoreModal}
+                            onLida={handleLida}
                         />
                     ) : (
                         <HistoricoTab agrupado={historicoAgrupado} />

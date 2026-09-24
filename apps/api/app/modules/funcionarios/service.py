@@ -402,9 +402,38 @@ def aprovar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, aprov
         falta.observacao_gestor = observacao
     elif aprovado_por_id_safe is None:
         falta.observacao_gestor = "Aprovado pelo Dono / Admin Principal"
-    db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==falta_id, Notificacao.tipo=="falta", Notificacao.status=="pendente").update({"status":"aprovada", "lida":True, "updated_at": datetime.now(timezone.utc)}, synchronize_session=False)
-    db.commit(); db.refresh(falta)
+
+    agora = datetime.now(timezone.utc)
+    # 1. Atualiza QUALQUER notificação dessa falta (RH pendente OU encaminhada + Admin pendente) pra verde
+    db.query(Notificacao).filter(
+        Notificacao.company_id==company_id,
+        Notificacao.referencia_id==falta_id,
+        Notificacao.tipo=="falta",
+        Notificacao.status.in_(["pendente", "encaminhada", "aguardando_admin"])
+    ).update({"status":"aprovada", "lida":False, "updated_at": agora, "dono_atual": "rh"}, synchronize_session=False)
+
+    # 2. Cria notificação de retorno pro RH avisando que Admin respondeu
+    # Pega nome do func pra msg
+    func = db.query(Funcionario).filter(Funcionario.id==falta.funcionario_id).first()
+    data_falta = falta.data_inicio.isoformat() if falta.data_inicio else ""
+    notif_retorno = Notificacao(
+        id=uuid.uuid4(),
+        company_id=company_id,
+        tipo="falta",
+        referencia_id=falta.id,
+        area_origem="admin",
+        area_destino="rh",
+        dono_atual="rh",
+        status="aprovada",
+        lida=False,
+        created_at=agora,
+        updated_at=agora
+    )
+    db.add(notif_retorno)
+    db.commit()
+    db.refresh(falta)
     return _falta_to_dict(db, falta)
+
 
 def rejeitar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, aprovado_por_id: uuid.UUID | None, observacao: str | None = None):
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
@@ -419,9 +448,34 @@ def rejeitar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, apro
         falta.observacao_gestor = observacao
     elif aprovado_por_id_safe is None:
         falta.observacao_gestor = "Rejeitado pelo Dono / Admin Principal"
-    db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==falta_id, Notificacao.tipo=="falta", Notificacao.status=="pendente").update({"status":"rejeitada", "lida":True, "updated_at": datetime.now(timezone.utc)}, synchronize_session=False)
-    db.commit(); db.refresh(falta)
+
+    agora = datetime.now(timezone.utc)
+    db.query(Notificacao).filter(
+        Notificacao.company_id==company_id,
+        Notificacao.referencia_id==falta_id,
+        Notificacao.tipo=="falta",
+        Notificacao.status.in_(["pendente", "encaminhada", "aguardando_admin"])
+    ).update({"status":"rejeitada", "lida":False, "updated_at": agora, "dono_atual": "rh"}, synchronize_session=False)
+
+    notif_retorno = Notificacao(
+        id=uuid.uuid4(),
+        company_id=company_id,
+        tipo="falta",
+        referencia_id=falta.id,
+        area_origem="admin",
+        area_destino="rh",
+        dono_atual="rh",
+        status="rejeitada",
+        lida=False,
+        created_at=agora,
+        updated_at=agora
+    )
+    db.add(notif_retorno)
+    db.commit()
+    db.refresh(falta)
     return _falta_to_dict(db, falta)
+
+
 
 def remover_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID):
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()

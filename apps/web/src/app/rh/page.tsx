@@ -56,7 +56,6 @@ export default function RHPage() {
     const [pontoHoje, setPontoHoje] = useState<any[]>([])
     const [loadingFunc, setLoadingFunc] = useState(true)
     const [rhTab, setRhTab] = useState<RHTab>(init.tab)
-    const [notifCount, setNotifCount] = useState(0)
 
     const logoUrlSafe = useMemo(() => {
         const raw = empresa?.logo_url || empresa?.image_url || ''
@@ -127,9 +126,8 @@ export default function RHPage() {
             const area = cargoAtual === 'admin'? 'admin' : 'rh'
             const { data } = await api.get(`/api/rh/notificacoes?area=${area}&status=pendente`)
             const total = Array.isArray(data)? data.length : 0
-            setNotifCount(total)
             window.dispatchEvent(new CustomEvent('notificacoes-count', { detail: { count: total } }))
-        } catch { setNotifCount(0) }
+        } catch {}
     }, [cargoAtual])
 
     useEffect(() => { fetchMe(); fetchFuncionarios(); fetchPontoHoje() }, [fetchMe, fetchFuncionarios, fetchPontoHoje])
@@ -229,19 +227,15 @@ export default function RHPage() {
                     <style>{`.bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; }.bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; } @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }`}</style>
                 </div>
 
-                {/* IGUAL DASHBOARD - SEM PADDING NA MÃE */}
+                {/* IGUAL DASHBOARD - SEM PADDING NA MÃE, PADDING DENTRO DO TAB */}
                 <div className="w-full py-6">
                     <div className="w-full py-2">
                         <div id="tabela">
-                            {loadingFunc? <p className="text-center py-16 bg-white rounded-[20px] border text-black/50">Carregando...</p> : (
-                                <>
-                                    {rhTab === 'presente' && <TabPresente funcionarios={funcionarios} presentesIds={presentesIds} onEdit={handleOpenEditFunc} />}
-                                    {rhTab === 'ponto' && <TabPonto empresa={empresa} usuario={usuario} />}
-                                    {rhTab === 'pedidos' && <TabPedidos />}
-                                    {rhTab === 'recibos' && <TabRecibos />}
-                                    {rhTab === 'notificacoes' && <TabNotificacoes cargoAtual={cargoAtual} />}
-                                </>
-                            )}
+                            {rhTab === 'presente' && <TabPresente funcionarios={funcionarios} presentesIds={presentesIds} onEdit={handleOpenEditFunc} loading={loadingFunc} />}
+                            {rhTab === 'ponto' && <TabPonto empresa={empresa} usuario={usuario} />}
+                            {rhTab === 'pedidos' && <TabPedidos />}
+                            {rhTab === 'recibos' && <TabRecibos />}
+                            {rhTab === 'notificacoes' && <TabNotificacoes cargoAtual={cargoAtual} />}
                         </div>
                     </div>
                 </div>

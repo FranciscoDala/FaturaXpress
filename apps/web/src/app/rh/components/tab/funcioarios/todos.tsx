@@ -42,9 +42,7 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
     const btnRef = useRef<HTMLButtonElement>(null)
     const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 320 })
 
-    useEffect(() => {
-        if (searchProp!== undefined) setSearchInternal(searchProp)
-    }, [searchProp])
+    useEffect(() => { if (searchProp!== undefined) setSearchInternal(searchProp) }, [searchProp])
 
     const funcionarioLogado = useMemo(() => {
         try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
@@ -61,9 +59,7 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
         return Array.from(s).sort()
     }, [funcionarios])
 
-    const OPTIONS = useMemo(() => {
-        return [{ value: 'todos', label: 'Todas as áreas' },...areasEmpresa.map(a => ({ value: a, label: a }))]
-    }, [areasEmpresa])
+    const OPTIONS = useMemo(() => [{ value: 'todos', label: 'Todas as áreas' },...areasEmpresa.map(a => ({ value: a, label: a }))], [areasEmpresa])
 
     const updatePosition = () => {
         if (btnRef.current) {
@@ -71,23 +67,17 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
             setDropdownPos({ top: rect.bottom + 8, left: rect.left, width: rect.width })
         }
     }
-
     useEffect(() => { if (openSelect) updatePosition() }, [openSelect])
     useEffect(() => {
         if (!openSelect) return
         const handle = () => updatePosition()
         window.addEventListener('scroll', handle, true)
         window.addEventListener('resize', handle)
-        return () => {
-            window.removeEventListener('scroll', handle, true)
-            window.removeEventListener('resize', handle)
-        }
+        return () => { window.removeEventListener('scroll', handle, true); window.removeEventListener('resize', handle) }
     }, [openSelect])
     useEffect(() => {
         const close = (e: MouseEvent) => {
-            if (wrapperRef.current &&!wrapperRef.current.contains(e.target as Node) &&!(e.target as HTMLElement).closest('[data-select-dropdown]')) {
-                setOpenSelect(false)
-            }
+            if (wrapperRef.current &&!wrapperRef.current.contains(e.target as Node) &&!(e.target as HTMLElement).closest('[data-select-dropdown]')) setOpenSelect(false)
         }
         document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
@@ -96,22 +86,14 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
     const funcionariosFiltrados = useMemo(() => {
         let list = funcionarios
         const q = searchInternal.toLowerCase().trim()
-        if (q) {
-            list = list.filter(f => f.nome?.toLowerCase().includes(q) || f.cargo?.toLowerCase().includes(q) || String(f.area).toLowerCase().includes(q))
-        }
-        if (areaFiltro!== 'todos') {
-            list = list.filter(f => String(f.area) === areaFiltro)
-        }
+        if (q) list = list.filter(f => f.nome?.toLowerCase().includes(q) || f.cargo?.toLowerCase().includes(q) || String(f.area).toLowerCase().includes(q))
+        if (areaFiltro!== 'todos') list = list.filter(f => String(f.area) === areaFiltro)
         return list
     }, [funcionarios, searchInternal, areaFiltro])
 
     if (loading) {
         return (
             <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
-                <div className="flex gap-4 overflow-x-auto pb-3 mb-4 [&::-webkit-scrollbar]:hidden">
-                    <div className="min-w-full md:min-w-[320px] md:max-w-[320px] h-[46px] bg-gray-100 animate-pulse rounded-full" />
-                    <div className="min-w-full md:min-w-[320px] md:max-w-[320px] h-[46px] bg-gray-100 animate-pulse rounded-full" />
-                </div>
                 <div className="bg-white rounded-[22px] border h-[300px] flex items-center justify-center shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
                     <Loader2 className="w-6 h-6 animate-spin text-black/40" />
                 </div>
@@ -171,82 +153,33 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
     )
 }
 
-function FuncionarioCard({
-    func,
-    presentesIds,
-    onView,
-    onEdit,
-    onFerias,
-    podeEditar,
-    podeFerias,
-    cargoAtual
-}: {
-    func: Funcionario
-    presentesIds?: Set<string>
-    onView?: Props['onView']
-    onEdit?: Props['onEdit']
-    onFerias?: Props['onFerias']
-    podeEditar: boolean
-    podeFerias: boolean
-    cargoAtual: string
-}) {
+function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, podeEditar, podeFerias, cargoAtual }: { func: Funcionario; presentesIds?: Set<string>; onView?: Props['onView']; onEdit?: Props['onEdit']; onFerias?: Props['onFerias']; podeEditar: boolean; podeFerias: boolean; cargoAtual: string }) {
     const initials = func.nome.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
     const isPresente = presentesIds? presentesIds.has(String(func.id)) : true
-
     return (
         <div className="w-full min-w-full md:min-w-[320px] md:max-w-[320px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
             <div className="relative h-[90px] bg-[#E6F0FF] shrink-0">
-                <div className="absolute top-3 right-3 px-3 py-1 rounded-full text-[12px] font-medium shadow-sm border max-w-[55%] truncate bg-white border-gray-200 text-gray-700">
-                    {func.area}
-                </div>
+                <div className="absolute top-3 right-3 px-3 py-1 rounded-full text-[12px] font-medium shadow-sm border max-w-[55%] truncate bg-white border-gray-200 text-gray-700">{func.area}</div>
                 <div className="absolute -bottom-10 left-4 w-[88px] h-[88px] rounded-full bg-white p-1 shadow-md border-[4px] border-white shrink-0">
-                    <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-gray-700 overflow-hidden">
-                        {initials}
-                    </div>
+                    <div className="w-full h-full rounded-full bg-[#E8E8E8] flex items-center justify-center text-[20px] font-bold text-gray-700 overflow-hidden">{initials}</div>
                 </div>
-                {!podeEditar && (
-                    <div className="absolute top-3 left-3 bg-black/70 text-white px-2 py-1 rounded-full text-[9px] font-bold">{cargoAtual?.toUpperCase()} - SOMENTE LEITURA</div>
-                )}
+                {!podeEditar && <div className="absolute top-3 left-3 bg-black/70 text-white px-2 py-1 rounded-full text-[9px] font-bold">{cargoAtual?.toUpperCase()} - SOMENTE LEITURA</div>}
             </div>
-
             <div className="pt-14 px-5 pb-4 min-w-0 overflow-hidden">
-                <div className="flex items-center gap-1.5 mb-3">
-                    <span className="text-[11px] text-gray-400">exp.</span>
-                    <div className="flex gap-[2px]">
-                        {Array.from({ length: 10 }).map((_, i) => (
-                            <div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5? 'bg-green-400' : 'bg-gray-200'}`} />
-                        ))}
-                    </div>
-                </div>
-
-                <h3 className="font-bold text-[16px] text-gray-900 leading-tight truncate" title={func.nome}>
-                    {func.nome}
-                </h3>
-
+                <div className="flex items-center gap-1.5 mb-3"><span className="text-[11px] text-gray-400">exp.</span><div className="flex gap-[2px]">{Array.from({ length: 10 }).map((_, i) => (<div key={i} className={`w-[4px] h-[10px] rounded-full ${i < 5? 'bg-green-400' : 'bg-gray-200'}`} />))}</div></div>
+                <h3 className="font-bold text-[16px] text-gray-900 leading-tight truncate">{func.nome}</h3>
                 <div className="mt-2 flex flex-col gap-0.5 min-w-0">
                     <p className="text-[12.5px] text-gray-500 truncate">Cargo: {func.cargo}</p>
                     <p className="text-[12.5px] text-gray-500 truncate">Área: {func.area}</p>
-                    <p className="text-[12.5px] text-gray-500 truncate" title={func.email || ''}>E-mail: {func.email || '---'}</p>
+                    <p className="text-[12.5px] text-gray-500 truncate">E-mail: {func.email || '---'}</p>
                     <p className="text-[12.5px] text-gray-500 truncate">Tel: {func.telefone || '---'}</p>
                 </div>
-
-                <div className="mt-3 min-w-0">
-                    <span className={`inline-flex items-center max-w-full truncate px-2.5 py-[3px] rounded-full border text-[10px] font-medium leading-tight ${isPresente? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
-                        {isPresente? 'Presente • Ativo' : 'Ausente • Hoje'}
-                    </span>
-                </div>
+                <div className="mt-3 min-w-0"><span className={`inline-flex items-center max-w-full truncate px-2.5 py-[3px] rounded-full border text-[10px] font-medium leading-tight ${isPresente? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>{isPresente? 'Presente • Ativo' : 'Ausente • Hoje'}</span></div>
             </div>
-
             <div className="grid grid-cols-3 border-t border-gray-100 mt-auto shrink-0">
-                <button onClick={() => onView?.(func)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group" title="Ver">
-                    <Eye className="w-4 h-4 text-gray-600 group-hover:text-blue-600" />
-                </button>
-                <button onClick={() => podeEditar && onEdit?.(func)} disabled={!podeEditar} className={`py-3.5 flex justify-center border-x border-gray-100 transition group ${podeEditar? 'hover:bg-gray-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`} title={podeEditar? "Editar" : "Só admin/RH"}>
-                    <Pencil className={`w-4 h-4 ${podeEditar? 'text-gray-600 group-hover:text-blue-600' : 'text-gray-400'}`} />
-                </button>
-                <button onClick={() => podeFerias && onFerias?.(func)} disabled={!podeFerias} className={`py-3.5 flex justify-center transition group ${podeFerias? 'hover:bg-gray-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`} title={podeFerias? "Colocar de férias" : "Só admin/RH"}>
-                    <CalendarOff className={`w-4 h-4 ${podeFerias? 'text-gray-600 group-hover:text-yellow-600' : 'text-gray-400'}`} />
-                </button>
+                <button onClick={() => onView?.(func)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group"><Eye className="w-4 h-4 text-gray-600 group-hover:text-blue-600" /></button>
+                <button onClick={() => podeEditar && onEdit?.(func)} disabled={!podeEditar} className={`py-3.5 flex justify-center border-x border-gray-100 transition group ${podeEditar? 'hover:bg-gray-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}><Pencil className={`w-4 h-4 ${podeEditar? 'text-gray-600 group-hover:text-blue-600' : 'text-gray-400'}`} /></button>
+                <button onClick={() => podeFerias && onFerias?.(func)} disabled={!podeFerias} className={`py-3.5 flex justify-center transition group ${podeFerias? 'hover:bg-gray-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}><CalendarOff className={`w-4 h-4 ${podeFerias? 'text-gray-600 group-hover:text-yellow-600' : 'text-gray-400'}`} /></button>
             </div>
         </div>
     )

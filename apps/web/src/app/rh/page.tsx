@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { User, Crown, Power, Search, AlertTriangle } from 'lucide-react'
+import { User, Crown, Power, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import GlobalAreas from '../../components/GlobalAreas'
 import ModalConfirmSair from '../dashboard/components/modals/modal_ConfirmSair'
@@ -57,8 +57,6 @@ export default function RHPage() {
     const [pontoHoje, setPontoHoje] = useState<any[]>([])
     const [loadingFunc, setLoadingFunc] = useState(true)
     const [rhTab, setRhTab] = useState<RHTab>(init.tab)
-    const [search, setSearch] = useState('')
-    const [areaFiltro, setAreaFiltro] = useState('') // <- ADICIONADO
     const [notifCount, setNotifCount] = useState(0)
 
     const logoUrlSafe = useMemo(() => {
@@ -171,25 +169,6 @@ export default function RHPage() {
     const totalFuncionarios = funcionarios.length
     const totalPresentesHoje = presentesIds.size
 
-    // AREAS DA EMPRESA - puxa das areas que a empresa definiu
-    const areasEmpresa = useMemo(() => {
-        const s = new Set<string>()
-        funcionarios.forEach((f: any) => { if (f.area) s.add(String(f.area)) })
-        return Array.from(s).sort()
-    }, [funcionarios])
-
-    // AGORA FILTRA POR BUSCA + AREA - TODOS DA EMPRESA
-    const funcionariosFiltrados = useMemo(() => {
-        let list = funcionarios
-        const q = search.toLowerCase().trim()
-        if (q) list = list.filter(f => f.nome?.toLowerCase().includes(q) || f.cargo?.toLowerCase().includes(q) || String(f.area).toLowerCase().includes(q))
-        if (areaFiltro) list = list.filter(f => String(f.area) === areaFiltro)
-        return list
-    }, [search, funcionarios, areaFiltro])
-
-    const presentes = useMemo(() => funcionariosFiltrados.filter(f => presentesIds.has(String(f.id))), [funcionariosFiltrados, presentesIds])
-    const ferias = useMemo(() => funcionariosFiltrados.filter(f =>!presentesIds.has(String(f.id))), [funcionariosFiltrados, presentesIds])
-
     if (funcionarioLogado &&!podeGerirRH &&!podeVerPonto) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center p-6">
@@ -252,24 +231,10 @@ export default function RHPage() {
                 </div>
                 <div className="w-full py-6">
                     <div className="w-full px-4 sm:px-0 mt-0">
-                        {(rhTab === 'presente' || rhTab === 'ferias') && (
-                            <div className="flex flex-col sm:flex-row gap-3 pb-3 mb-4">
-                                <div className="relative flex-1 sm:max-w-[320px]">
-                                    <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow" />
-                                </div>
-                                <select value={areaFiltro} onChange={e => setAreaFiltro(e.target.value)} className="h-[46px] px-4 bg-white border border-gray-200 rounded-full text-[14px] shadow focus:outline-none focus:ring-2 focus:ring-blue-100">
-                                    <option value="">Todas as áreas</option>
-                                    {areasEmpresa.map(a => <option key={a} value={a}>{a}</option>)}
-                                </select>
-                            </div>
-                        )}
                         <div id="tabela">
                             {loadingFunc? <p className="text-center py-16 bg-white rounded-[20px] border text-black/50">Carregando...</p> : (
                                 <>
-                                    {rhTab === 'presente' && <TabPresente funcionarios={funcionariosFiltrados} presentesIds={presentesIds} search={search} onEdit={handleOpenEditFunc} />}
-                                    
-                                    {rhTab === 'ferias' && <TabFerias funcionarios={ferias.length? ferias : funcionariosFiltrados} search={search} onEdit={handleOpenEditFunc} />}
+                                    {rhTab === 'presente' && <TabPresente funcionarios={funcionarios} presentesIds={presentesIds} onEdit={handleOpenEditFunc} />}
                                     {rhTab === 'ponto' && <TabPonto empresa={empresa} usuario={usuario} />}
                                     {rhTab === 'pedidos' && <TabPedidos />}
                                     {rhTab === 'recibos' && <TabRecibos />}

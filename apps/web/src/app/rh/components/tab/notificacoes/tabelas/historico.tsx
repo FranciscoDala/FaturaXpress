@@ -36,7 +36,7 @@ export default function HistoricoTab({ agrupado, onViewDoc, openSwipeId, setOpen
                 const ontem = new Date(hoje); ontem.setDate(hoje.getDate() - 1)
                 const isHoje = getDataChave(hoje.toISOString()) === dataChave
                 const isOntem = getDataChave(ontem.toISOString()) === dataChave
-                const label = isHoje ? `HOJE • ${formatarDataCurta(d.toISOString())}` : isOntem ? `ONTEM • ${formatarDataCurta(d.toISOString())}` : formatarDataCurta(d.toISOString()).toUpperCase()
+                const label = isHoje? `HOJE • ${formatarDataCurta(d.toISOString())}` : isOntem? `ONTEM • ${formatarDataCurta(d.toISOString())}` : formatarDataCurta(d.toISOString()).toUpperCase()
                 return (
                     <div key={dataChave}>
                         <div className="sticky top-0 z-10 bg-gray-100/90 backdrop-blur px-3 py-1.5 border-b">
@@ -45,11 +45,11 @@ export default function HistoricoTab({ agrupado, onViewDoc, openSwipeId, setOpen
                         {lista.map((n: any) => {
                             const style = getAlertStyle(n) as any
                             const nomeFunc = n.funcionario?.nome || n.funcionario_nome || 'Funcionário'
-                            const temAnexo = !!n.falta?.justificativa_anexo_url
+                            const temAnexo =!!n.falta?.justificativa_anexo_url
                             const faltaId = n.falta?.id
                             const tempo = formatarTempo(n.created_at)
                             const dataCurta = formatarDataCurta(n.updated_at || n.created_at)
-                            const isSwipe = !!setOpenSwipeId
+                            const isSwipe =!!setOpenSwipeId
 
                             const content = (
                                 <div className={`px-3 py-2.5 border-b last:border-b-0 ${style.bg} border-l-4 ${style.border}`}>
@@ -66,18 +66,16 @@ export default function HistoricoTab({ agrupado, onViewDoc, openSwipeId, setOpen
                                         </div>
 
                                         <div className="flex items-center gap-2 shrink-0 self-center">
-                                            {temAnexo && faltaId && onViewDoc && !isSwipe && (
+                                            {temAnexo && faltaId && onViewDoc &&!isSwipe && (
                                                 <button onClick={() => onViewDoc(faltaId)} className="w-9 h-9 rounded-full bg-black flex items-center justify-center text-white shadow-sm">
                                                     <Eye className="w-4 h-4" />
                                                 </button>
                                             )}
-                                            {isSwipe ? (
-                                                <button onClick={(e) => { e.stopPropagation(); setOpenSwipeId!(openSwipeId === n.notificacao_id ? null : n.notificacao_id) }} className="w-9 h-9 rounded-full bg-white border border-black/10 flex items-center justify-center shadow-sm">
+                                            {isSwipe? (
+                                                <button onClick={(e) => { e.stopPropagation(); setOpenSwipeId!(openSwipeId === n.notificacao_id? null : n.notificacao_id) }} className="w-9 h-9 rounded-full bg-white border border-black/10 flex items-center justify-center shadow-sm">
                                                     <Menu className="w-4 h-4 text-black" />
                                                 </button>
-                                            ) : (
-                                                <span className="text-[11px] text-black/50 whitespace-nowrap">{dataCurta}</span>
-                                            )}
+                                            ) : null}
                                         </div>
                                     </div>
                                 </div>
@@ -86,14 +84,13 @@ export default function HistoricoTab({ agrupado, onViewDoc, openSwipeId, setOpen
                             if (!isSwipe) return <div key={n.notificacao_id}>{content}</div>
 
                             return (
-                                <SwipeCard key={n.notificacao_id} id={n.notificacao_id} isOpen={openSwipeId === n.notificacao_id} setOpen={setOpenSwipeId!} swipeWidth={temAnexo ? 130 : 70} actions={
-                                    <div className="absolute inset-y-0 right-0 bg-gray-100 flex items-center justify-end px-3 gap-2" style={{ width: temAnexo ? 130 : 70 }}>
+                                <SwipeCard key={n.notificacao_id} id={n.notificacao_id} isOpen={openSwipeId === n.notificacao_id} setOpen={setOpenSwipeId!} swipeWidth={temAnexo? 70 : 0} actions={
+                                    <div className="absolute inset-y-0 right-0 bg-gray-100 flex items-center justify-end px-3 gap-2" style={{ width: temAnexo? 70 : 0 }}>
                                         {temAnexo && faltaId && onViewDoc && (
                                             <button onClick={() => onViewDoc(faltaId)} className="w-9 h-9 rounded-full bg-black flex items-center justify-center text-white">
                                                 <Eye className="w-4 h-4" />
                                             </button>
                                         )}
-                                        <span className="text-[11px] text-black/50 whitespace-nowrap">{dataCurta}</span>
                                     </div>
                                 }>
                                     {content}

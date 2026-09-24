@@ -1,4 +1,4 @@
-import { Eye, Pencil, CalendarOff, Lock, Search, ChevronDown, Check } from 'lucide-react'
+import { Eye, Pencil, CalendarOff, Lock, Search, ChevronDown, Check, Loader2 } from 'lucide-react'
 import { useMemo, useState, useEffect, useRef } from 'react'
 
 interface Funcionario {
@@ -15,6 +15,7 @@ interface Props {
     funcionarios: Funcionario[]
     presentesIds?: Set<string>
     search?: string
+    loading?: boolean
     onView?: (f: Funcionario) => void
     onEdit?: (f: Funcionario) => void
     onFerias?: (f: Funcionario) => void
@@ -33,7 +34,7 @@ function temPermissao(cargo: string, perm: string) {
     return perms.includes(perm) || perms.includes("*")
 }
 
-export default function TabPresente({ funcionarios, presentesIds, search: searchProp, onView, onEdit, onFerias }: Props) {
+export default function TabPresente({ funcionarios, presentesIds, search: searchProp, loading = false, onView, onEdit, onFerias }: Props) {
     const [searchInternal, setSearchInternal] = useState(searchProp || '')
     const [areaFiltro, setAreaFiltro] = useState('todos')
     const [openSelect, setOpenSelect] = useState(false)
@@ -104,11 +105,27 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
         return list
     }, [funcionarios, searchInternal, areaFiltro])
 
+    if (loading) {
+        return (
+            <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+                <div className="flex gap-4 overflow-x-auto pb-3 mb-4 [&::-webkit-scrollbar]:hidden">
+                    <div className="min-w-full md:min-w-[320px] md:max-w-[320px] h-[46px] bg-gray-100 animate-pulse rounded-full" />
+                    <div className="min-w-full md:min-w-[320px] md:max-w-[320px] h-[46px] bg-gray-100 animate-pulse rounded-full" />
+                </div>
+                <div className="bg-white rounded-[22px] border h-[300px] flex items-center justify-center shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+                    <Loader2 className="w-6 h-6 animate-spin text-black/40" />
+                </div>
+            </div>
+        )
+    }
+
     if (!podeVer) {
         return (
-            <div className="w-full px-4 sm:px-0 text-center py-16 bg-white rounded-[20px] border">
-                <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2" />
-                <p className="text-black/60 text-[13px]">Seu cargo <b>{cargoAtual}</b> não pode ver funcionários</p>
+            <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+                <div className="text-center py-16 bg-white rounded-[22px] border shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+                    <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2" />
+                    <p className="text-black/60 text-[13px]">Seu cargo <b>{cargoAtual}</b> não pode ver funcionários</p>
+                </div>
             </div>
         )
     }
@@ -140,7 +157,9 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
             )}
 
             {funcionariosFiltrados.length === 0? (
-                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhum funcionário {searchInternal || areaFiltro!== 'todos'? `para "${searchInternal || areaFiltro}"` : 'da empresa'}!</p>
+                <div className="text-center text-gray-500 py-16 bg-white rounded-[22px] border shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+                    Nenhum funcionário {searchInternal || areaFiltro!== 'todos'? `para "${searchInternal || areaFiltro}"` : 'da empresa'}!
+                </div>
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {funcionariosFiltrados.map((f) => (
@@ -175,7 +194,7 @@ function FuncionarioCard({
     const isPresente = presentesIds? presentesIds.has(String(func.id)) : true
 
     return (
-        <div className="w-full min-w-[calc(100vw-32px)] md:min-w-[320px] md:max-w-[320px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
+        <div className="w-full min-w-full md:min-w-[320px] md:max-w-[320px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
             <div className="relative h-[90px] bg-[#E6F0FF] shrink-0">
                 <div className="absolute top-3 right-3 px-3 py-1 rounded-full text-[12px] font-medium shadow-sm border max-w-[55%] truncate bg-white border-gray-200 text-gray-700">
                     {func.area}

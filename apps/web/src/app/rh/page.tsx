@@ -6,7 +6,7 @@ import GlobalAreas from '../../components/GlobalAreas'
 import ModalConfirmSair from '../dashboard/components/modals/modal_ConfirmSair'
 import ModalUsuario from './components/modals/modal_UsuarioView'
 import ModalFuncionario from './components/modals/modal_Funcionario'
-import TabPresente from './components/tab/presente/tab_func_presente'
+import TabPresente from './components/tab/funcioarios/tab_func_presente'
 import TabFerias from './components/tab/ferias/ferias'
 import TabPonto from './components/tab/ponto/ponto'
 import TabPedidos from './components/tab/pedido/pedidos'
@@ -58,6 +58,7 @@ export default function RHPage() {
     const [loadingFunc, setLoadingFunc] = useState(true)
     const [rhTab, setRhTab] = useState<RHTab>(init.tab)
     const [search, setSearch] = useState('')
+    const [areaFiltro, setAreaFiltro] = useState('') // <- ADICIONADO
     const [notifCount, setNotifCount] = useState(0)
 
     const logoUrlSafe = useMemo(() => {
@@ -80,7 +81,7 @@ export default function RHPage() {
     const fetchMe = useCallback(async () => {
         try {
             const tipo = localStorage.getItem("login_tipo") || "company"
-            const url = tipo === "funcionario" ? "/api/auth/me-funcionario" : "/api/auth/me"
+            const url = tipo === "funcionario"? "/api/auth/me-funcionario" : "/api/auth/me"
             const r = await api.get(url)
             const func = r.data.funcionario || null
             let compRaw = r.data.company || r.data.empresa || r.data.company_data || r.data || null
@@ -89,11 +90,11 @@ export default function RHPage() {
                 localStorage.setItem("funcionario", JSON.stringify(func))
             }
             if (tipo === "funcionario") {
-                const incompleta = !compRaw || (!compRaw.telefone && !compRaw.phone && !compRaw.endereco && !compRaw.address)
+                const incompleta =!compRaw || (!compRaw.telefone &&!compRaw.phone &&!compRaw.endereco &&!compRaw.address)
                 if (incompleta) {
                     try {
                         const cached = JSON.parse(localStorage.getItem("empresa") || "null")
-                        if (cached) { compRaw = { ...cached, ...(compRaw || {}) } }
+                        if (cached) { compRaw = {...cached,...(compRaw || {}) } }
                     } catch { }
                 }
             } else {
@@ -113,22 +114,22 @@ export default function RHPage() {
         setLoadingFunc(true)
         try {
             const { data } = await api.get('/api/funcionarios')
-            setFuncionarios(data.map((f: any) => ({ ...f, area: f.area_principal?.nome || f.area || 'Geral', cargo: f.cargo || 'rh', status: f.status || (f.ativo === false ? 'ferias' : 'ativo'), telefone: f.telefone || '', email: f.email || '' })))
+            setFuncionarios(data.map((f: any) => ({...f, area: f.area_principal?.nome || f.area || 'Geral', cargo: f.cargo || 'rh', status: f.status || (f.ativo === false? 'ferias' : 'ativo'), telefone: f.telefone || '', email: f.email || '' })))
         } catch { toast.error('Erro ao carregar funcionários') } finally { setLoadingFunc(false) }
     }, [])
 
     const fetchPontoHoje = useCallback(async () => {
         try {
             const r = await api.get(`/api/rh/ponto?data=${isoToday()}`)
-            setPontoHoje(Array.isArray(r.data) ? r.data : (r.data.items || []))
+            setPontoHoje(Array.isArray(r.data)? r.data : (r.data.items || []))
         } catch { setPontoHoje([]) }
     }, [])
 
     const fetchNotifCount = useCallback(async () => {
         try {
-            const area = cargoAtual === 'admin' ? 'admin' : 'rh'
+            const area = cargoAtual === 'admin'? 'admin' : 'rh'
             const { data } = await api.get(`/api/rh/notificacoes?area=${area}&status=pendente`)
-            const total = Array.isArray(data) ? data.length : 0
+            const total = Array.isArray(data)? data.length : 0
             setNotifCount(total)
             window.dispatchEvent(new CustomEvent('notificacoes-count', { detail: { count: total } }))
         } catch { setNotifCount(0) }
@@ -170,16 +171,26 @@ export default function RHPage() {
     const totalFuncionarios = funcionarios.length
     const totalPresentesHoje = presentesIds.size
 
+    // AREAS DA EMPRESA - puxa das areas que a empresa definiu
+    const areasEmpresa = useMemo(() => {
+        const s = new Set<string>()
+        funcionarios.forEach((f: any) => { if (f.area) s.add(String(f.area)) })
+        return Array.from(s).sort()
+    }, [funcionarios])
+
+    // AGORA FILTRA POR BUSCA + AREA - TODOS DA EMPRESA
     const funcionariosFiltrados = useMemo(() => {
+        let list = funcionarios
         const q = search.toLowerCase().trim()
-        if (!q) return funcionarios
-        return funcionarios.filter(f => f.nome?.toLowerCase().includes(q) || f.cargo?.toLowerCase().includes(q) || String(f.area).toLowerCase().includes(q))
-    }, [search, funcionarios])
+        if (q) list = list.filter(f => f.nome?.toLowerCase().includes(q) || f.cargo?.toLowerCase().includes(q) || String(f.area).toLowerCase().includes(q))
+        if (areaFiltro) list = list.filter(f => String(f.area) === areaFiltro)
+        return list
+    }, [search, funcionarios, areaFiltro])
 
     const presentes = useMemo(() => funcionariosFiltrados.filter(f => presentesIds.has(String(f.id))), [funcionariosFiltrados, presentesIds])
-    const ferias = useMemo(() => funcionariosFiltrados.filter(f => !presentesIds.has(String(f.id))), [funcionariosFiltrados, presentesIds])
+    const ferias = useMemo(() => funcionariosFiltrados.filter(f =>!presentesIds.has(String(f.id))), [funcionariosFiltrados, presentesIds])
 
-    if (funcionarioLogado && !podeGerirRH && !podeVerPonto) {
+    if (funcionarioLogado &&!podeGerirRH &&!podeVerPonto) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center p-6">
                 <div className="max-w-[400px] w-full bg-white border rounded-[24px] p-8 text-center shadow-lg">
@@ -226,11 +237,11 @@ export default function RHPage() {
                                 <div className="flex items-center gap-3 shrink-0 pl-2"><div className="relative"><div className="absolute -top-3 -right-2 z-10"><span className="text-[8px] font-bold tracking-wide bg-white border border-yellow-200 text-yellow-700 px-1.5 py-[1px] rounded-full shadow-sm">{planInfo.label}</span></div><button onClick={() => navigate('/assinatura')} className="w-10 h-10 rounded-full bg-white border border-yellow-200 shadow flex items-center justify-center text-[#f59e0b] hover:bg-yellow-50 transition"><Crown className="w-[18px] h-[18px]" /></button></div><button onClick={handleLogout} className="w-10 h-10 rounded-full bg-[#FF3B30] border border-[#FF3B30] shadow flex items-center justify-center text-white hover:bg-[#e6352b] transition"><Power className="w-[18px] h-[18px]" /></button></div>
                             </div>
                             <div className="mt-5 flex max-w-[520px] w-full bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden shadow-sm">
-                                <button onClick={() => setRhTab('presente')} className={`flex-1 py-2.5 flex flex-col justify-center items-center text-center border-r border-gray-200 transition ${rhTab === 'presente' ? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
-                                    <p className="text-[15px] font-bold leading-none">{loadingFunc ? '...' : totalFuncionarios}</p>
+                                <button onClick={() => setRhTab('presente')} className={`flex-1 py-2.5 flex flex-col justify-center items-center text-center border-r border-gray-200 transition ${rhTab === 'presente'? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
+                                    <p className="text-[15px] font-bold leading-none">{loadingFunc? '...' : totalFuncionarios}</p>
                                     <p className="text-[11px] text-gray-500 mt-[2px]">Funcionários</p>
                                 </button>
-                                <button onClick={() => setRhTab('ponto')} className={`flex-1 py-2.5 flex flex-col justify-center items-center text-center transition ${rhTab === 'ponto' ? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
+                                <button onClick={() => setRhTab('ponto')} className={`flex-1 py-2.5 flex flex-col justify-center items-center text-center transition ${rhTab === 'ponto'? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
                                     <p className="text-[15px] font-bold leading-none">{totalPresentesHoje}</p>
                                     <p className="text-[11px] text-gray-500 mt-[2px]">Presentes</p>
                                 </button>
@@ -242,18 +253,23 @@ export default function RHPage() {
                 <div className="w-full py-6">
                     <div className="w-full px-4 sm:px-0 mt-0">
                         {(rhTab === 'presente' || rhTab === 'ferias') && (
-                            <div className="flex gap-4 overflow-x-auto pb-3 mb-4 [&::-webkit-scrollbar]:hidden">
-                                <div className="relative min-w-full md:min-w-[320px] md:max-w-[320px] flex-shrink-0">
+                            <div className="flex flex-col sm:flex-row gap-3 pb-3 mb-4">
+                                <div className="relative flex-1 sm:max-w-[320px]">
                                     <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
                                     <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow" />
                                 </div>
+                                <select value={areaFiltro} onChange={e => setAreaFiltro(e.target.value)} className="h-[46px] px-4 bg-white border border-gray-200 rounded-full text-[14px] shadow focus:outline-none focus:ring-2 focus:ring-blue-100">
+                                    <option value="">Todas as áreas</option>
+                                    {areasEmpresa.map(a => <option key={a} value={a}>{a}</option>)}
+                                </select>
                             </div>
                         )}
                         <div id="tabela">
-                            {loadingFunc ? <p className="text-center py-16 bg-white rounded-[20px] border text-black/50">Carregando...</p> : (
+                            {loadingFunc? <p className="text-center py-16 bg-white rounded-[20px] border text-black/50">Carregando...</p> : (
                                 <>
-                                    {rhTab === 'presente' && <TabPresente funcionarios={presentes} search={search} onEdit={handleOpenEditFunc} />}
-                                    {rhTab === 'ferias' && <TabFerias funcionarios={presentes.length ? presentes : funcionariosFiltrados} search={search} onEdit={handleOpenEditFunc} />}
+                                    {rhTab === 'presente' && <TabPresente funcionarios={funcionariosFiltrados} presentesIds={presentesIds} search={search} onEdit={handleOpenEditFunc} />}
+                                    
+                                    {rhTab === 'ferias' && <TabFerias funcionarios={ferias.length? ferias : funcionariosFiltrados} search={search} onEdit={handleOpenEditFunc} />}
                                     {rhTab === 'ponto' && <TabPonto empresa={empresa} usuario={usuario} />}
                                     {rhTab === 'pedidos' && <TabPedidos />}
                                     {rhTab === 'recibos' && <TabRecibos />}

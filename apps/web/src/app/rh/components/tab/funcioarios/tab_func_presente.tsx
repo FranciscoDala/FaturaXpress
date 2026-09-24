@@ -1,5 +1,5 @@
-import { Eye, Pencil, CalendarOff, Lock } from 'lucide-react'
-import { useMemo } from 'react'
+import { Eye, Pencil, CalendarOff, Lock, Search } from 'lucide-react'
+import { useMemo, useState, useEffect } from 'react'
 
 interface Funcionario {
     id: string
@@ -13,7 +13,8 @@ interface Funcionario {
 
 interface Props {
     funcionarios: Funcionario[]
-    search: string
+    presentesIds?: Set<string>
+    search?: string // <- ADICIONADO PRA BATER COM A PAGE
     onView?: (f: Funcionario) => void
     onEdit?: (f: Funcionario) => void
     onFerias?: (f: Funcionario) => void
@@ -32,7 +33,15 @@ function temPermissao(cargo: string, perm: string) {
     return perms.includes(perm) || perms.includes("*")
 }
 
-export default function TabPresente({ funcionarios, search, onView, onEdit, onFerias }: Props) {
+export default function TabPresente({ funcionarios, presentesIds, search: searchProp, onView, onEdit, onFerias }: Props) {
+    const [searchInternal, setSearchInternal] = useState(searchProp || '')
+    const [areaFiltro, setAreaFiltro] = useState('')
+
+    // sincroniza se a page mandar search de fora
+    useEffect(() => {
+        if (searchProp!== undefined) setSearchInternal(searchProp)
+    }, [searchProp])
+
     const funcionarioLogado = useMemo(() => {
         try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
     }, [])
@@ -42,32 +51,62 @@ export default function TabPresente({ funcionarios, search, onView, onEdit, onFe
     const podeEditar = funcionarioLogado? temPermissao(cargoAtual, 'editar_funcionarios') || temPermissao(cargoAtual, 'gerir_funcionarios') || cargoAtual === 'admin' : true
     const podeFerias = funcionarioLogado? temPermissao(cargoAtual, 'colocar_ferias') || temPermissao(cargoAtual, 'gerir_funcionarios') || cargoAtual === 'admin' : true
 
+    const areasEmpresa = useMemo(() => {
+        const s = new Set<string>()
+        funcionarios.forEach(f => { if (f.area) s.add(String(f.area)) })
+        return Array.from(s).sort()
+    }, [funcionarios])
+
+    const funcionariosFiltrados = useMemo(() => {
+        let list = funcionarios
+        const q = searchInternal.toLowerCase().trim()
+        if (q) {
+            list = list.filter(f => f.nome?.toLowerCase().includes(q) || f.cargo?.toLowerCase().includes(q) || String(f.area).toLowerCase().includes(q))
+        }
+        if (areaFiltro) {
+            list = list.filter(f => String(f.area) === areaFiltro)
+        }
+        return list
+    }, [funcionarios, searchInternal, areaFiltro])
+
     if (!podeVer) {
         return (
             <div className="text-center py-16 bg-white rounded-[20px] border">
-                <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2"/>
-                <p className="text-black/60 text-[13px]">Seu cargo <b>{cargoAtual}</b> não pode ver presentes</p>
+                <Lock className="w-8 h-8 mx-auto text-gray-300 mb-2" />
+                <p className="text-black/60 text-[13px]">Seu cargo <b>{cargoAtual}</b> não pode ver funcionários</p>
             </div>
         )
     }
 
-    if (funcionarios.length === 0) {
-        return <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhum funcionário presente {search? `para "${search}"` : ''}!</p>
-    }
-
     return (
         <div className="w-full">
-            <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                {funcionarios.map((f) => (
-                    <FuncionarioCard key={f.id} func={f} onView={onView} onEdit={onEdit} onFerias={onFerias} podeEditar={podeEditar} podeFerias={podeFerias} cargoAtual={cargoAtual} />
-                ))}
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                <div className="relative flex-1 sm:max-w-[320px]">
+                    <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <input value={searchInternal} onChange={e => setSearchInternal(e.target.value)} placeholder="Buscar funcionário..." className="w-full h-[46px] pl-11 pr-4 bg-white border border-gray-200 rounded-full text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-100 shadow" />
+                </div>
+                <select value={areaFiltro} onChange={e => setAreaFiltro(e.target.value)} className="h-[46px] px-4 bg-white border border-gray-200 rounded-full text-[14px] shadow focus:outline-none focus:ring-2 focus:ring-blue-100">
+                    <option value="">Todas as áreas</option>
+                    {areasEmpresa.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
             </div>
+
+            {funcionariosFiltrados.length === 0? (
+                <p className="text-center text-gray-500 py-16 bg-white rounded-[20px] border">Nenhum funcionário {searchInternal || areaFiltro? `para "${searchInternal || areaFiltro}"` : 'da empresa'}!</p>
+            ) : (
+                <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                    {funcionariosFiltrados.map((f) => (
+                        <FuncionarioCard key={f.id} func={f} presentesIds={presentesIds} onView={onView} onEdit={onEdit} onFerias={onFerias} podeEditar={podeEditar} podeFerias={podeFerias} cargoAtual={cargoAtual} />
+                    ))}
+                </div>
+            )}
         </div>
     )
 }
 
 function FuncionarioCard({
     func,
+    presentesIds,
     onView,
     onEdit,
     onFerias,
@@ -76,6 +115,7 @@ function FuncionarioCard({
     cargoAtual
 }: {
     func: Funcionario
+    presentesIds?: Set<string>
     onView?: Props['onView']
     onEdit?: Props['onEdit']
     onFerias?: Props['onFerias']
@@ -84,6 +124,7 @@ function FuncionarioCard({
     cargoAtual: string
 }) {
     const initials = func.nome.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    const isPresente = presentesIds? presentesIds.has(String(func.id)) : true
 
     return (
         <div className="min-w-full md:min-w-[320px] md:max-w-[320px] max-w-[320px] snap-center flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col">
@@ -123,8 +164,8 @@ function FuncionarioCard({
                 </div>
 
                 <div className="mt-3 min-w-0">
-                    <span className="inline-flex items-center max-w-full truncate px-2.5 py-[3px] rounded-full border border-green-200 bg-green-50 text-[10px] font-medium text-green-700 leading-tight">
-                        Presente • Ativo
+                    <span className={`inline-flex items-center max-w-full truncate px-2.5 py-[3px] rounded-full border text-[10px] font-medium leading-tight ${isPresente? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
+                        {isPresente? 'Presente • Ativo' : 'Ausente • Hoje'}
                     </span>
                 </div>
             </div>
@@ -133,20 +174,10 @@ function FuncionarioCard({
                 <button onClick={() => onView?.(func)} className="py-3.5 flex justify-center hover:bg-gray-50 transition group" title="Ver">
                     <Eye className="w-4 h-4 text-gray-600 group-hover:text-blue-600" />
                 </button>
-
-                <button
-                    onClick={() => podeEditar && onEdit?.(func)}
-                    disabled={!podeEditar}
-                    className={`py-3.5 flex justify-center border-x border-gray-100 transition group ${podeEditar? 'hover:bg-gray-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}
-                    title={podeEditar? "Editar" : "Só admin/RH"}>
+                <button onClick={() => podeEditar && onEdit?.(func)} disabled={!podeEditar} className={`py-3.5 flex justify-center border-x border-gray-100 transition group ${podeEditar? 'hover:bg-gray-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`} title={podeEditar? "Editar" : "Só admin/RH"}>
                     <Pencil className={`w-4 h-4 ${podeEditar? 'text-gray-600 group-hover:text-blue-600' : 'text-gray-400'}`} />
                 </button>
-
-                <button
-                    onClick={() => podeFerias && onFerias?.(func)}
-                    disabled={!podeFerias}
-                    className={`py-3.5 flex justify-center transition group ${podeFerias? 'hover:bg-gray-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}
-                    title={podeFerias? "Colocar de férias" : "Só admin/RH"}>
+                <button onClick={() => podeFerias && onFerias?.(func)} disabled={!podeFerias} className={`py-3.5 flex justify-center transition group ${podeFerias? 'hover:bg-gray-50' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`} title={podeFerias? "Colocar de férias" : "Só admin/RH"}>
                     <CalendarOff className={`w-4 h-4 ${podeFerias? 'text-gray-600 group-hover:text-yellow-600' : 'text-gray-400'}`} />
                 </button>
             </div>

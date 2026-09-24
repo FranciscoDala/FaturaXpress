@@ -54,12 +54,12 @@ export default function HistoricoTab({ agrupado, onViewDoc, openSwipeId, setOpen
                             const content = (
                                 <div className={`px-3 py-2.5 border-b last:border-b-0 ${style.bg} border-l-4 ${style.border}`}>
                                     <div className="flex justify-between gap-3 items-start">
-                                        <div className="min-w-0 flex-1 leading-tight">
+                                        <div className="min-w-0 flex-1 leading-tight">Justificação de falta de •
                                             <NomeComHora nome={nomeFunc} tempo={tempo} data={dataCurta} />
                                             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                                                 <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-bold leading-none ${style.badge} break-words whitespace-normal`}>{style.label}</span>
                                             </div>
-                                            <p className="text-[11px] text-black/60 mt-1 break-words">Por: {style.aprovador}</p>
+                                            <p className="text-[11px] text-black/60 mt-1 break-words">Responsável: {style.aprovador}</p>
                                         </div>
 
                                         <div className="flex items-center gap-2 shrink-0 self-center">

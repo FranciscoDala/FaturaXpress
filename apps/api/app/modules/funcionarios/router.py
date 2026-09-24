@@ -35,25 +35,34 @@ rh_router = APIRouter(prefix="/rh", tags=["RH - Ponto"])
 upload_router = APIRouter(prefix="/upload", tags=["Upload"])
 
 def _is_admin_principal(lancado_uuid: uuid.UUID | None, company_id: uuid.UUID, db: Session) -> bool:
-    """Dono da empresa (company_id) ou funcionario com cargo admin = admin principal"""
     if lancado_uuid is None:
-        return True # token da empresa sem id enviado = dono
+        return True
     if lancado_uuid == company_id:
         return True
     solicitante = db.query(Funcionario).filter(Funcionario.id == lancado_uuid).first()
     if solicitante and solicitante.cargo == 'admin':
         return True
     if solicitante is None:
-        # ID não está em funcionarios = provavelmente conta empresa / owner
         return True
     return False
+
+def _normaliza_id_aprovador(possivel_id, company_id):
+    """Se for company_id ou invalido, retorna None para não quebrar FK"""
+    if not possivel_id:
+        return None
+    try:
+        uid = uuid.UUID(str(possivel_id))
+        if uid == company_id:
+            return None
+        return uid
+    except:
+        return None
 
 # ---------- UPLOAD ----------
 @upload_router.post("/falta")
 async def upload_falta(file: UploadFile = File(...), company_id: uuid.UUID = Depends(get_current_company_id)):
     contents = await file.read()
     is_pdf = contents[:4] == b'%PDF' or (file.filename or "").lower().endswith(".pdf")
-
     res = cloudinary.uploader.upload(
         io.BytesIO(contents),
         folder=f"faltas/{company_id}",
@@ -85,35 +94,28 @@ def falta_get_anexo(
         raw_token = auth_header.split(" ", 1)[1].strip()
     elif token:
         raw_token = token
-
     if not raw_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-
     try:
         jwt.decode(raw_token, settings.SECRET_KEY, algorithms=["HS256"])
     except Exception as e:
         logger.error(f"[ANEXO] token inválido {e}")
         raise HTTPException(status_code=401, detail="Token inválido")
-
     falta_any = db.query(PedidoRH).filter(PedidoRH.id == falta_id).first()
     if not falta_any or not falta_any.justificativa_anexo_url:
         raise HTTPException(status_code=404, detail="Falta sem anexo")
-
     stored_url: str = str(falta_any.justificativa_anexo_url).strip()
     if not stored_url:
         raise HTTPException(status_code=404, detail="Falta sem anexo")
-
     try:
         if "cloudinary.com" not in stored_url or "/upload/" not in stored_url:
             raise ValueError("URL de anexo inválida")
-
         is_raw = "/raw/upload/" in stored_url
         is_pdf = is_raw or stored_url.lower().split("?", 1)[0].endswith(".pdf")
         public_id = stored_url.split("/upload/", 1)[1].split("?", 1)[0]
         public_id = re.sub(r"^v\d+/", "", public_id)
         public_id = re.sub(r"^s--[A-Za-z0-9_-]+--/", "", public_id)
         public_id = public_id.rsplit(".", 1)[0]
-
         if is_raw:
             signed_url = cloudinary.utils.private_download_url(
                 public_id,
@@ -124,7 +126,6 @@ def falta_get_anexo(
             )
         else:
             signed_url = stored_url
-
         r = requests.get(signed_url, timeout=30)
         r.raise_for_status()
         content = r.content
@@ -141,7 +142,6 @@ def falta_get_anexo(
         else:
             logger.error(f"[ANEXO] conteúdo inválido: status={r.status_code} ct={content_type} url={stored_url}")
             raise ValueError("Cloudinary não devolveu um PDF ou imagem válido")
-
         return Response(
             content=content,
             media_type=media_type,
@@ -255,18 +255,15 @@ def ponto_bater(payload: dict, request: Request, db: Session = Depends(get_db), 
     if not func:
         raise HTTPException(404, "Funcionário não encontrado")
     ip = request.client.host if request.client else None
-    lancado_uuid = None
-    is_admin = False
-    if lancado_por_id:
-        try:
-            lancado_uuid = uuid.UUID(str(lancado_por_id))
-            is_admin = _is_admin_principal(lancado_uuid, company_id, db)
-        except:
-            is_admin = True
-    else:
-        # sem id = conta empresa
-        is_admin = True
+    lancado_uuid = _normaliza_id_aprovador(lancado_por_id, company_id)
+    is_admin = _is_admin_principal(lancado_uuid if lancado_uuid else company_id, company_id, db) if lancado_por_id else True
+    # se veio company_id, is_admin True e lancado_uuid None
+    if lancado_por_id and str(lancado_por_id) == str(company_id):
         lancado_uuid = None
+        is_admin = True
+    elif not lancado_por_id:
+        lancado_uuid = None
+        is_admin = True
     return func_service.bater_ponto_rh(db, company_id, fid, tipo, ip, data_str, motivo_retroativo, lancado_uuid, is_admin=is_admin)
 
 @rh_router.post("/falta")
@@ -284,14 +281,10 @@ def falta_manual(payload: dict, db: Session = Depends(get_db), company_id: uuid.
         fid = uuid.UUID(funcionario_id)
     except:
         raise HTTPException(400, "funcionario_id inválido")
-    lancado_uuid = None
-    is_admin = False
-    if lancado_por_id:
-        try:
-            lancado_uuid = uuid.UUID(str(lancado_por_id))
-            is_admin = _is_admin_principal(lancado_uuid, company_id, db)
-        except:
-            is_admin = True
+    lancado_uuid = _normaliza_id_aprovador(lancado_por_id, company_id)
+    is_admin = True
+    if lancado_uuid:
+        is_admin = _is_admin_principal(lancado_uuid, company_id, db)
     else:
         is_admin = True
     return func_service.marcar_falta_manual(db, company_id, fid, motivo, categoria, observacao, data_str, motivo_retroativo, lancado_uuid, is_admin=is_admin)
@@ -304,22 +297,13 @@ def falta_justificar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(g
         obs = payload.get("observacao")
         anexo_url = payload.get("anexo_url")
         justificado_por_id = payload.get("justificado_por_id")
-
-        jid = None
-        if justificado_por_id:
-            try:
-                jid = uuid.UUID(str(justificado_por_id))
-            except:
-                jid = None
-
-        # CORRIGIDO: dono da empresa pode justificar qualquer falta
+        jid = _normaliza_id_aprovador(justificado_por_id, company_id)
         if jid and jid!= company_id:
             solicitante = db.query(Funcionario).filter(Funcionario.id == jid).first()
             if solicitante:
                 falta_check = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
                 if falta_check and jid!= falta_check.funcionario_id and solicitante.cargo not in ["rh", "admin"]:
                     raise HTTPException(403, "Só pode justificar suas próprias faltas")
-
         return func_service.justificar_falta(db, company_id, falta_id, tipo, obs, anexo_url, jid)
     except HTTPException:
         raise
@@ -332,21 +316,22 @@ def falta_justificar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(g
 def falta_aprovar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     aprovado_por_id = payload.get("aprovado_por_id")
     obs = payload.get("observacao")
-    try:
-        aid = uuid.UUID(str(aprovado_por_id)) if aprovado_por_id else None
-    except:
-        aid = None
-    # dono da empresa pode aprovar tudo, sem checagem de cargo
+    aid = _normaliza_id_aprovador(aprovado_por_id, company_id)
+    if obs and aid is None:
+        obs = f"[Dono/Admin Principal] {obs}"
+    elif aid is None:
+        obs = "[Aprovado pelo Dono/Admin Principal]"
     return func_service.aprovar_falta(db, company_id, falta_id, aid, obs)
 
 @rh_router.post("/falta/{falta_id}/rejeitar")
 def falta_rejeitar(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     aprovado_por_id = payload.get("aprovado_por_id")
     obs = payload.get("observacao")
-    try:
-        aid = uuid.UUID(str(aprovado_por_id)) if aprovado_por_id else None
-    except:
-        aid = None
+    aid = _normaliza_id_aprovador(aprovado_por_id, company_id)
+    if obs and aid is None:
+        obs = f"[Dono/Admin Principal] {obs}"
+    elif aid is None:
+        obs = "[Rejeitado pelo Dono/Admin Principal]"
     return func_service.rejeitar_falta(db, company_id, falta_id, aid, obs)
 
 @rh_router.delete("/falta/{falta_id}")
@@ -356,10 +341,7 @@ def falta_remover(falta_id: uuid.UUID, db: Session = Depends(get_db), company_id
 @rh_router.post("/falta/{falta_id}/encaminhar-admin")
 def falta_encaminhar_admin(falta_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     encaminhado_por_id = payload.get("encaminhado_por_id")
-    try:
-        eid = uuid.UUID(str(encaminhado_por_id)) if encaminhado_por_id else None
-    except:
-        eid = None
+    eid = _normaliza_id_aprovador(encaminhado_por_id, company_id)
     return func_service.encaminhar_falta_para_admin(db, company_id, falta_id, eid)
 
 @rh_router.get("/notificacoes")
@@ -377,15 +359,11 @@ def notificacao_lida(notificacao_id: uuid.UUID, db: Session = Depends(get_db), c
     db.commit()
     return {"ok": True}
 
-# --- ATRASOS - BLOCO UNICO SEM DUPLICIDADE ---
 @rh_router.post("/atrasos/{funcionario_id}/aplicar")
 @rh_router.post("/atrasos/{funcionario_id}/aplicar-falta")
 def atraso_aplicar(funcionario_id: uuid.UUID, payload: dict = {}, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     aplicado_por_id = payload.get("aplicado_por_id")
-    try:
-        aid = uuid.UUID(str(aplicado_por_id)) if aplicado_por_id else None
-    except:
-        aid = None
+    aid = _normaliza_id_aprovador(aplicado_por_id, company_id)
     return func_service.aplicar_falta_por_atraso(db, company_id, funcionario_id, aid)
 
 @rh_router.post("/atrasos/{funcionario_id}/ignorar")
@@ -397,27 +375,17 @@ def atraso_ignorar(
     company_id: uuid.UUID = Depends(get_current_company_id)
 ):
     ignorado_por_id = payload.get("ignorado_por_id") or payload.get("aplicado_por_id")
-    try:
-        iid = uuid.UUID(str(ignorado_por_id)) if ignorado_por_id else None
-    except:
-        iid = None
+    iid = _normaliza_id_aprovador(ignorado_por_id, company_id)
     return func_service.ignorar_atrasos(db, company_id, funcionario_id, iid)
 
 @rh_router.post("/atrasos/{funcionario_id}/encaminhar-admin")
 def atraso_encaminhar(funcionario_id: uuid.UUID, payload: dict, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     encaminhado_por_id = payload.get("encaminhado_por_id")
-    try:
-        eid = uuid.UUID(str(encaminhado_por_id)) if encaminhado_por_id else None
-    except:
-        eid = None
+    eid = _normaliza_id_aprovador(encaminhado_por_id, company_id)
     return func_service.encaminhar_atraso_para_admin(db, company_id, funcionario_id, eid)
 
-# --- FALTA IGNORAR ---
 @rh_router.post("/falta/{falta_id}/ignorar")
 def falta_ignorar(falta_id: uuid.UUID, payload: dict = {}, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     ignorado_por_id = payload.get("ignorado_por_id") or payload.get("aprovado_por_id")
-    try:
-        iid = uuid.UUID(str(ignorado_por_id)) if ignorado_por_id else None
-    except:
-        iid = None
+    iid = _normaliza_id_aprovador(ignorado_por_id, company_id)
     return func_service.ignorar_falta(db, company_id, falta_id, iid)

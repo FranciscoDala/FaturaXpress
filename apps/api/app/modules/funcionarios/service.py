@@ -23,9 +23,20 @@ def validar_janela_edicao(data_alvo: date, is_admin: bool = False):
     if diff > limite:
         raise HTTPException(403, f"Edição bloqueada: só até {limite+1} dias. Tentou {diff} dias atrás.")
 
+def _sanitiza_por_id(por_id: uuid.UUID | None, company_id: uuid.UUID) -> uuid.UUID | None:
+    """FIX PRINCIPAL: Se por_id == company_id (conta empresa), retorna None pra não quebrar FK"""
+    if not por_id:
+        return None
+    try:
+        if por_id == company_id:
+            return None
+    except:
+        pass
+    return por_id
+
 def _get_nome_lancador(db: Session, lancado_por_id):
     if not lancado_por_id:
-        return None
+        return "Dono / Admin Principal"
     f = db.query(Funcionario).filter(Funcionario.id == lancado_por_id).first()
     if f:
         return f.nome
@@ -250,12 +261,13 @@ def bater_ponto_rh(db: Session, company_id: uuid.UUID, funcionario_alvo_id: uuid
     if is_retro:
         dt_luanda = datetime(data_alvo.year, data_alvo.month, data_alvo.day, 12, 0, 0, tzinfo=ZoneInfo("Africa/Luanda"))
         timestamp_final = dt_luanda.astimezone(timezone.utc)
+    lancado_por_id_safe = _sanitiza_por_id(lancado_por_id, company_id)
     ponto = Ponto(
         id=uuid.uuid4(), company_id=company_id, funcionario_id=funcionario_alvo_id,
         data=data_alvo, tipo=tipo, timestamp=timestamp_final, dentro_raio=True, distancia_m=0,
         dispositivo="rh:web", ip=ip, justificado=True, atraso_min=atraso,
         is_retroativo=is_retro, motivo_retroativo=motivo_retroativo,
-        lancado_por_id=lancado_por_id, lancado_em=agora_utc if is_retro else None
+        lancado_por_id=lancado_por_id_safe, lancado_em=agora_utc if is_retro else None
     )
     db.add(ponto); db.commit(); db.refresh(ponto)
     notificacao_gerada = None
@@ -319,48 +331,38 @@ def marcar_falta_manual(db: Session, company_id: uuid.UUID, funcionario_id: uuid
         raise HTTPException(400, f"Já existe falta em {data_alvo}")
     texto = f"{categoria.upper()} | {observacao or motivo}"
     agora_utc = datetime.now(timezone.utc)
+    lancado_por_id_safe = _sanitiza_por_id(lancado_por_id, company_id)
     falta = PedidoRH(
         id=uuid.uuid4(), company_id=company_id, funcionario_id=funcionario_id,
         tipo="falta_justificada", data_inicio=data_alvo, data_fim=data_alvo,
         dias_uteis=1, motivo=texto, status=StatusPedido.pendente.value,
         is_retroativo=is_retro, motivo_retroativo=motivo_retroativo,
-        lancado_por_id=lancado_por_id, lancado_em=agora_utc if is_retro else None,
+        lancado_por_id=lancado_por_id_safe, lancado_em=agora_utc if is_retro else None,
         dono_atual="rh", area_origem="rh"
     )
     db.add(falta); db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
 
-# --- JUSTIFICAR CORRIGIDO - PERMITE DIAS DIFERENTES ---
 def justificar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, tipo: str, obs: str | None, anexo_url: str | None, justificado_por_id: uuid.UUID | None):
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
     if not falta:
         raise HTTPException(404, "Falta não encontrada")
-
     status_atual = str(falta.status).split(".")[-1] if falta.status else ""
-
-    # só bloqueia se ESSA falta já está em análise
     if status_atual in ["pendente_justificacao", "aguardando_admin", "encaminhado_admin"]:
         raise HTTPException(400, "Essa justificação já está em análise.")
-
-    # só bloqueia reenvio da MESMA falta
     if falta.justificativa_anexo_url and status_atual!= "rejeitado":
         raise HTTPException(400, "Falta já justificada. Aguarde aprovação.")
-
-    # REMOVIDO o bloqueio global de "tem_pendente" de outro dia
-    # Agora dia 20 pendente não bloqueia dia 24
-
+    justificado_por_id_safe = _sanitiza_por_id(justificado_por_id, company_id)
     falta.justificativa_tipo = tipo
     falta.justificativa_obs = obs
     falta.justificativa_anexo_url = anexo_url
-    falta.justificado_por_id = justificado_por_id
+    falta.justificado_por_id = justificado_por_id_safe
     falta.justificado_em = datetime.now(timezone.utc)
     falta.status = "pendente_justificacao"
     falta.dono_atual = "rh"
     falta.area_origem = "rh"
-
     db.commit()
     db.refresh(falta)
-
     try:
         existe_notif = db.query(Notificacao).filter(
             Notificacao.company_id==company_id,
@@ -385,19 +387,21 @@ def justificar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, ti
         db.rollback()
         print(f"[JUSTIFICAR] Erro notificacao ignorado: {e}")
         db.commit()
-
     return _falta_to_dict(db, falta)
 
 def aprovar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, aprovado_por_id: uuid.UUID | None, observacao: str | None = None):
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
     if not falta:
         raise HTTPException(404, "Falta não encontrada")
+    aprovado_por_id_safe = _sanitiza_por_id(aprovado_por_id, company_id)
     falta.status = "justificado"
     falta.abonada = True
-    falta.aprovado_por_id = aprovado_por_id
+    falta.aprovado_por_id = aprovado_por_id_safe
     falta.aprovado_em = datetime.now(timezone.utc)
     if observacao:
         falta.observacao_gestor = observacao
+    elif aprovado_por_id_safe is None:
+        falta.observacao_gestor = "Aprovado pelo Dono / Admin Principal"
     db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==falta_id, Notificacao.tipo=="falta", Notificacao.status=="pendente").update({"status":"aprovada", "lida":True, "updated_at": datetime.now(timezone.utc)}, synchronize_session=False)
     db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
@@ -406,12 +410,15 @@ def rejeitar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, apro
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
     if not falta:
         raise HTTPException(404, "Falta não encontrada")
+    aprovado_por_id_safe = _sanitiza_por_id(aprovado_por_id, company_id)
     falta.status = "rejeitado"
     falta.abonada = False
-    falta.aprovado_por_id = aprovado_por_id
+    falta.aprovado_por_id = aprovado_por_id_safe
     falta.aprovado_em = datetime.now(timezone.utc)
     if observacao:
         falta.observacao_gestor = observacao
+    elif aprovado_por_id_safe is None:
+        falta.observacao_gestor = "Rejeitado pelo Dono / Admin Principal"
     db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==falta_id, Notificacao.tipo=="falta", Notificacao.status=="pendente").update({"status":"rejeitada", "lida":True, "updated_at": datetime.now(timezone.utc)}, synchronize_session=False)
     db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
@@ -435,10 +442,11 @@ def encaminhar_falta_para_admin(db: Session, company_id: uuid.UUID, falta_id: uu
     status_str = str(falta.status).split(".")[-1]
     if status_str!= "pendente_justificacao":
         raise HTTPException(400, "Só pode encaminhar falta com justificativa pendente")
+    encaminhado_por_id_safe = _sanitiza_por_id(encaminhado_por_id, company_id)
     falta.dono_atual = "admin"
     falta.encaminhado_para_admin = True
     falta.encaminhado_em = datetime.now(timezone.utc)
-    falta.encaminhado_por_id = encaminhado_por_id
+    falta.encaminhado_por_id = encaminhado_por_id_safe
     falta.status = "aguardando_admin"
     db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==falta_id, Notificacao.tipo=="falta", Notificacao.status=="pendente", Notificacao.area_destino=="rh").update({"status":"encaminhada", "lida":True, "updated_at": datetime.now(timezone.utc)}, synchronize_session=False)
     notif = Notificacao(id=uuid.uuid4(), company_id=company_id, tipo="falta", referencia_id=falta.id, area_origem="rh", area_destino="admin", dono_atual="admin", status="pendente")
@@ -538,6 +546,7 @@ def aplicar_falta_por_atraso(db: Session, company_id: uuid.UUID, funcionario_id:
     if ja_tem_falta:
         raise HTTPException(400, f"Funcionário já tem falta registrada hoje ({hoje})")
     cfg = get_config_ponto(db, company_id)
+    aplicado_por_id_safe = _sanitiza_por_id(aplicado_por_id, company_id)
     falta = PedidoRH(
         id=uuid.uuid4(), company_id=company_id, funcionario_id=funcionario_id,
         tipo="falta_justificada", data_inicio=hoje, data_fim=hoje,
@@ -546,9 +555,9 @@ def aplicar_falta_por_atraso(db: Session, company_id: uuid.UUID, funcionario_id:
         status="aprovado",
         abonada=False,
         dono_atual="rh", area_origem="sistema",
-        lancado_por_id=aplicado_por_id,
+        lancado_por_id=aplicado_por_id_safe,
         lancado_em=datetime.now(timezone.utc),
-        observacao_gestor=f"Aplicada automaticamente por {cfg.qtd_atrasos_para_falta} atrasos"
+        observacao_gestor=f"Aplicada automaticamente por {cfg.qtd_atrasos_para_falta} atrasos - Dono" if aplicado_por_id_safe is None else f"Aplicada por {cfg.qtd_atrasos_para_falta} atrasos"
     )
     func.ultimo_reset_atrasos = hoje
     db.add(falta)

@@ -188,14 +188,14 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
 
 function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onAction, podeEditar, podeFerias, cargoAtual }: { func: Funcionario; presentesIds?: Set<string>; onView?: Props['onView']; onEdit?: Props['onEdit']; onFerias?: Props['onFerias']; onAction?: Props['onAction']; podeEditar: boolean; podeFerias: boolean; cargoAtual: string }) {
     const [openMenu, setOpenMenu] = useState(false)
-    const [openSub, setOpenSub] = useState<string | null>(null)
+    const [openSub, setOpenSub] = useState<string | null>('vinculo')
     const menuRef = useRef<HTMLDivElement>(null)
     const initials = func.nome.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
     const isPresente = presentesIds? presentesIds.has(String(func.id)) : true
 
     useEffect(() => {
         const close = (e: MouseEvent) => {
-            if (menuRef.current &&!menuRef.current.contains(e.target as Node)) { setOpenMenu(false); setOpenSub(null) }
+            if (menuRef.current &&!menuRef.current.contains(e.target as Node)) { setOpenMenu(false) }
         }
         if (openMenu) document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
@@ -211,7 +211,7 @@ function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onActio
                             <Settings className="w-4 h-4" />
                         </button>
                         {openMenu && (
-                            <div className="absolute right-0 top-[40px] w-[260px] bg-white rounded-[16px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden z-[100] p-1.5 max-h-[340px] overflow-y-auto">
+                            <div className="absolute right-0 top-[40px] w-[260px] bg-white rounded-[16px] shadow-[0_16px_48px_rgba(0,0,0,0.18)] border border-gray-100 z-[100] p-1.5 max-h-[340px] overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                                 {MENU_RH.map(group => {
                                     const isOpen = openSub === group.id
                                     return (
@@ -221,9 +221,11 @@ function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onActio
                                                 <ChevronRight className={`w-3.5 h-3.5 transition ${isOpen? 'rotate-90' : ''}`} />
                                             </button>
                                             {isOpen && (
-                                                <div className="mt-1 ml-2 border-l border-gray-100 pl-2 space-y-0.5">
+                                                <div className="relative ml-3 mt-2 mb-2 pl-4 border-l-[2px] border-black space-y-1">
                                                     {group.items.map(it => (
-                                                        <button key={it.id} onClick={() => { onAction?.(it.id, func); setOpenMenu(false); if(it.id==='marcar_ferias') onFerias?.(func) }} className="w-full text-left px-3 py-2 rounded-[10px] text-[12.5px] text-black/80 hover:bg-gray-50 hover:text-black">
+                                                        <button key={it.id} onClick={() => { onAction?.(it.id, func); setOpenMenu(false); if(it.id==='marcar_ferias') onFerias?.(func) }} className="relative w-full text-left px-3 py-2.5 rounded-[10px] text-[12.5px] font-medium text-black hover:bg-gray-50 text-wrap leading-tight">
+                                                            {/* circulo na linha */}
+                                                            <span className="absolute -left-[22px] top-1/2 -translate-y-1/2 w-[10px] h-[10px] rounded-full bg-black border-2 border-white shadow-sm" />
                                                             {it.label}
                                                         </button>
                                                     ))}

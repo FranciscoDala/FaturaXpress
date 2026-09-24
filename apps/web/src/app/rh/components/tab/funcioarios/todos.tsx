@@ -38,20 +38,20 @@ function temPermissao(cargo: string, perm: string) {
 const MENU_RH = [
     { id: 'vinculo', label: 'Vínculo', icon: FileText, items: [
         { id: 'ver_contrato', label: 'Ver contrato' },
-        { id: 'editar_contrato', label: 'Editar contrato / Aditivo' },
-        { id: 'alterar_cargo', label: 'Alterar cargo / área / salário' },
-        { id: 'definir_horario', label: 'Definir horário / turno' },
+        { id: 'editar_contrato', label: 'Editar contrato' },
+        { id: 'alterar_cargo', label: 'Alterar cargo' },
+        { id: 'definir_horario', label: 'Definir horário e turno' },
     ]},
     { id: 'ponto', label: 'Ponto & Presença', icon: Clock, items: [
         { id: 'historico_ponto', label: 'Histórico de ponto' },
         { id: 'justificar_falta', label: 'Justificar falta' },
-        { id: 'marcar_ferias', label: 'Marcar férias / folga' },
-        { id: 'licenca', label: 'Licença / Atestado' },
+        { id: 'marcar_ferias', label: 'Marcar férias ou folga' },
+        { id: 'licenca', label: 'Licença ou Atestado' },
     ]},
     { id: 'financeiro', label: 'Financeiro RH', icon: Wallet, items: [
-        { id: 'salario', label: 'Salário / Subsídios' },
-        { id: 'descontos', label: 'Descontos / Adiantamento' },
-        { id: 'recibos', label: 'Recibo / Folha' },
+        { id: 'salario', label: 'Salário e Subsídios' },
+        { id: 'descontos', label: 'Descontos ou Adiantamento' },
+        { id: 'recibos', label: 'Recibos' },
     ]},
     { id: 'documentos', label: 'Documentos', icon: Folder, items: [
         { id: 'docs_pessoais', label: 'BI, NIF, Comprovativos' },
@@ -61,10 +61,10 @@ const MENU_RH = [
     { id: 'desempenho', label: 'Desempenho', icon: Star, items: [
         { id: 'formacoes', label: 'Formações' },
         { id: 'avaliacao', label: 'Avaliação de desempenho' },
-        { id: 'advertencia', label: 'Advertência / Disciplinar' },
+        { id: 'advertencia', label: 'Advertência Disciplinar' },
     ]},
     { id: 'estado', label: 'Estado', icon: Power, items: [
-        { id: 'suspender', label: 'Suspender / Desativar' },
+        { id: 'suspender', label: 'Suspender ou Desativar' },
         { id: 'demitir', label: 'Demitir funcionário' },
     ]},
 ]

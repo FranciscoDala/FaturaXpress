@@ -11,6 +11,7 @@ import cloudinary
 import cloudinary.uploader
 import cloudinary.utils
 from typing import List, Optional
+from datetime import datetime, timezone
 
 from jose import jwt
 
@@ -47,7 +48,6 @@ def _is_admin_principal(lancado_uuid: uuid.UUID | None, company_id: uuid.UUID, d
     return False
 
 def _normaliza_id_aprovador(possivel_id, company_id):
-    """Se for company_id ou invalido, retorna None para não quebrar FK"""
     if not possivel_id:
         return None
     try:
@@ -257,7 +257,6 @@ def ponto_bater(payload: dict, request: Request, db: Session = Depends(get_db), 
     ip = request.client.host if request.client else None
     lancado_uuid = _normaliza_id_aprovador(lancado_por_id, company_id)
     is_admin = _is_admin_principal(lancado_uuid if lancado_uuid else company_id, company_id, db) if lancado_por_id else True
-    # se veio company_id, is_admin True e lancado_uuid None
     if lancado_por_id and str(lancado_por_id) == str(company_id):
         lancado_uuid = None
         is_admin = True
@@ -344,11 +343,18 @@ def falta_encaminhar_admin(falta_id: uuid.UUID, payload: dict, db: Session = Dep
     eid = _normaliza_id_aprovador(encaminhado_por_id, company_id)
     return func_service.encaminhar_falta_para_admin(db, company_id, falta_id, eid)
 
+# ---------- AJUSTADO: NOTIFICACOES COM FILTRO PROFISSIONAL ----------
 @rh_router.get("/notificacoes")
-def notificacoes(area: str = Query(..., description="rh, admin, financeira, recepcao"), status: Optional[str] = None, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+def notificacoes(
+    area: str = Query(..., description="rh, admin, financeira, recepcao"),
+    status: Optional[str] = None,
+    tab: Optional[str] = Query(None, description="ativas ou historico"),
+    db: Session = Depends(get_db),
+    company_id: uuid.UUID = Depends(get_current_company_id)
+):
     if area not in ["rh", "admin", "financeira", "recepcao"]:
         raise HTTPException(400, "Area inválida")
-    return func_service.listar_notificacoes(db, company_id, area, status)
+    return func_service.listar_notificacoes(db, company_id, area, status, tab)
 
 @rh_router.post("/notificacoes/{notificacao_id}/lida")
 def notificacao_lida(notificacao_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
@@ -356,8 +362,9 @@ def notificacao_lida(notificacao_id: uuid.UUID, db: Session = Depends(get_db), c
     if not notif:
         raise HTTPException(404, "Notificação não encontrada")
     notif.lida = True
+    notif.updated_at = datetime.now(timezone.utc)
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "id": str(notif.id)}
 
 @rh_router.post("/atrasos/{funcionario_id}/aplicar")
 @rh_router.post("/atrasos/{funcionario_id}/aplicar-falta")

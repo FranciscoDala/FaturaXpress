@@ -24,7 +24,6 @@ def validar_janela_edicao(data_alvo: date, is_admin: bool = False):
         raise HTTPException(403, f"Edição bloqueada: só até {limite+1} dias. Tentou {diff} dias atrás.")
 
 def _sanitiza_por_id(por_id: uuid.UUID | None, company_id: uuid.UUID) -> uuid.UUID | None:
-    """FIX PRINCIPAL: Se por_id == company_id (conta empresa), retorna None pra não quebrar FK"""
     if not por_id:
         return None
     try:
@@ -379,7 +378,8 @@ def justificar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, ti
                 area_origem="rh",
                 area_destino="rh",
                 dono_atual="rh",
-                status="pendente"
+                status="pendente",
+                lida=False
             )
             db.add(notif)
             db.commit()
@@ -404,7 +404,7 @@ def aprovar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, aprov
         falta.observacao_gestor = "Aprovado pelo Dono / Admin Principal"
 
     agora = datetime.now(timezone.utc)
-    # 1. Atualiza QUALQUER notificação dessa falta (RH pendente OU encaminhada + Admin pendente) pra verde
+    # AJUSTE PROFISSIONAL: atualiza TODA notificação dessa falta pra verde e marca como não lida pra RH ver retorno
     db.query(Notificacao).filter(
         Notificacao.company_id==company_id,
         Notificacao.referencia_id==falta_id,
@@ -412,10 +412,7 @@ def aprovar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, aprov
         Notificacao.status.in_(["pendente", "encaminhada", "aguardando_admin"])
     ).update({"status":"aprovada", "lida":False, "updated_at": agora, "dono_atual": "rh"}, synchronize_session=False)
 
-    # 2. Cria notificação de retorno pro RH avisando que Admin respondeu
-    # Pega nome do func pra msg
-    func = db.query(Funcionario).filter(Funcionario.id==falta.funcionario_id).first()
-    data_falta = falta.data_inicio.isoformat() if falta.data_inicio else ""
+    # Cria notificação de retorno pro RH
     notif_retorno = Notificacao(
         id=uuid.uuid4(),
         company_id=company_id,
@@ -433,7 +430,6 @@ def aprovar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, aprov
     db.commit()
     db.refresh(falta)
     return _falta_to_dict(db, falta)
-
 
 def rejeitar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, aprovado_por_id: uuid.UUID | None, observacao: str | None = None):
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
@@ -475,8 +471,6 @@ def rejeitar_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID, apro
     db.refresh(falta)
     return _falta_to_dict(db, falta)
 
-
-
 def remover_falta(db: Session, company_id: uuid.UUID, falta_id: uuid.UUID):
     falta = db.query(PedidoRH).filter(PedidoRH.id == falta_id, PedidoRH.company_id == company_id).first()
     if not falta:
@@ -502,8 +496,10 @@ def encaminhar_falta_para_admin(db: Session, company_id: uuid.UUID, falta_id: uu
     falta.encaminhado_em = datetime.now(timezone.utc)
     falta.encaminhado_por_id = encaminhado_por_id_safe
     falta.status = "aguardando_admin"
-    db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==falta_id, Notificacao.tipo=="falta", Notificacao.status=="pendente", Notificacao.area_destino=="rh").update({"status":"encaminhada", "lida":True, "updated_at": datetime.now(timezone.utc)}, synchronize_session=False)
-    notif = Notificacao(id=uuid.uuid4(), company_id=company_id, tipo="falta", referencia_id=falta.id, area_origem="rh", area_destino="admin", dono_atual="admin", status="pendente")
+    agora = datetime.now(timezone.utc)
+    # AJUSTE: marca como lida pra sair das ativas do RH e ir pro histórico como "encaminhada"
+    db.query(Notificacao).filter(Notificacao.company_id==company_id, Notificacao.referencia_id==falta_id, Notificacao.tipo=="falta", Notificacao.status=="pendente", Notificacao.area_destino=="rh").update({"status":"encaminhada", "lida":True, "updated_at": agora}, synchronize_session=False)
+    notif = Notificacao(id=uuid.uuid4(), company_id=company_id, tipo="falta", referencia_id=falta.id, area_origem="rh", area_destino="admin", dono_atual="admin", status="pendente", lida=False, created_at=agora, updated_at=agora)
     db.add(notif); db.commit(); db.refresh(falta)
     return _falta_to_dict(db, falta)
 
@@ -531,10 +527,26 @@ def _funcionario_full_dict(f: Funcionario | None) -> dict | None:
         "ultimo_reset_atrasos": f.ultimo_reset_atrasos.isoformat() if f.ultimo_reset_atrasos else None,
     }
 
-def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: str | None = None):
+# --- AJUSTADO: LISTAR COM TAB ---
+def listar_notificacoes(db: Session, company_id: uuid.UUID, area: str, status: str | None = None, tab: str | None = None):
     q = db.query(Notificacao).filter(Notificacao.company_id == company_id, Notificacao.area_destino == area)
     if status:
         q = q.filter(Notificacao.status == status)
+
+    # FILTRO PROFISSIONAL
+    if tab == "ativas":
+        # só pendente + retorno do admin não lido
+        q = q.filter(
+            (Notificacao.status == "pendente") |
+            ((Notificacao.area_origem == "admin") & (Notificacao.lida == False))
+        )
+    elif tab == "historico":
+        limite = datetime.now(timezone.utc) - timedelta(days=7)
+        q = q.filter(
+            Notificacao.status.in_(["aprovada", "aprovado", "justificado", "abonada", "rejeitada", "rejeitado", "ignorado", "ignorada", "encaminhada", "encaminhado", "aguardando_admin", "encaminhado_admin"]),
+            Notificacao.updated_at >= limite
+        )
+
     notifs = q.order_by(Notificacao.created_at.desc()).all()
     result = []
     for n in notifs:
@@ -647,6 +659,7 @@ def encaminhar_atraso_para_admin(db: Session, company_id: uuid.UUID, funcionario
     notif.area_destino = "admin"
     notif.dono_atual = "admin"
     notif.status = "pendente"
+    notif.lida = False
     notif.updated_at = datetime.now(timezone.utc)
     db.commit(); db.refresh(notif)
     return {"ok": True, "msg": "Encaminhado para admin"}

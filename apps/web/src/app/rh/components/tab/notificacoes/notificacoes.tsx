@@ -64,7 +64,6 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const fetchNotifs = useCallback(async (tabAtual: 'ativas' | 'historico' = tab) => {
         if (firstLoad.current) setLoading(true)
         try {
-            // AJUSTE PROFISSIONAL: backend já filtra por tab
             const { data } = await api.get(`/api/rh/notificacoes?area=${area}&tab=${tabAtual}`);
             setNotifs(Array.isArray(data)? data : [])
         } catch {
@@ -192,7 +191,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                     {tab === 'ativas'? (
                         <AtivasTab agrupado={agrupado} area={area} actingId={actingId} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onAction={handleFalta} onActionAtraso={handleAtraso} onViewDoc={abrirComprovante} onIgnore={setIgnoreModal} onLida={handleLida} />
                     ) : (
-                        <HistoricoTab agrupado={agrupado} />
+                        <HistoricoTab agrupado={agrupado} onViewDoc={abrirComprovante} />
                     )}
                 </div>
             </div>

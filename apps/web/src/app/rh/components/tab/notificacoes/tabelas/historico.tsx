@@ -1,7 +1,28 @@
+import { Eye } from 'lucide-react'
 import { getAlertStyle } from '../utils/status'
 import { formatarTempo, formatarDataCurta, getDataChave } from '../utils/format'
 
-export default function HistoricoTab({ agrupado }: { agrupado: [string, any[]][] }) {
+type Props = {
+    agrupado: [string, any[]][]
+    onViewDoc?: (faltaId: string) => void
+}
+
+function NomeComHora({ nome, tempo }: { nome: string, tempo: string }) {
+    const partes = nome.trim().split(' ').filter(Boolean)
+    const ultimo = partes.pop() || ''
+    const resto = partes.join(' ')
+    return (
+        <span className="text-[13px] leading-[19px] break-words whitespace-normal">
+            {resto && <span className="font-bold text-black">{resto} </span>}
+            <span className="font-bold text-black whitespace-nowrap">
+                {ultimo}
+                <span className="text-[11px] text-black/50 font-normal ml-1.5">• {tempo}</span>
+            </span>
+        </span>
+    )
+}
+
+export default function HistoricoTab({ agrupado, onViewDoc }: Props) {
     if (agrupado.length === 0) return <p className="py-12 text-center text-[12px] text-black/50">Histórico vazio (7 dias)</p>
 
     return (
@@ -21,15 +42,31 @@ export default function HistoricoTab({ agrupado }: { agrupado: [string, any[]][]
                         {lista.map((n: any) => {
                             const style = getAlertStyle(n) as any
                             const nomeFunc = n.funcionario?.nome || n.funcionario_nome || 'Funcionário'
+                            const temAnexo =!!n.falta?.justificativa_anexo_url
+                            const faltaId = n.falta?.id
+
                             return (
                                 <div key={n.notificacao_id} className={`px-3 py-2.5 border-b last:border-b-0 ${style.bg} border-l-4 ${style.border}`}>
-                                    <div className="flex justify-between gap-2 items-center">
+                                    <div className="flex justify-between gap-3 items-start">
                                         <div className="min-w-0 flex-1 leading-tight">
-                                            <p className="text-[13px] leading-[16px] truncate"><span className="font-bold text-black">{nomeFunc}</span><span className="text-black/60"> · {formatarTempo(n.created_at)}</span></p>
-                                            <div className="mt-1"><span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-medium leading-none ${style.badge}`}>{style.label}</span></div>
-                                            {style.aprovador && <p className="text-[11px] text-black/60 mt-1">Por: {style.aprovador}</p>}
+                                            <NomeComHora nome={nomeFunc} tempo={formatarTempo(n.created_at)} />
+                                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                                <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] border font-bold leading-none ${style.badge} break-words whitespace-normal`}>{style.label}</span>
+                                            </div>
+                                            {style.aprovador && <p className="text-[11px] text-black/60 mt-1 break-words">Por: {style.aprovador}</p>}
                                         </div>
-                                        <span className="text-[11px] text-black/50 self-center">{formatarDataCurta(n.updated_at || n.created_at)}</span>
+
+                                        <div className="flex items-center gap-2 shrink-0 self-center">
+                                            {temAnexo && faltaId && onViewDoc && (
+                                                <button
+                                                    onClick={() => onViewDoc(faltaId)}
+                                                    className="w-9 h-9 rounded-full bg-black flex items-center justify-center text-white shadow-sm"
+                                                >
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                            <span className="text-[11px] text-black/50 whitespace-nowrap">{formatarDataCurta(n.updated_at || n.created_at)}</span>
+                                        </div>
                                     </div>
                                 </div>
                             )

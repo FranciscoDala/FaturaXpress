@@ -58,14 +58,14 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const [diasVisiveis, setDiasVisiveis] = useState(3)
     const [ignoreModal, setIgnoreModal] = useState<any | null>(null)
     const firstLoad = useRef(true)
-    const area = cargoAtual === 'admin'? 'admin' : 'rh'
+    const area = cargoAtual === 'admin' ? 'admin' : 'rh'
     const listRef = useRef<HTMLDivElement>(null)
 
     const fetchNotifs = useCallback(async (tabAtual: 'ativas' | 'historico' = tab) => {
         if (firstLoad.current) setLoading(true)
         try {
             const { data } = await api.get(`/api/rh/notificacoes?area=${area}&tab=${tabAtual}`);
-            setNotifs(Array.isArray(data)? data : [])
+            setNotifs(Array.isArray(data) ? data : [])
         } catch {
             toast.error('Erro ao carregar notificações. Verifique sua conexão.')
         } finally {
@@ -122,7 +122,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const handleLida = async (notificacaoId: string) => {
         if (!notificacaoId || actingId) return
         setActingId(notificacaoId)
-        setNotifs(prev => prev.filter(n => n.notificacao_id!== notificacaoId))
+        setNotifs(prev => prev.filter(n => n.notificacao_id !== notificacaoId))
         try {
             await api.post(`/api/rh/notificacoes/${notificacaoId}/lida`)
             toast.success('Confirmado')
@@ -142,9 +142,9 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
             if (acao === 'rejeitar') await api.post(`/api/rh/falta/${faltaId}/rejeitar`, { aprovado_por_id: logadoId })
             if (acao === 'encaminhar') await api.post(`/api/rh/falta/${faltaId}/encaminhar-admin`, { encaminhado_por_id: logadoId })
             if (acao === 'ignorar') await api.post(`/api/rh/falta/${faltaId}/ignorar`, { ignorado_por_id: logadoId })
-            toast.success(acao === 'aprovar'? 'Falta justificada e abonada com sucesso' : acao === 'rejeitar'? 'Justificação rejeitada' : acao === 'ignorar'? 'Notificação ignorada' : 'Encaminhada para o Admin Principal')
+            toast.success(acao === 'aprovar' ? 'Falta justificada e abonada com sucesso' : acao === 'rejeitar' ? 'Justificação rejeitada' : acao === 'ignorar' ? 'Notificação ignorada' : 'Encaminhada para o Admin Principal')
             setOpenSwipeId(null);
-            setNotifs(prev => prev.filter(n => n.falta?.id!== faltaId))
+            setNotifs(prev => prev.filter(n => n.falta?.id !== faltaId))
             await fetchNotifs(tab)
         } catch (e: any) {
             toast.error(parseError(e))
@@ -160,9 +160,9 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
             if (acao === 'aplicar') await api.post(`/api/rh/atrasos/${funcionarioId}/aplicar-falta`, { aplicado_por_id: logadoId })
             if (acao === 'ignorar') await api.post(`/api/rh/atrasos/${funcionarioId}/ignorar-atraso`, { ignorado_por_id: logadoId })
             if (acao === 'encaminhar') await api.post(`/api/rh/atrasos/${funcionarioId}/encaminhar-admin`, { encaminhado_por_id: logadoId })
-            toast.success(acao === 'aplicar'? 'Falta aplicada por excesso de atrasos' : acao === 'ignorar'? 'Contador de atrasos zerado' : 'Atraso encaminhado para o Admin Principal')
+            toast.success(acao === 'aplicar' ? 'Falta aplicada por excesso de atrasos' : acao === 'ignorar' ? 'Contador de atrasos zerado' : 'Atraso encaminhado para o Admin Principal')
             setOpenSwipeId(null);
-            setNotifs(prev => prev.filter(n => n.funcionario_id!== funcionarioId))
+            setNotifs(prev => prev.filter(n => n.funcionario_id !== funcionarioId))
             await fetchNotifs(tab)
         } catch (e: any) {
             toast.error(parseError(e))
@@ -182,16 +182,32 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                         <p className="text-[14px] font-bold text-black">Notificações</p>
                     </div>
                     <div className="flex bg-white border rounded-full p-1">
-                        <button onClick={() => setTab('ativas')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'ativas'? 'bg-black text-white' : 'text-black/60'}`}>Ativas</button>
-                        <button onClick={() => setTab('historico')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'historico'? 'bg-black text-white' : 'text-black/60'}`}>Histórico</button>
+                        <button onClick={() => setTab('ativas')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'ativas' ? 'bg-black text-white' : 'text-black/60'}`}>Ativas</button>
+                        <button onClick={() => setTab('historico')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'historico' ? 'bg-black text-white' : 'text-black/60'}`}>Histórico</button>
                     </div>
                 </div>
 
                 <div ref={listRef} onScroll={onScroll} className="max-h-[75vh] overflow-y-auto no-scrollbar">
-                    {tab === 'ativas'? (
-                        <AtivasTab agrupado={agrupado} area={area} actingId={actingId} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onAction={handleFalta} onActionAtraso={handleAtraso} onViewDoc={abrirComprovante} onIgnore={setIgnoreModal} onLida={handleLida} />
+                    {tab === 'ativas' ? (
+                        <AtivasTab
+                            agrupado={agrupado}
+                            area={area}
+                            actingId={actingId}
+                            openSwipeId={openSwipeId}
+                            setOpenSwipeId={setOpenSwipeId}
+                            onAction={handleFalta}
+                            onActionAtraso={handleAtraso}
+                            onViewDoc={abrirComprovante}
+                            onIgnore={setIgnoreModal}
+                            onLida={handleLida}
+                        />
                     ) : (
-                        <HistoricoTab agrupado={agrupado} onViewDoc={abrirComprovante} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} />
+                        <HistoricoTab
+                            agrupado={agrupado}
+                            onViewDoc={abrirComprovante}
+                            openSwipeId={openSwipeId}
+                            setOpenSwipeId={setOpenSwipeId}
+                        />
                     )}
                 </div>
             </div>

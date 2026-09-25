@@ -1,17 +1,32 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 import uuid
-from typing import List
-from app.db.session import get_db, SessionLocal
-from app.core.security import get_current_company_id
+from typing import List, Optional
+from app.db.session import get_db
+from app.core.security import get_current_company_and_funcionario, get_current_company_id
+from app.core.jwt import decode_access_token
 from app.modules.documentos.schemas import ModeloDocumentoCreate, ModeloDocumentoUpdate, GerarDocumentoRequest, ModeloDocumentoResponse, DocumentoGeradoResponse
 from app.modules.documentos import service as doc_service
 from app.modules.documentos.models import DocumentoGerado
 from app.modules.documentos.seed import seed_modelos
 
 router = APIRouter(prefix="/documentos", tags=["Documentos"])
+
+def get_company_from_request(request: Request, token_qs: Optional[str] = Query(None, alias="token"), auth = Depends(get_current_company_and_funcionario)):
+    # Se veio por?token= (window.open) decodifica manual
+    if token_qs:
+        try:
+            payload = decode_access_token(token_qs)
+            company_id = uuid.UUID(payload.get("company_id"))
+            return {"company_id": company_id, "payload": payload}
+        except Exception:
+            raise HTTPException(401, "Token inválido na URL")
+    return auth
+
+def get_company_id_only(auth = Depends(get_company_from_request)):
+    return auth["company_id"]
 
 # ===== SEED MANUAL =====
 @router.post("/seed-modelos")
@@ -50,7 +65,8 @@ def gerar_documento(req: GerarDocumentoRequest, db: Session = Depends(get_db), c
     return doc
 
 @router.get("/funcionario/{funcionario_id}", response_model=List[DocumentoGeradoResponse])
-def listar_do_funcionario(funcionario_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+def listar_do_funcionario(funcionario_id: uuid.UUID, db: Session = Depends(get_db), auth = Depends(get_current_company_and_funcionario)):
+    company_id = auth["company_id"]
     result = db.execute(
         select(DocumentoGerado).where(
             DocumentoGerado.company_id == company_id,
@@ -59,9 +75,10 @@ def listar_do_funcionario(funcionario_id: uuid.UUID, db: Session = Depends(get_d
     )
     return result.scalars().all()
 
-# ===== ROTAS DE VISUALIZAÇÃO - TEM QUE VIR DEPOIS DE /funcionario =====
+# ===== ROTAS DE VISUALIZAÇÃO =====
 @router.get("/codigo/{codigo_verificacao}")
-def obter_por_codigo(codigo_verificacao: str, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+def obter_por_codigo(codigo_verificacao: str, db: Session = Depends(get_db), auth = Depends(get_current_company_and_funcionario)):
+    company_id = auth["company_id"]
     result = db.execute(
         select(DocumentoGerado).where(
             DocumentoGerado.codigo_verificacao == codigo_verificacao,
@@ -74,7 +91,8 @@ def obter_por_codigo(codigo_verificacao: str, db: Session = Depends(get_db), com
     return {"id": str(doc.id), "html_final": doc.conteudo_html_final, "codigo": doc.codigo_verificacao, "nome_arquivo": doc.nome_arquivo}
 
 @router.get("/{documento_id}/preview", response_class=HTMLResponse)
-def preview_documento(documento_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+def preview_documento(documento_id: uuid.UUID, request: Request, token: Optional[str] = Query(None), db: Session = Depends(get_db), auth = Depends(get_company_from_request)):
+    company_id = auth["company_id"]
     result = db.execute(
         select(DocumentoGerado).where(
             DocumentoGerado.id == documento_id,
@@ -87,7 +105,8 @@ def preview_documento(documento_id: uuid.UUID, db: Session = Depends(get_db), co
     return HTMLResponse(content=doc.conteudo_html_final)
 
 @router.get("/{documento_id}/pdf")
-def pdf_documento(documento_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+def pdf_documento(documento_id: uuid.UUID, request: Request, token: Optional[str] = Query(None), db: Session = Depends(get_db), auth = Depends(get_company_from_request)):
+    company_id = auth["company_id"]
     result = db.execute(
         select(DocumentoGerado).where(
             DocumentoGerado.id == documento_id,
@@ -97,21 +116,17 @@ def pdf_documento(documento_id: uuid.UUID, db: Session = Depends(get_db), compan
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(404, "Documento não encontrado")
-
     try:
         from weasyprint import HTML
         pdf_bytes = HTML(string=doc.conteudo_html_final).write_pdf()
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f"inline; filename={doc.nome_arquivo}"}
-        )
+        return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f"inline; filename={doc.nome_arquivo}"})
     except Exception as e:
-        print(f"[PDF] Erro weasyprint: {e} - retornando HTML")
+        print(f"[PDF] Erro weasyprint: {e}")
         return HTMLResponse(content=doc.conteudo_html_final)
 
 @router.get("/{documento_id}")
-def obter_documento(documento_id: uuid.UUID, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
+def obter_documento(documento_id: uuid.UUID, db: Session = Depends(get_db), auth = Depends(get_current_company_and_funcionario)):
+    company_id = auth["company_id"]
     result = db.execute(
         select(DocumentoGerado).where(
             DocumentoGerado.id == documento_id,

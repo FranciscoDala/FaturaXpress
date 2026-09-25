@@ -76,6 +76,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="FaturaXpress API", version="1.0.0", lifespan=lifespan, docs_url="/docs", redoc_url=None)
 
+# ===== 1. SECURITY HEADERS PRIMEIRO (fica por dentro) =====
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.endswith("/anexo"):
+        response.headers["X-Frame-Options"] = "ALLOWALL"
+    else:
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+    return response
+
+# ===== 2. CORS POR ÚLTIMO (fica por fora, garante header mesmo em erro) =====
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -89,17 +102,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.middleware("http")
-async def security_headers(request: Request, call_next):
-    response = await call_next(request)
-    if request.url.path.endswith("/anexo"):
-        response.headers["X-Frame-Options"] = "ALLOWALL"
-    else:
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-    return response
-
+# ===== 3. ROUTERS =====
 app.include_router(auth_router, prefix="/api")
 app.include_router(cliente_router, prefix="/api")
 app.include_router(produto_router, prefix="/api")
@@ -115,15 +118,27 @@ app.include_router(upload_falta_router, prefix="/api")
 if HAS_DOCS and documentos_router:
     app.include_router(documentos_router, prefix="/api")
     logger.info("✅ Router documentos incluído")
+else:
+    logger.warning("⚠️ Router documentos NÃO incluído")
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.error(f"Erro 500 em {request.url}: {exc}\n{traceback.format_exc()}")
-    return JSONResponse(status_code=500, content={"detail": "Erro interno, tente novamente"})
+    # Garante CORS mesmo quando dá 500
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Erro interno, tente novamente", "error": str(exc)[:300]},
+        headers={
+            "Access-Control-Allow-Origin": request.headers.get("origin", "https://faturaxpress.onrender.com"),
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "docs": "/docs", "health": "/api/health"}
+    return {"status": "ok", "docs": "/docs", "health": "/api/health", "has_docs": HAS_DOCS}
 
 @app.get("/health")
 @app.get("/api/health")

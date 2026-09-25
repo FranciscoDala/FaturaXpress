@@ -78,28 +78,8 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
     const wrapperRef = useRef<HTMLDivElement>(null)
     const btnRef = useRef<HTMLButtonElement>(null)
     const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 320 })
-    const [docsMap, setDocsMap] = useState<Record<string, any>>({})
 
     useEffect(() => { if (searchProp!== undefined) setSearchInternal(searchProp) }, [searchProp])
-
-    useEffect(() => {
-        if (!funcionarios.length) return
-        const run = async () => {
-            const map: Record<string, any> = {}
-            await Promise.all(
-                funcionarios.map(async (f) => {
-                    try {
-                        const { data } = await api.get(`/api/documentos/funcionario/${f.id}`)
-                        if (Array.isArray(data) && data.length > 0) {
-                            map[f.id] = data[0]
-                        }
-                    } catch {}
-                })
-            )
-            setDocsMap(map)
-        }
-        run()
-    }, [funcionarios])
 
     const funcionarioLogado = useMemo(() => {
         try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
@@ -200,7 +180,7 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {funcionariosFiltrados.map((f) => (
-                        <FuncionarioCard key={f.id} func={f} presentesIds={presentesIds} onView={onView} onEdit={onEdit} onFerias={onFerias} onAction={onAction} podeEditar={podeEditar} podeFerias={podeFerias} cargoAtual={cargoAtual} documento={docsMap[f.id]} />
+                        <FuncionarioCard key={f.id} func={f} presentesIds={presentesIds} onView={onView} onEdit={onEdit} onFerias={onFerias} onAction={onAction} podeEditar={podeEditar} podeFerias={podeFerias} cargoAtual={cargoAtual} />
                     ))}
                 </div>
             )}
@@ -208,7 +188,7 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
     )
 }
 
-function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onAction, podeEditar, podeFerias, cargoAtual, documento }: { func: Funcionario; presentesIds?: Set<string>; onView?: Props['onView']; onEdit?: Props['onEdit']; onFerias?: Props['onFerias']; onAction?: Props['onAction']; podeEditar: boolean; podeFerias: boolean; cargoAtual: string; documento?: any }) {
+function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onAction, podeEditar, podeFerias, cargoAtual }: { func: Funcionario; presentesIds?: Set<string>; onView?: Props['onView']; onEdit?: Props['onEdit']; onFerias?: Props['onFerias']; onAction?: Props['onAction']; podeEditar: boolean; podeFerias: boolean; cargoAtual: string }) {
     const [openMenu, setOpenMenu] = useState(false)
     const [openSub, setOpenSub] = useState<string | null>('vinculo')
     const menuRef = useRef<HTMLDivElement>(null)
@@ -225,20 +205,20 @@ function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onActio
 
     const handleVerContrato = async () => {
         try {
-            if (documento?.id) {
-                window.open(`${apiRoot}/documentos/${documento.id}/preview`, '_blank')
-                setOpenMenu(false)
-                return
-            }
+            setOpenMenu(false)
+            toast.loading('Buscando contrato...')
             const { data } = await api.get(`/api/documentos/funcionario/${func.id}`)
+            toast.dismiss()
             if (data && data.length > 0) {
-                window.open(`${apiRoot}/documentos/${data[0].id}/preview`, '_blank')
-                setOpenMenu(false)
+                const doc = data[0]
+                window.open(`${apiRoot}/documentos/${doc.id}/preview`, '_blank')
             } else {
-                toast.error('Nenhum contrato encontrado para este funcionário')
+                toast.error('Nenhum contrato encontrado para ' + func.nome)
             }
-        } catch {
-            toast.error('Erro ao buscar contrato')
+        } catch (err: any) {
+            toast.dismiss()
+            console.error(err)
+            toast.error('Erro ao buscar contrato. Verifica se backend já fez deploy do CORS fix')
         }
     }
 
@@ -301,14 +281,7 @@ function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onActio
                     <p className="text-[12.5px] text-black truncate">E-mail: {func.email || '---'}</p>
                     <p className="text-[12.5px] text-black truncate">Tel: {func.telefone || '---'}</p>
                 </div>
-                <div className="mt-3 flex gap-2 flex-wrap">
-                    <span className={`inline-flex items-center max-w-full truncate px-2.5 py-[3px] rounded-full border text-[10px] font-bold leading-tight ${isPresente? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-black'}`}>{isPresente? 'Presente • Ativo' : 'Ausente • Hoje'}</span>
-                    {documento && (
-                        <span className="inline-flex items-center px-2.5 py-[3px] rounded-full border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold">
-                            {documento.codigo_verificacao}
-                        </span>
-                    )}
-                </div>
+                <div className="mt-3 min-w-0"><span className={`inline-flex items-center max-w-full truncate px-2.5 py-[3px] rounded-full border text-[10px] font-bold leading-tight ${isPresente? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-black'}`}>{isPresente? 'Presente • Ativo' : 'Ausente • Hoje'}</span></div>
             </div>
 
             <div className="grid grid-cols-3 border-t border-gray-100 mt-auto shrink-0">

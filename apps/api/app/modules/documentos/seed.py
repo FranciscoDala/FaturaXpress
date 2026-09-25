@@ -1,52 +1,65 @@
+import uuid
+from datetime import datetime, timezone
+from sqlalchemy.orm import Session
+from app.modules.documentos.models import ModeloDocumento, TipoModeloDocumento, CategoriaModelo
+
 CONTRATO_EFETIVO_HTML = """<!DOCTYPE html>
-<html lang="pt-AO">
-<head><meta charset="UTF-8">
+<html lang="pt-AO"><head><meta charset="UTF-8">
 <style>
-  @page{size:A4;margin:15mm 20mm 20mm 20mm;@bottom-center{content:"Pág. " counter(page) " de " counter(pages) " | {{codigo_documento}} - {{nome_empresa}}";font-size:7pt;color:#666;}}
-  body{margin:0;padding:0;font-family:Arial,sans-serif;font-size:10.5pt;line-height:1.6;color:#111;-webkit-print-color-adjust:exact;}
+  @page{size:A4;margin:15mm 20mm 20mm 20mm;@bottom-center{content:"Pag. " counter(page) " de " counter(pages) " | {{codigo_documento}}";font-size:7pt;color:#666;}}
+  body{font-family:Arial,sans-serif;font-size:10.5pt;line-height:1.6;color:#111;}
  .watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:650px;height:650px;opacity:0.08;z-index:-1;}
  .watermark img{width:100%;height:100%;object-fit:contain;}
- .header{display:flex;gap:12px;border-bottom:1px solid #000;padding-bottom:10px;align-items:center;}
+ .header{display:flex;gap:12px;border-bottom:1px solid #000;padding-bottom:10px;}
  .header .logo{width:90px;height:90px;object-fit:contain;}
- .emp-top{font-size:9pt;line-height:14px;}
  .titulo-principal{text-align:center;margin-top:18px;margin-bottom:18px;font-size:12pt;font-weight:bold;text-transform:uppercase;text-decoration:underline;}
  .texto-justificado{text-align:justify;margin-bottom:12px;}
- .clausula-titulo{text-align:center;font-weight:bold;margin-top:22px;margin-bottom:10px;text-transform:uppercase;font-size:11pt;}
- .assinaturas{margin-top:60px;display:flex;justify-content:space-between;text-align:center;}
- .assinaturas div{width:45%;border-top:1px solid #000;padding-top:6px;font-size:9pt;}
-</style>
-</head>
-<body>
+ .clausula-titulo{text-align:center;font-weight:bold;margin-top:22px;margin-bottom:10px;text-transform:uppercase;}
+</style></head><body>
 <div class="watermark">{{logo_base64_img}}</div>
-<div class="header">
-  <img class="logo" src="{{logo_base64}}" alt="logo"/>
-  <div class="emp-top"><b>{{nome_empresa}}</b><br/>NIF: {{nif_empresa}}<br/>{{endereco_empresa}}<br/>{{telefone_empresa}} | {{email_empresa}}</div>
-</div>
-
+<div class="header"><img class="logo" src="{{logo_base64}}" alt="logo"/><div><b>{{nome_empresa}}</b><br/>NIF: {{nif_empresa}}<br/>{{endereco_empresa}}<br/>{{telefone_empresa}}</div></div>
 <div class="titulo-principal">Contrato de Trabalho por Tempo Indeterminado</div>
-
-<p class="texto-justificado"><b>Entre:</b> {{nome_empresa}}, com NIF {{nif_empresa}}, com sede social em {{endereco_empresa}}, matriculada na Conservatória de Registo Comercial de {{cidade_emissao}} sob o nº {{numero_registo_comercial}}, neste acto representada pelo seu sócio-gerente {{representante_empresa}}, adiante designada por <b>Primeira Outorgante</b> ou <b>Entidade Empregadora</b>.</p>
-
-<p class="texto-justificado"><b>E:</b> {{nome_funcionario}}, portador do Bilhete de Identidade nº {{bi}}, emitido aos {{data_emissao_bi}} pelos Serviços de Identificação de {{local_emissao_bi}}, filho de {{nome_pai}} e de {{nome_mae}}, natural de {{naturalidade}}, residente no {{endereco_completo}}, adiante designado por <b>Segunda Outorgante</b> ou <b>Trabalhador</b>.</p>
-
-<p class="texto-justificado">É celebrado o presente contrato de trabalho por tempo indeterminado, nos termos da Lei Geral do Trabalho, Lei nº 12/23 de 27 de Dezembro, que se regerá pelas cláusulas seguintes:</p>
-
-<div style="margin-top:15px;">{{clausulas_html}}</div>
-
-<div class="assinaturas">
-  <div>Pela Entidade Empregadora<br/><br/>{{nome_empresa}}<br/>{{representante_empresa}}</div>
-  <div>O Trabalhador<br/><br/>{{nome_funcionario}}</div>
-</div>
-<p style="text-align:center;margin-top:30px;">{{cidade_emissao}}, {{data_hoje_extenso}}</p>
-</body>
-</html>
+<p style="text-align:justify"><b>Entre:</b> {{nome_empresa}}, NIF {{nif_empresa}}, sede {{endereco_empresa}}, representada por {{representante_empresa}}, adiante <b>Primeira Outorgante</b>.</p>
+<p style="text-align:justify"><b>E:</b> {{nome_funcionario}}, BI {{bi}}, emitido aos {{data_emissao_bi}} em {{local_emissao_bi}}, filho de {{nome_pai}} e {{nome_mae}}, residente {{endereco_completo}}, adiante <b>Segunda Outorgante</b>.</p>
+<p style="text-align:justify">É celebrado nos termos da Lei Geral do Trabalho, Lei nº 12/23 de 27 de Dezembro:</p>
+<div>{{clausulas_html}}</div>
+<div style="margin-top:60px;display:flex;justify-content:space-between;text-align:center;"><div style="width:45%;border-top:1px solid #000;padding-top:5px;">{{nome_empresa}}<br/>{{representante_empresa}}</div><div style="width:45%;border-top:1px solid #000;padding-top:5px;">{{nome_funcionario}}</div></div>
+<p style="text-align:center;margin-top:20px;">{{cidade_emissao}}, {{data_hoje_extenso}}</p>
+</body></html>
 """
 
 CONTRATO_EFETIVO_CLAUSULAS = [
-  {"id":"1","titulo":"Primeira Cláusula\n(objecto do contrato)","texto":"A Entidade Empregadora admite ao seu serviço o Segundo Outorgante para exercer as funções de {{cargo}}, na área de {{area}}, com início em {{data_admissao}}, no local de trabalho sito em {{local_trabalho}}."},
-  {"id":"2","titulo":"Segunda Cláusula\n(vínculo contratual)","texto":"O presente contrato é celebrado por tempo indeterminado, nos termos da Lei Geral do Trabalho."},
-  {"id":"3","titulo":"Terceira Cláusula\n(horário de trabalho)","texto":"O período normal de trabalho é de {{horario_entrada}} às {{horario_saida}}, perfazendo um total de {{carga_horaria}} semanais, com intervalo para almoço de 1 (uma) hora. O trabalhador obriga-se a prestar trabalho extraordinário sempre que necessário e dentro dos limites legais."},
-  {"id":"4","titulo":"Quarta Cláusula\n(remuneração)","texto":"Como contrapartida do trabalho prestado, o trabalhador auferirá uma remuneração mensal ilíquida de {{salario_base_formatado}} ({{salario_extenso}}), a ser paga por transferência bancária para o IBAN {{iban}}. Sobre a remuneração incidem os descontos legais de Segurança Social (INSS) e IRT. O trabalhador tem direito a subsídio de Natal (13º mês), subsídio de férias correspondente a 100% do salário base e subsídio de alimentação quando aplicável."},
-  {"id":"5","titulo":"Quinta Cláusula\n(início e duração de vigência)","texto":"O presente contrato entra em vigor em {{data_admissao}} e vigorará por tempo indeterminado, com período experimental de {{periodo_experiencia}}, nos termos da LGT."},
-  {"id":"6","titulo":"Sexta Cláusula\n(deveres e obrigações)","texto":"O trabalhador obriga-se a cumprir com zelo e assiduidade as funções que lhe forem confiadas, a respeitar o regulamento interno e as normas de higiene e segurança no trabalho."},
+  {"id":"1","titulo":"Primeira Clausula\n(objecto do contrato)","texto":"A entidade empregadora admite ao seu servico {{nome_funcionario}} para exercer funcoes de {{cargo}}, area {{area}}, inicio {{data_admissao}}, local {{local_trabalho}}."},
+  {"id":"2","titulo":"Segunda Clausula\n(vinculo contratual)","texto":"Contrato por tempo {{duracao_contrato}} nos termos da LGT."},
+  {"id":"3","titulo":"Terceira Clausula\n(horario de trabalho)","texto":"Periodo normal de {{horario_entrada}} as {{horario_saida}}, total {{carga_horaria}} semanais, intervalo 1h almoco. Obriga-se a trabalho extraordinario quando necessario."},
+  {"id":"4","titulo":"Quarta Clausula\n(remuneracao)","texto":"Remuneracao mensal iliquida de {{salario_base_formatado}} ({{salario_extenso}}). Descontos INSS e IRT. Direito a subsidio Natal, ferias 100% e alimentacao."},
+  {"id":"5","titulo":"Quinta Clausula\n(inicio e duracao de vigencia)","texto":"Entra em vigor em {{data_admissao}}, por tempo indeterminado, periodo experimental {{periodo_experiencia}}."},
+  {"id":"6","titulo":"Sexta Clausula\n(deveres)","texto":"Cumprir com zelo as funcoes, regulamento interno e seguranca no trabalho."},
 ]
+
+DECLARACAO_HTML = """<!DOCTYPE html><html><head><meta charset="UTF-8"><style>@page{size:A4;margin:18mm;}body{font-family:Arial;font-size:11pt;}</style></head><body><h3 style="text-align:center">DECLARACAO - {{codigo_documento}}</h3><p>Declaramos que {{nome_funcionario}}, BI {{bi}}, trabalha como {{cargo}} desde {{data_admissao}}, vencimento {{salario_base_formatado}}.</p><p style="text-align:center">{{cidade_emissao}}, {{data_hoje_extenso}}</p></body></html>"""
+
+def seed_modelos(db: Session, company_id: uuid.UUID):
+    modelos_def = [
+        {"codigo":"CONT-EFETIVO-001","nome":"Contrato Efetivo CSTQ A4","tipo":TipoModeloDocumento.contrato_efetivo,"categoria":CategoriaModelo.admissao,"descricao":"Contrato tempo indeterminado CSTQ","conteudo_html":CONTRATO_EFETIVO_HTML,"conteudo_json":{"clausulas":CONTRATO_EFETIVO_CLAUSULAS},"is_padrao":True,"is_sistema":False},
+        {"codigo":"DECL-TRAB-001","nome":"Declaracao de Trabalho","tipo":TipoModeloDocumento.declaracao_trabalho,"categoria":CategoriaModelo.gestao,"descricao":"Declaracao A4","conteudo_html":DECLARACAO_HTML,"conteudo_json":{"clausulas":[{"id":"1","titulo":"Declaracao","texto":"{{nome_funcionario}} BI {{bi}} trabalha como {{cargo}}"}]},"is_padrao":True,"is_sistema":False},
+    ]
+    for m in modelos_def:
+        existente = db.query(ModeloDocumento).filter(ModeloDocumento.company_id==company_id, ModeloDocumento.codigo==m["codigo"]).first()
+        if existente:
+            existente.conteudo_html=m["conteudo_html"]
+            existente.conteudo_json=m["conteudo_json"]
+            existente.is_padrao=True
+            existente.is_ativo=True
+            existente.updated_at=datetime.now(timezone.utc)
+            db.commit()
+            continue
+        # desativa padrao antigo mesmo tipo
+        db.query(ModeloDocumento).filter(ModeloDocumento.company_id==company_id, ModeloDocumento.tipo==m["tipo"], ModeloDocumento.is_padrao==True).update({"is_padrao":False})
+        doc=ModeloDocumento(
+            id=uuid.uuid4(), company_id=company_id, codigo=m["codigo"], nome=m["nome"], tipo=m["tipo"], categoria=m["categoria"],
+            descricao=m["descricao"], conteudo_html=m["conteudo_html"], conteudo_json=m["conteudo_json"],
+            variaveis_usadas=["nome_funcionario","bi","cargo","salario_base_formatado"], versao=1, is_ativo=True, is_padrao=m["is_padrao"], is_sistema=False,
+            created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)
+        )
+        db.add(doc); db.commit()

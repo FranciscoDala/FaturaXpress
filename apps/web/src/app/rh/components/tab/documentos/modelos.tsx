@@ -1,10 +1,10 @@
 // rh/tab/documentos/modelos.tsx
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { api } from '../../../../../lib/api'
 import { toast } from 'sonner'
-import { Plus, Trash2, Save, FileText } from 'lucide-react'
+import { Plus, Trash2, Save, FileText, Check, ChevronDown } from 'lucide-react'
 
 type Clausula = { id: string; titulo: string; texto: string }
 
@@ -53,6 +53,35 @@ type Modelo = {
   is_padrao: boolean
 }
 
+function CustomSelect({ value, options, onChange, placeholder }: { value: string, options: { value: string, label: string }[], onChange: (v: string) => void, placeholder: string }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current &&!ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+  const selected = options.find(o => o.value === value)
+  return (
+    <div ref={ref} className="relative w-full sm:w-[300px]">
+      <button type="button" onClick={() => setOpen(!open)} className="w-full h-[44px] bg-white border border-gray-200 rounded-[12px] px-3 text-[13px] text-black flex items-center justify-between focus:outline-none focus:border-black">
+        <span className="truncate text-black font-medium">{selected? selected.label : placeholder}</span>
+        <ChevronDown className={`w-4 h-4 text-black/60 transition-transform shrink-0 ml-2 ${open? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute z-50 top-[48px] left-0 w-full bg-white rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-gray-100 overflow-hidden p-1.5 max-h-[280px] overflow-y-auto">
+          {options.map(o => (
+            <button key={o.value} type="button" onClick={() => { onChange(o.value); setOpen(false) }} className={`w-full text-left px-3 py-2.5 rounded-[10px] text-[13px] flex items-center justify-between transition ${value === o.value? 'bg-[#E6F0FF] font-bold text-black' : 'hover:bg-gray-50 text-black'}`}>
+              <span className="truncate pr-2">{o.label}</span>
+              {value === o.value && <Check className="w-4 h-4 text-[#0095ff] shrink-0" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function TabDocumentos() {
   const [tipoSelecionado, setTipoSelecionado] = useState<string>('contrato_efetivo')
   const [modelo, setModelo] = useState<Modelo | null>(null)
@@ -65,21 +94,15 @@ export default function TabDocumentos() {
     const load = async () => {
       setLoading(true)
       try {
-        // NOVO BACKEND: get-or-create, sempre retorna um modelo da empresa
         const r = await api.get(`/api/documentos/modelos/by-tipo/${tipoSelecionado}`)
         const m = r.data as any
-
-        // Como o response_model filtrava conteudo_json, buscamos o detalhe completo se precisar
         let modeloCompleto = m
         if (!m.conteudo_json) {
           try {
             const r2 = await api.get(`/api/documentos/modelos/${m.id}`)
             modeloCompleto = {...m,...(r2.data as any) }
-          } catch {
-            // se ainda não tiver, usa o m mesmo
-          }
+          } catch {}
         }
-
         setModelo(modeloCompleto)
         const lista = modeloCompleto.conteudo_json?.clausulas || [
           { id: '1', titulo: `Cláusula 1ª - ${modeloCompleto.nome}`, texto: '' },
@@ -97,11 +120,9 @@ export default function TabDocumentos() {
   const addClausula = () => {
     setClausulas(p => [...p, { id: Date.now().toString(), titulo: `Cláusula ${p.length + 1}ª`, texto: '' }])
   }
-
   const update = (id: string, field: 'titulo' | 'texto', v: string) => {
     setClausulas(p => p.map(c => c.id === id? {...c, [field]: v } : c))
   }
-
   const remove = (id: string) => {
     setClausulas(p => p.filter(c => c.id!== id))
   }
@@ -110,14 +131,9 @@ export default function TabDocumentos() {
     if (!modelo?.id) return
     setSaving(true)
     try {
-      // Backend novo espera só conteudo_json com clausulas
       const novoJson = {...(modelo?.conteudo_json || {}), clausulas }
-      await api.put(`/api/documentos/modelos/${modelo.id}`, {
-        conteudo_json: novoJson
-      })
-      toast.success(`${TIPOS_DOCUMENTO.find(t=>t.tipo===tipoSelecionado)?.nome} salvo!`)
-
-      // recarrega versão
+      await api.put(`/api/documentos/modelos/${modelo.id}`, { conteudo_json: novoJson })
+      toast.success(`${TIPOS_DOCUMENTO.find(t => t.tipo === tipoSelecionado)?.nome} salvo!`)
       const r = await api.get(`/api/documentos/modelos/by-tipo/${tipoSelecionado}`)
       const m = r.data as any
       let modeloCompleto = m
@@ -134,81 +150,92 @@ export default function TabDocumentos() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="bg-white border rounded-[12px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center">
-            <FileText className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-[14px] font-bold uppercase tracking-wide">Documentos</h2>
-            <p className="text-[11px] text-gray-500">{modelo? `${modelo.codigo} • v${modelo.versao} ${modelo.is_padrao? '• Padrão' : ''}` : 'Carregando...'}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <select
-            value={tipoSelecionado}
-            onChange={e => setTipoSelecionado(e.target.value)}
-            className="h-10 min-w-[280px] rounded-full border border-gray-200 bg-gray-50 px-4 text-[13px] font-medium outline-none focus:border-black"
-          >
-            {TIPOS_DOCUMENTO.map(t => (
-              <option key={t.tipo} value={t.tipo}>{t.nome}</option>
-            ))}
-          </select>
-
-          <button
-            onClick={salvar}
-            disabled={saving || loading ||!modelo}
-            className="h-10 px-6 bg-[#0095ff] text-white rounded-full text-[13px] font-bold flex items-center gap-2 disabled:opacity-50"
-          >
-            <Save className="w-4 h-4" /> {saving? 'Salvando...' : 'Salvar'}
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-[#F0F7FF] border rounded-[12px] p-3 text-[11px] text-gray-700">
-        <b>Variáveis:</b> {'{{nome_funcionario}}, {{bi}}, {{cargo}}, {{data_admissao}}, {{salario_base_formatado}}, {{local_trabalho}}, {{nome_empresa}}, {{nif_empresa}}, {{data_hoje}}, {{cidade_emissao}}'}
-      </div>
-
-      {loading? (
-        <div className="p-6 text-[13px] text-center">Carregando {TIPOS_DOCUMENTO.find(t=>t.tipo===tipoSelecionado)?.nome}...</div>
-      ) : (
-        <>
-          <div className="space-y-3">
-            {clausulas.map((c, idx) => (
-              <div key={c.id} className="bg-white border border-gray-200 rounded-[12px] p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold bg-black text-white px-2 py-1 rounded-full">{idx + 1}</span>
-                    <input
-                      value={c.titulo}
-                      onChange={e => update(c.id, 'titulo', e.target.value)}
-                      className="text-[13px] font-bold border-b border-gray-200 focus:border-black outline-none bg-transparent w-[300px]"
-                    />
-                  </div>
-                  <button onClick={() => remove(c.id)} className="w-8 h-8 rounded-full hover:bg-red-50 text-red-500 flex items-center justify-center">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+    <>
+      <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
+      <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+        <div className="bg-white rounded-[22px] border overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+          {/* HEADER igual tab ponto */}
+          <div className="p-3 border-b bg-gray-50 flex flex-col gap-2">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 w-full">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-black text-white flex items-center justify-center shrink-0">
+                  <FileText className="w-4 h-4" />
                 </div>
-                <textarea
-                  value={c.texto}
-                  onChange={e => update(c.id, 'texto', e.target.value)}
-                  rows={3}
-                  className="w-full text-[13px] border border-gray-200 rounded-[8px] p-3 outline-none focus:border-black resize-none"
-                />
+                <div className="min-w-0">
+                  <h2 className="text-[14px] font-bold uppercase tracking-wide text-black">Documentos</h2>
+                  <p className="text-[11px] text-black/60 truncate">{modelo? `${modelo.codigo} • v${modelo.versao} ${modelo.is_padrao? '• Padrão' : ''}` : 'Selecione o tipo'}</p>
+                </div>
               </div>
-            ))}
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+                <CustomSelect
+                  value={tipoSelecionado}
+                  onChange={setTipoSelecionado}
+                  placeholder="Selecione o documento"
+                  options={TIPOS_DOCUMENTO.map(t => ({ value: t.tipo, label: t.nome }))}
+                />
+                <button
+                  onClick={salvar}
+                  disabled={saving || loading ||!modelo}
+                  className="h-[44px] sm:h-[36px] w-full sm:w-auto px-6 bg-[#0095ff] text-white rounded-full text-[13px] font-bold flex items-center justify-center gap-2 disabled:opacity-50 shrink-0"
+                >
+                  <Save className="w-4 h-4" /> {saving? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </div>
+            <p className="text-[11px] text-black/60">Cada empresa edita as suas cláusulas • {TIPOS_DOCUMENTO.find(t => t.tipo === tipoSelecionado)?.nome}</p>
           </div>
 
-          <button
-            onClick={addClausula}
-            className="w-full h-12 border-2 border-dashed border-gray-300 rounded-[12px] text-[13px] font-bold text-gray-600 hover:border-black hover:text-black flex items-center justify-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> Adicionar Cláusula
-          </button>
-        </>
-      )}
-    </div>
+          {/* VARIAVEIS */}
+          <div className="m-3 bg-[#F0F7FF] border rounded-[12px] p-3 text-[11px] text-black">
+            <b className="text-black">Variáveis:</b> {'{{nome_funcionario}}, {{bi}}, {{cargo}}, {{data_admissao}}, {{salario_base_formatado}}, {{local_trabalho}}, {{nome_empresa}}, {{nif_empresa}}, {{data_hoje}}, {{cidade_emissao}}'}
+          </div>
+
+          {/* CONTEUDO */}
+          <div className="p-3">
+            {loading? (
+              <div className="py-10 text-center text-[13px] text-black">Carregando {TIPOS_DOCUMENTO.find(t => t.tipo === tipoSelecionado)?.nome}...</div>
+            ) : (
+              <div className="space-y-3">
+                <div className="max-h-[60vh] sm:max-h-[70vh] overflow-y-auto no-scrollbar overscroll-contain space-y-3 pr-1">
+                  {clausulas.map((c, idx) => (
+                    <div key={c.id} className="bg-white border border-gray-200 rounded-[12px] p-3 sm:p-4">
+                      <div className="flex items-center justify-between mb-3 gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="text-[11px] font-bold bg-black text-white px-2 py-1 rounded-full shrink-0">{idx + 1}</span>
+                          <input
+                            value={c.titulo}
+                            onChange={e => update(c.id, 'titulo', e.target.value)}
+                            className="text-[13px] font-bold border-b border-gray-200 focus:border-black outline-none bg-transparent w-full text-black placeholder:text-black/40"
+                            placeholder="Título da cláusula"
+                          />
+                        </div>
+                        <button onClick={() => remove(c.id)} className="w-8 h-8 rounded-full hover:bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <textarea
+                        value={c.texto}
+                        onChange={e => update(c.id, 'texto', e.target.value)}
+                        rows={3}
+                        className="w-full text-[13px] text-black border border-gray-200 rounded-[10px] p-3 outline-none focus:border-black resize-none placeholder:text-black/40"
+                        placeholder="Texto da cláusula com {{variaveis}}"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={addClausula}
+                  className="w-full h-12 border-2 border-dashed border-gray-300 rounded-[12px] text-[13px] font-bold text-black hover:border-black hover:text-black flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" /> Adicionar Cláusula
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
   )
 }

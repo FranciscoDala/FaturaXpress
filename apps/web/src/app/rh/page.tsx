@@ -158,13 +158,34 @@ export default function RHPage() {
     const handleLogout = () => setModalSairOpen(true)
     const handleConfirmLogout = () => { localStorage.clear(); toast.success("Sessão encerrada"); setModalSairOpen(false); navigate('/login') }
     const handleOpenEditFunc = (f: any) => { if (!podeGerirRH) { toast.error('Sem permissão'); return } setFuncSelecionado(f); setModalFuncOpen(true) }
+
     const handleSaveFuncionario = async (data: any) => {
         setSavingFunc(true)
         try {
-            if (funcSelecionado?.id) await api.put(`/api/funcionarios/${funcSelecionado.id}`, data)
-            else await api.post('/api/funcionarios', data)
-            toast.success('Salvo'); setModalFuncOpen(false); setFuncSelecionado(null); await fetchFuncionarios(); await fetchPontoHoje()
-        } catch (e: any) { toast.error(e?.response?.data?.detail || 'Erro') } finally { setSavingFunc(false) }
+            if (funcSelecionado?.id) {
+                await api.put(`/api/funcionarios/${funcSelecionado.id}`, data)
+                toast.success('Funcionário atualizado com sucesso')
+            } else {
+                const res = await api.post('/api/funcionarios', data)
+                const rData = res.data
+
+                // ===== TOAST DO CONTRATO - GERADO OU FALHA =====
+                if (rData.contrato_gerado) {
+                    toast.success(rData.mensagem_contrato || `✅ Contrato ${rData.contrato_codigo} gerado!`, {
+                        description: `${rData.nome} criado com contrato automático.`,
+                        duration: 6000,
+                    })
+                } else {
+                    toast.warning(rData.mensagem_contrato || `⚠️ ${rData.nome} criado, mas contrato não gerado`, {
+                        description: rData.mensagem || 'Vá em Documentos > Modelos e ative um modelo padrão',
+                        duration: 7000,
+                    })
+                }
+            }
+            setModalFuncOpen(false); setFuncSelecionado(null); await fetchFuncionarios(); await fetchPontoHoje()
+        } catch (e: any) {
+            toast.error(e?.response?.data?.detail || e?.response?.data?.mensagem_contrato || 'Erro ao salvar')
+        } finally { setSavingFunc(false) }
     }
 
     const presentesIds = useMemo(() => {

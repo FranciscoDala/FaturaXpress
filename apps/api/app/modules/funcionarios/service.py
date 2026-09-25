@@ -179,22 +179,53 @@ def criar_funcionario(db: Session, company_id: uuid.UUID, dados: FuncionarioCrea
     db.commit()
     db.refresh(func)
 
-    # ===== GERACAO AUTOMATICA DE CONTRATO - NAO QUEBRA SE FALHAR =====
+    # ===== GERAÇÃO AUTOMÁTICA DE CONTRATO COM FEEDBACK PARA TOAST =====
+    contrato_info = {
+        "gerado": False,
+        "codigo": None,
+        "documento_id": None,
+        "mensagem": "Nenhum modelo de contrato padrão encontrado. Crie um modelo em Documentos."
+    }
     try:
         from app.modules.documentos.service import gerar_contrato_automatico_ao_criar
         extras = {}
-        # pega extras se frontend mandar salario_base, etc
         if hasattr(dados, 'model_extra') and dados.model_extra:
             extras = dados.model_extra
         elif hasattr(dados, '__pydantic_extra__') and dados.__pydantic_extra__:
             extras = dados.__pydantic_extra__
 
-        gerar_contrato_automatico_ao_criar(db, company_id, func, extras_contrato=extras)
-    except Exception as e:
-        # Se não tem modelo padrão, só ignora e continua
-        print(f"[DOCS] Contrato automático não gerado (normal se não tem modelo padrão): {e}")
+        doc = gerar_contrato_automatico_ao_criar(db, company_id, func, extras_contrato=extras)
 
-    return func
+        if doc:
+            contrato_info = {
+                "gerado": True,
+                "codigo": doc.codigo_verificacao,
+                "documento_id": str(doc.id),
+                "mensagem": f"✅ Contrato {doc.codigo_verificacao} gerado com sucesso para {func.nome}!"
+            }
+            print(f"[DOCS] ✅ {contrato_info['mensagem']}")
+        else:
+            contrato_info = {
+                "gerado": False,
+                "codigo": None,
+                "documento_id": None,
+                "mensagem": f"⚠️ {func.nome} criado, mas nenhum modelo de contrato padrão estava ativo. Ative um modelo em Documentos > Modelos."
+            }
+            print(f"[DOCS] ⚠️ {contrato_info['mensagem']}")
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        contrato_info = {
+            "gerado": False,
+            "codigo": None,
+            "documento_id": None,
+            "mensagem": f"⚠️ {func.nome} criado, mas o contrato não foi gerado. Erro: {str(e)[:150]}. Verifique os modelos em Documentos."
+        }
+        print(f"[DOCS] ❌ {contrato_info['mensagem']}")
+
+    return func, contrato_info
+
 
 
 def listar_funcionarios(db: Session, company_id: uuid.UUID) -> List[Funcionario]:

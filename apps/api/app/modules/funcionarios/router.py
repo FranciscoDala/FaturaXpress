@@ -155,9 +155,41 @@ def falta_get_anexo(
         raise HTTPException(status_code=502, detail="Não foi possível obter o anexo")
 
 # --- FUNCIONARIOS ---
-@router.post("", response_model=FuncionarioResponse, status_code=201)
+
+# --- FUNCIONARIOS ---
+@router.post("", status_code=201)
 def criar(dados: FuncionarioCreate, db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
-    return func_service.criar_funcionario(db, company_id, dados)
+    func, contrato_info = func_service.criar_funcionario(db, company_id, dados)
+
+    return {
+        "id": str(func.id),
+        "company_id": str(func.company_id),
+        "nome": func.nome,
+        "numero_bi": func.numero_bi,
+        "nome_completo": func.nome,
+        "email": func.email,
+        "telefone": func.telefone,
+        "cargo": func.cargo,
+        "area_principal_id": str(func.area_principal_id) if func.area_principal_id else None,
+        "areas_ids": [str(a.id) for a in func.areas] if hasattr(func, 'areas') and func.areas else [],
+        "ativo": func.ativo,
+        "tem_acesso": func.tem_acesso,
+        "data_admissao": func.data_admissao.isoformat() if func.data_admissao else None,
+        "genero": func.genero,
+        "nacionalidade": func.nacionalidade,
+        "estado_civil": func.estado_civil,
+        "cidade": func.cidade,
+        "provincia": func.provincia,
+        # TOAST FEEDBACK CONTRATO
+        "contrato_gerado": contrato_info["gerado"],
+        "contrato_codigo": contrato_info.get("codigo"),
+        "contrato_documento_id": contrato_info.get("documento_id"),
+        "mensagem_contrato": contrato_info["mensagem"],
+        "mensagem": contrato_info["mensagem"],
+        "toast_type": "success" if contrato_info["gerado"] else "warning"
+    }
+
+
 
 @router.get("", response_model=List[FuncionarioResponse])
 def listar(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):

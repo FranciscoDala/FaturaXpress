@@ -72,10 +72,15 @@ function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onActio
     const handleVerContrato = async () => {
         try {
             setOpenMenu(false)
+            // ABRE VAZIA JÁ NO CLIQUE - não vai ser bloqueada
+            const win = window.open('', '_blank')
+            if (win) win.document.write('<p style="font-family:sans-serif;padding:20px">Gerando PDF A4...</p>')
+
             toast.loading('Buscando contrato...')
             const { data } = await api.get(`/api/documentos/funcionario/${func.id}`)
             toast.dismiss()
             if (!data || data.length === 0) {
+                if (win) win.close()
                 toast.error('Nenhum contrato para ' + func.nome);
                 return
             }
@@ -87,45 +92,40 @@ function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onActio
             })
 
             const contentType = String(res.headers['content-type'] || '').toLowerCase()
-
-            // Se veio HTML é porque o weasyprint não está instalado no Render
             if (contentType.includes('text/html')) {
                 toast.dismiss()
-                toast.error('Backend ainda devolveu HTML - instala weasyprint no requirements.txt')
-                console.log('Vem HTML, não PDF. Instala weasyprint==62.3 no backend')
-                // Abre mesmo assim pra debug
                 const blob = new Blob([res.data], { type: 'text/html;charset=utf-8' })
                 const url = URL.createObjectURL(blob)
-                window.open(url, '_blank')
-                setTimeout(() => URL.revokeObjectURL(url), 60000)
+                if (win) {
+                    win.location.href = url
+                } else {
+                    window.open(url, '_blank')
+                }
+                toast.error('Backend ainda devolveu HTML - verifica logs do Render')
                 return
             }
 
-            // AQUI abre no leitor PDF nativo do Chrome
             const blob = new Blob([res.data], { type: 'application/pdf' })
             const url = URL.createObjectURL(blob)
-            const win = window.open(url, '_blank')
-            if (!win) {
-                // fallback se popup bloqueado: baixa
-                const a = document.createElement('a')
-                a.href = url
-                a.download = `${doc.codigo_verificacao || 'contrato'}.pdf`
-                a.click()
-            }
-            setTimeout(() => URL.revokeObjectURL(url), 120000)
 
+            if (win) {
+                win.location.href = url // mesma aba que já abriu, mostra no viewer nativo
+            } else {
+                window.open(url, '_blank')
+            }
+
+            setTimeout(() => URL.revokeObjectURL(url), 120000)
             toast.dismiss()
             toast.success(`PDF ${doc.codigo_verificacao} aberto`)
+
         } catch (err: any) {
             toast.dismiss()
-            const msg = err?.response?.data?.detail || err?.message || 'Erro ao buscar contrato'
-            if (String(msg).toLowerCase().includes('not authenticated')) {
-                toast.error('Sessão expirada, faz login de novo')
-            } else {
-                toast.error(msg)
-            }
+            toast.error(err?.response?.data?.detail || err?.message)
         }
     }
+
+
+
 
     return (
         <div className="w-full min-w-full md:min-w-[320px] md:max-w-[320px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col relative">

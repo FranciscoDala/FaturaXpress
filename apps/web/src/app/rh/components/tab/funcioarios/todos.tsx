@@ -86,7 +86,7 @@ function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onActio
                 responseType: 'blob'
             })
 
-            const contentType = res.headers['content-type'] || ''
+            const contentType = String(res.headers['content-type'] || '').toLowerCase()
 
             // Se veio HTML é porque o weasyprint não está instalado no Render
             if (contentType.includes('text/html')) {

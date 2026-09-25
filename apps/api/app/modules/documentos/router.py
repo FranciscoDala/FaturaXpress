@@ -28,7 +28,6 @@ def get_company_id_only(auth = Depends(get_company_from_request)):
     return auth["company_id"]
 
 def ensure_utf8_html(html: str) -> str:
-    """Garante que o HTML tem charset UTF-8 e estrutura A4"""
     if not html:
         return html
     if "<meta charset" not in html.lower():
@@ -38,12 +37,8 @@ def ensure_utf8_html(html: str) -> str:
             html = f'<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>{html}</body></html>'
     return html
 
-# ===== SEED MANUAL =====
 @router.post("/seed-modelos")
-def seed_endpoint(
-    db: Session = Depends(get_db),
-    company_id: uuid.UUID = Depends(get_current_company_id)
-):
+def seed_endpoint(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
     try:
         seed_modelos(db, company_id)
     except Exception as e:
@@ -77,24 +72,13 @@ def gerar_documento(req: GerarDocumentoRequest, db: Session = Depends(get_db), c
 @router.get("/funcionario/{funcionario_id}", response_model=List[DocumentoGeradoResponse])
 def listar_do_funcionario(funcionario_id: uuid.UUID, db: Session = Depends(get_db), auth = Depends(get_current_company_and_funcionario)):
     company_id = auth["company_id"]
-    result = db.execute(
-        select(DocumentoGerado).where(
-            DocumentoGerado.company_id == company_id,
-            DocumentoGerado.funcionario_id == funcionario_id
-        ).order_by(DocumentoGerado.created_at.desc())
-    )
+    result = db.execute(select(DocumentoGerado).where(DocumentoGerado.company_id == company_id, DocumentoGerado.funcionario_id == funcionario_id).order_by(DocumentoGerado.created_at.desc()))
     return result.scalars().all()
 
-# ===== ROTAS DE VISUALIZAÇÃO =====
 @router.get("/codigo/{codigo_verificacao}")
 def obter_por_codigo(codigo_verificacao: str, db: Session = Depends(get_db), auth = Depends(get_current_company_and_funcionario)):
     company_id = auth["company_id"]
-    result = db.execute(
-        select(DocumentoGerado).where(
-            DocumentoGerado.codigo_verificacao == codigo_verificacao,
-            DocumentoGerado.company_id == company_id
-        )
-    )
+    result = db.execute(select(DocumentoGerado).where(DocumentoGerado.codigo_verificacao == codigo_verificacao, DocumentoGerado.company_id == company_id))
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(404, "Documento não encontrado")
@@ -103,31 +87,17 @@ def obter_por_codigo(codigo_verificacao: str, db: Session = Depends(get_db), aut
 @router.get("/{documento_id}/preview", response_class=HTMLResponse)
 def preview_documento(documento_id: uuid.UUID, request: Request, token: Optional[str] = Query(None), db: Session = Depends(get_db), auth = Depends(get_company_from_request)):
     company_id = auth["company_id"]
-    result = db.execute(
-        select(DocumentoGerado).where(
-            DocumentoGerado.id == documento_id,
-            DocumentoGerado.company_id == company_id
-        )
-    )
+    result = db.execute(select(DocumentoGerado).where(DocumentoGerado.id == documento_id, DocumentoGerado.company_id == company_id))
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(404, "Documento não encontrado")
-
     html = ensure_utf8_html(doc.conteudo_html_final)
-    return HTMLResponse(
-        content=html,
-        headers={"Content-Type": "text/html; charset=utf-8"}
-    )
+    return HTMLResponse(content=html, headers={"Content-Type": "text/html; charset=utf-8"})
 
 @router.get("/{documento_id}/pdf")
 def pdf_documento(documento_id: uuid.UUID, request: Request, token: Optional[str] = Query(None), db: Session = Depends(get_db), auth = Depends(get_company_from_request)):
     company_id = auth["company_id"]
-    result = db.execute(
-        select(DocumentoGerado).where(
-            DocumentoGerado.id == documento_id,
-            DocumentoGerado.company_id == company_id
-        )
-    )
+    result = db.execute(select(DocumentoGerado).where(DocumentoGerado.id == documento_id, DocumentoGerado.company_id == company_id))
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(404, "Documento não encontrado")
@@ -136,37 +106,30 @@ def pdf_documento(documento_id: uuid.UUID, request: Request, token: Optional[str
 
     try:
         from weasyprint import HTML
-        # Gera PDF A4 de verdade - o leitor padrão do Chrome vai abrir
-        pdf_bytes = HTML(string=html_final).write_pdf(
-            presentational_hints=True
-        )
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f"inline; filename={doc.nome_arquivo or 'contrato'}.pdf",
-                "Content-Type": "application/pdf; charset=utf-8",
-                "Content-Length": str(len(pdf_bytes))
-            }
-        )
-    except ImportError:
-        # Se weasyprint não estiver instalado, volta HTML
-        print("[PDF] weasyprint não instalado, retornando HTML")
-        return HTMLResponse(content=html_final, headers={"Content-Type": "text/html; charset=utf-8"})
+        pdf_bytes = HTML(string=html_final, base_url=str(request.base_url)).write_pdf(presentational_hints=True)
+    except ImportError as e:
+        print(f"[PDF] weasyprint não instalado: {e}")
+        raise HTTPException(500, "WeasyPrint não instalado no servidor. Adicione weasyprint==62.3 ao requirements.txt")
     except Exception as e:
         print(f"[PDF] Erro weasyprint: {e}")
-        # Fallback para HTML com UTF-8 correto
-        return HTMLResponse(content=html_final, headers={"Content-Type": "text/html; charset=utf-8"})
+        raise HTTPException(500, f"Erro ao gerar PDF: {e}")
+
+    filename = (doc.nome_arquivo or f"contrato-{doc.codigo_verificacao}").replace(" ", "_") + ".pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"inline; filename=\"{filename}\"",
+            "Content-Length": str(len(pdf_bytes)),
+            "Cache-Control": "no-cache"
+        }
+    )
 
 @router.get("/{documento_id}")
 def obter_documento(documento_id: uuid.UUID, db: Session = Depends(get_db), auth = Depends(get_current_company_and_funcionario)):
     company_id = auth["company_id"]
-    result = db.execute(
-        select(DocumentoGerado).where(
-            DocumentoGerado.id == documento_id,
-            DocumentoGerado.company_id == company_id
-        )
-    )
+    result = db.execute(select(DocumentoGerado).where(DocumentoGerado.id == documento_id, DocumentoGerado.company_id == company_id))
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(404, "Documento não encontrado")

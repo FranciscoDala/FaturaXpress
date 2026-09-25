@@ -1,4 +1,4 @@
-import { Leaf, ChevronLeft, Home, Users, Package, Settings2, Receipt, FileText, PlusCircle, Factory, UserCheck, Plane, Clock, FileHeart, ClipboardList, Bell, UserPlus, PackagePlus, LayoutDashboard, FileStack, Boxes } from 'lucide-react'
+import { Leaf, ChevronLeft, Home, Users, Package, Settings2, Receipt, FileText, PlusCircle, Factory, UserCheck, Plane, Clock, FileHeart, ClipboardList, Bell, UserPlus, PackagePlus, LayoutDashboard, FileStack, Boxes, FileSignature } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useMemo } from 'react'
 
@@ -6,7 +6,7 @@ const CARGOS_PERMISSOES: Record<string, string[]> = {
     admin: ["*"],
     financeira: ["dashboard", "faturas", "emitidas", "proformas", "emitir", "clientes", "produtos", "servicos", "rh_notificacoes"],
     recepcao: ["dashboard", "proformas", "clientes", "emitir"],
-    rh: ["dashboard","rh", "rh_presente", "rh_ferias", "rh_ponto", "rh_pedidos", "rh_recibos", "rh_notificacoes"]
+    rh: ["dashboard","rh", "rh_presente", "rh_ferias", "rh_ponto", "rh_pedidos", "rh_recibos", "rh_notificacoes", "rh_documentos"]
 }
 
 function temAcesso(cargo: string, area: string) {
@@ -15,7 +15,6 @@ function temAcesso(cargo: string, area: string) {
     return perms.includes(area) || perms.includes("*")
 }
 
-// GRUPOS POR CATEGORIA - DASHBOARD
 const MENU_DASH_GROUPED = [
     {
         categoria: 'Geral',
@@ -78,6 +77,7 @@ const MENU_RH_GROUPED = [
             { id: 'rh4', label: 'Ponto Hoje', Icon: Clock, area: 'rh_ponto', rtab: 'ponto' as const },
             { id: 'rh5', label: 'Pedidos RH', Icon: ClipboardList, area: 'rh_pedidos', rtab: 'pedidos' as const },
             { id: 'rh6', label: 'Recibos', Icon: FileHeart, area: 'rh_recibos', rtab: 'recibos' as const },
+            { id: 'rh8', label: 'Documentos', Icon: FileSignature, area: 'rh_documentos', rtab: 'documentos' as const },
             { id: 'rh7', label: 'Notificações', Icon: Bell, area: 'rh_notificacoes', rtab: 'notificacoes' as const, isNotif: true },
         ]
     }
@@ -97,7 +97,7 @@ export default function SidebarAreas({ open, onClose, notifCount = 0, onOpenClie
 
     const filteredGroups = useMemo(() => {
         return GROUPED.map(g => ({
-           ...g,
+          ...g,
             items: g.items.filter(m => temAcesso(cargoAtual, (m as any).area))
         })).filter(g => g.items.length > 0)
     }, [GROUPED, cargoAtual])
@@ -159,13 +159,11 @@ export default function SidebarAreas({ open, onClose, notifCount = 0, onOpenClie
                         <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col gap-5 pr-1 pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                             {filteredGroups.map((group) => (
                                 <div key={group.categoria} className="relative">
-                                    {/* CATEGORIA */}
                                     <div className="flex items-center gap-1.5 px-2 pb-2">
                                         <group.IconCat className="w-3 h-3 text-[#0095ff]/60" />
                                         <span className="text-[10px] font-bold tracking-[0.12em] text-[#0095ff]/60 uppercase">{group.categoria}</span>
                                     </div>
 
-                                    {/* LINHA VERTICAL + ITENS */}
                                     <div className="relative ml-2 pl-5 border-l border-[#dbeafe]">
                                         <div className="flex flex-col gap-[3px]">
                                             {group.items.map((m: any) => {
@@ -176,7 +174,6 @@ export default function SidebarAreas({ open, onClose, notifCount = 0, onOpenClie
 
                                                 return (
                                                     <div key={m.id} className="relative">
-                                                        {/* CIRCULO NA LINHA */}
                                                         <div className={`absolute -left-[26px] top-[50%] -translate-y-1/2 w-[9px] h-[9px] rounded-full border-2 transition-all ${isActive? 'bg-[#0095ff] border-[#0095ff] shadow-[0_0_0_4px_#e6f0ff]' : 'bg-white border-[#c2d8ff]'}`} />
 
                                                         {isActive? (

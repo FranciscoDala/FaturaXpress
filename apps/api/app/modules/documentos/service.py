@@ -34,7 +34,6 @@ def _get_empresa_val(company: Any, keys: list, default: str = "") -> str:
     return default
 
 def _empresa_to_base64(company: Any) -> str:
-    """Igual lógica que tu usas no frontend fatura - logo_url ou image_url"""
     if not company: return ""
     raw = _get_empresa_val(company, ["logo_url", "image_url", "logo", "image", "companyLogo"], "")
     if not raw: return ""
@@ -60,7 +59,6 @@ def _empresa_to_base64(company: Any) -> str:
 def montar_mapa_variaveis(funcionario: Funcionario, company: Any, extras: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
     if extras is None: extras = {}
     hoje = date.today()
-    # AQUI ESTÁ O FIX DA EMPRESA - pega igual fatura: companyName / nome / nome_fantasia
     nome_empresa = _get_empresa_val(company, ["nome_fantasia", "razao_social", "companyName", "nome"], "Empresa")
     nif_empresa = _get_empresa_val(company, ["nif", "nif_empresa"], "")
     endereco_empresa = _get_empresa_val(company, ["endereco", "endereco_empresa", "address"], "")
@@ -114,12 +112,11 @@ def montar_mapa_variaveis(funcionario: Funcionario, company: Any, extras: Option
         "logo_base64": extras.get("logo_base64") or _empresa_to_base64(company),
     }
     mapa.update(extras)
-    # garante que logo não é sobrescrito por extras vazio
     if not mapa.get("logo_base64"):
         mapa["logo_base64"] = _empresa_to_base64(company)
     return mapa
 
-def renderizar_html(template_html: str, variaveis: Dict[str, str]) -> str:
+def renderizar_html(template_html: str, variaveis: Dict[str, Any]) -> str:
     def replacer(match):
         key = match.group(1).strip()
         return str(variaveis.get(key, ""))
@@ -127,6 +124,22 @@ def renderizar_html(template_html: str, variaveis: Dict[str, str]) -> str:
 
 def _extrair_variaveis_usadas(html: str) -> List[str]:
     return list(set(VAR_REGEX.findall(html)))
+
+def _get_clausulas_do_modelo(modelo: ModeloDocumento) -> List[Dict[str, Any]]:
+    """Pega clausulas do conteudo_json, com fallback para clausulas default"""
+    cj = modelo.conteudo_json or {}
+    clausulas = cj.get("clausulas")
+    if clausulas and isinstance(clausulas, list) and len(clausulas) > 0:
+        return clausulas
+    # fallback - 6 clausulas padrão se empresa nunca editou
+    return [
+        {"id": "1", "titulo": "Cláusula 1ª - Objecto", "texto": "O trabalhador é admitido para exercer as funções de {{cargo}}, na área {{area}}, com início em {{data_admissao}}."},
+        {"id": "2", "titulo": "Cláusula 2ª - Local", "texto": "O local de trabalho habitual será em {{local_trabalho}}."},
+        {"id": "3", "titulo": "Cláusula 3ª - Horário", "texto": "Das {{horario_entrada}} às {{horario_saida}}, com carga horária de {{carga_horaria}}."},
+        {"id": "4", "titulo": "Cláusula 4ª - Remuneração", "texto": "{{salario_base_formatado}} ({{salario_extenso}})."},
+        {"id": "5", "titulo": "Cláusula 5ª - Período Experimental", "texto": "{{periodo_experiencia}}."},
+        {"id": "6", "titulo": "Cláusula 6ª - Duração", "texto": "Por tempo {{duracao_contrato}}."},
+    ]
 
 def gerar_documento(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUID, modelo_id: uuid.UUID, extras: Optional[Dict[str, Any]] = None, gerado_por_id: Optional[uuid.UUID] = None):
     modelo = db.query(ModeloDocumento).filter(ModeloDocumento.id == modelo_id, ModeloDocumento.company_id == company_id, ModeloDocumento.is_ativo == True).first()
@@ -139,10 +152,42 @@ def gerar_documento(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUI
     codigo = "DOC-" + str(datetime.now().year) + "-" + uuid.uuid4().hex[:6].upper()
     if extras is None: extras = {}
     extras["codigo_documento"] = codigo
-    # gera logo antes
     extras["logo_base64"] = _empresa_to_base64(company)
 
+    # 1 - mapa base
     variaveis = montar_mapa_variaveis(funcionario, company, extras)
+
+    # 2 - NOVO: renderiza cláusulas da empresa
+    clausulas_raw = _get_clausulas_do_modelo(modelo)
+    # permite override por extras (se frontend mandar clausulas na hora de gerar)
+    if extras.get("clausulas") and isinstance(extras["clausulas"], list):
+        clausulas_raw = extras["clausulas"]
+
+    clausulas_render = []
+    for c in clausulas_raw:
+        titulo_raw = c.get("titulo", "")
+        texto_raw = c.get("texto", "")
+        titulo = renderizar_html(titulo_raw, variaveis)
+        texto = renderizar_html(texto_raw, variaveis)
+        clausulas_render.append({
+            "id": c.get("id", str(uuid.uuid4())),
+            "titulo": titulo,
+            "texto": texto,
+            "titulo_raw": titulo_raw,
+            "texto_raw": texto_raw
+        })
+
+    # HTML das clausulas para o template antigo
+    clausulas_html = "".join([f"<p><b>{cr['titulo']}:</b> {cr['texto']}</p>" for cr in clausulas_render])
+    logo_img_tag = f"<img src=\"{variaveis['logo_base64']}\" style=\"width:100%;height:100%;object-fit:contain;\"/>" if variaveis.get("logo_base64") else ""
+
+    variaveis["clausulas_render"] = clausulas_render
+    variaveis["clausulas_html"] = clausulas_html
+    variaveis["logo_base64_img"] = logo_img_tag
+    # para template antigo que usa {{hash_verificacao}}
+    variaveis["hash_verificacao"] = codigo
+
+    # 3 - renderiza HTML final (agora já com clausulas_html disponível)
     html_final = renderizar_html(modelo.conteudo_html, variaveis)
 
     doc = DocumentoGerado(
@@ -155,7 +200,13 @@ def gerar_documento(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUI
         nome_arquivo=f"{modelo.codigo}-{_slugify(funcionario.nome)}.pdf",
         codigo_verificacao=codigo,
         conteudo_html_final=html_final,
-        dados_snapshot={"funcionario": {"id": str(funcionario.id), "nome": funcionario.nome, "bi": funcionario.numero_bi}, "extras": extras, "empresa": {"nome": variaveis["nome_empresa"], "nif": variaveis["nif_empresa"]}},
+        dados_snapshot={
+            "funcionario": {"id": str(funcionario.id), "nome": funcionario.nome, "bi": funcionario.numero_bi},
+            "extras": extras,
+            "empresa": {"nome": variaveis["nome_empresa"], "nif": variaveis["nif_empresa"]},
+            "clausulas_raw": clausulas_raw,
+            "clausulas_render": clausulas_render
+        },
         variaveis_preenchidas=variaveis,
         gerado_por_id=gerado_por_id,
         status="gerado"
@@ -182,7 +233,25 @@ def criar_modelo(db: Session, company_id: uuid.UUID, dados: Dict[str, Any], cria
     if db.query(ModeloDocumento).filter(ModeloDocumento.company_id == company_id, ModeloDocumento.codigo == dados['codigo']).first():
         raise HTTPException(400, f"Código {dados['codigo']} já existe")
     variaveis = _extrair_variaveis_usadas(dados['conteudo_html'])
-    modelo = ModeloDocumento(id=uuid.uuid4(), company_id=company_id, codigo=dados['codigo'], nome=dados['nome'], tipo=dados['tipo'], categoria=dados['categoria'], descricao=dados.get('descricao'), conteudo_html=dados['conteudo_html'], variaveis_usadas=variaveis, is_padrao=dados.get('is_padrao', False), tags=dados.get('tags', []), criado_por_id=criado_por_id)
+    # garante clausulas no json mesmo ao criar
+    cj = dados.get('conteudo_json') or {}
+    if 'clausulas' not in cj:
+        cj['clausulas'] = _get_clausulas_do_modelo(ModeloDocumento(conteudo_json=cj, tipo=dados['tipo'], codigo=dados['codigo']))
+    modelo = ModeloDocumento(
+        id=uuid.uuid4(),
+        company_id=company_id,
+        codigo=dados['codigo'],
+        nome=dados['nome'],
+        tipo=dados['tipo'],
+        categoria=dados['categoria'],
+        descricao=dados.get('descricao'),
+        conteudo_html=dados['conteudo_html'],
+        conteudo_json=cj,
+        variaveis_usadas=variaveis,
+        is_padrao=dados.get('is_padrao', False),
+        tags=dados.get('tags', []),
+        criado_por_id=criado_por_id
+    )
     if modelo.is_padrao:
         db.query(ModeloDocumento).filter(ModeloDocumento.company_id == company_id, ModeloDocumento.tipo == modelo.tipo, ModeloDocumento.is_padrao == True).update({"is_padrao": False})
     db.add(modelo); db.commit(); db.refresh(modelo); return modelo
@@ -193,6 +262,18 @@ def atualizar_modelo(db: Session, company_id: uuid.UUID, modelo_id: uuid.UUID, d
     if 'conteudo_html' in dados and dados['conteudo_html']:
         dados['variaveis_usadas'] = _extrair_variaveis_usadas(dados['conteudo_html'])
         dados['versao'] = modelo.versao + 1
+    # se vier conteudo_json com clausulas, mantém
+    if 'conteudo_json' in dados and dados['conteudo_json']:
+        cj = dados['conteudo_json']
+        # extrai variaveis também das clausulas para preview
+        claus = cj.get('clausulas') or []
+        vars_claus = []
+        for c in claus:
+            vars_claus.extend(_extrair_variaveis_usadas(c.get('titulo','') + ' ' + c.get('texto','')))
+        dados['variaveis_usadas'] = list(set((dados.get('variaveis_usadas') or []) + vars_claus))
+        if 'versao' not in dados:
+            dados['versao'] = modelo.versao + 1
+
     if dados.get('is_padrao') == True:
         db.query(ModeloDocumento).filter(ModeloDocumento.company_id == company_id, ModeloDocumento.tipo == modelo.tipo, ModeloDocumento.id!= modelo_id, ModeloDocumento.is_padrao == True).update({"is_padrao": False})
     for k, v in dados.items():

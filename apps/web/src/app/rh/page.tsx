@@ -11,9 +11,10 @@ import TabPonto from './components/tab/ponto/ponto'
 import TabPedidos from './components/tab/pedido/pedidos'
 import TabRecibos from './components/tab/recibos/recibos'
 import TabNotificacoes from './components/tab/notificacoes/notificacoes'
+import TabDocumentos from './components/tab/documentos/modelos'
 import { api } from '../../lib/api'
 
-type RHTab = 'presente' | 'ferias' | 'ponto' | 'pedidos' | 'recibos' | 'notificacoes'
+type RHTab = 'presente' | 'ferias' | 'ponto' | 'pedidos' | 'recibos' | 'notificacoes' | 'documentos'
 const LS_KEYS = { tab: 'rh_tab' }
 const PLAN_LIMITS: Record<string, { label: string }> = { free: { label: 'FREE' }, plus: { label: 'PLUS' }, premium: { label: 'PREMIUM' }, diamond: { label: 'DIAMOND' }, }
 
@@ -21,7 +22,7 @@ const CARGOS_PERMISSOES: Record<string, string[]> = {
     admin: ["*"],
     financeira: ["emitir_ft", "emitir_pp", "ver_faturas", "ver_relatorios"],
     recepcao: ["emitir_ft", "emitir_pp", "ver_faturas"],
-    rh: ["gerir_funcionarios", "gerir_areas", "ver_funcionarios", "ver_ponto", "ver_pedidos", "ver_notificacoes"]
+    rh: ["gerir_funcionarios", "gerir_areas", "ver_funcionarios", "ver_ponto", "ver_pedidos", "ver_notificacoes", "ver_documentos"]
 }
 
 function temPermissao(cargo: string | undefined, perm: string) {
@@ -168,8 +169,6 @@ export default function RHPage() {
             } else {
                 const res = await api.post('/api/funcionarios', data)
                 const rData = res.data
-
-                // ===== TOAST DO CONTRATO - GERADO OU FALHA =====
                 if (rData.contrato_gerado) {
                     toast.success(rData.mensagem_contrato || `✅ Contrato ${rData.contrato_codigo} gerado!`, {
                         description: `${rData.nome} criado com contrato automático.`,
@@ -266,6 +265,7 @@ export default function RHPage() {
                             {rhTab === 'pedidos' && <TabPedidos />}
                             {rhTab === 'recibos' && <TabRecibos />}
                             {rhTab === 'notificacoes' && <TabNotificacoes cargoAtual={cargoAtual} />}
+                            {rhTab === 'documentos' && <TabDocumentos />}
                         </div>
                     </div>
                 </div>

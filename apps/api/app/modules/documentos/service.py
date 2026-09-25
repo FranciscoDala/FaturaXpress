@@ -56,12 +56,12 @@ def _empresa_to_base64(company: Any) -> str:
 def montar_mapa_variaveis(funcionario: Funcionario, company: Any, extras: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
     if extras is None: extras = {}
     hoje = date.today()
-    nome_empresa = _get_empresa_val(company, ["nome_fantasia", "razao_social", "companyName", "nome"], "Empresa")
-    nif_empresa = _get_empresa_val(company, ["nif", "nif_empresa"], "")
-    endereco_empresa = _get_empresa_val(company, ["endereco", "endereco_empresa", "address"], "")
+    nome_empresa = _get_empresa_val(company, ["nome_fantasia", "razao_social", "companyName", "nome"], "CSTQ - Prestação De Serviços, Comércio Geral e Indústria")
+    nif_empresa = _get_empresa_val(company, ["nif", "nif_empresa"], "000546411UE035")
+    endereco_empresa = _get_empresa_val(company, ["endereco", "endereco_empresa", "address"], "Bairro Tchizainga, Edifício CSTQ")
     telefone_empresa = _get_empresa_val(company, ["telefone", "telefone_empresa", "phone"], "")
     email_empresa = _get_empresa_val(company, ["email", "email_empresa"], "")
-    cidade_emissao = extras.get("cidade_emissao") or _get_empresa_val(company, ["cidade", "city"], "Luanda")
+    cidade_emissao = extras.get("cidade_emissao") or _get_empresa_val(company, ["cidade", "city"], "Soyo")
     mapa: Dict[str, str] = {
         "nome_funcionario": funcionario.nome,
         "primeiro_nome": funcionario.nome.split()[0] if funcionario.nome else "",
@@ -72,15 +72,16 @@ def montar_mapa_variaveis(funcionario: Funcionario, company: Any, extras: Option
         "estado_civil": funcionario.estado_civil or "",
         "telefone": funcionario.telefone or "",
         "email": funcionario.email or "",
-        "endereco_completo": funcionario.endereco or "",
+        "endereco_completo": funcionario.endereco or extras.get("endereco_completo") or "",
         "cidade": funcionario.cidade or "",
         "provincia": funcionario.provincia or "",
-        "nome_pai": funcionario.nome_pai or "",
-        "nome_mae": funcionario.nome_mae or "",
-        "iban": funcionario.iban or "",
+        "nome_pai": funcionario.nome_pai or extras.get("nome_pai") or "",
+        "nome_mae": funcionario.nome_mae or extras.get("nome_mae") or "",
+        "naturalidade": str(funcionario.naturalidade or extras.get("naturalidade", "")),
+        "iban": funcionario.iban or extras.get("iban") or "",
         "banco1": funcionario.banco1 or "",
         "cargo": funcionario.cargo or "",
-        "area": str(funcionario.area_principal_id) if funcionario.area_principal_id else "",
+        "area": str(funcionario.area_principal_id) if funcionario.area_principal_id else extras.get("area", ""),
         "tipo_contrato": str(extras.get("tipo_contrato", "Efetivo")),
         "data_admissao": funcionario.data_admissao.strftime("%d/%m/%Y") if funcionario.data_admissao else hoje.strftime("%d/%m/%Y"),
         "data_inicio_contrato": str(extras.get("data_inicio_contrato", hoje.strftime("%d/%m/%Y"))),
@@ -89,17 +90,22 @@ def montar_mapa_variaveis(funcionario: Funcionario, company: Any, extras: Option
         "horario_entrada": str(extras.get("horario_entrada", "08:00")),
         "horario_saida": str(extras.get("horario_saida", "17:00")),
         "carga_horaria": str(extras.get("carga_horaria", "40h semanais")),
-        "local_trabalho": str(extras.get("local_trabalho", endereco_empresa or "Luanda")),
+        "local_trabalho": str(extras.get("local_trabalho", endereco_empresa or "Soyo")),
         "salario_base": str(extras.get("salario_base", "0")),
-        "salario_base_formatado": str(extras.get("salario_base_formatado", str(extras.get("salario_base", "0")) + " Kz")),
-        "salario_extenso": str(extras.get("salario_extenso", str(extras.get("salario_base", "")))),
+        "salario_base_formatado": str(extras.get("salario_base_formatado", f"{extras.get('salario_base', '0')} Kz")),
+        "salario_extenso": str(extras.get("salario_extenso", "")),
+        # CSTQ ESPECIFICO
+        "data_emissao_bi": str(extras.get("data_emissao_bi", "")),
+        "local_emissao_bi": str(extras.get("local_emissao_bi", "Luanda")),
+        "numero_registo_comercial": str(extras.get("numero_registo_comercial", "")),
+        "bairro_funcionario": str(extras.get("bairro_funcionario", "")),
         "nome_empresa": nome_empresa,
         "nif_empresa": nif_empresa,
         "endereco_empresa": endereco_empresa,
         "telefone_empresa": telefone_empresa,
         "email_empresa": email_empresa,
-        "representante_empresa": str(extras.get("representante_empresa", nome_empresa)),
-        "cargo_representante": str(extras.get("cargo_representante", "Director Geral")),
+        "representante_empresa": str(extras.get("representante_empresa", "Engº Casimiro Simão Bambi")),
+        "cargo_representante": str(extras.get("cargo_representante", "Sócio-Gerente")),
         "data_hoje": hoje.strftime("%d/%m/%Y"),
         "data_hoje_extenso": _extenso_data(hoje),
         "ano_atual": str(hoje.year),
@@ -147,12 +153,12 @@ NOME_BONITO = {
 def _default_clausulas_para_tipo(tipo: str) -> List[Dict[str, str]]:
     if tipo.startswith("contrato_"):
         return [
-            {"id": "1", "titulo": "Cláusula 1ª - Objecto", "texto": "O trabalhador {{nome_funcionario}} é admitido para exercer as funções de {{cargo}}, na área {{area}}, com início em {{data_admissao}}."},
-            {"id": "2", "titulo": "Cláusula 2ª - Local", "texto": "O local de trabalho habitual será em {{local_trabalho}}."},
-            {"id": "3", "titulo": "Cláusula 3ª - Horário", "texto": "Das {{horario_entrada}} às {{horario_saida}}, carga de {{carga_horaria}}."},
-            {"id": "4", "titulo": "Cláusula 4ª - Remuneração", "texto": "{{salario_base_formatado}}."},
-            {"id": "5", "titulo": "Cláusula 5ª - Período Experimental", "texto": "{{periodo_experiencia}}."},
-            {"id": "6", "titulo": "Cláusula 6ª - Duração", "texto": "Por tempo {{duracao_contrato}}."},
+            {"id": "1", "titulo": "Primeira Cláusula\n(objecto do contrato)", "texto": "A entidade empregadora admite ao seu serviço o trabalhador {{nome_funcionario}} para exercer as funções de {{cargo}}, na área de {{area}}, com início em {{data_admissao}}, no local de trabalho sito em {{local_trabalho}}."},
+            {"id": "2", "titulo": "Segunda Cláusula\n(vínculo contratual e local)", "texto": "O presente contrato é celebrado por tempo {{duracao_contrato}}, nos termos da Lei Geral do Trabalho, Lei nº 12/23 de 27 de Dezembro. O local de trabalho será em {{local_trabalho}}."},
+            {"id": "3", "titulo": "Terceira Cláusula\n(horário de trabalho)", "texto": "O período normal de trabalho é de {{horario_entrada}} às {{horario_saida}}, perfazendo um total de {{carga_horaria}} semanais, com intervalo de 1 hora para almoço. O trabalhador obriga-se a prestar trabalho extraordinário sempre que necessário, nos termos legais."},
+            {"id": "4", "titulo": "Quarta Cláusula\n(remuneração)", "texto": "Como contrapartida do trabalho prestado, o trabalhador auferirá uma remuneração mensal ilíquida de {{salario_base_formatado}} ({{salario_extenso}}). Sobre a remuneração incidem os descontos legais de INSS e IRT. O trabalhador tem direito a subsídio de Natal (13º mês), subsídio de férias correspondente a 100% do salário base e subsídio de alimentação quando aplicável."},
+            {"id": "5", "titulo": "Quinta Cláusula\n(início e duração de vigência)", "texto": "O presente contrato entra em vigor em {{data_admissao}} e vigorará por tempo indeterminado, com período experimental de {{periodo_experiencia}}, nos termos da LGT."},
+            {"id": "6", "titulo": "Sexta Cláusula\n(deveres e obrigações)", "texto": "O trabalhador obriga-se a cumprir com zelo e assiduidade as funções que lhe forem confiadas, a respeitar o regulamento interno e as normas de higiene e segurança no trabalho."},
         ]
     if tipo == "aviso_ferias":
         return [{"id":"1","titulo":"Aviso","texto":"Comunicamos que {{nome_funcionario}} gozará férias de {{data_inicio_ferias}} a {{data_fim_ferias}}, total de {{dias_ferias}} dias."}]
@@ -180,18 +186,14 @@ def obter_ou_criar_por_tipo(db: Session, company_id: uuid.UUID, tipo_str: str) -
         tipo_enum = TipoModeloDocumento(tipo_str)
     except ValueError:
         raise HTTPException(400, f"Tipo {tipo_str} inválido")
-
-    # >>> ALTERAÇÃO NECESSÁRIA: só retorna o que já existe da empresa, sem criar duplicado
     existente = db.query(ModeloDocumento).filter(
         ModeloDocumento.company_id == company_id,
         ModeloDocumento.tipo == tipo_enum,
         ModeloDocumento.is_ativo == True,
         ModeloDocumento.is_sistema == False
-    ).first()
+    ).order_by(ModeloDocumento.updated_at.desc()).first()
     if existente:
         return existente
-
-    # se não existe, cria 1 vez só
     categoria_str = CATEGORIA_POR_TIPO.get(tipo_str, "outros")
     nome = NOME_BONITO.get(tipo_str, tipo_str)
     codigo = f"{tipo_str.upper()[:20]}-001"
@@ -218,7 +220,11 @@ def obter_ou_criar_por_tipo(db: Session, company_id: uuid.UUID, tipo_str: str) -
         db.commit()
     except:
         db.rollback()
-        ja = db.query(ModeloDocumento).filter(ModeloDocumento.company_id == company_id, ModeloDocumento.tipo == tipo_enum, ModeloDocumento.is_ativo == True).first()
+        ja = db.query(ModeloDocumento).filter(
+            ModeloDocumento.company_id == company_id,
+            ModeloDocumento.tipo == tipo_enum,
+            ModeloDocumento.is_ativo == True
+        ).order_by(ModeloDocumento.updated_at.desc()).first()
         if ja:
             return ja
         raise
@@ -247,7 +253,13 @@ def gerar_documento(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUI
         titulo = renderizar_html(titulo_raw, variaveis)
         texto = renderizar_html(texto_raw, variaveis)
         clausulas_render.append({"id": str(c.get("id", str(uuid.uuid4()))), "titulo": titulo, "texto": texto, "titulo_raw": titulo_raw, "texto_raw": texto_raw})
-    clausulas_html = "".join([f"<p><b>{cr['titulo']}:</b> {cr['texto']}</p>" for cr in clausulas_render])
+
+    # CSTQ: TITULO CENTRALIZADO IGUAL DA FOTO
+    clausulas_html = "".join([
+        f"<div style='text-align:center;font-weight:bold;margin-top:24px;margin-bottom:10px;text-transform:uppercase;line-height:1.3;'>{cr['titulo'].replace(chr(10),'<br/>')}</div><p style='text-align:justify;margin:0 0 14px 0;line-height:1.6;'>{cr['texto']}</p>"
+        for cr in clausulas_render
+    ])
+
     logo_img_tag = f"<img src=\"{variaveis['logo_base64']}\" style=\"width:100%;height:100%;object-fit:contain;\"/>" if variaveis.get("logo_base64") else ""
     variaveis["clausulas_render"] = cast(Any, clausulas_render)
     variaveis["clausulas_html"] = clausulas_html
@@ -266,14 +278,27 @@ def gerar_documento(db: Session, company_id: uuid.UUID, funcionario_id: uuid.UUI
     return doc
 
 def gerar_contrato_automatico_ao_criar(db: Session, company_id: uuid.UUID, funcionario: Funcionario, extras_contrato: Optional[Dict[str, Any]] = None):
-    modelo_padrao = db.query(ModeloDocumento).filter(ModeloDocumento.company_id == company_id, ModeloDocumento.is_padrao == True, ModeloDocumento.is_ativo == True, ModeloDocumento.tipo == TipoModeloDocumento.contrato_efetivo.value).first()
+    modelo_padrao = db.query(ModeloDocumento).filter(
+        ModeloDocumento.company_id == company_id,
+        ModeloDocumento.is_padrao == True,
+        ModeloDocumento.is_ativo == True,
+        ModeloDocumento.tipo == TipoModeloDocumento.contrato_efetivo
+    ).order_by(ModeloDocumento.updated_at.desc()).first()
     if not modelo_padrao:
-        modelo_padrao = db.query(ModeloDocumento).filter(ModeloDocumento.company_id == company_id, ModeloDocumento.is_padrao == True, ModeloDocumento.is_ativo == True).first()
+        modelo_padrao = db.query(ModeloDocumento).filter(
+            ModeloDocumento.company_id == company_id,
+            ModeloDocumento.is_padrao == True,
+            ModeloDocumento.is_ativo == True
+        ).order_by(ModeloDocumento.updated_at.desc()).first()
     if not modelo_padrao: return None
     return gerar_documento(db, company_id, funcionario.id, modelo_padrao.id, extras=extras_contrato, gerado_por_id=None)
 
 def listar_todos_modelos(db: Session, company_id: uuid.UUID):
-    return db.query(ModeloDocumento).filter(ModeloDocumento.company_id == company_id).order_by(ModeloDocumento.is_padrao.desc(), ModeloDocumento.nome).all()
+    return db.query(ModeloDocumento).filter(
+        ModeloDocumento.company_id == company_id,
+        ModeloDocumento.is_ativo == True,
+        ModeloDocumento.is_sistema == False
+    ).order_by(ModeloDocumento.updated_at.desc()).all()
 
 def obter_modelo(db: Session, company_id: uuid.UUID, modelo_id: uuid.UUID):
     return db.query(ModeloDocumento).filter(ModeloDocumento.id == modelo_id, ModeloDocumento.company_id == company_id).first()

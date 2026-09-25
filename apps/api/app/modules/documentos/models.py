@@ -58,7 +58,8 @@ class StatusDocumentoGerado(str, enum.Enum):
 class ModeloDocumento(Base):
     __tablename__ = "modelos_documentos"
     __table_args__ = (
-        UniqueConstraint('company_id', 'tipo', name='uq_company_tipo_unico_ativo'),
+        UniqueConstraint('company_id', 'codigo', name='uq_company_codigo'),
+
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)

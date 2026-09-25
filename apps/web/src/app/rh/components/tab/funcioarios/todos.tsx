@@ -1,5 +1,7 @@
 import { Eye, Pencil, CalendarOff, Lock, Search, ChevronDown, Check, Loader2, Settings, FileText, Clock, Wallet, Folder, Star, Power, ChevronRight } from 'lucide-react'
 import { useMemo, useState, useEffect, useRef } from 'react'
+import { toast } from 'sonner'
+import { api, apiRoot } from '../../../../../lib/api'
 
 interface Funcionario {
     id: string
@@ -76,8 +78,28 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
     const wrapperRef = useRef<HTMLDivElement>(null)
     const btnRef = useRef<HTMLButtonElement>(null)
     const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 320 })
+    const [docsMap, setDocsMap] = useState<Record<string, any>>({})
 
     useEffect(() => { if (searchProp!== undefined) setSearchInternal(searchProp) }, [searchProp])
+
+    useEffect(() => {
+        if (!funcionarios.length) return
+        const run = async () => {
+            const map: Record<string, any> = {}
+            await Promise.all(
+                funcionarios.map(async (f) => {
+                    try {
+                        const { data } = await api.get(`/api/documentos/funcionario/${f.id}`)
+                        if (Array.isArray(data) && data.length > 0) {
+                            map[f.id] = data[0]
+                        }
+                    } catch {}
+                })
+            )
+            setDocsMap(map)
+        }
+        run()
+    }, [funcionarios])
 
     const funcionarioLogado = useMemo(() => {
         try { return JSON.parse(localStorage.getItem("funcionario") || "null") } catch { return null }
@@ -178,7 +200,7 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
             ) : (
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory snap-always pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {funcionariosFiltrados.map((f) => (
-                        <FuncionarioCard key={f.id} func={f} presentesIds={presentesIds} onView={onView} onEdit={onEdit} onFerias={onFerias} onAction={onAction} podeEditar={podeEditar} podeFerias={podeFerias} cargoAtual={cargoAtual} />
+                        <FuncionarioCard key={f.id} func={f} presentesIds={presentesIds} onView={onView} onEdit={onEdit} onFerias={onFerias} onAction={onAction} podeEditar={podeEditar} podeFerias={podeFerias} cargoAtual={cargoAtual} documento={docsMap[f.id]} />
                     ))}
                 </div>
             )}
@@ -186,7 +208,7 @@ export default function TabPresente({ funcionarios, presentesIds, search: search
     )
 }
 
-function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onAction, podeEditar, podeFerias, cargoAtual }: { func: Funcionario; presentesIds?: Set<string>; onView?: Props['onView']; onEdit?: Props['onEdit']; onFerias?: Props['onFerias']; onAction?: Props['onAction']; podeEditar: boolean; podeFerias: boolean; cargoAtual: string }) {
+function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onAction, podeEditar, podeFerias, cargoAtual, documento }: { func: Funcionario; presentesIds?: Set<string>; onView?: Props['onView']; onEdit?: Props['onEdit']; onFerias?: Props['onFerias']; onAction?: Props['onAction']; podeEditar: boolean; podeFerias: boolean; cargoAtual: string; documento?: any }) {
     const [openMenu, setOpenMenu] = useState(false)
     const [openSub, setOpenSub] = useState<string | null>('vinculo')
     const menuRef = useRef<HTMLDivElement>(null)
@@ -200,6 +222,25 @@ function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onActio
         if (openMenu) document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
     }, [openMenu])
+
+    const handleVerContrato = async () => {
+        try {
+            if (documento?.id) {
+                window.open(`${apiRoot}/documentos/${documento.id}/preview`, '_blank')
+                setOpenMenu(false)
+                return
+            }
+            const { data } = await api.get(`/api/documentos/funcionario/${func.id}`)
+            if (data && data.length > 0) {
+                window.open(`${apiRoot}/documentos/${data[0].id}/preview`, '_blank')
+                setOpenMenu(false)
+            } else {
+                toast.error('Nenhum contrato encontrado para este funcionário')
+            }
+        } catch {
+            toast.error('Erro ao buscar contrato')
+        }
+    }
 
     return (
         <div className="w-full min-w-full md:min-w-[320px] md:max-w-[320px] snap-start flex-shrink-0 bg-white rounded-[22px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col relative">
@@ -223,8 +264,15 @@ function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onActio
                                             {isOpen && (
                                                 <div className="relative ml-3 mt-2 mb-2 pl-4 border-l-[2px] border-black space-y-1">
                                                     {group.items.map(it => (
-                                                        <button key={it.id} onClick={() => { onAction?.(it.id, func); setOpenMenu(false); if(it.id==='marcar_ferias') onFerias?.(func) }} className="relative w-full text-left px-3 py-2.5 rounded-[10px] text-[12.5px] font-medium text-black hover:bg-gray-50 text-wrap leading-tight">
-                                                            {/* circulo na linha */}
+                                                        <button key={it.id} onClick={() => {
+                                                            if (it.id === 'ver_contrato') {
+                                                                handleVerContrato()
+                                                                return
+                                                            }
+                                                            onAction?.(it.id, func);
+                                                            setOpenMenu(false);
+                                                            if(it.id==='marcar_ferias') onFerias?.(func)
+                                                        }} className="relative w-full text-left px-3 py-2.5 rounded-[10px] text-[12.5px] font-medium text-black hover:bg-gray-50 text-wrap leading-tight">
                                                             <span className="absolute -left-[22px] top-1/2 -translate-y-1/2 w-[10px] h-[10px] rounded-full bg-black border-2 border-white shadow-sm" />
                                                             {it.label}
                                                         </button>
@@ -253,7 +301,14 @@ function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onActio
                     <p className="text-[12.5px] text-black truncate">E-mail: {func.email || '---'}</p>
                     <p className="text-[12.5px] text-black truncate">Tel: {func.telefone || '---'}</p>
                 </div>
-                <div className="mt-3 min-w-0"><span className={`inline-flex items-center max-w-full truncate px-2.5 py-[3px] rounded-full border text-[10px] font-bold leading-tight ${isPresente? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-black'}`}>{isPresente? 'Presente • Ativo' : 'Ausente • Hoje'}</span></div>
+                <div className="mt-3 flex gap-2 flex-wrap">
+                    <span className={`inline-flex items-center max-w-full truncate px-2.5 py-[3px] rounded-full border text-[10px] font-bold leading-tight ${isPresente? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-black'}`}>{isPresente? 'Presente • Ativo' : 'Ausente • Hoje'}</span>
+                    {documento && (
+                        <span className="inline-flex items-center px-2.5 py-[3px] rounded-full border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold">
+                            {documento.codigo_verificacao}
+                        </span>
+                    )}
+                </div>
             </div>
 
             <div className="grid grid-cols-3 border-t border-gray-100 mt-auto shrink-0">

@@ -15,7 +15,6 @@ from app.modules.documentos.seed import seed_modelos
 router = APIRouter(prefix="/documentos", tags=["Documentos"])
 
 def get_company_from_request(request: Request, token_qs: Optional[str] = Query(None, alias="token"), auth = Depends(get_current_company_and_funcionario)):
-    # Se veio por?token= (window.open) decodifica manual
     if token_qs:
         try:
             payload = decode_access_token(token_qs)
@@ -28,6 +27,17 @@ def get_company_from_request(request: Request, token_qs: Optional[str] = Query(N
 def get_company_id_only(auth = Depends(get_company_from_request)):
     return auth["company_id"]
 
+def ensure_utf8_html(html: str) -> str:
+    """Garante que o HTML tem charset UTF-8 e estrutura A4"""
+    if not html:
+        return html
+    if "<meta charset" not in html.lower():
+        if "<head>" in html.lower():
+            html = html.replace("<head>", '<head><meta charset="UTF-8">', 1).replace("<HEAD>", '<head><meta charset="UTF-8">', 1)
+        else:
+            html = f'<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>{html}</body></html>'
+    return html
+
 # ===== SEED MANUAL =====
 @router.post("/seed-modelos")
 def seed_endpoint(
@@ -38,7 +48,7 @@ def seed_endpoint(
         seed_modelos(db, company_id)
     except Exception as e:
         raise HTTPException(500, f"Erro no seed: {e}")
-    return {"ok": True, "msg": "Modelos padrão garantidos"}
+    return {"ok": True, "msg": "Modelos padrão A4 atualizados"}
 
 @router.get("/modelos", response_model=List[ModeloDocumentoResponse])
 def listar_modelos(db: Session = Depends(get_db), company_id: uuid.UUID = Depends(get_current_company_id)):
@@ -88,7 +98,7 @@ def obter_por_codigo(codigo_verificacao: str, db: Session = Depends(get_db), aut
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(404, "Documento não encontrado")
-    return {"id": str(doc.id), "html_final": doc.conteudo_html_final, "codigo": doc.codigo_verificacao, "nome_arquivo": doc.nome_arquivo}
+    return {"id": str(doc.id), "html_final": ensure_utf8_html(doc.conteudo_html_final), "codigo": doc.codigo_verificacao, "nome_arquivo": doc.nome_arquivo}
 
 @router.get("/{documento_id}/preview", response_class=HTMLResponse)
 def preview_documento(documento_id: uuid.UUID, request: Request, token: Optional[str] = Query(None), db: Session = Depends(get_db), auth = Depends(get_company_from_request)):
@@ -102,7 +112,12 @@ def preview_documento(documento_id: uuid.UUID, request: Request, token: Optional
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(404, "Documento não encontrado")
-    return HTMLResponse(content=doc.conteudo_html_final)
+
+    html = ensure_utf8_html(doc.conteudo_html_final)
+    return HTMLResponse(
+        content=html,
+        headers={"Content-Type": "text/html; charset=utf-8"}
+    )
 
 @router.get("/{documento_id}/pdf")
 def pdf_documento(documento_id: uuid.UUID, request: Request, token: Optional[str] = Query(None), db: Session = Depends(get_db), auth = Depends(get_company_from_request)):
@@ -116,13 +131,32 @@ def pdf_documento(documento_id: uuid.UUID, request: Request, token: Optional[str
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(404, "Documento não encontrado")
+
+    html_final = ensure_utf8_html(doc.conteudo_html_final)
+
     try:
         from weasyprint import HTML
-        pdf_bytes = HTML(string=doc.conteudo_html_final).write_pdf()
-        return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f"inline; filename={doc.nome_arquivo}"})
+        # Gera PDF A4 de verdade - o leitor padrão do Chrome vai abrir
+        pdf_bytes = HTML(string=html_final).write_pdf(
+            presentational_hints=True
+        )
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"inline; filename={doc.nome_arquivo or 'contrato'}.pdf",
+                "Content-Type": "application/pdf; charset=utf-8",
+                "Content-Length": str(len(pdf_bytes))
+            }
+        )
+    except ImportError:
+        # Se weasyprint não estiver instalado, volta HTML
+        print("[PDF] weasyprint não instalado, retornando HTML")
+        return HTMLResponse(content=html_final, headers={"Content-Type": "text/html; charset=utf-8"})
     except Exception as e:
         print(f"[PDF] Erro weasyprint: {e}")
-        return HTMLResponse(content=doc.conteudo_html_final)
+        # Fallback para HTML com UTF-8 correto
+        return HTMLResponse(content=html_final, headers={"Content-Type": "text/html; charset=utf-8"})
 
 @router.get("/{documento_id}")
 def obter_documento(documento_id: uuid.UUID, db: Session = Depends(get_db), auth = Depends(get_current_company_and_funcionario)):
@@ -136,4 +170,4 @@ def obter_documento(documento_id: uuid.UUID, db: Session = Depends(get_db), auth
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(404, "Documento não encontrado")
-    return {"id": str(doc.id), "html_final": doc.conteudo_html_final, "codigo": doc.codigo_verificacao, "nome_arquivo": doc.nome_arquivo}
+    return {"id": str(doc.id), "html_final": ensure_utf8_html(doc.conteudo_html_final), "codigo": doc.codigo_verificacao, "nome_arquivo": doc.nome_arquivo}

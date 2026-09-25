@@ -77,15 +77,33 @@ function FuncionarioCard({ func, presentesIds, onView, onEdit, onFerias, onActio
             toast.dismiss()
             if (!data || data.length === 0) { toast.error('Nenhum contrato para ' + func.nome); return }
             const doc = data[0]
-            // usa api com Bearer, igual ao comprovante cloudinary
-            toast.loading('Abrindo contrato...')
-            const res = await api.get(`/api/documentos/${doc.id}/preview`, { responseType: 'blob' })
-            const blob = new Blob([res.data], { type: 'text/html' })
-            const url = URL.createObjectURL(blob)
-            window.open(url, '_blank')
-            setTimeout(() => URL.revokeObjectURL(url), 60000)
+
+            toast.loading('Gerando PDF...')
+            // Busca PDF real - vai abrir no leitor padrão do Chrome
+            const token = localStorage.getItem('access_token') || localStorage.getItem('token') || ''
+            const res = await api.get(`/api/documentos/${doc.id}/pdf`, {
+                responseType: 'blob',
+                params: token? { token } : {}
+            })
+
+            // Valida se realmente veio PDF
+            const contentType = res.headers['content-type'] || ''
+            if (contentType.includes('text/html')) {
+                // Fallback: veio HTML por causa do weasyprint
+                const blob = new Blob([res.data], { type: 'text/html;charset=utf-8' })
+                const url = URL.createObjectURL(blob)
+                window.open(url, '_blank')
+                setTimeout(() => URL.revokeObjectURL(url), 60000)
+            } else {
+                const blob = new Blob([res.data], { type: 'application/pdf' })
+                const url = URL.createObjectURL(blob)
+                // _blank com PDF abre no viewer nativo
+                window.open(url, '_blank')
+                setTimeout(() => URL.revokeObjectURL(url), 120000)
+            }
+
             toast.dismiss()
-            toast.success(`Contrato ${doc.codigo_verificacao}`)
+            toast.success(`Contrato ${doc.codigo_verificacao || doc.id.slice(0,8)} • A4`)
         } catch (err: any) {
             toast.dismiss()
             const msg = err?.response?.data?.detail || err?.message || 'Erro ao buscar contrato'

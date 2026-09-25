@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import GlobalAreas from '../../components/GlobalAreas'
 import ModalConfirmSair from '../dashboard/components/modals/modal_ConfirmSair'
 import ModalUsuario from './components/modals/modal_UsuarioView'
-import ModalFuncionario from './components/modals/modal_Funcionario'
+import ModalFuncionario from './components/tab/funcioarios/modals/funcionario'
 import TabPresente from './components/tab/funcioarios/todos'
 import TabPonto from './components/tab/ponto/ponto'
 import TabPedidos from './components/tab/pedido/pedidos'
@@ -77,7 +77,7 @@ export default function RHPage() {
     const fetchMe = useCallback(async () => {
         try {
             const tipo = localStorage.getItem("login_tipo") || "company"
-            const url = tipo === "funcionario" ? "/api/auth/me-funcionario" : "/api/auth/me"
+            const url = tipo === "funcionario"? "/api/auth/me-funcionario" : "/api/auth/me"
             const r = await api.get(url)
             const func = r.data.funcionario || null
             let compRaw = r.data.company || r.data.empresa || r.data.company_data || r.data || null
@@ -86,11 +86,11 @@ export default function RHPage() {
                 localStorage.setItem("funcionario", JSON.stringify(func))
             }
             if (tipo === "funcionario") {
-                const incompleta = !compRaw || (!compRaw.telefone && !compRaw.phone && !compRaw.endereco && !compRaw.address)
+                const incompleta =!compRaw || (!compRaw.telefone &&!compRaw.phone &&!compRaw.endereco &&!compRaw.address)
                 if (incompleta) {
                     try {
                         const cached = JSON.parse(localStorage.getItem("empresa") || "null")
-                        if (cached) { compRaw = { ...cached, ...(compRaw || {}) } }
+                        if (cached) { compRaw = {...cached,...(compRaw || {}) } }
                     } catch { }
                 }
             } else {
@@ -110,22 +110,22 @@ export default function RHPage() {
         setLoadingFunc(true)
         try {
             const { data } = await api.get('/api/funcionarios')
-            setFuncionarios(data.map((f: any) => ({ ...f, area: f.area_principal?.nome || f.area || 'Geral', cargo: f.cargo || 'rh', status: f.status || (f.ativo === false ? 'ferias' : 'ativo'), telefone: f.telefone || '', email: f.email || '' })))
+            setFuncionarios(data.map((f: any) => ({...f, area: f.area_principal?.nome || f.area || 'Geral', cargo: f.cargo || 'rh', status: f.status || (f.ativo === false? 'ferias' : 'ativo'), telefone: f.telefone || '', email: f.email || '' })))
         } catch { toast.error('Erro ao carregar funcionários') } finally { setLoadingFunc(false) }
     }, [])
 
     const fetchPontoHoje = useCallback(async () => {
         try {
             const r = await api.get(`/api/rh/ponto?data=${isoToday()}`)
-            setPontoHoje(Array.isArray(r.data) ? r.data : (r.data.items || []))
+            setPontoHoje(Array.isArray(r.data)? r.data : (r.data.items || []))
         } catch { setPontoHoje([]) }
     }, [])
 
     const fetchNotifCount = useCallback(async () => {
         try {
-            const area = cargoAtual === 'admin' ? 'admin' : 'rh'
+            const area = cargoAtual === 'admin'? 'admin' : 'rh'
             const { data } = await api.get(`/api/rh/notificacoes?area=${area}&status=pendente`)
-            const total = Array.isArray(data) ? data.length : 0
+            const total = Array.isArray(data)? data.length : 0
             window.dispatchEvent(new CustomEvent('notificacoes-count', { detail: { count: total } }))
         } catch { }
     }, [cargoAtual])
@@ -139,11 +139,21 @@ export default function RHPage() {
     }, [fetchNotifCount])
 
     useEffect(() => { localStorage.setItem(LS_KEYS.tab, rhTab); const params = new URLSearchParams(searchParams); params.set('rtab', rhTab); setSearchParams(params, { replace: true }) }, [rhTab])
+
     useEffect(() => {
         const handler = (e: any) => { if (e.detail?.rtab) setRhTab(e.detail.rtab) }
+        const handlerOpenFunc = () => {
+            if (!podeGerirRH) { toast.error('Sem permissão'); return }
+            setFuncSelecionado(null)
+            setModalFuncOpen(true)
+        }
         window.addEventListener('rh-nav' as any, handler)
-        return () => window.removeEventListener('rh-nav' as any, handler)
-    }, [])
+        window.addEventListener('rh-open-funcionario' as any, handlerOpenFunc)
+        return () => {
+            window.removeEventListener('rh-nav' as any, handler)
+            window.removeEventListener('rh-open-funcionario' as any, handlerOpenFunc)
+        }
+    }, [podeGerirRH])
 
     const handleLogout = () => setModalSairOpen(true)
     const handleConfirmLogout = () => { localStorage.clear(); toast.success("Sessão encerrada"); setModalSairOpen(false); navigate('/login') }
@@ -166,7 +176,7 @@ export default function RHPage() {
     const totalFuncionarios = funcionarios.length
     const totalPresentesHoje = presentesIds.size
 
-    if (funcionarioLogado && !podeGerirRH && !podeVerPonto) {
+    if (funcionarioLogado &&!podeGerirRH &&!podeVerPonto) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center p-6">
                 <div className="max-w-[400px] w-full bg-white border rounded-[24px] p-8 text-center shadow-lg">
@@ -213,11 +223,11 @@ export default function RHPage() {
                                 <div className="flex items-center gap-3 shrink-0 pl-2"><div className="relative"><div className="absolute -top-3 -right-2 z-10"><span className="text-[8px] font-bold tracking-wide bg-white border border-yellow-200 text-yellow-700 px-1.5 py-[1px] rounded-full shadow-sm">{planInfo.label}</span></div><button onClick={() => navigate('/assinatura')} className="w-10 h-10 rounded-full bg-white border border-yellow-200 shadow flex items-center justify-center text-[#f59e0b] hover:bg-yellow-50 transition"><Crown className="w-[18px] h-[18px]" /></button></div><button onClick={handleLogout} className="w-10 h-10 rounded-full bg-[#FF3B30] border border-[#FF3B30] shadow flex items-center justify-center text-white hover:bg-[#e6352b] transition"><Power className="w-[18px] h-[18px]" /></button></div>
                             </div>
                             <div className="mt-5 flex max-w-[520px] w-full bg-white/80 backdrop-blur border rounded-[3px] overflow-hidden shadow-sm">
-                                <button onClick={() => setRhTab('presente')} className={`flex-1 py-2.5 flex flex-col justify-center items-center text-center border-r border-gray-200 transition ${rhTab === 'presente' ? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
-                                    <p className="text-[15px] font-bold leading-none">{loadingFunc ? '...' : totalFuncionarios}</p>
+                                <button onClick={() => setRhTab('presente')} className={`flex-1 py-2.5 flex flex-col justify-center items-center text-center border-r border-gray-200 transition ${rhTab === 'presente'? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
+                                    <p className="text-[15px] font-bold leading-none">{loadingFunc? '...' : totalFuncionarios}</p>
                                     <p className="text-[11px] text-gray-500 mt-[2px]">Funcionários</p>
                                 </button>
-                                <button onClick={() => setRhTab('ponto')} className={`flex-1 py-2.5 flex flex-col justify-center items-center text-center transition ${rhTab === 'ponto' ? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
+                                <button onClick={() => setRhTab('ponto')} className={`flex-1 py-2.5 flex flex-col justify-center items-center text-center transition ${rhTab === 'ponto'? 'bg-[#F0F7FF] text-[#0095ff]' : 'bg-white text-gray-800 hover:bg-gray-50'}`}>
                                     <p className="text-[15px] font-bold leading-none">{totalPresentesHoje}</p>
                                     <p className="text-[11px] text-gray-500 mt-[2px]">Presentes</p>
                                 </button>
@@ -227,13 +237,10 @@ export default function RHPage() {
                     <style>{`.bubble { position:absolute; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(0,149,255,0.20), rgba(0,149,255,0.05) 65%); border:1px solid rgba(0,149,255,0.14); box-shadow: inset 0 0 10px rgba(255,255,255,0.7), 0 2px 12px rgba(0,149,255,0.10); animation: floatBubble 8s infinite ease-in-out; }.bubble-1 { width:80px; height:80px; left:10%; top:20%; }.bubble-2 { width:120px; height:120px; left:70%; top:10%; }.bubble-3 { width:60px; height:60px; left:40%; top:60%; }.bubble-4 { width:40px; height:40px; left:85%; top:50%; }.bubble-5 { width:100px; height:100px; left:5%; top:70%; }.bubble-6 { width:50px; height:50px; left:55%; top:15%; } @keyframes floatBubble { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-25px) scale(0.95);} }`}</style>
                 </div>
 
-                {/* IGUAL DASHBOARD - SEM PADDING NA MÃE, PADDING DENTRO DO TAB */}
                 <div className="w-full py-6">
                     <div className="w-full py-2">
                         <div id="tabela">
                             {rhTab === 'presente' && <TabPresente funcionarios={funcionarios} presentesIds={presentesIds} onEdit={handleOpenEditFunc} loading={loadingFunc} />}
-
-
                             {rhTab === 'ponto' && <TabPonto empresa={empresa} usuario={usuario} />}
                             {rhTab === 'pedidos' && <TabPedidos />}
                             {rhTab === 'recibos' && <TabRecibos />}

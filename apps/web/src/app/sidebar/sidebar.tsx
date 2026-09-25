@@ -1,4 +1,4 @@
-import { Leaf, ChevronLeft, Home, Users, Package, Settings2, Receipt, FileText, PlusCircle, Factory, UserCheck, Plane, Clock, FileHeart, ClipboardList, Bell, UserPlus, PackagePlus } from 'lucide-react'
+import { Leaf, ChevronLeft, Home, Users, Package, Settings2, Receipt, FileText, PlusCircle, Factory, UserCheck, Plane, Clock, FileHeart, ClipboardList, Bell, UserPlus, PackagePlus, LayoutDashboard, FileStack, Boxes } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useMemo } from 'react'
 
@@ -15,31 +15,75 @@ function temAcesso(cargo: string, area: string) {
     return perms.includes(area) || perms.includes("*")
 }
 
-const MENU_DASH = [
-    { id: '1', label: 'Painel', Icon: Home, area: 'dashboard', view: 'faturas' as const, ftab: 'curso' as const },
-    { id: '2', label: 'Recursos Humanos', Icon: Factory, area: 'rh', to: '/app/rh' },
-    { id: '3', label: 'Faturas AGT FT', Icon: Receipt, area: 'emitidas', view: 'faturas' as const, ftab: 'emitidas' as const },
-    { id: '4', label: 'Proformas PP', Icon: FileText, area: 'proformas', view: 'faturas' as const, ftab: 'curso' as const },
-    { id: '5', label: 'Emitir Fatura', Icon: PlusCircle, area: 'emitir', view: 'faturas' as const, ftab: 'emitir' as const },
-    { id: '6', label: 'Adicionar Cliente', Icon: UserPlus, area: 'clientes', action: 'modal_cliente' as const },
-    { id: '6b', label: 'Ver Clientes', Icon: Users, area: 'clientes', view: 'gestao' as const, list: 'clientes' as const },
-    { id: '7', label: 'Adicionar Produto', Icon: PackagePlus, area: 'produtos', action: 'modal_produto' as const },
-    { id: '7b', label: 'Ver Produtos', Icon: Package, area: 'produtos', view: 'gestao' as const, list: 'produtos' as const },
-    { id: '8', label: 'Serviços', Icon: Settings2, area: 'servicos', view: 'gestao' as const, list: 'servicos' as const },
-    { id: '9', label: 'Notificações', Icon: Bell, area: 'rh_notificacoes', to: '/app/rh?rtab=notificacoes', isNotif: true, rtab: 'notificacoes' as const },
+// GRUPOS POR CATEGORIA - DASHBOARD
+const MENU_DASH_GROUPED = [
+    {
+        categoria: 'Geral',
+        IconCat: LayoutDashboard,
+        items: [
+            { id: '1', label: 'Painel', Icon: Home, area: 'dashboard', view: 'faturas' as const, ftab: 'curso' as const },
+            { id: '2', label: 'Recursos Humanos', Icon: Factory, area: 'rh', to: '/app/rh' },
+        ]
+    },
+    {
+        categoria: 'Faturação',
+        IconCat: FileStack,
+        items: [
+            { id: '3', label: 'Faturas AGT FT', Icon: Receipt, area: 'emitidas', view: 'faturas' as const, ftab: 'emitidas' as const },
+            { id: '4', label: 'Proformas PP', Icon: FileText, area: 'proformas', view: 'faturas' as const, ftab: 'curso' as const },
+            { id: '5', label: 'Emitir Fatura', Icon: PlusCircle, area: 'emitir', view: 'faturas' as const, ftab: 'emitir' as const },
+        ]
+    },
+    {
+        categoria: 'Gestão',
+        IconCat: Boxes,
+        items: [
+            { id: '6', label: 'Adicionar Cliente', Icon: UserPlus, area: 'clientes', action: 'modal_cliente' as const },
+            { id: '6b', label: 'Ver Clientes', Icon: Users, area: 'clientes', view: 'gestao' as const, list: 'clientes' as const },
+            { id: '7', label: 'Adicionar Produto', Icon: PackagePlus, area: 'produtos', action: 'modal_produto' as const },
+            { id: '7b', label: 'Ver Produtos', Icon: Package, area: 'produtos', view: 'gestao' as const, list: 'produtos' as const },
+            { id: '8', label: 'Serviços', Icon: Settings2, area: 'servicos', view: 'gestao' as const, list: 'servicos' as const },
+        ]
+    },
+    {
+        categoria: 'Sistema',
+        IconCat: Bell,
+        items: [
+            { id: '9', label: 'Notificações', Icon: Bell, area: 'rh_notificacoes', to: '/app/rh?rtab=notificacoes', isNotif: true, rtab: 'notificacoes' as const },
+        ]
+    }
 ]
 
-const MENU_RH = [
-    { id: 'rh1', label: 'Painel', Icon: Home, area: 'dashboard', to: '/app/dashboard' },
-    { id: 'rh2', label: 'Presentes', Icon: UserCheck, area: 'rh_presente', rtab: 'presente' as const },
-    { id: 'rh3', label: 'Férias', Icon: Plane, area: 'rh_ferias', rtab: 'ferias' as const },
-    { id: 'rh4', label: 'Ponto Hoje', Icon: Clock, area: 'rh_ponto', rtab: 'ponto' as const },
-    { id: 'rh5', label: 'Pedidos RH', Icon: ClipboardList, area: 'rh_pedidos', rtab: 'pedidos' as const },
-    { id: 'rh6', label: 'Recibos', Icon: FileHeart, area: 'rh_recibos', rtab: 'recibos' as const },
-    { id: 'rh7', label: 'Notificações', Icon: Bell, area: 'rh_notificacoes', rtab: 'notificacoes' as const, isNotif: true },
+const MENU_RH_GROUPED = [
+    {
+        categoria: 'Geral',
+        IconCat: LayoutDashboard,
+        items: [
+            { id: 'rh1', label: 'Painel', Icon: Home, area: 'dashboard', to: '/app/dashboard' },
+            { id: 'rh1a', label: 'Adicionar Funcionário', Icon: UserPlus, area: 'rh', action: 'modal_funcionario' as const },
+        ]
+    },
+    {
+        categoria: 'Equipa',
+        IconCat: Users,
+        items: [
+            { id: 'rh2', label: 'Presentes', Icon: UserCheck, area: 'rh_presente', rtab: 'presente' as const },
+            { id: 'rh3', label: 'Férias', Icon: Plane, area: 'rh_ferias', rtab: 'ferias' as const },
+        ]
+    },
+    {
+        categoria: 'Operação',
+        IconCat: Clock,
+        items: [
+            { id: 'rh4', label: 'Ponto Hoje', Icon: Clock, area: 'rh_ponto', rtab: 'ponto' as const },
+            { id: 'rh5', label: 'Pedidos RH', Icon: ClipboardList, area: 'rh_pedidos', rtab: 'pedidos' as const },
+            { id: 'rh6', label: 'Recibos', Icon: FileHeart, area: 'rh_recibos', rtab: 'recibos' as const },
+            { id: 'rh7', label: 'Notificações', Icon: Bell, area: 'rh_notificacoes', rtab: 'notificacoes' as const, isNotif: true },
+        ]
+    }
 ]
 
-export default function SidebarAreas({ open, onClose, notifCount = 0, onOpenCliente, onOpenProduto }: { open: boolean, onClose: () => void, notifCount?: number, onOpenCliente?: () => void, onOpenProduto?: () => void }) {
+export default function SidebarAreas({ open, onClose, notifCount = 0, onOpenCliente, onOpenProduto, onOpenFuncionario }: { open: boolean, onClose: () => void, notifCount?: number, onOpenCliente?: () => void, onOpenProduto?: () => void, onOpenFuncionario?: () => void }) {
     const navigate = useNavigate()
     const location = useLocation()
     const isRH = location.pathname.includes('/app/rh')
@@ -49,15 +93,19 @@ export default function SidebarAreas({ open, onClose, notifCount = 0, onOpenClie
     }, [])
     const cargoAtual = funcionarioLogado?.cargo?.toLowerCase() || 'admin'
 
-    // FILTRA E OCULTA O QUE NÃO TEM ACESSO - não mostra trancado
-    const BASE = isRH? MENU_RH : MENU_DASH
-    const MENU = useMemo(() => {
-        return BASE.filter(m => temAcesso(cargoAtual, (m as any).area))
-    }, [BASE, cargoAtual])
+    const GROUPED = isRH? MENU_RH_GROUPED : MENU_DASH_GROUPED
+
+    const filteredGroups = useMemo(() => {
+        return GROUPED.map(g => ({
+           ...g,
+            items: g.items.filter(m => temAcesso(cargoAtual, (m as any).area))
+        })).filter(g => g.items.length > 0)
+    }, [GROUPED, cargoAtual])
 
     const handleNav = (item: any) => {
-        if (item.action === 'modal_cliente') { onClose(); onOpenCliente?.(); return }
-        if (item.action === 'modal_produto') { onClose(); onOpenProduto?.(); return }
+        if (item.action === 'modal_cliente') { onClose(); onOpenCliente?.(); window.dispatchEvent(new CustomEvent('open-cliente-modal')); return }
+        if (item.action === 'modal_produto') { onClose(); onOpenProduto?.(); window.dispatchEvent(new CustomEvent('open-produto-modal')); return }
+        if (item.action === 'modal_funcionario') { onClose(); onOpenFuncionario?.(); window.dispatchEvent(new CustomEvent('rh-open-funcionario')); return }
         onClose()
         if (item.to) { navigate(item.to); return }
         if (item.view) localStorage.setItem('dashboard_homeView', item.view)
@@ -107,30 +155,56 @@ export default function SidebarAreas({ open, onClose, notifCount = 0, onOpenClie
                                 </button>
                             </div>
                         </div>
-                        <div className="px-1 pb-2 text-[10px] font-bold tracking-widest text-[#0095ff]/60">{isRH? 'RH • ABAS' : 'ÁREAS'}</div>
-                        <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col gap-[5px] pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                            {MENU.map((m: any) => {
-                                const active = isRH && m.rtab? (localStorage.getItem('rh_tab') || 'presente') === m.rtab :!isRH && m.area === 'rh' && location.pathname.includes('/app/rh')
-                                if (active) {
-                                    return (
-                                        <div key={m.id} className="relative h-[40px] shrink-0 -mr-2.5">
-                                            <div className="absolute inset-0 bg-white rounded-l-full border border-[#e6f0ff] shadow-[0_2px_10px_rgba(0,149,255,0.10)]" />
-                                            <button onClick={() => handleNav(m)} className="relative z-10 w-full h-full flex items-center gap-2.5 px-4 text-[#0095ff] font-semibold text-[13.5px]">
-                                                <m.Icon className="w-[16px] h-[16px]" />{m.label}
-                                                {m.isNotif && notifCount > 0 && <span className="ml-auto bg-[#FF3B30] text-white text-[10px] font-bold min-w-[20px] h-[20px] flex items-center justify-center rounded-full px-1">{notifCount > 9? '9+' : notifCount}</span>}
-                                            </button>
+
+                        <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col gap-5 pr-1 pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                            {filteredGroups.map((group) => (
+                                <div key={group.categoria} className="relative">
+                                    {/* CATEGORIA */}
+                                    <div className="flex items-center gap-1.5 px-2 pb-2">
+                                        <group.IconCat className="w-3 h-3 text-[#0095ff]/60" />
+                                        <span className="text-[10px] font-bold tracking-[0.12em] text-[#0095ff]/60 uppercase">{group.categoria}</span>
+                                    </div>
+
+                                    {/* LINHA VERTICAL + ITENS */}
+                                    <div className="relative ml-2 pl-5 border-l border-[#dbeafe]">
+                                        <div className="flex flex-col gap-[3px]">
+                                            {group.items.map((m: any) => {
+                                                const active = isRH && m.rtab? (localStorage.getItem('rh_tab') || 'presente') === m.rtab :!isRH && m.area === 'rh' && location.pathname.includes('/app/rh') && m.to?.includes('/app/rh')
+                                                const isActiveRtab = isRH && m.rtab && active
+                                                const isActiveRhLink =!isRH && m.area === 'rh' && location.pathname.includes('/app/rh')
+                                                const isActive = isActiveRtab || isActiveRhLink
+
+                                                return (
+                                                    <div key={m.id} className="relative">
+                                                        {/* CIRCULO NA LINHA */}
+                                                        <div className={`absolute -left-[26px] top-[50%] -translate-y-1/2 w-[9px] h-[9px] rounded-full border-2 transition-all ${isActive? 'bg-[#0095ff] border-[#0095ff] shadow-[0_0_0_4px_#e6f0ff]' : 'bg-white border-[#c2d8ff]'}`} />
+
+                                                        {isActive? (
+                                                            <div className="relative h-[38px] -mr-2">
+                                                                <div className="absolute inset-0 bg-white rounded-l-full border border-[#e6f0ff] shadow-[0_2px_10px_rgba(0,149,255,0.10)]" />
+                                                                <button onClick={() => handleNav(m)} className="relative z-10 w-full h-full flex items-center gap-2.5 pl-3 pr-4 text-[#0095ff] font-semibold text-[13px]">
+                                                                    <m.Icon className="w-[15px] h-[15px]" />
+                                                                    <span className="truncate">{m.label}</span>
+                                                                    {m.isNotif && notifCount > 0 && <span className="ml-auto bg-[#FF3B30] text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1">{notifCount > 9? '9+' : notifCount}</span>}
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <button onClick={() => handleNav(m)} className="w-full h-[38px] rounded-full bg-white/70 backdrop-blur border border-[#e6f0ff]/70 flex items-center gap-2.5 px-3 text-gray-600 text-[13px] font-medium hover:bg-white hover:text-gray-800 hover:border-[#dbeafe] text-left transition-all group">
+                                                                <m.Icon className="w-[15px] h-[15px] text-[#0095ff]/60 group-hover:text-[#0095ff]/80" />
+                                                                <span className="truncate">{m.label}</span>
+                                                                {m.isNotif && notifCount > 0 && <span className="ml-auto bg-[#FF3B30] text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1 animate-pulse">{notifCount > 9? '9+' : notifCount}</span>}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )
+                                            })}
                                         </div>
-                                    )
-                                }
-                                return (
-                                    <button key={m.id} onClick={() => handleNav(m)} className="h-[40px] shrink-0 rounded-full bg-white/70 backdrop-blur border border-[#e6f0ff] flex items-center gap-2.5 px-4 text-gray-700 text-[13.5px] font-medium hover:bg-white text-left">
-                                        <m.Icon className="w-[16px] h-[16px] text-[#0095ff]/70" />{m.label}
-                                        {m.isNotif && notifCount > 0 && <span className="ml-auto bg-[#FF3B30] text-white text-[10px] font-bold min-w-[20px] h-[20px] flex items-center justify-center rounded-full px-1 animate-pulse">{notifCount > 9? '9+' : notifCount}</span>}
-                                    </button>
-                                )
-                            })}
-                            {MENU.length === 0 && (
-                                <div className="text-[12px] text-gray-400 text-center py-6">Sem permissões para este módulo</div>
+                                    </div>
+                                </div>
+                            ))}
+
+                            {filteredGroups.length === 0 && (
+                                <div className="text-[12px] text-gray-400 text-center py-6">Sem permissões</div>
                             )}
                         </div>
                     </div>

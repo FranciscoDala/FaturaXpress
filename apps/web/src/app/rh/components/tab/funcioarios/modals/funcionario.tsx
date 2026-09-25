@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useMemo } from 'react'
 import { X, Check, UserPlus, ChevronDown, Lock, Briefcase, Building2, Info, Settings, Shield, MapPin, Landmark, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
-import { api } from '../../../../lib/api'
+import { api } from '../../../../../../lib/api'
 
 const CARGOS = [
     { value: 'admin', label: 'Administrador' },

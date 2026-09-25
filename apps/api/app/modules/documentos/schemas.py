@@ -56,7 +56,6 @@ class ModeloDocumentoResponse(BaseModel):
     is_sistema: Optional[bool] = False
     created_at: datetime
     updated_at: datetime
-
     class Config:
         from_attributes = True
 
@@ -71,6 +70,5 @@ class DocumentoGeradoResponse(BaseModel):
     status: str
     data_emissao: datetime
     url_pdf: Optional[str] = None
-
     class Config:
         from_attributes = True

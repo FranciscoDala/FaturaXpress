@@ -1,7 +1,7 @@
 import uuid
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import String, Boolean, ForeignKey, DateTime, Text, Enum as SAEnum, Integer, JSON
+from sqlalchemy import String, Boolean, ForeignKey, DateTime, Text, Enum as SAEnum, Integer, JSON, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from typing import Optional, List, Dict, Any
@@ -57,6 +57,9 @@ class StatusDocumentoGerado(str, enum.Enum):
 
 class ModeloDocumento(Base):
     __tablename__ = "modelos_documentos"
+    __table_args__ = (
+        UniqueConstraint('company_id', 'tipo', name='uq_company_tipo_unico_ativo'),
+    )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
     codigo: Mapped[str] = mapped_column(String(100), nullable=False, index=True)

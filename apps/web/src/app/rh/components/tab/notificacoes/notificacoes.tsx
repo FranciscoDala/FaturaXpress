@@ -58,14 +58,14 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const [diasVisiveis, setDiasVisiveis] = useState(3)
     const [ignoreModal, setIgnoreModal] = useState<any | null>(null)
     const firstLoad = useRef(true)
-    const area = cargoAtual === 'admin' ? 'admin' : 'rh'
+    const area = cargoAtual === 'admin'? 'admin' : 'rh'
     const listRef = useRef<HTMLDivElement>(null)
 
     const fetchNotifs = useCallback(async (tabAtual: 'ativas' | 'historico' = tab) => {
         if (firstLoad.current) setLoading(true)
         try {
             const { data } = await api.get(`/api/rh/notificacoes?area=${area}&tab=${tabAtual}`);
-            setNotifs(Array.isArray(data) ? data : [])
+            setNotifs(Array.isArray(data)? data : [])
         } catch {
             toast.error('Erro ao carregar notificações. Verifique sua conexão.')
         } finally {
@@ -122,7 +122,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
     const handleLida = async (notificacaoId: string) => {
         if (!notificacaoId || actingId) return
         setActingId(notificacaoId)
-        setNotifs(prev => prev.filter(n => n.notificacao_id !== notificacaoId))
+        setNotifs(prev => prev.filter(n => n.notificacao_id!== notificacaoId))
         try {
             await api.post(`/api/rh/notificacoes/${notificacaoId}/lida`)
             toast.success('Confirmado')
@@ -142,9 +142,9 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
             if (acao === 'rejeitar') await api.post(`/api/rh/falta/${faltaId}/rejeitar`, { aprovado_por_id: logadoId })
             if (acao === 'encaminhar') await api.post(`/api/rh/falta/${faltaId}/encaminhar-admin`, { encaminhado_por_id: logadoId })
             if (acao === 'ignorar') await api.post(`/api/rh/falta/${faltaId}/ignorar`, { ignorado_por_id: logadoId })
-            toast.success(acao === 'aprovar' ? 'Falta justificada e abonada com sucesso' : acao === 'rejeitar' ? 'Justificação rejeitada' : acao === 'ignorar' ? 'Notificação ignorada' : 'Encaminhada para o Admin Principal')
+            toast.success(acao === 'aprovar'? 'Falta justificada e abonada com sucesso' : acao === 'rejeitar'? 'Justificação rejeitada' : acao === 'ignorar'? 'Notificação ignorada' : 'Encaminhada para o Admin Principal')
             setOpenSwipeId(null);
-            setNotifs(prev => prev.filter(n => n.falta?.id !== faltaId))
+            setNotifs(prev => prev.filter(n => n.falta?.id!== faltaId))
             await fetchNotifs(tab)
         } catch (e: any) {
             toast.error(parseError(e))
@@ -160,9 +160,9 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
             if (acao === 'aplicar') await api.post(`/api/rh/atrasos/${funcionarioId}/aplicar-falta`, { aplicado_por_id: logadoId })
             if (acao === 'ignorar') await api.post(`/api/rh/atrasos/${funcionarioId}/ignorar-atraso`, { ignorado_por_id: logadoId })
             if (acao === 'encaminhar') await api.post(`/api/rh/atrasos/${funcionarioId}/encaminhar-admin`, { encaminhado_por_id: logadoId })
-            toast.success(acao === 'aplicar' ? 'Falta aplicada por excesso de atrasos' : acao === 'ignorar' ? 'Contador de atrasos zerado' : 'Atraso encaminhado para o Admin Principal')
+            toast.success(acao === 'aplicar'? 'Falta aplicada por excesso de atrasos' : acao === 'ignorar'? 'Contador de atrasos zerado' : 'Atraso encaminhado para o Admin Principal')
             setOpenSwipeId(null);
-            setNotifs(prev => prev.filter(n => n.funcionario_id !== funcionarioId))
+            setNotifs(prev => prev.filter(n => n.funcionario_id!== funcionarioId))
             await fetchNotifs(tab)
         } catch (e: any) {
             toast.error(parseError(e))
@@ -170,25 +170,32 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
         } finally { setActingId(null); setIgnoreModal(null) }
     }
 
-    if (loading) return <div className="bg-white rounded-[16px] border h-[300px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div>
+    if (loading) return (
+      <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+        <div className="bg-white rounded-[22px] border h-[300px] flex items-center justify-center shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+          <Loader2 className="w-6 h-6 animate-spin text-black/40" />
+        </div>
+      </div>
+    )
 
     return (
         <>
             <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
-            <div className="bg-white rounded-[16px] border overflow-hidden">
-                <div className="p-3 border-b bg-gray-50 flex items-center justify-between">
+            <div className="w-full px-4 sm:px-0 lg:px-0 mt-0">
+              <div className="bg-white rounded-[22px] border overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+                <div className="p-3 border-b bg-gray-50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-white border flex items-center justify-center"><Bell className="w-4 h-4" /></div>
+                        <div className="w-8 h-8 rounded-full bg-white border flex items-center justify-center shrink-0"><Bell className="w-4 h-4 text-black" /></div>
                         <p className="text-[14px] font-bold text-black">Notificações</p>
                     </div>
-                    <div className="flex bg-white border rounded-full p-1">
-                        <button onClick={() => setTab('ativas')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'ativas' ? 'bg-black text-white' : 'text-black/60'}`}>Ativas</button>
-                        <button onClick={() => setTab('historico')} className={`px-4 py-1 rounded-full text-[12px] font-bold ${tab === 'historico' ? 'bg-black text-white' : 'text-black/60'}`}>Histórico</button>
+                    <div className="flex bg-white border rounded-full p-1 w-full sm:w-auto">
+                        <button onClick={() => setTab('ativas')} className={`flex-1 sm:flex-none px-4 py-1.5 rounded-full text-[12px] font-bold transition ${tab === 'ativas'? 'bg-black text-white' : 'text-black/60 hover:text-black'}`}>Ativas</button>
+                        <button onClick={() => setTab('historico')} className={`flex-1 sm:flex-none px-4 py-1.5 rounded-full text-[12px] font-bold transition ${tab === 'historico'? 'bg-black text-white' : 'text-black/60 hover:text-black'}`}>Histórico</button>
                     </div>
                 </div>
 
-                <div ref={listRef} onScroll={onScroll} className="max-h-[75vh] overflow-y-auto no-scrollbar">
-                    {tab === 'ativas' ? (
+                <div ref={listRef} onScroll={onScroll} className="max-h-[75vh] overflow-y-auto no-scrollbar overscroll-contain">
+                    {tab === 'ativas'? (
                         <AtivasTab
                             agrupado={agrupado}
                             area={area}
@@ -210,6 +217,7 @@ export default function TabNotificacoes({ cargoAtual }: Props) {
                         />
                     )}
                 </div>
+              </div>
             </div>
 
             {comprovante && <ComprovanteModal comprovante={comprovante} onClose={fecharComprovante} />}

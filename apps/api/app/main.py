@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.db.base import Base
 from app.db.database import engine
+from app.db.session import SessionLocal
 from app.modules.auth.router import router as auth_router
 from app.modules.clients.router import router as cliente_router
 from app.modules.products.router import router as produto_router
@@ -16,6 +17,15 @@ from app.modules.areas.router import router as areas_router
 from app.modules.funcionarios.router import router as funcionarios_router
 from app.modules.funcionarios.router import rh_router as rh_ponto_router
 from app.modules.funcionarios.router import upload_router as upload_falta_router
+
+# IMPORTA DOCUMENTOS
+try:
+    from app.modules.documentos.router import router as documentos_router
+    HAS_DOCS = True
+except ImportError as e:
+    documentos_router = None
+    HAS_DOCS = False
+    logging.warning(f"Router documentos não encontrado: {e}")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -29,6 +39,7 @@ def import_all_models():
         import app.modules.assinatura.models
         import app.modules.areas.models
         import app.modules.funcionarios.models
+        import app.modules.documentos.models
         logger.info(f"Models: {list(Base.metadata.tables.keys())}")
     except Exception as e:
         logger.error(f"Erro import models: {e}\n{traceback.format_exc()}")
@@ -37,6 +48,25 @@ def import_all_models():
 async def lifespan(app: FastAPI):
     logger.info("FaturaXpress API a iniciar...")
     import_all_models()
+
+    # ===== SEED AUTOMATICO DOS MODELOS DE CONTRATO =====
+    try:
+        from app.modules.documentos.seed import seed_modelos
+        from app.modules.auth.models import Company
+        db = SessionLocal()
+        try:
+            empresas = db.query(Company).all()
+            for emp in empresas:
+                try:
+                    seed_modelos(db, emp.id)
+                except Exception as se:
+                    logger.error(f"Erro seed empresa {emp.id}: {se}")
+            logger.info(f"✅ Seed de modelos executado para {len(empresas)} empresas")
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"⚠️ Falha no seed de modelos: {e}\n{traceback.format_exc()}")
+
     yield
     try:
         await engine.dispose()
@@ -62,7 +92,6 @@ app.add_middleware(
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
-    # não bloqueia blob/pdf
     if request.url.path.endswith("/anexo"):
         response.headers["X-Frame-Options"] = "ALLOWALL"
     else:
@@ -81,6 +110,11 @@ app.include_router(areas_router, prefix="/api")
 app.include_router(funcionarios_router, prefix="/api")
 app.include_router(rh_ponto_router, prefix="/api")
 app.include_router(upload_falta_router, prefix="/api")
+
+# INCLUI DOCUMENTOS
+if HAS_DOCS and documentos_router:
+    app.include_router(documentos_router, prefix="/api")
+    logger.info("✅ Router documentos incluído")
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
